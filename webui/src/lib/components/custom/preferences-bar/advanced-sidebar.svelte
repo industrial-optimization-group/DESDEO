@@ -406,17 +406,17 @@
 		<span class="font-semibold">{!isSelectedObjectiveActive ? objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol : !isSelectedTradeoffActive ? objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol : ''}</span>.
 		This ranking should be treated as exploratory.
 			{:else}
-				{#if isOutsideRange(tradeoffs[selectedObjectiveSymbol][selectedTradeoffSymbol], selectedTradeoffSymbol)}
+<!-- 				{#if isOutsideRange(tradeoffs[selectedObjectiveSymbol][selectedTradeoffSymbol], selectedTradeoffSymbol)}
 					The current solution does not provide reliable trade-off estimates between
 					<span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span> and
 					<span class="font-semibold">{objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol}</span>. 
 					
-				{:else}
+				{:else} -->
 
 				Improving <span class="font-semibold">{objectiveNames[selectedObjectiveSymbol] || selectedObjectiveSymbol}</span> by one unit will impair
 				<span class="font-semibold">{objectiveNames[selectedTradeoffSymbol] || selectedTradeoffSymbol}</span> by approximately
 				<span class="font-semibold">{formatTradeoffValue(tradeoffs[selectedObjectiveSymbol][selectedTradeoffSymbol])}</span> units.
-				{/if}
+				<!-- {/if} -->
 			{/if}
 		</p>
 
