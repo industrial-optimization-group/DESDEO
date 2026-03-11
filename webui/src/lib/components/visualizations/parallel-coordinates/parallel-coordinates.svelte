@@ -969,8 +969,8 @@
 		// Add legend for each type of line
 		const legendData = [
 			{ label: 'Previous Solution(s)', color: '#10b981', dasharray: '4,2' },
-			{ label: 'New reference point', color: '#ff6b6b', dasharray: '8,4' },
-			{ label: 'Previous reference point', color: '#ff6b6b90', dasharray: '8,4' },
+			{ label: 'New preferred values', color: '#ff6b6b', dasharray: '8,4' },
+			{ label: 'Previous preferred values', color: '#ff6b6b90', dasharray: '8,4' },
 			{ label: 'Selected solution', color: '#3b82f6', dasharray: '0' },
 			{ label: 'Non-selected solutions', color: '#3b82f680', dasharray: '0' }
 		];
