@@ -707,7 +707,6 @@
 					{problem}
 					preferenceTypes={[PREFERENCE_TYPES.Classification]}
 					showNumSolutions={true}
-					showPreviousPreference={check_if_is_initial_state(current_state) ? false : true}
 					numSolutions={current_num_iteration_solutions}
 					typePreferences={type_preferences}
 					preferenceValues={current_preference}

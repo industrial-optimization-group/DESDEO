@@ -1,52 +1,51 @@
 <script lang="ts">
     import { Topbar } from '$lib/components/ui/topbar';
-    import Barchart from '$lib/components/visualizations/barchart/barchart.svelte';
+    import SolutionObjectivesChart from '$lib/components/visualizations/solutions/solution-objectives-chart.svelte';
     import { Button } from '$lib/components/ui/button';
     import type { PageProps } from './$types';
     import { api } from '$lib/api/client';
 
     let { data }: PageProps = $props();
 
+    // Build a dictionary of objective symbol -> display name.
+    function getObjectiveNameMap(objectives: Array<{ symbol: string; name?: string | null }> | undefined) {
+        if (!objectives) return {};
+        return objectives.reduce<Record<string, string>>((acc, objective) => {
+            acc[objective.symbol] = objective.name ?? objective.symbol;
+            return acc;
+        }, {});
+    }
+
     // Transform API response to barchart data format
-    function transformToChartData(objectives: Record<string, number> | undefined) {
+    function transformToChartData(
+        objectives: Record<string, number> | undefined,
+        objectiveNameBySymbol: Record<string, string>
+    ) {
         if (!objectives) return [];
-        return Object.entries(objectives).map(([name, value]) => ({
-            name,
+        return Object.entries(objectives).map(([symbol, value]) => ({
+            name: objectiveNameBySymbol[symbol] ?? symbol,
             value,
             direction: 'min' as const
         }));
     }
 
-    // Get min and max for each objective across both solutions as array of tuples
-    function getObjectiveRanges(obj1: Record<string, number> | undefined, obj2: Record<string, number> | undefined): [number, number][] {
-        const allObjectives = new Set([
-            ...Object.keys(obj1 || {}),
-            ...Object.keys(obj2 || {})
-        ]);
-
-        return Array.from(allObjectives).map((key) => {
-            const values = [obj1?.[key], obj2?.[key]].filter((v): v is number => v != null);
-            if (values.length > 0) {
-                return [Math.min(...values), Math.max(...values)] as [number, number];
-            }
-            return [0, 1] as [number, number]; // Default range if no values
-        });
-    }
-
-    // Use $derived for reactive transformations
-    const nimbusData = $derived(
-        transformToChartData(data.solutions?.nimbus_final?.objective_values ?? undefined)
+    const objectiveNameBySymbol = $derived.by(() =>
+        getObjectiveNameMap(data.problemInfo?.objectives)
     );
-    const xnimbusData = $derived(
-        transformToChartData(data.solutions?.xnimbus_final?.objective_values ?? undefined)
-    );
-    const axisRanges = $derived(
-        getObjectiveRanges(
+
+    // Use $derived.by so values react to data updates.
+    const nimbusData = $derived.by(() =>
+        transformToChartData(
             data.solutions?.nimbus_final?.objective_values ?? undefined,
-            data.solutions?.xnimbus_final?.objective_values ?? undefined
+            objectiveNameBySymbol
         )
     );
-
+    const xnimbusData = $derived.by(() =>
+        transformToChartData(
+            data.solutions?.xnimbus_final?.objective_values ?? undefined,
+            objectiveNameBySymbol
+        )
+    );
     // Randomize solution order and assign labels
     let randomOrder = Math.random() < 0.5;
     
@@ -75,6 +74,7 @@
     let submitting = $state(false);
     let submitSuccess = $state(false);
     let submitError = $state<string | null>(null);
+
 
     async function submitPreference() {
         if (!selectedSolution) return;
@@ -135,22 +135,16 @@
                 <div class="grid grid-cols-1 gap-8 md:grid-cols-2">
                     {#each solutions as solution}
                         {#if solution.data.length > 0}
-                            <div class="space-y-3 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+                            <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
                                 <h2 class="text-lg font-semibold text-gray-800">{solution.label}</h2>
-                                <div class="h-96 w-full">
-                                    <Barchart
+                                <div class="w-full">
+                                    <SolutionObjectivesChart
                                         data={solution.data}
-                                        axisRanges={axisRanges}
-                                        options={{
-                                            showLabels: true,
-                                            orientation: 'vertical'
-                                        }}
                                     />
                                 </div>
                                 <div class="space-y-2 border-t border-gray-100 pt-4">
                                     <!-- <p class="text-sm font-medium text-gray-600">State ID: {solution.stateId}</p> -->
-                                    <div class="mt-3">
-                                        <h3 class="mb-2 text-sm font-medium text-gray-700">Objective Values</h3>
+                                    <div>
                                         <div class="overflow-x-auto">
                                             <table class="w-full text-sm">
                                                 <thead class="border-b border-gray-200">
@@ -160,9 +154,9 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {#each Object.entries(solution.objectives || {}) as [objName, objValue]}
+                                                    {#each Object.entries(solution.objectives || {}) as [objSymbol, objValue]}
                                                         <tr class="border-b border-gray-100">
-                                                            <td class="py-2 text-gray-700">{objName}</td>
+                                                            <td class="py-2 text-gray-700">{objectiveNameBySymbol[objSymbol] ?? objSymbol}</td>
                                                             <td class="py-2 text-right text-gray-700">
                                                                 {typeof objValue === 'number' ? objValue.toFixed(4) : objValue}
                                                             </td>
