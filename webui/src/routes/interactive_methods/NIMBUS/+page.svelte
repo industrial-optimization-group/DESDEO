@@ -618,6 +618,11 @@
 	}
 </script>
 
+<svelte:head>
+	<title>NIMBUS | DESDEO</title>
+	<meta name="description" content="This page implements the NIMBUS interactive multiobjective optimization method in DESDEO.">
+</svelte:head>
+
 {#if $isLoading}
 	<LoadingSpinner />
 {/if}

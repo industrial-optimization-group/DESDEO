@@ -529,6 +529,11 @@
 	});
 </script>
 
+<svelte:head>
+	<title>Define Problem | DESDEO</title>
+	<meta name="description" content="Optimization problem definition via form or via uploading JSON">
+</svelte:head>
+
 <section class="mx-10">
 	<div class="m-6 mx-auto max-w-6xl">
 		<h1 class="mt-10 text-center text-2xl font-semibold">Problem Definition</h1>
