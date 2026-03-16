@@ -731,7 +731,7 @@
 
 <svelte:head>
 	<title>GDM-SCORE-bands | DESDEO</title>
-	<meta name="description" content="Group decision making interface using Score-band method.">
+	<meta name="description" content="Group decision making interface using Score-band method" />
 </svelte:head>
 
 <div class="container mx-auto p-6">

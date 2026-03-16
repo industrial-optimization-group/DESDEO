@@ -607,7 +607,7 @@
 
 <svelte:head>
 	<title>E-NAUTILUS | DESDEO</title>
-	<meta name="description" content="This page implements the E-NAUTILUS interactive multiobjective optimization method in DESDEO.">
+	<meta name="description" content="This page implements the E-NAUTILUS interactive multiobjective optimization method in DESDEO" />
 </svelte:head>
 
 {#snippet ColumnHeader({ column, title, colorIdx }: { column: Column<IntermediatePoint>; title: string; colorIdx?: number })}

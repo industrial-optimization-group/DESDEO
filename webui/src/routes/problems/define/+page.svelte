@@ -531,7 +531,7 @@
 
 <svelte:head>
 	<title>Define Problem | DESDEO</title>
-	<meta name="description" content="Optimization problem definition via form or via uploading JSON">
+	<meta name="description" content="Optimization problem definition via form or via uploading JSON" />
 </svelte:head>
 
 <section class="mx-10">
