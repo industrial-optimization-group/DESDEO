@@ -75,7 +75,7 @@
 
 <svelte:head>
 	<title>Groups | DESDEO</title>
-	<meta name="description" content="a list of user groups in DESDEO">
+	<meta name="description" content="a list of user groups in DESDEO" />
 </svelte:head>
 
 <div class="px-8">

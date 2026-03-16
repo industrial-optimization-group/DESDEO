@@ -251,7 +251,7 @@
 
 <svelte:head>
 	<title>Optimization Problems | DESDEO</title>
-	<meta name="description" content="A list of optimization problems in DESDEO. The users are allowed to view and interact with details for each problem">
+	<meta name="description" content="A list of optimization problems in DESDEO. The users are allowed to view and interact with details for each problem" />
 </svelte:head>
 
 <div class="px-8">

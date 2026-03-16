@@ -93,7 +93,7 @@
 
 <svelte:head>
 	<title>Sessions | DESDEO</title>
-	<meta name="description" content="Page for managing existing sessions and creating new ones">
+	<meta name="description" content="Page for managing existing sessions and creating new ones" />
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">

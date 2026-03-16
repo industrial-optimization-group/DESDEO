@@ -14,7 +14,7 @@
 
 <svelte:head>
 	<title>Login | DESDEO</title>
-	<meta name="description" content="user login page">
+	<meta name="description" content="user login page" />
 </svelte:head>
 
 <div class="grid min-h-svh lg:grid-cols-2">
