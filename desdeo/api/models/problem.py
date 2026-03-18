@@ -52,12 +52,6 @@ class ProblemBase(SQLModel):
     variable_domain: VariableDomainTypeEnum | None = Field()
 
 
-class ProblemGetRequest(SQLModel):
-    """Model to deal with problem fetching requests."""
-
-    problem_id: int
-
-
 class ProblemSelectSolverRequest(SQLModel):
     """Model to request a specific solver for a problem."""
 

@@ -5,7 +5,6 @@ __all__ = [
     "Constraint",
     "ConstraintTypeEnum",
     "DiscreteRepresentation",
-    "Evaluator",
     "ExtraFunction",
     "FormatEnum",
     "GurobipyEvaluator",

@@ -30,7 +30,6 @@ __all__ = [  # noqa: RUF022
     "ExtraFunctionDB",
     "ForestProblemMetaData",
     "GenericIntermediateSolutionResponse",
-    "GetSessionRequest",
     "GNIMBUSOptimizationState",
     "GNIMBUSVotingState",
     "GNIMBUSEndState",
@@ -63,7 +62,6 @@ __all__ = [  # noqa: RUF022
     "PreferredRanges",
     "ProblemDB",
     "ProblemAddFromJSONRequest",
-    "ProblemGetRequest",
     "ProblemInfo",
     "ProblemInfoSmall",
     "ProblemMetaDataDB",
@@ -248,7 +246,6 @@ from .problem import (
     ObjectiveDB,
     ProblemAddFromJSONRequest,
     ProblemDB,
-    ProblemGetRequest,
     ProblemInfo,
     ProblemInfoSmall,
     ProblemMetaDataDB,
@@ -265,7 +262,6 @@ from .problem import (
 from .reference_point_method import RPMSolveRequest
 from .session import (
     CreateSessionRequest,
-    GetSessionRequest,
     InteractiveSessionBase,
     InteractiveSessionDB,
     InteractiveSessionInfo,
