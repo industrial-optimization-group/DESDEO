@@ -7,15 +7,9 @@
  */
 import type { CreateSessionRequest } from './CreateSessionRequest';
 import type { ENautilusStepRequest } from './ENautilusStepRequest';
-import type { RepresentativeSolutionSetRequest } from './RepresentativeSolutionSetRequest';
 import type { RPMSolveRequest } from './RPMSolveRequest';
 
 export interface BodyAddProblemJsonProblemAddJsonPost {
 	json_file: Blob;
-	request?:
-		| RPMSolveRequest
-		| ENautilusStepRequest
-		| RepresentativeSolutionSetRequest
-		| CreateSessionRequest
-		| null;
+	request?: RPMSolveRequest | ENautilusStepRequest | CreateSessionRequest | null;
 }

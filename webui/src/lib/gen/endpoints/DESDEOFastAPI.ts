@@ -6,12 +6,17 @@
  * OpenAPI spec version: 0.1.0
  */
 import type {
+	AddProblemJsonProblemAddJsonPostParams,
+	AddProblemProblemAddPostParams,
 	BodyAddNewAnalystAddNewAnalystPost,
 	BodyAddNewDmAddNewDmPost,
 	BodyAddProblemJsonProblemAddJsonPost,
 	BodyLoginLoginPost,
 	ConfigureGdmGdmScoreBandsConfigurePostParams,
+	CreateNewSessionSessionNewPostParams,
 	CreateSessionRequest,
+	DeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteParams,
+	DeleteSaveMethodNimbusDeleteSavePostParams,
 	ENautilusFinalizeRequest,
 	ENautilusFinalizeResponse,
 	ENautilusRepresentativeSolutionsResponse,
@@ -21,6 +26,8 @@ import type {
 	ENautilusStateResponse,
 	ENautilusStepRequest,
 	ENautilusStepResponse,
+	FinalizeEnautilusMethodEnautilusFinalizePostParams,
+	FinalizeNimbusMethodNimbusFinalizePostParams,
 	ForestProblemMetaData,
 	GDMSCOREBandsHistoryResponse,
 	GDMSCOREBandsRevertRequest,
@@ -31,12 +38,18 @@ import type {
 	GNIMBUSSwitchPhaseRequest,
 	GNIMBUSSwitchPhaseResponse,
 	GenericIntermediateSolutionResponse,
+	GetMetadataProblemGetMetadataPostParams,
+	GetOrInitializeMethodNimbusGetOrInitializePostParams,
+	GetRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetParams,
+	GetSessionTreeMethodEnautilusSessionTreeSessionIdGetParams,
+	GetUtopiaDataUtopiaPostParams,
 	GroupCreateRequest,
 	GroupInfoRequest,
 	GroupModifyRequest,
 	GroupPublic,
 	GroupRevertRequest,
 	HTTPValidationError,
+	InitializeMethodNimbusInitializePostParams,
 	InteractiveSessionBase,
 	IntermediateSolutionRequest,
 	LoginLoginPostParams,
@@ -51,7 +64,6 @@ import type {
 	NIMBUSIntermediateSolutionResponse,
 	NIMBUSSaveRequest,
 	NIMBUSSaveResponse,
-	ProblemGetRequest,
 	ProblemInfo,
 	ProblemInfoSmall,
 	ProblemMetaDataGetRequest,
@@ -59,11 +71,22 @@ import type {
 	RPMSolveRequest,
 	RPMState,
 	RepresentativeNonDominatedSolutions,
-	RepresentativeSolutionSetRequest,
+	RepresentativeSolutionSetBase,
 	SCOREBandsGDMConfig,
+	SaveMethodNimbusSavePostParams,
 	ScoreBandsRequest,
 	ScoreBandsResponse,
+	SelectSolverProblemAssignSolverPostParams,
+	SiteSelectionMapRequest,
+	SiteSelectionMapResponse,
+	SiteSelectionMetaData,
+	SiteSelectionMetaDataRequest,
+	SolveIntermediateMethodGenericIntermediatePostParams,
+	SolveNimbusIntermediateMethodNimbusIntermediatePostParams,
+	SolveSolutionsMethodNimbusSolvePostParams,
+	SolveSolutionsMethodRpmSolvePostParams,
 	SolverSelectionMetadata,
+	StepMethodEnautilusStepPostParams,
 	Tokens,
 	UserPublic,
 	UtopiaRequest,
@@ -494,54 +517,115 @@ export const getProblemsInfoProblemAllInfoGet = async (
 };
 
 /**
- * Get the model of a specific problem.
+ * Get a specific problem by id.
 
 Args:
-    request (ProblemGetRequest): the request containing the problem's id `problem_id`.
-    context (Annotated[SessionContext, Depends): the session context.
+     problem_id (int): problem id.
+     context (Annotated[SessionContext, Depends): the session context.
 
 Raises:
-    HTTPException: could not find a problem with the given id.
+     HTTPException: could not find a problem with the given id.
 
 Returns:
-    ProblemInfo: detailed information on the requested problem.
+     ProblemInfo: detailed information on the requested problem.
  * @summary Get Problem
  */
-export type getProblemProblemGetPostResponse200 = {
+export type getProblemProblemProblemIdGetResponse200 = {
 	data: ProblemInfo;
 	status: 200;
 };
 
-export type getProblemProblemGetPostResponse422 = {
+export type getProblemProblemProblemIdGetResponse422 = {
 	data: HTTPValidationError;
 	status: 422;
 };
 
-export type getProblemProblemGetPostResponseSuccess = getProblemProblemGetPostResponse200 & {
-	headers: Headers;
-};
-export type getProblemProblemGetPostResponseError = getProblemProblemGetPostResponse422 & {
-	headers: Headers;
+export type getProblemProblemProblemIdGetResponseSuccess =
+	getProblemProblemProblemIdGetResponse200 & {
+		headers: Headers;
+	};
+export type getProblemProblemProblemIdGetResponseError =
+	getProblemProblemProblemIdGetResponse422 & {
+		headers: Headers;
+	};
+
+export type getProblemProblemProblemIdGetResponse =
+	| getProblemProblemProblemIdGetResponseSuccess
+	| getProblemProblemProblemIdGetResponseError;
+
+export const getGetProblemProblemProblemIdGetUrl = (problemId: number | null) => {
+	return `http://localhost:8000/problem/${problemId}`;
 };
 
-export type getProblemProblemGetPostResponse =
-	| getProblemProblemGetPostResponseSuccess
-	| getProblemProblemGetPostResponseError;
-
-export const getGetProblemProblemGetPostUrl = () => {
-	return `http://localhost:8000/problem/get`;
-};
-
-export const getProblemProblemGetPost = async (
-	problemGetRequest: ProblemGetRequest,
+export const getProblemProblemProblemIdGet = async (
+	problemId: number | null,
+	rPMSolveRequestENautilusStepRequestCreateSessionRequestNull:
+		| RPMSolveRequest
+		| ENautilusStepRequest
+		| CreateSessionRequest
+		| null,
 	options?: RequestInit
-): Promise<getProblemProblemGetPostResponse> => {
-	return customFetch<getProblemProblemGetPostResponse>(getGetProblemProblemGetPostUrl(), {
-		...options,
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json', ...options?.headers },
-		body: JSON.stringify(problemGetRequest)
-	});
+): Promise<getProblemProblemProblemIdGetResponse> => {
+	return customFetch<getProblemProblemProblemIdGetResponse>(
+		getGetProblemProblemProblemIdGetUrl(problemId),
+		{
+			...options,
+			method: 'GET',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(rPMSolveRequestENautilusStepRequestCreateSessionRequestNull)
+		}
+	);
+};
+
+/**
+ * Delete a problem by its ID.
+ * @summary Delete Problem
+ */
+export type deleteProblemProblemProblemIdDeleteResponse204 = {
+	data: void;
+	status: 204;
+};
+
+export type deleteProblemProblemProblemIdDeleteResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type deleteProblemProblemProblemIdDeleteResponseSuccess =
+	deleteProblemProblemProblemIdDeleteResponse204 & {
+		headers: Headers;
+	};
+export type deleteProblemProblemProblemIdDeleteResponseError =
+	deleteProblemProblemProblemIdDeleteResponse422 & {
+		headers: Headers;
+	};
+
+export type deleteProblemProblemProblemIdDeleteResponse =
+	| deleteProblemProblemProblemIdDeleteResponseSuccess
+	| deleteProblemProblemProblemIdDeleteResponseError;
+
+export const getDeleteProblemProblemProblemIdDeleteUrl = (problemId: number | null) => {
+	return `http://localhost:8000/problem/${problemId}`;
+};
+
+export const deleteProblemProblemProblemIdDelete = async (
+	problemId: number | null,
+	rPMSolveRequestENautilusStepRequestCreateSessionRequestNull:
+		| RPMSolveRequest
+		| ENautilusStepRequest
+		| CreateSessionRequest
+		| null,
+	options?: RequestInit
+): Promise<deleteProblemProblemProblemIdDeleteResponse> => {
+	return customFetch<deleteProblemProblemProblemIdDeleteResponse>(
+		getDeleteProblemProblemProblemIdDeleteUrl(problemId),
+		{
+			...options,
+			method: 'DELETE',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(rPMSolveRequestENautilusStepRequestCreateSessionRequestNull)
+		}
+	);
 };
 
 /**
@@ -582,26 +666,36 @@ export type addProblemProblemAddPostResponse =
 	| addProblemProblemAddPostResponseSuccess
 	| addProblemProblemAddPostResponseError;
 
-export const getAddProblemProblemAddPostUrl = () => {
-	return `http://localhost:8000/problem/add`;
+export const getAddProblemProblemAddPostUrl = (params?: AddProblemProblemAddPostParams) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/problem/add?${stringifiedParams}`
+		: `http://localhost:8000/problem/add`;
 };
 
 export const addProblemProblemAddPost = async (
-	rPMSolveRequestENautilusStepRequestRepresentativeSolutionSetRequestCreateSessionRequestNull:
+	rPMSolveRequestENautilusStepRequestCreateSessionRequestNull:
 		| RPMSolveRequest
 		| ENautilusStepRequest
-		| RepresentativeSolutionSetRequest
 		| CreateSessionRequest
 		| null,
+	params?: AddProblemProblemAddPostParams,
 	options?: RequestInit
 ): Promise<addProblemProblemAddPostResponse> => {
-	return customFetch<addProblemProblemAddPostResponse>(getAddProblemProblemAddPostUrl(), {
+	return customFetch<addProblemProblemAddPostResponse>(getAddProblemProblemAddPostUrl(params), {
 		...options,
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json', ...options?.headers },
-		body: JSON.stringify(
-			rPMSolveRequestENautilusStepRequestRepresentativeSolutionSetRequestCreateSessionRequestNull
-		)
+		body: JSON.stringify(rPMSolveRequestENautilusStepRequestCreateSessionRequestNull)
 	});
 };
 
@@ -643,12 +737,27 @@ export type addProblemJsonProblemAddJsonPostResponse =
 	| addProblemJsonProblemAddJsonPostResponseSuccess
 	| addProblemJsonProblemAddJsonPostResponseError;
 
-export const getAddProblemJsonProblemAddJsonPostUrl = () => {
-	return `http://localhost:8000/problem/add_json`;
+export const getAddProblemJsonProblemAddJsonPostUrl = (
+	params?: AddProblemJsonProblemAddJsonPostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/problem/add_json?${stringifiedParams}`
+		: `http://localhost:8000/problem/add_json`;
 };
 
 export const addProblemJsonProblemAddJsonPost = async (
 	bodyAddProblemJsonProblemAddJsonPost: BodyAddProblemJsonProblemAddJsonPost,
+	params?: AddProblemJsonProblemAddJsonPostParams,
 	options?: RequestInit
 ): Promise<addProblemJsonProblemAddJsonPostResponse> => {
 	const formData = new FormData();
@@ -661,7 +770,7 @@ export const addProblemJsonProblemAddJsonPost = async (
 	}
 
 	return customFetch<addProblemJsonProblemAddJsonPostResponse>(
-		getAddProblemJsonProblemAddJsonPostUrl(),
+		getAddProblemJsonProblemAddJsonPostUrl(params),
 		{
 			...options,
 			method: 'POST',
@@ -688,7 +797,12 @@ Returns:
  * @summary Get Metadata
  */
 export type getMetadataProblemGetMetadataPostResponse200 = {
-	data: (ForestProblemMetaData | RepresentativeNonDominatedSolutions | SolverSelectionMetadata)[];
+	data: (
+		| ForestProblemMetaData
+		| RepresentativeNonDominatedSolutions
+		| SolverSelectionMetadata
+		| SiteSelectionMetaData
+	)[];
 	status: 200;
 };
 
@@ -710,16 +824,31 @@ export type getMetadataProblemGetMetadataPostResponse =
 	| getMetadataProblemGetMetadataPostResponseSuccess
 	| getMetadataProblemGetMetadataPostResponseError;
 
-export const getGetMetadataProblemGetMetadataPostUrl = () => {
-	return `http://localhost:8000/problem/get_metadata`;
+export const getGetMetadataProblemGetMetadataPostUrl = (
+	params?: GetMetadataProblemGetMetadataPostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/problem/get_metadata?${stringifiedParams}`
+		: `http://localhost:8000/problem/get_metadata`;
 };
 
 export const getMetadataProblemGetMetadataPost = async (
 	problemMetaDataGetRequest: ProblemMetaDataGetRequest,
+	params?: GetMetadataProblemGetMetadataPostParams,
 	options?: RequestInit
 ): Promise<getMetadataProblemGetMetadataPostResponse> => {
 	return customFetch<getMetadataProblemGetMetadataPostResponse>(
-		getGetMetadataProblemGetMetadataPostUrl(),
+		getGetMetadataProblemGetMetadataPostUrl(params),
 		{
 			...options,
 			method: 'POST',
@@ -798,16 +927,31 @@ export type selectSolverProblemAssignSolverPostResponse =
 	| selectSolverProblemAssignSolverPostResponseSuccess
 	| selectSolverProblemAssignSolverPostResponseError;
 
-export const getSelectSolverProblemAssignSolverPostUrl = () => {
-	return `http://localhost:8000/problem/assign_solver`;
+export const getSelectSolverProblemAssignSolverPostUrl = (
+	params?: SelectSolverProblemAssignSolverPostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/problem/assign_solver?${stringifiedParams}`
+		: `http://localhost:8000/problem/assign_solver`;
 };
 
 export const selectSolverProblemAssignSolverPost = async (
 	problemSelectSolverRequest: ProblemSelectSolverRequest,
+	params?: SelectSolverProblemAssignSolverPostParams,
 	options?: RequestInit
 ): Promise<selectSolverProblemAssignSolverPostResponse> => {
 	return customFetch<selectSolverProblemAssignSolverPostResponse>(
-		getSelectSolverProblemAssignSolverPostUrl(),
+		getSelectSolverProblemAssignSolverPostUrl(params),
 		{
 			...options,
 			method: 'POST',
@@ -821,7 +965,8 @@ export const selectSolverProblemAssignSolverPost = async (
  * Add a new representative solution set as metadata to a problem.
 
 Args:
-    request (RepresentativeSolutionSetRequest): The JSON body containing the
+    problem_id: int,
+    request (RepresentativeSolutionSetBase): The JSON body containing the
         details of the representative solution set (name, description, solution data, ideal, nadir).
     context (SessionContext): The session context providing the current user and database session.
 
@@ -832,44 +977,49 @@ Returns:
     RepresentativeSolutionSetInfo: information about the added set.
  * @summary Add Representative Solution Set
  */
-export type addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponse200 = {
-	data: unknown;
-	status: 200;
-};
-
-export type addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponse422 = {
-	data: HTTPValidationError;
-	status: 422;
-};
-
-export type addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponseSuccess =
-	addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponse200 & {
-		headers: Headers;
-	};
-export type addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponseError =
-	addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponse422 & {
-		headers: Headers;
+export type addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPostResponse200 =
+	{
+		data: unknown;
+		status: 200;
 	};
 
-export type addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponse =
-	| addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponseSuccess
-	| addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponseError;
+export type addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPostResponse422 =
+	{
+		data: HTTPValidationError;
+		status: 422;
+	};
 
-export const getAddRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostUrl = () => {
-	return `http://localhost:8000/problem/add_representative_solution_set`;
+export type addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPostResponseSuccess =
+	addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPostResponse200 & {
+		headers: Headers;
+	};
+export type addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPostResponseError =
+	addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPostResponse422 & {
+		headers: Headers;
+	};
+
+export type addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPostResponse =
+	| addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPostResponseSuccess
+	| addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPostResponseError;
+
+export const getAddRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPostUrl = (
+	problemId: number | null
+) => {
+	return `http://localhost:8000/problem/${problemId}/add_representative_solution_set`;
 };
 
-export const addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPost = async (
-	representativeSolutionSetRequest: RepresentativeSolutionSetRequest,
+export const addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPost = async (
+	problemId: number | null,
+	representativeSolutionSetBase: RepresentativeSolutionSetBase,
 	options?: RequestInit
-): Promise<addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponse> => {
-	return customFetch<addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponse>(
-		getAddRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostUrl(),
+): Promise<addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPostResponse> => {
+	return customFetch<addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPostResponse>(
+		getAddRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPostUrl(problemId),
 		{
 			...options,
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(representativeSolutionSetRequest)
+			body: JSON.stringify(representativeSolutionSetBase)
 		}
 	);
 };
@@ -880,59 +1030,56 @@ export const addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPost
 Returns only name, description, ideal, and nadir for each set.
  * @summary Get All Representative Solution Sets
  */
-export type getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponse200 =
+export type getAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetResponse200 =
 	{
 		data: unknown;
 		status: 200;
 	};
 
-export type getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponse422 =
+export type getAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetResponse422 =
 	{
 		data: HTTPValidationError;
 		status: 422;
 	};
 
-export type getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponseSuccess =
-	getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponse200 & {
+export type getAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetResponseSuccess =
+	getAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetResponse200 & {
 		headers: Headers;
 	};
-export type getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponseError =
-	getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponse422 & {
+export type getAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetResponseError =
+	getAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetResponse422 & {
 		headers: Headers;
 	};
 
-export type getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponse =
+export type getAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetResponse =
 
-		| getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponseSuccess
-		| getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponseError;
+		| getAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetResponseSuccess
+		| getAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetResponseError;
 
-export const getGetAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetUrl =
-	(problemId: number) => {
-		return `http://localhost:8000/problem/all_representative_solution_sets/${problemId}`;
+export const getGetAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetUrl =
+	(problemId: number | null) => {
+		return `http://localhost:8000/problem/${problemId}/all_representative_solution_sets`;
 	};
 
-export const getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGet =
+export const getAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGet =
 	async (
-		problemId: number,
-		rPMSolveRequestENautilusStepRequestRepresentativeSolutionSetRequestCreateSessionRequestNull:
+		problemId: number | null,
+		rPMSolveRequestENautilusStepRequestCreateSessionRequestNull:
 			| RPMSolveRequest
 			| ENautilusStepRequest
-			| RepresentativeSolutionSetRequest
 			| CreateSessionRequest
 			| null,
 		options?: RequestInit
-	): Promise<getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponse> => {
-		return customFetch<getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponse>(
-			getGetAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetUrl(
+	): Promise<getAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetResponse> => {
+		return customFetch<getAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetResponse>(
+			getGetAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetUrl(
 				problemId
 			),
 			{
 				...options,
 				method: 'GET',
 				headers: { 'Content-Type': 'application/json', ...options?.headers },
-				body: JSON.stringify(
-					rPMSolveRequestENautilusStepRequestRepresentativeSolutionSetRequestCreateSessionRequestNull
-				)
+				body: JSON.stringify(rPMSolveRequestENautilusStepRequestCreateSessionRequestNull)
 			}
 		);
 	};
@@ -965,30 +1112,41 @@ export type getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGet
 	| getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetResponseError;
 
 export const getGetRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetUrl = (
-	setId: number
+	setId: number,
+	params?: GetRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetParams
 ) => {
-	return `http://localhost:8000/problem/representative_solution_set/${setId}`;
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/problem/representative_solution_set/${setId}?${stringifiedParams}`
+		: `http://localhost:8000/problem/representative_solution_set/${setId}`;
 };
 
 export const getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGet = async (
 	setId: number,
-	rPMSolveRequestENautilusStepRequestRepresentativeSolutionSetRequestCreateSessionRequestNull:
+	rPMSolveRequestENautilusStepRequestCreateSessionRequestNull:
 		| RPMSolveRequest
 		| ENautilusStepRequest
-		| RepresentativeSolutionSetRequest
 		| CreateSessionRequest
 		| null,
+	params?: GetRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetParams,
 	options?: RequestInit
 ): Promise<getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetResponse> => {
 	return customFetch<getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetResponse>(
-		getGetRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetUrl(setId),
+		getGetRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetUrl(setId, params),
 		{
 			...options,
 			method: 'GET',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(
-				rPMSolveRequestENautilusStepRequestRepresentativeSolutionSetRequestCreateSessionRequestNull
-			)
+			body: JSON.stringify(rPMSolveRequestENautilusStepRequestCreateSessionRequestNull)
 		}
 	);
 };
@@ -1023,84 +1181,41 @@ export type deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetId
 	| deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteResponseError;
 
 export const getDeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteUrl = (
-	setId: number
+	setId: number,
+	params?: DeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteParams
 ) => {
-	return `http://localhost:8000/problem/representative_solution_set/${setId}`;
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/problem/representative_solution_set/${setId}?${stringifiedParams}`
+		: `http://localhost:8000/problem/representative_solution_set/${setId}`;
 };
 
 export const deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDelete = async (
 	setId: number,
-	rPMSolveRequestENautilusStepRequestRepresentativeSolutionSetRequestCreateSessionRequestNull:
+	rPMSolveRequestENautilusStepRequestCreateSessionRequestNull:
 		| RPMSolveRequest
 		| ENautilusStepRequest
-		| RepresentativeSolutionSetRequest
 		| CreateSessionRequest
 		| null,
+	params?: DeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteParams,
 	options?: RequestInit
 ): Promise<deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteResponse> => {
 	return customFetch<deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteResponse>(
-		getDeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteUrl(setId),
+		getDeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteUrl(setId, params),
 		{
 			...options,
 			method: 'DELETE',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(
-				rPMSolveRequestENautilusStepRequestRepresentativeSolutionSetRequestCreateSessionRequestNull
-			)
-		}
-	);
-};
-
-/**
- * Delete a problem by its ID.
- * @summary Delete Problem
- */
-export type deleteProblemProblemProblemIdDeleteResponse204 = {
-	data: void;
-	status: 204;
-};
-
-export type deleteProblemProblemProblemIdDeleteResponse422 = {
-	data: HTTPValidationError;
-	status: 422;
-};
-
-export type deleteProblemProblemProblemIdDeleteResponseSuccess =
-	deleteProblemProblemProblemIdDeleteResponse204 & {
-		headers: Headers;
-	};
-export type deleteProblemProblemProblemIdDeleteResponseError =
-	deleteProblemProblemProblemIdDeleteResponse422 & {
-		headers: Headers;
-	};
-
-export type deleteProblemProblemProblemIdDeleteResponse =
-	| deleteProblemProblemProblemIdDeleteResponseSuccess
-	| deleteProblemProblemProblemIdDeleteResponseError;
-
-export const getDeleteProblemProblemProblemIdDeleteUrl = (problemId: number) => {
-	return `http://localhost:8000/problem/${problemId}`;
-};
-
-export const deleteProblemProblemProblemIdDelete = async (
-	problemId: number,
-	rPMSolveRequestENautilusStepRequestRepresentativeSolutionSetRequestCreateSessionRequestNull:
-		| RPMSolveRequest
-		| ENautilusStepRequest
-		| RepresentativeSolutionSetRequest
-		| CreateSessionRequest
-		| null,
-	options?: RequestInit
-): Promise<deleteProblemProblemProblemIdDeleteResponse> => {
-	return customFetch<deleteProblemProblemProblemIdDeleteResponse>(
-		getDeleteProblemProblemProblemIdDeleteUrl(problemId),
-		{
-			...options,
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(
-				rPMSolveRequestENautilusStepRequestRepresentativeSolutionSetRequestCreateSessionRequestNull
-			)
+			body: JSON.stringify(rPMSolveRequestENautilusStepRequestCreateSessionRequestNull)
 		}
 	);
 };
@@ -1132,16 +1247,15 @@ export type getProblemJsonProblemProblemIdJsonGetResponse =
 	| getProblemJsonProblemProblemIdJsonGetResponseSuccess
 	| getProblemJsonProblemProblemIdJsonGetResponseError;
 
-export const getGetProblemJsonProblemProblemIdJsonGetUrl = (problemId: number) => {
+export const getGetProblemJsonProblemProblemIdJsonGetUrl = (problemId: number | null) => {
 	return `http://localhost:8000/problem/${problemId}/json`;
 };
 
 export const getProblemJsonProblemProblemIdJsonGet = async (
-	problemId: number,
-	rPMSolveRequestENautilusStepRequestRepresentativeSolutionSetRequestCreateSessionRequestNull:
+	problemId: number | null,
+	rPMSolveRequestENautilusStepRequestCreateSessionRequestNull:
 		| RPMSolveRequest
 		| ENautilusStepRequest
-		| RepresentativeSolutionSetRequest
 		| CreateSessionRequest
 		| null,
 	options?: RequestInit
@@ -1152,9 +1266,7 @@ export const getProblemJsonProblemProblemIdJsonGet = async (
 			...options,
 			method: 'GET',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(
-				rPMSolveRequestENautilusStepRequestRepresentativeSolutionSetRequestCreateSessionRequestNull
-			)
+			body: JSON.stringify(rPMSolveRequestENautilusStepRequestCreateSessionRequestNull)
 		}
 	);
 };
@@ -1186,16 +1298,31 @@ export type createNewSessionSessionNewPostResponse =
 	| createNewSessionSessionNewPostResponseSuccess
 	| createNewSessionSessionNewPostResponseError;
 
-export const getCreateNewSessionSessionNewPostUrl = () => {
-	return `http://localhost:8000/session/new`;
+export const getCreateNewSessionSessionNewPostUrl = (
+	params?: CreateNewSessionSessionNewPostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/session/new?${stringifiedParams}`
+		: `http://localhost:8000/session/new`;
 };
 
 export const createNewSessionSessionNewPost = async (
 	createSessionRequest: CreateSessionRequest,
+	params?: CreateNewSessionSessionNewPostParams,
 	options?: RequestInit
 ): Promise<createNewSessionSessionNewPostResponse> => {
 	return customFetch<createNewSessionSessionNewPostResponse>(
-		getCreateNewSessionSessionNewPostUrl(),
+		getCreateNewSessionSessionNewPostUrl(params),
 		{
 			...options,
 			method: 'POST',
@@ -1360,16 +1487,31 @@ export type solveSolutionsMethodRpmSolvePostResponse =
 	| solveSolutionsMethodRpmSolvePostResponseSuccess
 	| solveSolutionsMethodRpmSolvePostResponseError;
 
-export const getSolveSolutionsMethodRpmSolvePostUrl = () => {
-	return `http://localhost:8000/method/rpm/solve`;
+export const getSolveSolutionsMethodRpmSolvePostUrl = (
+	params?: SolveSolutionsMethodRpmSolvePostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/rpm/solve?${stringifiedParams}`
+		: `http://localhost:8000/method/rpm/solve`;
 };
 
 export const solveSolutionsMethodRpmSolvePost = async (
 	rPMSolveRequest: RPMSolveRequest,
+	params?: SolveSolutionsMethodRpmSolvePostParams,
 	options?: RequestInit
 ): Promise<solveSolutionsMethodRpmSolvePostResponse> => {
 	return customFetch<solveSolutionsMethodRpmSolvePostResponse>(
-		getSolveSolutionsMethodRpmSolvePostUrl(),
+		getSolveSolutionsMethodRpmSolvePostUrl(params),
 		{
 			...options,
 			method: 'POST',
@@ -1406,16 +1548,31 @@ export type solveSolutionsMethodNimbusSolvePostResponse =
 	| solveSolutionsMethodNimbusSolvePostResponseSuccess
 	| solveSolutionsMethodNimbusSolvePostResponseError;
 
-export const getSolveSolutionsMethodNimbusSolvePostUrl = () => {
-	return `http://localhost:8000/method/nimbus/solve`;
+export const getSolveSolutionsMethodNimbusSolvePostUrl = (
+	params?: SolveSolutionsMethodNimbusSolvePostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/nimbus/solve?${stringifiedParams}`
+		: `http://localhost:8000/method/nimbus/solve`;
 };
 
 export const solveSolutionsMethodNimbusSolvePost = async (
 	nIMBUSClassificationRequest: NIMBUSClassificationRequest,
+	params?: SolveSolutionsMethodNimbusSolvePostParams,
 	options?: RequestInit
 ): Promise<solveSolutionsMethodNimbusSolvePostResponse> => {
 	return customFetch<solveSolutionsMethodNimbusSolvePostResponse>(
-		getSolveSolutionsMethodNimbusSolvePostUrl(),
+		getSolveSolutionsMethodNimbusSolvePostUrl(params),
 		{
 			...options,
 			method: 'POST',
@@ -1452,16 +1609,31 @@ export type initializeMethodNimbusInitializePostResponse =
 	| initializeMethodNimbusInitializePostResponseSuccess
 	| initializeMethodNimbusInitializePostResponseError;
 
-export const getInitializeMethodNimbusInitializePostUrl = () => {
-	return `http://localhost:8000/method/nimbus/initialize`;
+export const getInitializeMethodNimbusInitializePostUrl = (
+	params?: InitializeMethodNimbusInitializePostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/nimbus/initialize?${stringifiedParams}`
+		: `http://localhost:8000/method/nimbus/initialize`;
 };
 
 export const initializeMethodNimbusInitializePost = async (
 	nIMBUSInitializationRequest: NIMBUSInitializationRequest,
+	params?: InitializeMethodNimbusInitializePostParams,
 	options?: RequestInit
 ): Promise<initializeMethodNimbusInitializePostResponse> => {
 	return customFetch<initializeMethodNimbusInitializePostResponse>(
-		getInitializeMethodNimbusInitializePostUrl(),
+		getInitializeMethodNimbusInitializePostUrl(params),
 		{
 			...options,
 			method: 'POST',
@@ -1496,15 +1668,28 @@ export type saveMethodNimbusSavePostResponse =
 	| saveMethodNimbusSavePostResponseSuccess
 	| saveMethodNimbusSavePostResponseError;
 
-export const getSaveMethodNimbusSavePostUrl = () => {
-	return `http://localhost:8000/method/nimbus/save`;
+export const getSaveMethodNimbusSavePostUrl = (params?: SaveMethodNimbusSavePostParams) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/nimbus/save?${stringifiedParams}`
+		: `http://localhost:8000/method/nimbus/save`;
 };
 
 export const saveMethodNimbusSavePost = async (
 	nIMBUSSaveRequest: NIMBUSSaveRequest,
+	params?: SaveMethodNimbusSavePostParams,
 	options?: RequestInit
 ): Promise<saveMethodNimbusSavePostResponse> => {
-	return customFetch<saveMethodNimbusSavePostResponse>(getSaveMethodNimbusSavePostUrl(), {
+	return customFetch<saveMethodNimbusSavePostResponse>(getSaveMethodNimbusSavePostUrl(params), {
 		...options,
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json', ...options?.headers },
@@ -1539,16 +1724,31 @@ export type solveNimbusIntermediateMethodNimbusIntermediatePostResponse =
 	| solveNimbusIntermediateMethodNimbusIntermediatePostResponseSuccess
 	| solveNimbusIntermediateMethodNimbusIntermediatePostResponseError;
 
-export const getSolveNimbusIntermediateMethodNimbusIntermediatePostUrl = () => {
-	return `http://localhost:8000/method/nimbus/intermediate`;
+export const getSolveNimbusIntermediateMethodNimbusIntermediatePostUrl = (
+	params?: SolveNimbusIntermediateMethodNimbusIntermediatePostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/nimbus/intermediate?${stringifiedParams}`
+		: `http://localhost:8000/method/nimbus/intermediate`;
 };
 
 export const solveNimbusIntermediateMethodNimbusIntermediatePost = async (
 	intermediateSolutionRequest: IntermediateSolutionRequest,
+	params?: SolveNimbusIntermediateMethodNimbusIntermediatePostParams,
 	options?: RequestInit
 ): Promise<solveNimbusIntermediateMethodNimbusIntermediatePostResponse> => {
 	return customFetch<solveNimbusIntermediateMethodNimbusIntermediatePostResponse>(
-		getSolveNimbusIntermediateMethodNimbusIntermediatePostUrl(),
+		getSolveNimbusIntermediateMethodNimbusIntermediatePostUrl(params),
 		{
 			...options,
 			method: 'POST',
@@ -1589,16 +1789,31 @@ export type getOrInitializeMethodNimbusGetOrInitializePostResponse =
 	| getOrInitializeMethodNimbusGetOrInitializePostResponseSuccess
 	| getOrInitializeMethodNimbusGetOrInitializePostResponseError;
 
-export const getGetOrInitializeMethodNimbusGetOrInitializePostUrl = () => {
-	return `http://localhost:8000/method/nimbus/get-or-initialize`;
+export const getGetOrInitializeMethodNimbusGetOrInitializePostUrl = (
+	params?: GetOrInitializeMethodNimbusGetOrInitializePostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/nimbus/get-or-initialize?${stringifiedParams}`
+		: `http://localhost:8000/method/nimbus/get-or-initialize`;
 };
 
 export const getOrInitializeMethodNimbusGetOrInitializePost = async (
 	nIMBUSInitializationRequest: NIMBUSInitializationRequest,
+	params?: GetOrInitializeMethodNimbusGetOrInitializePostParams,
 	options?: RequestInit
 ): Promise<getOrInitializeMethodNimbusGetOrInitializePostResponse> => {
 	return customFetch<getOrInitializeMethodNimbusGetOrInitializePostResponse>(
-		getGetOrInitializeMethodNimbusGetOrInitializePostUrl(),
+		getGetOrInitializeMethodNimbusGetOrInitializePostUrl(params),
 		{
 			...options,
 			method: 'POST',
@@ -1645,16 +1860,31 @@ export type finalizeNimbusMethodNimbusFinalizePostResponse =
 	| finalizeNimbusMethodNimbusFinalizePostResponseSuccess
 	| finalizeNimbusMethodNimbusFinalizePostResponseError;
 
-export const getFinalizeNimbusMethodNimbusFinalizePostUrl = () => {
-	return `http://localhost:8000/method/nimbus/finalize`;
+export const getFinalizeNimbusMethodNimbusFinalizePostUrl = (
+	params?: FinalizeNimbusMethodNimbusFinalizePostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/nimbus/finalize?${stringifiedParams}`
+		: `http://localhost:8000/method/nimbus/finalize`;
 };
 
 export const finalizeNimbusMethodNimbusFinalizePost = async (
 	nIMBUSFinalizeRequest: NIMBUSFinalizeRequest,
+	params?: FinalizeNimbusMethodNimbusFinalizePostParams,
 	options?: RequestInit
 ): Promise<finalizeNimbusMethodNimbusFinalizePostResponse> => {
 	return customFetch<finalizeNimbusMethodNimbusFinalizePostResponse>(
-		getFinalizeNimbusMethodNimbusFinalizePostUrl(),
+		getFinalizeNimbusMethodNimbusFinalizePostUrl(params),
 		{
 			...options,
 			method: 'POST',
@@ -1701,16 +1931,31 @@ export type deleteSaveMethodNimbusDeleteSavePostResponse =
 	| deleteSaveMethodNimbusDeleteSavePostResponseSuccess
 	| deleteSaveMethodNimbusDeleteSavePostResponseError;
 
-export const getDeleteSaveMethodNimbusDeleteSavePostUrl = () => {
-	return `http://localhost:8000/method/nimbus/delete_save`;
+export const getDeleteSaveMethodNimbusDeleteSavePostUrl = (
+	params?: DeleteSaveMethodNimbusDeleteSavePostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/nimbus/delete_save?${stringifiedParams}`
+		: `http://localhost:8000/method/nimbus/delete_save`;
 };
 
 export const deleteSaveMethodNimbusDeleteSavePost = async (
 	nIMBUSDeleteSaveRequest: NIMBUSDeleteSaveRequest,
+	params?: DeleteSaveMethodNimbusDeleteSavePostParams,
 	options?: RequestInit
 ): Promise<deleteSaveMethodNimbusDeleteSavePostResponse> => {
 	return customFetch<deleteSaveMethodNimbusDeleteSavePostResponse>(
-		getDeleteSaveMethodNimbusDeleteSavePostUrl(),
+		getDeleteSaveMethodNimbusDeleteSavePostUrl(params),
 		{
 			...options,
 			method: 'POST',
@@ -1752,16 +1997,31 @@ export type solveIntermediateMethodGenericIntermediatePostResponse =
 	| solveIntermediateMethodGenericIntermediatePostResponseSuccess
 	| solveIntermediateMethodGenericIntermediatePostResponseError;
 
-export const getSolveIntermediateMethodGenericIntermediatePostUrl = () => {
-	return `http://localhost:8000/method/generic/intermediate`;
+export const getSolveIntermediateMethodGenericIntermediatePostUrl = (
+	params?: SolveIntermediateMethodGenericIntermediatePostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/generic/intermediate?${stringifiedParams}`
+		: `http://localhost:8000/method/generic/intermediate`;
 };
 
 export const solveIntermediateMethodGenericIntermediatePost = async (
 	intermediateSolutionRequest: IntermediateSolutionRequest,
+	params?: SolveIntermediateMethodGenericIntermediatePostParams,
 	options?: RequestInit
 ): Promise<solveIntermediateMethodGenericIntermediatePostResponse> => {
 	return customFetch<solveIntermediateMethodGenericIntermediatePostResponse>(
-		getSolveIntermediateMethodGenericIntermediatePostUrl(),
+		getSolveIntermediateMethodGenericIntermediatePostUrl(params),
 		{
 			...options,
 			method: 'POST',
@@ -1852,15 +2112,28 @@ export type getUtopiaDataUtopiaPostResponse =
 	| getUtopiaDataUtopiaPostResponseSuccess
 	| getUtopiaDataUtopiaPostResponseError;
 
-export const getGetUtopiaDataUtopiaPostUrl = () => {
-	return `http://localhost:8000/utopia/`;
+export const getGetUtopiaDataUtopiaPostUrl = (params?: GetUtopiaDataUtopiaPostParams) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/utopia/?${stringifiedParams}`
+		: `http://localhost:8000/utopia/`;
 };
 
 export const getUtopiaDataUtopiaPost = async (
 	utopiaRequest: UtopiaRequest,
+	params?: GetUtopiaDataUtopiaPostParams,
 	options?: RequestInit
 ): Promise<getUtopiaDataUtopiaPostResponse> => {
-	return customFetch<getUtopiaDataUtopiaPostResponse>(getGetUtopiaDataUtopiaPostUrl(), {
+	return customFetch<getUtopiaDataUtopiaPostResponse>(getGetUtopiaDataUtopiaPostUrl(params), {
 		...options,
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json', ...options?.headers },
@@ -2474,20 +2747,36 @@ export type stepMethodEnautilusStepPostResponse =
 	| stepMethodEnautilusStepPostResponseSuccess
 	| stepMethodEnautilusStepPostResponseError;
 
-export const getStepMethodEnautilusStepPostUrl = () => {
-	return `http://localhost:8000/method/enautilus/step`;
+export const getStepMethodEnautilusStepPostUrl = (params?: StepMethodEnautilusStepPostParams) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/enautilus/step?${stringifiedParams}`
+		: `http://localhost:8000/method/enautilus/step`;
 };
 
 export const stepMethodEnautilusStepPost = async (
 	eNautilusStepRequest: ENautilusStepRequest,
+	params?: StepMethodEnautilusStepPostParams,
 	options?: RequestInit
 ): Promise<stepMethodEnautilusStepPostResponse> => {
-	return customFetch<stepMethodEnautilusStepPostResponse>(getStepMethodEnautilusStepPostUrl(), {
-		...options,
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json', ...options?.headers },
-		body: JSON.stringify(eNautilusStepRequest)
-	});
+	return customFetch<stepMethodEnautilusStepPostResponse>(
+		getStepMethodEnautilusStepPostUrl(params),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(eNautilusStepRequest)
+		}
+	);
 };
 
 /**
@@ -2644,16 +2933,31 @@ export type finalizeEnautilusMethodEnautilusFinalizePostResponse =
 	| finalizeEnautilusMethodEnautilusFinalizePostResponseSuccess
 	| finalizeEnautilusMethodEnautilusFinalizePostResponseError;
 
-export const getFinalizeEnautilusMethodEnautilusFinalizePostUrl = () => {
-	return `http://localhost:8000/method/enautilus/finalize`;
+export const getFinalizeEnautilusMethodEnautilusFinalizePostUrl = (
+	params?: FinalizeEnautilusMethodEnautilusFinalizePostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/enautilus/finalize?${stringifiedParams}`
+		: `http://localhost:8000/method/enautilus/finalize`;
 };
 
 export const finalizeEnautilusMethodEnautilusFinalizePost = async (
 	eNautilusFinalizeRequest: ENautilusFinalizeRequest,
+	params?: FinalizeEnautilusMethodEnautilusFinalizePostParams,
 	options?: RequestInit
 ): Promise<finalizeEnautilusMethodEnautilusFinalizePostResponse> => {
 	return customFetch<finalizeEnautilusMethodEnautilusFinalizePostResponse>(
-		getFinalizeEnautilusMethodEnautilusFinalizePostUrl(),
+		getFinalizeEnautilusMethodEnautilusFinalizePostUrl(params),
 		{
 			...options,
 			method: 'POST',
@@ -2700,29 +3004,42 @@ export type getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse =
 	| getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponseSuccess
 	| getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponseError;
 
-export const getGetSessionTreeMethodEnautilusSessionTreeSessionIdGetUrl = (sessionId: number) => {
-	return `http://localhost:8000/method/enautilus/session_tree/${sessionId}`;
+export const getGetSessionTreeMethodEnautilusSessionTreeSessionIdGetUrl = (
+	sessionId: number,
+	params?: GetSessionTreeMethodEnautilusSessionTreeSessionIdGetParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/enautilus/session_tree/${sessionId}?${stringifiedParams}`
+		: `http://localhost:8000/method/enautilus/session_tree/${sessionId}`;
 };
 
 export const getSessionTreeMethodEnautilusSessionTreeSessionIdGet = async (
 	sessionId: number,
-	rPMSolveRequestENautilusStepRequestRepresentativeSolutionSetRequestCreateSessionRequestNull:
+	rPMSolveRequestENautilusStepRequestCreateSessionRequestNull:
 		| RPMSolveRequest
 		| ENautilusStepRequest
-		| RepresentativeSolutionSetRequest
 		| CreateSessionRequest
 		| null,
+	params?: GetSessionTreeMethodEnautilusSessionTreeSessionIdGetParams,
 	options?: RequestInit
 ): Promise<getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse> => {
 	return customFetch<getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse>(
-		getGetSessionTreeMethodEnautilusSessionTreeSessionIdGetUrl(sessionId),
+		getGetSessionTreeMethodEnautilusSessionTreeSessionIdGetUrl(sessionId, params),
 		{
 			...options,
 			method: 'GET',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(
-				rPMSolveRequestENautilusStepRequestRepresentativeSolutionSetRequestCreateSessionRequestNull
-			)
+			body: JSON.stringify(rPMSolveRequestENautilusStepRequestCreateSessionRequestNull)
 		}
 	);
 };
@@ -2775,6 +3092,99 @@ export const simulateMethodEnautilusSimulatePost = async (
 			body: JSON.stringify(eNautilusSimulateRequest)
 		}
 	);
+};
+
+/**
+ * Store site selection metadata for a problem.
+
+The authenticated user must own the problem.
+ * @summary Load Metadata
+ */
+export type loadMetadataSiteSelectionLoadMetadataPostResponse200 = {
+	data: SiteSelectionMetaData;
+	status: 200;
+};
+
+export type loadMetadataSiteSelectionLoadMetadataPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type loadMetadataSiteSelectionLoadMetadataPostResponseSuccess =
+	loadMetadataSiteSelectionLoadMetadataPostResponse200 & {
+		headers: Headers;
+	};
+export type loadMetadataSiteSelectionLoadMetadataPostResponseError =
+	loadMetadataSiteSelectionLoadMetadataPostResponse422 & {
+		headers: Headers;
+	};
+
+export type loadMetadataSiteSelectionLoadMetadataPostResponse =
+	| loadMetadataSiteSelectionLoadMetadataPostResponseSuccess
+	| loadMetadataSiteSelectionLoadMetadataPostResponseError;
+
+export const getLoadMetadataSiteSelectionLoadMetadataPostUrl = () => {
+	return `http://localhost:8000/site-selection/load_metadata`;
+};
+
+export const loadMetadataSiteSelectionLoadMetadataPost = async (
+	siteSelectionMetaDataRequest: SiteSelectionMetaDataRequest,
+	options?: RequestInit
+): Promise<loadMetadataSiteSelectionLoadMetadataPostResponse> => {
+	return customFetch<loadMetadataSiteSelectionLoadMetadataPostResponse>(
+		getLoadMetadataSiteSelectionLoadMetadataPostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(siteSelectionMetaDataRequest)
+		}
+	);
+};
+
+/**
+ * Build Leaflet-compatible map data from a site selection solution.
+
+Reads site selection metadata from the DB and extracts variable values
+from the provided solution to determine node colors and coverage edges.
+ * @summary Build Map
+ */
+export type buildMapSiteSelectionMapPostResponse200 = {
+	data: SiteSelectionMapResponse;
+	status: 200;
+};
+
+export type buildMapSiteSelectionMapPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type buildMapSiteSelectionMapPostResponseSuccess =
+	buildMapSiteSelectionMapPostResponse200 & {
+		headers: Headers;
+	};
+export type buildMapSiteSelectionMapPostResponseError = buildMapSiteSelectionMapPostResponse422 & {
+	headers: Headers;
+};
+
+export type buildMapSiteSelectionMapPostResponse =
+	| buildMapSiteSelectionMapPostResponseSuccess
+	| buildMapSiteSelectionMapPostResponseError;
+
+export const getBuildMapSiteSelectionMapPostUrl = () => {
+	return `http://localhost:8000/site-selection/map`;
+};
+
+export const buildMapSiteSelectionMapPost = async (
+	siteSelectionMapRequest: SiteSelectionMapRequest,
+	options?: RequestInit
+): Promise<buildMapSiteSelectionMapPostResponse> => {
+	return customFetch<buildMapSiteSelectionMapPostResponse>(getBuildMapSiteSelectionMapPostUrl(), {
+		...options,
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', ...options?.headers },
+		body: JSON.stringify(siteSelectionMapRequest)
+	});
 };
 
 /**

@@ -27,11 +27,11 @@ RequestType = RPMSolveRequest | ENautilusStepRequest | CreateSessionRequest
 
 
 def fetch_interactive_session(
-        user: User,
-        session: Session,
-        request: RequestType | None = None,
-        session_id: int | None = None,
-    ) -> InteractiveSessionDB | None:
+    user: User,
+    session: Session,
+    request: RequestType | None = None,
+    session_id: int | None = None,
+) -> InteractiveSessionDB | None:
     """Gets the desired instance of `InteractiveSessionDB`.
 
     Args:
@@ -54,7 +54,6 @@ def fetch_interactive_session(
     """
     # session_id param has highest priority
     actual_session_id = session_id or (getattr(request, "session_id", None) if request else None)
-
 
     if actual_session_id is not None:
         # specific interactive session id is given, try using that
@@ -218,15 +217,17 @@ class SessionContextGuard:
                 problem_db = fetch_user_problem(user, request, db_session)
 
             if problem_db is None and problem_id is not None:
+
                 class _ProblemOnly:
                     def __init__(self, problem_id: int):
                         self.problem_id = problem_id
                         self.session_id = None
                         self.parent_state_id = None
+
                 problem_db = fetch_user_problem(user, _ProblemOnly(problem_id), db_session)
 
             if hasattr(request, "interactive_session_id") or hasattr(request, "problem_id"):
-                interactive_session = fetch_interactive_session(user, request, db_session)
+                interactive_session = fetch_interactive_session(user, db_session, request)
 
             if hasattr(request, "parent_state_id") or hasattr(request, "problem_id"):
                 parent_state = fetch_parent_state(

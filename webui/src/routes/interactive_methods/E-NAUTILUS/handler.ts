@@ -1,7 +1,7 @@
-import type { ENautilusRepresentativeSolutionsResponse, ENautilusSessionTreeResponse, ENautilusSimulateResponse, ENautilusStateResponse, ENautilusStepRequest, ENautilusStepResponse, ProblemGetRequest, ProblemInfo } from "$lib/gen/models";
+import type { ENautilusRepresentativeSolutionsResponse, ENautilusSessionTreeResponse, ENautilusSimulateResponse, ENautilusStateResponse, ENautilusStepRequest, ENautilusStepResponse, ProblemInfo } from "$lib/gen/models";
 import type { getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse, getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse, getStateMethodEnautilusGetStateStateIdGetResponse, simulateMethodEnautilusSimulatePostResponse, stepMethodEnautilusStepPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
-import { stepMethodEnautilusStepPost, getProblemProblemGetPost, getStateMethodEnautilusGetStateStateIdGet, getRepresentativeMethodEnautilusGetRepresentativeStateIdGet, getSessionTreeMethodEnautilusSessionTreeSessionIdGet, simulateMethodEnautilusSimulatePost } from "$lib/gen/endpoints/DESDEOFastAPI";
-import type { getProblemProblemGetPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
+import { stepMethodEnautilusStepPost, getProblemProblemProblemIdGet, getStateMethodEnautilusGetStateStateIdGet, getRepresentativeMethodEnautilusGetRepresentativeStateIdGet, getSessionTreeMethodEnautilusSessionTreeSessionIdGet, simulateMethodEnautilusSimulatePost } from "$lib/gen/endpoints/DESDEOFastAPI";
+import type { getProblemProblemProblemIdGetResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
 import { fetch_sessions, create_session } from '../../methods/sessions/handler';
 export { fetch_sessions, create_session };
 
@@ -61,8 +61,8 @@ export async function step_enautilus(
     return {request: request, response: response.data};
 }
 
-export async function fetch_problem_info(request: ProblemGetRequest): Promise<ProblemInfo | null> {
-    const response: getProblemProblemGetPostResponse = await getProblemProblemGetPost(request);
+export async function fetch_problem_info(problem_id: number): Promise<ProblemInfo | null> {
+    const response: getProblemProblemProblemIdGetResponse = await getProblemProblemProblemIdGet(problem_id);
 
     if (response.status != 200) {
         console.log("Could not fetch problem info.", response.status);

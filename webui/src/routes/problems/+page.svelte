@@ -46,7 +46,7 @@
 	import type { components } from '$lib/api/client-types';
 	import { methodSelection } from '../../stores/methodSelection';
 	import { invalidateAll } from '$app/navigation';
-	import { deleteProblem, downloadProblemJson, getAssignedSolver, getAvailableSolvers, assignSolver, addRepresentativeSolutionSet } from './handler';
+	import { deleteProblem, downloadProblemJson, getAssignedSolver, getAvailableSolvers, assignSolver, addRepresentativeSolutionSet, uploadSiteSelectionMetadata } from './handler';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
@@ -78,6 +78,76 @@
 	let importError = $state('');
 	let importSubmitting = $state(false);
 	let fileInputEl = $state<HTMLInputElement | undefined>();
+
+	// Site selection map metadata upload state
+	let mapMetaDialogOpen = $state(false);
+	let mapMetaError = $state('');
+	let mapMetaSubmitting = $state(false);
+	let mapMetaParsed = $state<{
+		sites: { name: string; node: string; lat: number; lon: number }[];
+		nodes: { name: string; lat: number; lon: number; size: number }[];
+		travel_time_matrix: number[][];
+		site_variable_symbols: string[];
+		coverage_variable_symbols: string[] | null;
+		coverage_threshold: number;
+	} | null>(null);
+	let mapMetaFileInputEl = $state<HTMLInputElement | undefined>();
+
+	function handleMapMetaFileSelected(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+		input.value = '';
+		mapMetaError = '';
+
+		file.text().then((text) => {
+			try {
+				const parsed = JSON.parse(text);
+				if (!parsed.sites || !parsed.nodes || !parsed.travel_time_matrix || !parsed.site_variable_symbols) {
+					mapMetaError = 'JSON must contain: sites, nodes, travel_time_matrix, site_variable_symbols';
+					mapMetaDialogOpen = true;
+					return;
+				}
+				mapMetaParsed = {
+					sites: parsed.sites,
+					nodes: parsed.nodes,
+					travel_time_matrix: parsed.travel_time_matrix,
+					site_variable_symbols: parsed.site_variable_symbols,
+					coverage_variable_symbols: parsed.coverage_variable_symbols ?? null,
+					coverage_threshold: parsed.coverage_threshold ?? 15.0,
+				};
+				mapMetaDialogOpen = true;
+			} catch (e) {
+				mapMetaError = `Failed to parse JSON: ${e instanceof Error ? e.message : String(e)}`;
+				mapMetaDialogOpen = true;
+			}
+		});
+	}
+
+	async function handleMapMetaSubmit() {
+		if (!selectedProblem || !mapMetaParsed) return;
+		mapMetaSubmitting = true;
+		mapMetaError = '';
+		try {
+			const success = await uploadSiteSelectionMetadata({
+				problem_id: selectedProblem.id,
+				...mapMetaParsed,
+			});
+			if (success) {
+				mapMetaDialogOpen = false;
+				mapMetaParsed = null;
+				const problemId = selectedProblem.id;
+				await invalidateAll();
+				selectedProblem = problemList.find((p) => p.id === problemId);
+			} else {
+				mapMetaError = 'Failed to upload metadata. Check the server logs.';
+			}
+		} catch (e) {
+			mapMetaError = `Error: ${e instanceof Error ? e.message : String(e)}`;
+		} finally {
+			mapMetaSubmitting = false;
+		}
+	}
 
 	function computeIdealNadir(solutionData: { [key: string]: number[] }) {
 		const ideal: { [key: string]: number } = {};
@@ -180,13 +250,12 @@
 		importSubmitting = true;
 		importError = '';
 		try {
-			const success = await addRepresentativeSolutionSet({
+			const success = await addRepresentativeSolutionSet(selectedProblem.id, {
 				name: importName,
 				description: importDescription || undefined,
 				solution_data: importSolutionData,
 				ideal: importIdeal,
 				nadir: importNadir,
-				problem_id: selectedProblem.id
 			});
 			if (success) {
 				importDialogOpen = false;
@@ -765,6 +834,54 @@
 									{/each}
 								</div>
 							{/if}
+
+							<!-- Site Selection Map Metadata -->
+							{#if selectedProblem.problem_metadata?.site_selection_metadata?.length}
+								<div class="my-4 rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm">
+									<h3 class="mb-2 font-semibold">Site Selection Map Metadata</h3>
+									{#each selectedProblem.problem_metadata.site_selection_metadata as meta}
+										<div class="grid w-full grid-cols-2 gap-x-4 gap-y-2">
+											<div class="col-span-2 flex">
+												<div class="w-40 font-semibold">Sites</div>
+												<div class="flex-1">{meta.site_variable_symbols.length} sites configured</div>
+											</div>
+											<div class="col-span-2 border-b border-gray-300"></div>
+											<div class="col-span-2 flex">
+												<div class="w-40 font-semibold">Nodes</div>
+												<div class="flex-1">{JSON.parse(meta.nodes_json).length} map nodes</div>
+											</div>
+											<div class="col-span-2 border-b border-gray-300"></div>
+											<div class="col-span-2 flex">
+												<div class="w-40 font-semibold">Coverage</div>
+												<div class="flex-1">
+													{meta.coverage_variable_symbols
+														? `${meta.coverage_variable_symbols.length} coverage variables`
+														: 'No coverage variables'}
+												</div>
+											</div>
+											<div class="col-span-2 border-b border-gray-300"></div>
+											<div class="col-span-2 flex">
+												<div class="w-40 font-semibold">Threshold</div>
+												<div class="flex-1">{meta.coverage_threshold}</div>
+											</div>
+										</div>
+									{/each}
+								</div>
+							{/if}
+							<input
+								type="file"
+								accept=".json"
+								class="hidden"
+								bind:this={mapMetaFileInputEl}
+								onchange={handleMapMetaFileSelected}
+							/>
+							<Button
+								variant="outline"
+								class="mt-3"
+								onclick={() => mapMetaFileInputEl?.click()}
+							>
+								Upload map metadata
+							</Button>
 						{:else}
 							Select a problem to see details.
 						{/if}
@@ -837,6 +954,68 @@
 			<Button variant="outline" onclick={() => (importDialogOpen = false)}>Cancel</Button>
 			<Button disabled={importSubmitting || !importName} onclick={handleImportSubmit}>
 				{importSubmitting ? 'Importing...' : 'Import'}
+			</Button>
+		</div>
+	</div>
+</div>
+{/if}
+
+<!-- Upload Site Selection Map Metadata Dialog -->
+{#if mapMetaDialogOpen}
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<div class="fixed inset-0 z-50 flex items-center justify-center">
+	<div class="fixed inset-0 bg-black/50" onclick={() => (mapMetaDialogOpen = false)}></div>
+	<div class="bg-background relative z-50 grid w-full max-w-lg gap-4 rounded-lg border p-6 shadow-lg max-h-[80vh] overflow-y-auto">
+		<div>
+			<h2 class="text-lg font-semibold">Upload Site Selection Map Metadata</h2>
+			<p class="text-muted-foreground text-sm">Review the parsed metadata before uploading.</p>
+		</div>
+		<div class="grid gap-4 py-4">
+			{#if mapMetaError}
+				<p class="text-sm text-red-600">{mapMetaError}</p>
+			{/if}
+			{#if mapMetaParsed}
+				<div class="space-y-2 text-sm">
+					<div class="flex justify-between">
+						<span class="font-semibold">Sites</span>
+						<span>{mapMetaParsed.sites.length}</span>
+					</div>
+					<div class="flex justify-between">
+						<span class="font-semibold">Map nodes</span>
+						<span>{mapMetaParsed.nodes.length}</span>
+					</div>
+					<div class="flex justify-between">
+						<span class="font-semibold">Site variables</span>
+						<span>{mapMetaParsed.site_variable_symbols.length}</span>
+					</div>
+					<div class="flex justify-between">
+						<span class="font-semibold">Coverage variables</span>
+						<span>{mapMetaParsed.coverage_variable_symbols?.length ?? 'None'}</span>
+					</div>
+					<div class="flex justify-between">
+						<span class="font-semibold">Coverage threshold</span>
+						<span>{mapMetaParsed.coverage_threshold}</span>
+					</div>
+					<div class="flex justify-between">
+						<span class="font-semibold">Travel time matrix</span>
+						<span>{mapMetaParsed.travel_time_matrix.length} x {mapMetaParsed.travel_time_matrix[0]?.length ?? 0}</span>
+					</div>
+				</div>
+				<details class="text-xs">
+					<summary class="cursor-pointer text-gray-500">Site variable symbols</summary>
+					<pre class="mt-1 max-h-32 overflow-y-auto rounded bg-gray-100 p-2">{mapMetaParsed.site_variable_symbols.join('\n')}</pre>
+				</details>
+				<details class="text-xs">
+					<summary class="cursor-pointer text-gray-500">Node names</summary>
+					<pre class="mt-1 max-h-32 overflow-y-auto rounded bg-gray-100 p-2">{mapMetaParsed.nodes.map(n => n.name).join('\n')}</pre>
+				</details>
+			{/if}
+		</div>
+		<div class="flex justify-end gap-2">
+			<Button variant="outline" onclick={() => (mapMetaDialogOpen = false)}>Cancel</Button>
+			<Button disabled={mapMetaSubmitting || !mapMetaParsed} onclick={handleMapMetaSubmit}>
+				{mapMetaSubmitting ? 'Uploading...' : 'Upload'}
 			</Button>
 		</div>
 	</div>

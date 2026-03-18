@@ -14,13 +14,12 @@
 	import Combobox from '$lib/components/ui/combobox/combobox.svelte';
 	import { EndStateView } from '$lib/components/custom/end-state-view';
 	import { DecisionJourney } from '$lib/components/custom/decision-journey';
-	import ClinicMap from '$lib/components/custom/clinic-map/clinic-map.svelte';
+	import SiteSelectionMap from '$lib/components/custom/site-selection-map/site-selection-map.svelte';
 	import type { ENautilusSessionTreeResponse } from '$lib/gen/models';
 
 	import type {
 		ENautilusStepRequest,
 		ENautilusStepResponse,
-		ProblemGetRequest,
 		ProblemInfo
 	} from '$lib/gen/models';
 	import {
@@ -292,8 +291,7 @@
 				isLoading.set(true);
 
 				// fetch problem info
-				const request: ProblemGetRequest = { problem_id: selection.selectedProblemId };
-				const response = await fetch_problem_info(request);
+				const response = await fetch_problem_info(selection.selectedProblemId);
 
 				if (response === null) {
 					console.log('Could not fetch problem.');
@@ -581,7 +579,7 @@
 			// If the loaded state belongs to a different problem, sync it
 			const stateProblemId = state_resp.request.problem_id;
 			if (stateProblemId != null && stateProblemId !== selection.selectedProblemId) {
-				const info = await fetch_problem_info({ problem_id: stateProblemId });
+				const info = await fetch_problem_info(stateProblemId);
 				if (!info) {
 					errorMessage.set("Failed to load problem info for the resumed state.");
 					return;
@@ -710,7 +708,7 @@
 					{/if}
 					{#if finalView === 'map'}
 						{#if finalSolution}
-							<ClinicMap solution={finalSolution} />
+							<SiteSelectionMap problem_id={selection.selectedProblemId} solution={finalSolution} />
 						{:else}
 							<div class="flex h-full items-center justify-center text-sm text-gray-400">
 								No solution available for map.

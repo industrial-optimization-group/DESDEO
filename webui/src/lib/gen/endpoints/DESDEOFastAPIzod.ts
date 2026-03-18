@@ -125,6 +125,8 @@ Returns:
  */
 export const getProblemsProblemAllGetResponseProblemMetadataOneForestMetadataOneItemMetadataTypeDefault = `forest_problem_metadata`;
 export const getProblemsProblemAllGetResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault = `representative_non_dominated_solutions`;
+export const getProblemsProblemAllGetResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault = `site_selection_metadata`;
+export const getProblemsProblemAllGetResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault = 15;
 
 export const GetProblemsProblemAllGetResponseItem = zod
 	.object({
@@ -199,6 +201,50 @@ export const GetProblemsProblemAllGetResponseItem = zod
 								)
 						),
 						zod.null()
+					]),
+					site_selection_metadata: zod.union([
+						zod.array(
+							zod
+								.object({
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											getProblemsProblemAllGetResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault
+										),
+									sites_json: zod
+										.string()
+										.describe('JSON array: [{name, node, lat, lon}, ...] one per site variable'),
+									nodes_json: zod
+										.string()
+										.describe('JSON array: [{name, lat, lon, size}, ...] one per map node'),
+									travel_time_matrix_json: zod
+										.string()
+										.describe('JSON: 2D list[list[float]], shape [n_nodes, n_nodes]'),
+									site_variable_symbols: zod
+										.array(zod.string())
+										.describe(
+											'Ordered list of site variable symbols matching sites_json positions'
+										),
+									coverage_variable_symbols: zod
+										.union([zod.array(zod.string()), zod.null()])
+										.optional()
+										.describe(
+											'Ordered list of coverage variable symbols matching nodes_json positions, or None'
+										),
+									coverage_threshold: zod
+										.number()
+										.default(
+											getProblemsProblemAllGetResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault
+										)
+										.describe('Threshold for coverage edges (e.g., minutes, km)')
+								})
+								.describe(
+									'A problem metadata class to hold site selection problem specific information.\n\nStores geographic data and variable mappings needed to visualize binary\nsite-selection solutions on a map (e.g., clinic placement, facility location).'
+								)
+						),
+						zod.null()
 					])
 				})
 				.describe('Response model for ProblemMetaData.'),
@@ -234,6 +280,8 @@ export const getProblemsInfoProblemAllInfoGetResponseExtraFuncsOneItemIsTwiceDif
 export const getProblemsInfoProblemAllInfoGetResponseDiscreteRepresentationOneNonDominatedDefault = false;
 export const getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneForestMetadataOneItemMetadataTypeDefault = `forest_problem_metadata`;
 export const getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault = `representative_non_dominated_solutions`;
+export const getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault = `site_selection_metadata`;
+export const getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault = 15;
 
 export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 	.object({
@@ -781,6 +829,50 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								)
 						),
 						zod.null()
+					]),
+					site_selection_metadata: zod.union([
+						zod.array(
+							zod
+								.object({
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault
+										),
+									sites_json: zod
+										.string()
+										.describe('JSON array: [{name, node, lat, lon}, ...] one per site variable'),
+									nodes_json: zod
+										.string()
+										.describe('JSON array: [{name, lat, lon, size}, ...] one per map node'),
+									travel_time_matrix_json: zod
+										.string()
+										.describe('JSON: 2D list[list[float]], shape [n_nodes, n_nodes]'),
+									site_variable_symbols: zod
+										.array(zod.string())
+										.describe(
+											'Ordered list of site variable symbols matching sites_json positions'
+										),
+									coverage_variable_symbols: zod
+										.union([zod.array(zod.string()), zod.null()])
+										.optional()
+										.describe(
+											'Ordered list of coverage variable symbols matching nodes_json positions, or None'
+										),
+									coverage_threshold: zod
+										.number()
+										.default(
+											getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault
+										)
+										.describe('Threshold for coverage edges (e.g., minutes, km)')
+								})
+								.describe(
+									'A problem metadata class to hold site selection problem specific information.\n\nStores geographic data and variable mappings needed to visualize binary\nsite-selection solutions on a map (e.g., clinic placement, facility location).'
+								)
+						),
+						zod.null()
 					])
 				})
 				.describe('Response model for ProblemMetaData.'),
@@ -793,43 +885,108 @@ export const GetProblemsInfoProblemAllInfoGetResponse = zod.array(
 );
 
 /**
- * Get the model of a specific problem.
+ * Get a specific problem by id.
 
 Args:
-    request (ProblemGetRequest): the request containing the problem's id `problem_id`.
-    context (Annotated[SessionContext, Depends): the session context.
+     problem_id (int): problem id.
+     context (Annotated[SessionContext, Depends): the session context.
 
 Raises:
-    HTTPException: could not find a problem with the given id.
+     HTTPException: could not find a problem with the given id.
 
 Returns:
-    ProblemInfo: detailed information on the requested problem.
+     ProblemInfo: detailed information on the requested problem.
  * @summary Get Problem
  */
-export const GetProblemProblemGetPostBody = zod
-	.object({
-		problem_id: zod.number()
-	})
-	.describe('Model to deal with problem fetching requests.');
+export const GetProblemProblemProblemIdGetParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()])
+});
 
-export const getProblemProblemGetPostResponseObjectivesItemMaximizeDefault = false;
-export const getProblemProblemGetPostResponseObjectivesItemIsLinearDefault = false;
-export const getProblemProblemGetPostResponseObjectivesItemIsConvexDefault = false;
-export const getProblemProblemGetPostResponseObjectivesItemIsTwiceDifferentiableDefault = false;
-export const getProblemProblemGetPostResponseConstraintsOneItemIsLinearDefault = true;
-export const getProblemProblemGetPostResponseConstraintsOneItemIsConvexDefault = false;
-export const getProblemProblemGetPostResponseConstraintsOneItemIsTwiceDifferentiableDefault = false;
-export const getProblemProblemGetPostResponseScalarizationFuncsOneItemIsLinearDefault = false;
-export const getProblemProblemGetPostResponseScalarizationFuncsOneItemIsConvexDefault = false;
-export const getProblemProblemGetPostResponseScalarizationFuncsOneItemIsTwiceDifferentiableDefault = false;
-export const getProblemProblemGetPostResponseExtraFuncsOneItemIsLinearDefault = false;
-export const getProblemProblemGetPostResponseExtraFuncsOneItemIsConvexDefault = false;
-export const getProblemProblemGetPostResponseExtraFuncsOneItemIsTwiceDifferentiableDefault = false;
-export const getProblemProblemGetPostResponseDiscreteRepresentationOneNonDominatedDefault = false;
-export const getProblemProblemGetPostResponseProblemMetadataOneForestMetadataOneItemMetadataTypeDefault = `forest_problem_metadata`;
-export const getProblemProblemGetPostResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault = `representative_non_dominated_solutions`;
+export const getProblemProblemProblemIdGetBodyOnePreferencePreferenceTypeDefault = `reference_point`;
 
-export const GetProblemProblemGetPostResponse = zod
+export const GetProblemProblemProblemIdGetBody = zod.union([
+	zod
+		.object({
+			problem_id: zod.number(),
+			session_id: zod.union([zod.number(), zod.null()]).optional(),
+			parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+			scalarization_options: zod
+				.union([
+					zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
+					zod.null()
+				])
+				.optional(),
+			solver: zod.union([zod.string(), zod.null()]).optional(),
+			solver_options: zod
+				.union([
+					zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
+					zod.null()
+				])
+				.optional(),
+			preference: zod
+				.object({
+					preference_type: zod
+						.literal('reference_point')
+						.default(getProblemProblemProblemIdGetBodyOnePreferencePreferenceTypeDefault),
+					aspiration_levels: zod.record(zod.string(), zod.number())
+				})
+				.optional()
+				.describe('Model for representing a reference point type of preference.')
+		})
+		.describe('Model of the request to the reference point method.'),
+	zod
+		.object({
+			problem_id: zod.number(),
+			session_id: zod.union([zod.number(), zod.null()]).optional(),
+			parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+			representative_solutions_id: zod
+				.number()
+				.describe('The id of the representative solutions to be used.'),
+			current_iteration: zod.number().describe('The number of the current iteration.'),
+			iterations_left: zod.number().describe('The number of iterations left.'),
+			selected_point: zod
+				.union([zod.record(zod.string(), zod.number()), zod.null()])
+				.describe(
+					'The selected intermediate point. If first iteration, set this to be the (approximated) nadir point. If not set, then the point is assumed to be the nadir point of the current approximating set.'
+				),
+			reachable_point_indices: zod
+				.array(zod.number())
+				.describe(
+					'The indices indicating the point on the non-dominated set that are reachable from the currently selected point.'
+				),
+			number_of_intermediate_points: zod
+				.number()
+				.describe('The number of intermediate points to be generated.')
+		})
+		.describe('Model of the request to the E-NAUTILUS method.'),
+	zod
+		.object({
+			info: zod.union([zod.string(), zod.null()]).optional()
+		})
+		.describe('Model of the request to create a new session.'),
+	zod.null()
+]);
+
+export const getProblemProblemProblemIdGetResponseObjectivesItemMaximizeDefault = false;
+export const getProblemProblemProblemIdGetResponseObjectivesItemIsLinearDefault = false;
+export const getProblemProblemProblemIdGetResponseObjectivesItemIsConvexDefault = false;
+export const getProblemProblemProblemIdGetResponseObjectivesItemIsTwiceDifferentiableDefault = false;
+export const getProblemProblemProblemIdGetResponseConstraintsOneItemIsLinearDefault = true;
+export const getProblemProblemProblemIdGetResponseConstraintsOneItemIsConvexDefault = false;
+export const getProblemProblemProblemIdGetResponseConstraintsOneItemIsTwiceDifferentiableDefault = false;
+export const getProblemProblemProblemIdGetResponseScalarizationFuncsOneItemIsLinearDefault = false;
+export const getProblemProblemProblemIdGetResponseScalarizationFuncsOneItemIsConvexDefault = false;
+export const getProblemProblemProblemIdGetResponseScalarizationFuncsOneItemIsTwiceDifferentiableDefault = false;
+export const getProblemProblemProblemIdGetResponseExtraFuncsOneItemIsLinearDefault = false;
+export const getProblemProblemProblemIdGetResponseExtraFuncsOneItemIsConvexDefault = false;
+export const getProblemProblemProblemIdGetResponseExtraFuncsOneItemIsTwiceDifferentiableDefault = false;
+export const getProblemProblemProblemIdGetResponseDiscreteRepresentationOneNonDominatedDefault = false;
+export const getProblemProblemProblemIdGetResponseProblemMetadataOneForestMetadataOneItemMetadataTypeDefault = `forest_problem_metadata`;
+export const getProblemProblemProblemIdGetResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault = `representative_non_dominated_solutions`;
+export const getProblemProblemProblemIdGetResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault = `site_selection_metadata`;
+export const getProblemProblemProblemIdGetResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault = 15;
+
+export const GetProblemProblemProblemIdGetResponse = zod
 	.object({
 		name: zod.string(),
 		description: zod.string(),
@@ -1043,7 +1200,7 @@ export const GetProblemProblemGetPostResponse = zod
 						),
 					maximize: zod
 						.boolean()
-						.default(getProblemProblemGetPostResponseObjectivesItemMaximizeDefault)
+						.default(getProblemProblemProblemIdGetResponseObjectivesItemMaximizeDefault)
 						.describe('Whether the objective function is to be maximized or minimized.'),
 					ideal: zod
 						.union([zod.number(), zod.null()])
@@ -1059,17 +1216,19 @@ export const GetProblemProblemGetPostResponse = zod
 						.describe('An enumerator for supported objective function types.'),
 					is_linear: zod
 						.boolean()
-						.default(getProblemProblemGetPostResponseObjectivesItemIsLinearDefault)
+						.default(getProblemProblemProblemIdGetResponseObjectivesItemIsLinearDefault)
 						.describe('Whether the function expression is linear or not. Defaults to `False`.'),
 					is_convex: zod
 						.boolean()
-						.default(getProblemProblemGetPostResponseObjectivesItemIsConvexDefault)
+						.default(getProblemProblemProblemIdGetResponseObjectivesItemIsConvexDefault)
 						.describe(
 							'Whether the function expression is convex or not (non-convex). Defaults to `False`.'
 						),
 					is_twice_differentiable: zod
 						.boolean()
-						.default(getProblemProblemGetPostResponseObjectivesItemIsTwiceDifferentiableDefault)
+						.default(
+							getProblemProblemProblemIdGetResponseObjectivesItemIsTwiceDifferentiableDefault
+						)
 						.describe(
 							'Whether the function expression is twice differentiable or not. Defaults to `False`'
 						),
@@ -1121,20 +1280,20 @@ export const GetProblemProblemGetPostResponse = zod
 							.describe('An enumerator for supported constraint expression types.'),
 						is_linear: zod
 							.boolean()
-							.default(getProblemProblemGetPostResponseConstraintsOneItemIsLinearDefault)
+							.default(getProblemProblemProblemIdGetResponseConstraintsOneItemIsLinearDefault)
 							.describe(
 								'Whether the constraint is linear or not. Defaults to True, e.g., a linear constraint is assumed.'
 							),
 						is_convex: zod
 							.boolean()
-							.default(getProblemProblemGetPostResponseConstraintsOneItemIsConvexDefault)
+							.default(getProblemProblemProblemIdGetResponseConstraintsOneItemIsConvexDefault)
 							.describe(
 								'Whether the function expression is convex or not (non-convex). Defaults to `False`.'
 							),
 						is_twice_differentiable: zod
 							.boolean()
 							.default(
-								getProblemProblemGetPostResponseConstraintsOneItemIsTwiceDifferentiableDefault
+								getProblemProblemProblemIdGetResponseConstraintsOneItemIsTwiceDifferentiableDefault
 							)
 							.describe(
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
@@ -1161,18 +1320,22 @@ export const GetProblemProblemGetPostResponse = zod
 							),
 						is_linear: zod
 							.boolean()
-							.default(getProblemProblemGetPostResponseScalarizationFuncsOneItemIsLinearDefault)
+							.default(
+								getProblemProblemProblemIdGetResponseScalarizationFuncsOneItemIsLinearDefault
+							)
 							.describe('Whether the function expression is linear or not. Defaults to `False`.'),
 						is_convex: zod
 							.boolean()
-							.default(getProblemProblemGetPostResponseScalarizationFuncsOneItemIsConvexDefault)
+							.default(
+								getProblemProblemProblemIdGetResponseScalarizationFuncsOneItemIsConvexDefault
+							)
 							.describe(
 								'Whether the function expression is convex or not (non-convex). Defaults to `False`.'
 							),
 						is_twice_differentiable: zod
 							.boolean()
 							.default(
-								getProblemProblemGetPostResponseScalarizationFuncsOneItemIsTwiceDifferentiableDefault
+								getProblemProblemProblemIdGetResponseScalarizationFuncsOneItemIsTwiceDifferentiableDefault
 							)
 							.describe(
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
@@ -1222,18 +1385,18 @@ export const GetProblemProblemGetPostResponse = zod
 							),
 						is_linear: zod
 							.boolean()
-							.default(getProblemProblemGetPostResponseExtraFuncsOneItemIsLinearDefault)
+							.default(getProblemProblemProblemIdGetResponseExtraFuncsOneItemIsLinearDefault)
 							.describe('Whether the function expression is linear or not. Defaults to `False`.'),
 						is_convex: zod
 							.boolean()
-							.default(getProblemProblemGetPostResponseExtraFuncsOneItemIsConvexDefault)
+							.default(getProblemProblemProblemIdGetResponseExtraFuncsOneItemIsConvexDefault)
 							.describe(
 								'Whether the function expression is convex or not (non-convex). Defaults to `False`.'
 							),
 						is_twice_differentiable: zod
 							.boolean()
 							.default(
-								getProblemProblemGetPostResponseExtraFuncsOneItemIsTwiceDifferentiableDefault
+								getProblemProblemProblemIdGetResponseExtraFuncsOneItemIsTwiceDifferentiableDefault
 							)
 							.describe(
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
@@ -1250,7 +1413,9 @@ export const GetProblemProblemGetPostResponse = zod
 				.object({
 					non_dominated: zod
 						.boolean()
-						.default(getProblemProblemGetPostResponseDiscreteRepresentationOneNonDominatedDefault),
+						.default(
+							getProblemProblemProblemIdGetResponseDiscreteRepresentationOneNonDominatedDefault
+						),
 					variable_values: zod.record(
 						zod.string(),
 						zod.array(zod.union([zod.number(), zod.number(), zod.boolean()]))
@@ -1320,7 +1485,7 @@ export const GetProblemProblemGetPostResponse = zod
 									metadata_type: zod
 										.string()
 										.default(
-											getProblemProblemGetPostResponseProblemMetadataOneForestMetadataOneItemMetadataTypeDefault
+											getProblemProblemProblemIdGetResponseProblemMetadataOneForestMetadataOneItemMetadataTypeDefault
 										),
 									map_json: zod.string(),
 									schedule_dict: zod.record(zod.string(), zod.unknown()),
@@ -1359,11 +1524,55 @@ export const GetProblemProblemGetPostResponse = zod
 									metadata_type: zod
 										.string()
 										.default(
-											getProblemProblemGetPostResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault
+											getProblemProblemProblemIdGetResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault
 										)
 								})
 								.describe(
 									'A problem metadata class to store representative solutions sets, i.e., non-dominated sets...\n\nA problem metadata class to store representative solutions sets, i.e., non-dominated sets that\nrepresent/approximate the Pareto optimal solution set of the problem.\n\nNote:\n    It is assumed that the solution set is non-dominated.'
+								)
+						),
+						zod.null()
+					]),
+					site_selection_metadata: zod.union([
+						zod.array(
+							zod
+								.object({
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											getProblemProblemProblemIdGetResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault
+										),
+									sites_json: zod
+										.string()
+										.describe('JSON array: [{name, node, lat, lon}, ...] one per site variable'),
+									nodes_json: zod
+										.string()
+										.describe('JSON array: [{name, lat, lon, size}, ...] one per map node'),
+									travel_time_matrix_json: zod
+										.string()
+										.describe('JSON: 2D list[list[float]], shape [n_nodes, n_nodes]'),
+									site_variable_symbols: zod
+										.array(zod.string())
+										.describe(
+											'Ordered list of site variable symbols matching sites_json positions'
+										),
+									coverage_variable_symbols: zod
+										.union([zod.array(zod.string()), zod.null()])
+										.optional()
+										.describe(
+											'Ordered list of coverage variable symbols matching nodes_json positions, or None'
+										),
+									coverage_threshold: zod
+										.number()
+										.default(
+											getProblemProblemProblemIdGetResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault
+										)
+										.describe('Threshold for coverage edges (e.g., minutes, km)')
+								})
+								.describe(
+									'A problem metadata class to hold site selection problem specific information.\n\nStores geographic data and variable mappings needed to visualize binary\nsite-selection solutions on a map (e.g., clinic placement, facility location).'
 								)
 						),
 						zod.null()
@@ -1374,6 +1583,79 @@ export const GetProblemProblemGetPostResponse = zod
 		])
 	})
 	.describe('Problem info request return data.');
+
+/**
+ * Delete a problem by its ID.
+ * @summary Delete Problem
+ */
+export const DeleteProblemProblemProblemIdDeleteParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()])
+});
+
+export const deleteProblemProblemProblemIdDeleteBodyOnePreferencePreferenceTypeDefault = `reference_point`;
+
+export const DeleteProblemProblemProblemIdDeleteBody = zod.union([
+	zod
+		.object({
+			problem_id: zod.number(),
+			session_id: zod.union([zod.number(), zod.null()]).optional(),
+			parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+			scalarization_options: zod
+				.union([
+					zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
+					zod.null()
+				])
+				.optional(),
+			solver: zod.union([zod.string(), zod.null()]).optional(),
+			solver_options: zod
+				.union([
+					zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
+					zod.null()
+				])
+				.optional(),
+			preference: zod
+				.object({
+					preference_type: zod
+						.literal('reference_point')
+						.default(deleteProblemProblemProblemIdDeleteBodyOnePreferencePreferenceTypeDefault),
+					aspiration_levels: zod.record(zod.string(), zod.number())
+				})
+				.optional()
+				.describe('Model for representing a reference point type of preference.')
+		})
+		.describe('Model of the request to the reference point method.'),
+	zod
+		.object({
+			problem_id: zod.number(),
+			session_id: zod.union([zod.number(), zod.null()]).optional(),
+			parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+			representative_solutions_id: zod
+				.number()
+				.describe('The id of the representative solutions to be used.'),
+			current_iteration: zod.number().describe('The number of the current iteration.'),
+			iterations_left: zod.number().describe('The number of iterations left.'),
+			selected_point: zod
+				.union([zod.record(zod.string(), zod.number()), zod.null()])
+				.describe(
+					'The selected intermediate point. If first iteration, set this to be the (approximated) nadir point. If not set, then the point is assumed to be the nadir point of the current approximating set.'
+				),
+			reachable_point_indices: zod
+				.array(zod.number())
+				.describe(
+					'The indices indicating the point on the non-dominated set that are reachable from the currently selected point.'
+				),
+			number_of_intermediate_points: zod
+				.number()
+				.describe('The number of intermediate points to be generated.')
+		})
+		.describe('Model of the request to the E-NAUTILUS method.'),
+	zod
+		.object({
+			info: zod.union([zod.string(), zod.null()]).optional()
+		})
+		.describe('Model of the request to create a new session.'),
+	zod.null()
+]);
 
 /**
  * Add a newly defined problem to the database.
@@ -1392,6 +1674,10 @@ Returns:
     ProblemInfo: the information about the problem added.
  * @summary Add Problem
  */
+export const AddProblemProblemAddPostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const addProblemProblemAddPostBodyOnePreferencePreferenceTypeDefault = `reference_point`;
 
 export const AddProblemProblemAddPostBody = zod.union([
@@ -1451,16 +1737,6 @@ export const AddProblemProblemAddPostBody = zod.union([
 		.describe('Model of the request to the E-NAUTILUS method.'),
 	zod
 		.object({
-			name: zod.string(),
-			description: zod.union([zod.string(), zod.null()]).optional(),
-			solution_data: zod.record(zod.string(), zod.array(zod.number())),
-			ideal: zod.record(zod.string(), zod.number()),
-			nadir: zod.record(zod.string(), zod.number()),
-			problem_id: zod.number()
-		})
-		.describe('Model of the request to the representative solution set.'),
-	zod
-		.object({
 			info: zod.union([zod.string(), zod.null()]).optional()
 		})
 		.describe('Model of the request to create a new session.'),
@@ -1483,6 +1759,8 @@ export const addProblemProblemAddPostResponseExtraFuncsOneItemIsTwiceDifferentia
 export const addProblemProblemAddPostResponseDiscreteRepresentationOneNonDominatedDefault = false;
 export const addProblemProblemAddPostResponseProblemMetadataOneForestMetadataOneItemMetadataTypeDefault = `forest_problem_metadata`;
 export const addProblemProblemAddPostResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault = `representative_non_dominated_solutions`;
+export const addProblemProblemAddPostResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault = `site_selection_metadata`;
+export const addProblemProblemAddPostResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault = 15;
 
 export const AddProblemProblemAddPostResponse = zod
 	.object({
@@ -2022,6 +2300,50 @@ export const AddProblemProblemAddPostResponse = zod
 								)
 						),
 						zod.null()
+					]),
+					site_selection_metadata: zod.union([
+						zod.array(
+							zod
+								.object({
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											addProblemProblemAddPostResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault
+										),
+									sites_json: zod
+										.string()
+										.describe('JSON array: [{name, node, lat, lon}, ...] one per site variable'),
+									nodes_json: zod
+										.string()
+										.describe('JSON array: [{name, lat, lon, size}, ...] one per map node'),
+									travel_time_matrix_json: zod
+										.string()
+										.describe('JSON: 2D list[list[float]], shape [n_nodes, n_nodes]'),
+									site_variable_symbols: zod
+										.array(zod.string())
+										.describe(
+											'Ordered list of site variable symbols matching sites_json positions'
+										),
+									coverage_variable_symbols: zod
+										.union([zod.array(zod.string()), zod.null()])
+										.optional()
+										.describe(
+											'Ordered list of coverage variable symbols matching nodes_json positions, or None'
+										),
+									coverage_threshold: zod
+										.number()
+										.default(
+											addProblemProblemAddPostResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault
+										)
+										.describe('Threshold for coverage edges (e.g., minutes, km)')
+								})
+								.describe(
+									'A problem metadata class to hold site selection problem specific information.\n\nStores geographic data and variable mappings needed to visualize binary\nsite-selection solutions on a map (e.g., clinic placement, facility location).'
+								)
+						),
+						zod.null()
 					])
 				})
 				.describe('Response model for ProblemMetaData.'),
@@ -2045,6 +2367,10 @@ Returns:
     ProblemInfo: a description of the added problem.
  * @summary Add Problem Json
  */
+export const AddProblemJsonProblemAddJsonPostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const addProblemJsonProblemAddJsonPostBodyRequestOnePreferencePreferenceTypeDefault = `reference_point`;
 
 export const AddProblemJsonProblemAddJsonPostBody = zod.object({
@@ -2109,16 +2435,6 @@ export const AddProblemJsonProblemAddJsonPostBody = zod.object({
 				.describe('Model of the request to the E-NAUTILUS method.'),
 			zod
 				.object({
-					name: zod.string(),
-					description: zod.union([zod.string(), zod.null()]).optional(),
-					solution_data: zod.record(zod.string(), zod.array(zod.number())),
-					ideal: zod.record(zod.string(), zod.number()),
-					nadir: zod.record(zod.string(), zod.number()),
-					problem_id: zod.number()
-				})
-				.describe('Model of the request to the representative solution set.'),
-			zod
-				.object({
 					info: zod.union([zod.string(), zod.null()]).optional()
 				})
 				.describe('Model of the request to create a new session.'),
@@ -2143,6 +2459,8 @@ export const addProblemJsonProblemAddJsonPostResponseExtraFuncsOneItemIsTwiceDif
 export const addProblemJsonProblemAddJsonPostResponseDiscreteRepresentationOneNonDominatedDefault = false;
 export const addProblemJsonProblemAddJsonPostResponseProblemMetadataOneForestMetadataOneItemMetadataTypeDefault = `forest_problem_metadata`;
 export const addProblemJsonProblemAddJsonPostResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault = `representative_non_dominated_solutions`;
+export const addProblemJsonProblemAddJsonPostResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault = `site_selection_metadata`;
+export const addProblemJsonProblemAddJsonPostResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault = 15;
 
 export const AddProblemJsonProblemAddJsonPostResponse = zod
 	.object({
@@ -2690,6 +3008,50 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								)
 						),
 						zod.null()
+					]),
+					site_selection_metadata: zod.union([
+						zod.array(
+							zod
+								.object({
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											addProblemJsonProblemAddJsonPostResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault
+										),
+									sites_json: zod
+										.string()
+										.describe('JSON array: [{name, node, lat, lon}, ...] one per site variable'),
+									nodes_json: zod
+										.string()
+										.describe('JSON array: [{name, lat, lon, size}, ...] one per map node'),
+									travel_time_matrix_json: zod
+										.string()
+										.describe('JSON: 2D list[list[float]], shape [n_nodes, n_nodes]'),
+									site_variable_symbols: zod
+										.array(zod.string())
+										.describe(
+											'Ordered list of site variable symbols matching sites_json positions'
+										),
+									coverage_variable_symbols: zod
+										.union([zod.array(zod.string()), zod.null()])
+										.optional()
+										.describe(
+											'Ordered list of coverage variable symbols matching nodes_json positions, or None'
+										),
+									coverage_threshold: zod
+										.number()
+										.default(
+											addProblemJsonProblemAddJsonPostResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault
+										)
+										.describe('Threshold for coverage edges (e.g., minutes, km)')
+								})
+								.describe(
+									'A problem metadata class to hold site selection problem specific information.\n\nStores geographic data and variable mappings needed to visualize binary\nsite-selection solutions on a map (e.g., clinic placement, facility location).'
+								)
+						),
+						zod.null()
 					])
 				})
 				.describe('Response model for ProblemMetaData.'),
@@ -2715,6 +3077,10 @@ Returns:
         returns an empty list.
  * @summary Get Metadata
  */
+export const GetMetadataProblemGetMetadataPostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const GetMetadataProblemGetMetadataPostBody = zod
 	.object({
 		problem_id: zod.number(),
@@ -2725,6 +3091,8 @@ export const GetMetadataProblemGetMetadataPostBody = zod
 export const getMetadataProblemGetMetadataPostResponseOneMetadataTypeDefault = `forest_problem_metadata`;
 export const getMetadataProblemGetMetadataPostResponseTwoMetadataTypeDefault = `representative_non_dominated_solutions`;
 export const getMetadataProblemGetMetadataPostResponseThreeMetadataTypeDefault = `solver_selection_metadata`;
+export const getMetadataProblemGetMetadataPostResponseFourMetadataTypeDefault = `site_selection_metadata`;
+export const getMetadataProblemGetMetadataPostResponseFourCoverageThresholdDefault = 15;
 
 export const GetMetadataProblemGetMetadataPostResponseItem = zod.union([
 	zod
@@ -2779,6 +3147,39 @@ export const GetMetadataProblemGetMetadataPostResponseItem = zod.union([
 		})
 		.describe(
 			'A problem metadata class to store the preferred solver of a problem.\n\nA problem metadata class to store the preferred solver of a problem.\nSee desdeo/tools/utils.py -> available_solvers for available solvers.'
+		),
+	zod
+		.object({
+			id: zod.union([zod.number(), zod.null()]).optional(),
+			metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+			metadata_type: zod
+				.string()
+				.default(getMetadataProblemGetMetadataPostResponseFourMetadataTypeDefault),
+			sites_json: zod
+				.string()
+				.describe('JSON array: [{name, node, lat, lon}, ...] one per site variable'),
+			nodes_json: zod
+				.string()
+				.describe('JSON array: [{name, lat, lon, size}, ...] one per map node'),
+			travel_time_matrix_json: zod
+				.string()
+				.describe('JSON: 2D list[list[float]], shape [n_nodes, n_nodes]'),
+			site_variable_symbols: zod
+				.array(zod.string())
+				.describe('Ordered list of site variable symbols matching sites_json positions'),
+			coverage_variable_symbols: zod
+				.union([zod.array(zod.string()), zod.null()])
+				.optional()
+				.describe(
+					'Ordered list of coverage variable symbols matching nodes_json positions, or None'
+				),
+			coverage_threshold: zod
+				.number()
+				.default(getMetadataProblemGetMetadataPostResponseFourCoverageThresholdDefault)
+				.describe('Threshold for coverage edges (e.g., minutes, km)')
+		})
+		.describe(
+			'A problem metadata class to hold site selection problem specific information.\n\nStores geographic data and variable mappings needed to visualize binary\nsite-selection solutions on a map (e.g., clinic placement, facility location).'
 		)
 ]);
 export const GetMetadataProblemGetMetadataPostResponse = zod.array(
@@ -2808,6 +3209,10 @@ Returns:
     JSONResponse: A simple confirmation.
  * @summary Select Solver
  */
+export const SelectSolverProblemAssignSolverPostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const SelectSolverProblemAssignSolverPostBody = zod
 	.object({
 		problem_id: zod.number().describe('ID of the problem that the solver is assigned to.'),
@@ -2825,7 +3230,8 @@ export const SelectSolverProblemAssignSolverPostResponse = zod.unknown();
  * Add a new representative solution set as metadata to a problem.
 
 Args:
-    request (RepresentativeSolutionSetRequest): The JSON body containing the
+    problem_id: int,
+    request (RepresentativeSolutionSetBase): The JSON body containing the
         details of the representative solution set (name, description, solution data, ideal, nadir).
     context (SessionContext): The session context providing the current user and database session.
 
@@ -2836,18 +3242,22 @@ Returns:
     RepresentativeSolutionSetInfo: information about the added set.
  * @summary Add Representative Solution Set
  */
-export const AddRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostBody = zod
+export const AddRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPostParams =
+	zod.object({
+		problem_id: zod.union([zod.number(), zod.null()])
+	});
+
+export const AddRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPostBody = zod
 	.object({
 		name: zod.string(),
 		description: zod.union([zod.string(), zod.null()]).optional(),
 		solution_data: zod.record(zod.string(), zod.array(zod.number())),
 		ideal: zod.record(zod.string(), zod.number()),
-		nadir: zod.record(zod.string(), zod.number()),
-		problem_id: zod.number()
+		nadir: zod.record(zod.string(), zod.number())
 	})
-	.describe('Model of the request to the representative solution set.');
+	.describe('Shared base model for representative solution sets.');
 
-export const AddRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPostResponse =
+export const AddRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPostResponse =
 	zod.unknown();
 
 /**
@@ -2856,14 +3266,14 @@ export const AddRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPost
 Returns only name, description, ideal, and nadir for each set.
  * @summary Get All Representative Solution Sets
  */
-export const GetAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetParams =
+export const GetAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetParams =
 	zod.object({
-		problem_id: zod.number()
+		problem_id: zod.union([zod.number(), zod.null()])
 	});
 
-export const getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetBodyOnePreferencePreferenceTypeDefault = `reference_point`;
+export const getAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetBodyOnePreferencePreferenceTypeDefault = `reference_point`;
 
-export const GetAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetBody =
+export const GetAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetBody =
 	zod.union([
 		zod
 			.object({
@@ -2888,7 +3298,7 @@ export const GetAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSet
 						preference_type: zod
 							.literal('reference_point')
 							.default(
-								getAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetBodyOnePreferencePreferenceTypeDefault
+								getAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetBodyOnePreferencePreferenceTypeDefault
 							),
 						aspiration_levels: zod.record(zod.string(), zod.number())
 					})
@@ -2923,23 +3333,13 @@ export const GetAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSet
 			.describe('Model of the request to the E-NAUTILUS method.'),
 		zod
 			.object({
-				name: zod.string(),
-				description: zod.union([zod.string(), zod.null()]).optional(),
-				solution_data: zod.record(zod.string(), zod.array(zod.number())),
-				ideal: zod.record(zod.string(), zod.number()),
-				nadir: zod.record(zod.string(), zod.number()),
-				problem_id: zod.number()
-			})
-			.describe('Model of the request to the representative solution set.'),
-		zod
-			.object({
 				info: zod.union([zod.string(), zod.null()]).optional()
 			})
 			.describe('Model of the request to create a new session.'),
 		zod.null()
 	]);
 
-export const GetAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSetsProblemIdGetResponse =
+export const GetAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetResponse =
 	zod.unknown();
 
 /**
@@ -2949,6 +3349,11 @@ export const GetAllRepresentativeSolutionSetsProblemAllRepresentativeSolutionSet
 export const GetRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetParams =
 	zod.object({
 		set_id: zod.number()
+	});
+
+export const GetRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetQueryParams =
+	zod.object({
+		problem_id: zod.union([zod.number(), zod.null()]).optional()
 	});
 
 export const getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetBodyOnePreferencePreferenceTypeDefault = `reference_point`;
@@ -3012,16 +3417,6 @@ export const GetRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGe
 		.describe('Model of the request to the E-NAUTILUS method.'),
 	zod
 		.object({
-			name: zod.string(),
-			description: zod.union([zod.string(), zod.null()]).optional(),
-			solution_data: zod.record(zod.string(), zod.array(zod.number())),
-			ideal: zod.record(zod.string(), zod.number()),
-			nadir: zod.record(zod.string(), zod.number()),
-			problem_id: zod.number()
-		})
-		.describe('Model of the request to the representative solution set.'),
-	zod
-		.object({
 			info: zod.union([zod.string(), zod.null()]).optional()
 		})
 		.describe('Model of the request to create a new session.'),
@@ -3038,6 +3433,11 @@ export const GetRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGe
 export const DeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteParams =
 	zod.object({
 		set_id: zod.number()
+	});
+
+export const DeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteQueryParams =
+	zod.object({
+		problem_id: zod.union([zod.number(), zod.null()]).optional()
 	});
 
 export const deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteBodyOnePreferencePreferenceTypeDefault = `reference_point`;
@@ -3102,16 +3502,6 @@ export const DeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetI
 			.describe('Model of the request to the E-NAUTILUS method.'),
 		zod
 			.object({
-				name: zod.string(),
-				description: zod.union([zod.string(), zod.null()]).optional(),
-				solution_data: zod.record(zod.string(), zod.array(zod.number())),
-				ideal: zod.record(zod.string(), zod.number()),
-				nadir: zod.record(zod.string(), zod.number()),
-				problem_id: zod.number()
-			})
-			.describe('Model of the request to the representative solution set.'),
-		zod
-			.object({
 				info: zod.union([zod.string(), zod.null()]).optional()
 			})
 			.describe('Model of the request to create a new session.'),
@@ -3119,94 +3509,11 @@ export const DeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetI
 	]);
 
 /**
- * Delete a problem by its ID.
- * @summary Delete Problem
- */
-export const DeleteProblemProblemProblemIdDeleteParams = zod.object({
-	problem_id: zod.number()
-});
-
-export const deleteProblemProblemProblemIdDeleteBodyOnePreferencePreferenceTypeDefault = `reference_point`;
-
-export const DeleteProblemProblemProblemIdDeleteBody = zod.union([
-	zod
-		.object({
-			problem_id: zod.number(),
-			session_id: zod.union([zod.number(), zod.null()]).optional(),
-			parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
-			scalarization_options: zod
-				.union([
-					zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
-					zod.null()
-				])
-				.optional(),
-			solver: zod.union([zod.string(), zod.null()]).optional(),
-			solver_options: zod
-				.union([
-					zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
-					zod.null()
-				])
-				.optional(),
-			preference: zod
-				.object({
-					preference_type: zod
-						.literal('reference_point')
-						.default(deleteProblemProblemProblemIdDeleteBodyOnePreferencePreferenceTypeDefault),
-					aspiration_levels: zod.record(zod.string(), zod.number())
-				})
-				.optional()
-				.describe('Model for representing a reference point type of preference.')
-		})
-		.describe('Model of the request to the reference point method.'),
-	zod
-		.object({
-			problem_id: zod.number(),
-			session_id: zod.union([zod.number(), zod.null()]).optional(),
-			parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
-			representative_solutions_id: zod
-				.number()
-				.describe('The id of the representative solutions to be used.'),
-			current_iteration: zod.number().describe('The number of the current iteration.'),
-			iterations_left: zod.number().describe('The number of iterations left.'),
-			selected_point: zod
-				.union([zod.record(zod.string(), zod.number()), zod.null()])
-				.describe(
-					'The selected intermediate point. If first iteration, set this to be the (approximated) nadir point. If not set, then the point is assumed to be the nadir point of the current approximating set.'
-				),
-			reachable_point_indices: zod
-				.array(zod.number())
-				.describe(
-					'The indices indicating the point on the non-dominated set that are reachable from the currently selected point.'
-				),
-			number_of_intermediate_points: zod
-				.number()
-				.describe('The number of intermediate points to be generated.')
-		})
-		.describe('Model of the request to the E-NAUTILUS method.'),
-	zod
-		.object({
-			name: zod.string(),
-			description: zod.union([zod.string(), zod.null()]).optional(),
-			solution_data: zod.record(zod.string(), zod.array(zod.number())),
-			ideal: zod.record(zod.string(), zod.number()),
-			nadir: zod.record(zod.string(), zod.number()),
-			problem_id: zod.number()
-		})
-		.describe('Model of the request to the representative solution set.'),
-	zod
-		.object({
-			info: zod.union([zod.string(), zod.null()]).optional()
-		})
-		.describe('Model of the request to create a new session.'),
-	zod.null()
-]);
-
-/**
  * Return a Problem as a serialized JSON object suitable for download/re-upload.
  * @summary Get Problem Json
  */
 export const GetProblemJsonProblemProblemIdJsonGetParams = zod.object({
-	problem_id: zod.number()
+	problem_id: zod.union([zod.number(), zod.null()])
 });
 
 export const getProblemJsonProblemProblemIdJsonGetBodyOnePreferencePreferenceTypeDefault = `reference_point`;
@@ -3268,16 +3575,6 @@ export const GetProblemJsonProblemProblemIdJsonGetBody = zod.union([
 		.describe('Model of the request to the E-NAUTILUS method.'),
 	zod
 		.object({
-			name: zod.string(),
-			description: zod.union([zod.string(), zod.null()]).optional(),
-			solution_data: zod.record(zod.string(), zod.array(zod.number())),
-			ideal: zod.record(zod.string(), zod.number()),
-			nadir: zod.record(zod.string(), zod.number()),
-			problem_id: zod.number()
-		})
-		.describe('Model of the request to the representative solution set.'),
-	zod
-		.object({
 			info: zod.union([zod.string(), zod.null()]).optional()
 		})
 		.describe('Model of the request to create a new session.'),
@@ -3290,6 +3587,10 @@ export const GetProblemJsonProblemProblemIdJsonGetResponse = zod.unknown();
  * Creates a new interactive session.
  * @summary Create New Session
  */
+export const CreateNewSessionSessionNewPostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const CreateNewSessionSessionNewPostBody = zod
 	.object({
 		info: zod.union([zod.string(), zod.null()]).optional()
@@ -3356,6 +3657,10 @@ Returns:
         once.
  * @summary Solve Solutions
  */
+export const SolveSolutionsMethodRpmSolvePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const solveSolutionsMethodRpmSolvePostBodyPreferencePreferenceTypeDefault = `reference_point`;
 
 export const SolveSolutionsMethodRpmSolvePostBody = zod
@@ -3471,6 +3776,10 @@ export const SolveSolutionsMethodRpmSolvePostResponse = zod
  * Solve the problem using the NIMBUS method.
  * @summary Solve Solutions
  */
+export const SolveSolutionsMethodNimbusSolvePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const solveSolutionsMethodNimbusSolvePostBodyPreferencePreferenceTypeDefault = `reference_point`;
 export const solveSolutionsMethodNimbusSolvePostBodyNumDesiredDefault = 1;
 
@@ -3641,6 +3950,10 @@ export const SolveSolutionsMethodNimbusSolvePostResponse = zod
  * Initialize the problem for the NIMBUS method.
  * @summary Initialize
  */
+export const InitializeMethodNimbusInitializePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const initializeMethodNimbusInitializePostBodyStartingPointOnePreferenceTypeDefault = `reference_point`;
 
 export const InitializeMethodNimbusInitializePostBody = zod
@@ -3808,6 +4121,10 @@ export const InitializeMethodNimbusInitializePostResponse = zod
  * Save solutions.
  * @summary Save
  */
+export const SaveMethodNimbusSavePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const SaveMethodNimbusSavePostBody = zod
 	.object({
 		problem_id: zod.number(),
@@ -3845,6 +4162,10 @@ export const SaveMethodNimbusSavePostResponse = zod
  * Solve intermediate solutions by forwarding the request to generic intermediate endpoint with context nimbus.
  * @summary Solve Nimbus Intermediate
  */
+export const SolveNimbusIntermediateMethodNimbusIntermediatePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const solveNimbusIntermediateMethodNimbusIntermediatePostBodyNumDesiredDefault = 1;
 
 export const SolveNimbusIntermediateMethodNimbusIntermediatePostBody = zod
@@ -4019,6 +4340,10 @@ export const SolveNimbusIntermediateMethodNimbusIntermediatePostResponse = zod
  * Get the latest NIMBUS state if it exists, or initialize a new one if it doesn't.
  * @summary Get Or Initialize
  */
+export const GetOrInitializeMethodNimbusGetOrInitializePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const getOrInitializeMethodNimbusGetOrInitializePostBodyStartingPointOnePreferenceTypeDefault = `reference_point`;
 
 export const GetOrInitializeMethodNimbusGetOrInitializePostBody = zod
@@ -4547,6 +4872,10 @@ Returns:
     NIMBUSFinalizeResponse: Response containing info on the final solution.
  * @summary Finalize Nimbus
  */
+export const FinalizeNimbusMethodNimbusFinalizePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const FinalizeNimbusMethodNimbusFinalizePostBody = zod
 	.object({
 		problem_id: zod.number(),
@@ -4690,6 +5019,10 @@ Returns:
     NIMBUSDeleteSaveResponse: Response acknowledging the deletion of save and other useful info.
  * @summary Delete Save
  */
+export const DeleteSaveMethodNimbusDeleteSavePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const DeleteSaveMethodNimbusDeleteSavePostBody = zod
 	.object({
 		state_id: zod.number().describe('The ID of the save state.'),
@@ -4718,6 +5051,10 @@ Args:
     context (Annotated[SessionContext, Depends]): The session context.
  * @summary Solve Intermediate
  */
+export const SolveIntermediateMethodGenericIntermediatePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const solveIntermediateMethodGenericIntermediatePostBodyNumDesiredDefault = 1;
 
 export const SolveIntermediateMethodGenericIntermediatePostBody = zod
@@ -4948,6 +5285,10 @@ Returns:
     UtopiaResponse: the map for the forest, to be rendered in frontend
  * @summary Get Utopia Data
  */
+export const GetUtopiaDataUtopiaPostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const GetUtopiaDataUtopiaPostBody = zod
 	.object({
 		problem_id: zod.number().describe('Problem for which the map is generated'),
@@ -5677,6 +6018,10 @@ export const RevertIterationGnimbusRevertIterationPostResponse = zod.unknown();
  * Steps the E-NAUTILUS method.
  * @summary Step
  */
+export const StepMethodEnautilusStepPostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const StepMethodEnautilusStepPostBody = zod
 	.object({
 		problem_id: zod.number(),
@@ -5909,6 +6254,10 @@ Raises:
     HTTPException: 404 if referenced states/solutions not found.
  * @summary Finalize Enautilus
  */
+export const FinalizeEnautilusMethodEnautilusFinalizePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const FinalizeEnautilusMethodEnautilusFinalizePostBody = zod
 	.object({
 		problem_id: zod.number(),
@@ -6002,6 +6351,10 @@ export const GetSessionTreeMethodEnautilusSessionTreeSessionIdGetParams = zod.ob
 	session_id: zod.number()
 });
 
+export const GetSessionTreeMethodEnautilusSessionTreeSessionIdGetQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
 export const getSessionTreeMethodEnautilusSessionTreeSessionIdGetBodyOnePreferencePreferenceTypeDefault = `reference_point`;
 
 export const GetSessionTreeMethodEnautilusSessionTreeSessionIdGetBody = zod.union([
@@ -6061,16 +6414,6 @@ export const GetSessionTreeMethodEnautilusSessionTreeSessionIdGetBody = zod.unio
 				.describe('The number of intermediate points to be generated.')
 		})
 		.describe('Model of the request to the E-NAUTILUS method.'),
-	zod
-		.object({
-			name: zod.string(),
-			description: zod.union([zod.string(), zod.null()]).optional(),
-			solution_data: zod.record(zod.string(), zod.array(zod.number())),
-			ideal: zod.record(zod.string(), zod.number()),
-			nadir: zod.record(zod.string(), zod.number()),
-			problem_id: zod.number()
-		})
-		.describe('Model of the request to the representative solution set.'),
 	zod
 		.object({
 			info: zod.union([zod.string(), zod.null()]).optional()
@@ -6255,6 +6598,103 @@ export const SimulateMethodEnautilusSimulatePostResponse = zod
 		final_intermediate_point: zod.record(zod.string(), zod.number())
 	})
 	.describe('Result of greedy E-NAUTILUS simulation.');
+
+/**
+ * Store site selection metadata for a problem.
+
+The authenticated user must own the problem.
+ * @summary Load Metadata
+ */
+export const loadMetadataSiteSelectionLoadMetadataPostBodyCoverageThresholdDefault = 15;
+
+export const LoadMetadataSiteSelectionLoadMetadataPostBody = zod
+	.object({
+		problem_id: zod.number(),
+		sites: zod.array(zod.record(zod.string(), zod.unknown())),
+		nodes: zod.array(zod.record(zod.string(), zod.unknown())),
+		travel_time_matrix: zod.array(zod.array(zod.number())),
+		site_variable_symbols: zod.array(zod.string()),
+		coverage_variable_symbols: zod.union([zod.array(zod.string()), zod.null()]).optional(),
+		coverage_threshold: zod
+			.number()
+			.default(loadMetadataSiteSelectionLoadMetadataPostBodyCoverageThresholdDefault)
+	})
+	.describe('Request body for loading site selection metadata.');
+
+export const loadMetadataSiteSelectionLoadMetadataPostResponseMetadataTypeDefault = `site_selection_metadata`;
+export const loadMetadataSiteSelectionLoadMetadataPostResponseCoverageThresholdDefault = 15;
+
+export const LoadMetadataSiteSelectionLoadMetadataPostResponse = zod
+	.object({
+		id: zod.union([zod.number(), zod.null()]).optional(),
+		metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+		metadata_type: zod
+			.string()
+			.default(loadMetadataSiteSelectionLoadMetadataPostResponseMetadataTypeDefault),
+		sites_json: zod
+			.string()
+			.describe('JSON array: [{name, node, lat, lon}, ...] one per site variable'),
+		nodes_json: zod.string().describe('JSON array: [{name, lat, lon, size}, ...] one per map node'),
+		travel_time_matrix_json: zod
+			.string()
+			.describe('JSON: 2D list[list[float]], shape [n_nodes, n_nodes]'),
+		site_variable_symbols: zod
+			.array(zod.string())
+			.describe('Ordered list of site variable symbols matching sites_json positions'),
+		coverage_variable_symbols: zod
+			.union([zod.array(zod.string()), zod.null()])
+			.optional()
+			.describe('Ordered list of coverage variable symbols matching nodes_json positions, or None'),
+		coverage_threshold: zod
+			.number()
+			.default(loadMetadataSiteSelectionLoadMetadataPostResponseCoverageThresholdDefault)
+			.describe('Threshold for coverage edges (e.g., minutes, km)')
+	})
+	.describe(
+		'A problem metadata class to hold site selection problem specific information.\n\nStores geographic data and variable mappings needed to visualize binary\nsite-selection solutions on a map (e.g., clinic placement, facility location).'
+	);
+
+/**
+ * Build Leaflet-compatible map data from a site selection solution.
+
+Reads site selection metadata from the DB and extracts variable values
+from the provided solution to determine node colors and coverage edges.
+ * @summary Build Map
+ */
+export const BuildMapSiteSelectionMapPostBody = zod
+	.object({
+		problem_id: zod.number(),
+		optimal_variables: zod.record(zod.string(), zod.unknown())
+	})
+	.describe('Request body for building the site selection map.');
+
+export const BuildMapSiteSelectionMapPostResponse = zod
+	.object({
+		nodes: zod.array(
+			zod
+				.object({
+					name: zod.string(),
+					lat: zod.number(),
+					lon: zod.number(),
+					size: zod.number(),
+					color: zod.string(),
+					tooltip: zod.string()
+				})
+				.describe('A node marker on the map.')
+		),
+		edges: zod.array(
+			zod
+				.object({
+					from_lat: zod.number(),
+					from_lon: zod.number(),
+					to_lat: zod.number(),
+					to_lon: zod.number()
+				})
+				.describe('A coverage connection edge between two nodes.')
+		),
+		center: zod.array(zod.number())
+	})
+	.describe('Response body for the site selection map endpoint.');
 
 /**
  * Vote for a band using this endpoint.

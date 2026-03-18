@@ -6,7 +6,7 @@ import type {
 	ProblemInfo,
 	VariableDB
 } from '$lib/gen/models';
-import { addProblemJsonProblemAddJsonPost, addProblemProblemAddPost, getProblemProblemGetPost } from '$lib/gen/endpoints/DESDEOFastAPI';
+import { addProblemJsonProblemAddJsonPost, addProblemProblemAddPost, getProblemProblemProblemIdGet } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 export type ObjectivePayload = Omit<ObjectiveDB, 'func'> & {
 	func: ObjectiveDB['func'] | string | null;
@@ -70,7 +70,7 @@ export async function uploadProblemJson(
 
 export async function fetchProblem(problemId: number): Promise<ProblemResponse> {
 	try {
-		const response = await getProblemProblemGetPost({ problem_id: problemId });
+		const response = await getProblemProblemProblemIdGet(problemId);
 
 		if (response.status !== 200) {
 			return { ok: false, error: 'Failed to fetch problem.', status: response.status };

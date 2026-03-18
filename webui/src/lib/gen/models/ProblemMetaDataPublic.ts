@@ -7,6 +7,7 @@
  */
 import type { ForestProblemMetaData } from './ForestProblemMetaData';
 import type { RepresentativeNonDominatedSolutions } from './RepresentativeNonDominatedSolutions';
+import type { SiteSelectionMetaData } from './SiteSelectionMetaData';
 
 /**
  * Response model for ProblemMetaData.
@@ -15,4 +16,5 @@ export interface ProblemMetaDataPublic {
 	problem_id: number;
 	forest_metadata: ForestProblemMetaData[] | null;
 	representative_nd_metadata: RepresentativeNonDominatedSolutions[] | null;
+	site_selection_metadata: SiteSelectionMetaData[] | null;
 }

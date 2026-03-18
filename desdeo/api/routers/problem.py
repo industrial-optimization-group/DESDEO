@@ -16,6 +16,7 @@ from desdeo.api.models import (
     ProblemMetaDataGetRequest,
     ProblemSelectSolverRequest,
     RepresentativeNonDominatedSolutions,
+    SiteSelectionMetaData,
     SolverSelectionMetadata,
     User,
     UserRole,
@@ -88,6 +89,7 @@ def get_problems_info(user: Annotated[User, Depends(get_current_user)]) -> list[
     """
     return user.problems
 
+
 @router.get("/{problem_id}")
 def get_problem(
     problem_id: int,
@@ -109,6 +111,7 @@ def get_problem(
          ProblemInfo: detailed information on the requested problem.
     """
     return context.problem_db
+
 
 @router.post("/add")
 def add_problem(
@@ -199,7 +202,9 @@ def add_problem_json(
 def get_metadata(
     request: ProblemMetaDataGetRequest,
     context: Annotated[SessionContext, Depends(SessionContextGuard(require=[]))],
-) -> list[ForestProblemMetaData | RepresentativeNonDominatedSolutions | SolverSelectionMetadata]:
+) -> list[
+    ForestProblemMetaData | RepresentativeNonDominatedSolutions | SolverSelectionMetadata | SiteSelectionMetaData
+]:
     """Fetch specific metadata for a specific problem.
 
     Fetch specific metadata for a specific problem. See all the possible
@@ -350,6 +355,7 @@ def add_representative_solution_set(
         ideal=repr_metadata.ideal,
         nadir=repr_metadata.nadir,
     )
+
 
 @router.get("/{problem_id}/all_representative_solution_sets")
 def get_all_representative_solution_sets(

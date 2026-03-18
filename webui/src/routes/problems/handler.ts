@@ -5,8 +5,9 @@ import { getProblemJsonProblemProblemIdJsonGet } from '$lib/gen/endpoints/DESDEO
 import { getMetadataProblemGetMetadataPost } from '$lib/gen/endpoints/DESDEOFastAPI';
 import { getAvailableSolversProblemAssignSolverGet } from '$lib/gen/endpoints/DESDEOFastAPI';
 import { selectSolverProblemAssignSolverPost } from '$lib/gen/endpoints/DESDEOFastAPI';
-import { addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPost } from '$lib/gen/endpoints/DESDEOFastAPI';
-import type { RepresentativeSolutionSetRequest } from '$lib/gen/models';
+import { addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPost } from '$lib/gen/endpoints/DESDEOFastAPI';
+import { loadMetadataSiteSelectionLoadMetadataPost } from '$lib/gen/endpoints/DESDEOFastAPI';
+import type { RepresentativeSolutionSetBase, SiteSelectionMetaDataRequest } from '$lib/gen/models';
 
 export async function deleteProblem(problemId: number): Promise<boolean> {
 	const response: deleteProblemProblemProblemIdDeleteResponse =
@@ -76,11 +77,25 @@ export async function assignSolver(problemId: number, solver: string): Promise<b
 	return true;
 }
 
+export async function uploadSiteSelectionMetadata(
+	payload: SiteSelectionMetaDataRequest
+): Promise<boolean> {
+	const response = await loadMetadataSiteSelectionLoadMetadataPost(payload);
+
+	if (response.status !== 200) {
+		console.error('Failed to upload site selection metadata:', response.status);
+		return false;
+	}
+
+	return true;
+}
+
 export async function addRepresentativeSolutionSet(
-	payload: RepresentativeSolutionSetRequest
+	problemId: number,
+	payload: RepresentativeSolutionSetBase
 ): Promise<boolean> {
 	const response =
-		await addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPost(payload);
+		await addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPost(problemId, payload);
 
 	if (response.status !== 200) {
 		console.error('Failed to add representative solution set:', response.status);
