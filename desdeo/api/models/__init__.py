@@ -2,6 +2,8 @@
 
 __all__ = [  # noqa: RUF022
     "Bounds",
+    "ConstrainedVariantRequest",
+    "ConstrainedVariantResponse",
     "ConstantDB",
     "ConstraintDB",
     "CreateSessionRequest",
@@ -80,6 +82,7 @@ __all__ = [  # noqa: RUF022
     "UserPublic",
     "UserRole",
     "VariableDB",
+    "VariableFixing",
     "ProblemMetaDataDB",
     "BaseProblemMetaData",
     "ForestProblemMetaData",
@@ -235,6 +238,8 @@ from .preference import (
 )
 from .problem import (
     ConstantDB,
+    ConstrainedVariantRequest,
+    ConstrainedVariantResponse,
     ConstraintDB,
     DiscreteRepresentationDB,
     ExtraFunctionDB,
@@ -255,6 +260,7 @@ from .problem import (
     TensorConstantDB,
     TensorVariableDB,
     VariableDB,
+    VariableFixing,
 )
 from .reference_point_method import RPMSolveRequest
 from .session import (

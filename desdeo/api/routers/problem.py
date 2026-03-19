@@ -8,6 +8,8 @@ from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
 from desdeo.api.models import (
+    ConstrainedVariantRequest,
+    ConstrainedVariantResponse,
     ForestProblemMetaData,
     ProblemDB,
     ProblemInfo,
@@ -28,6 +30,7 @@ from desdeo.api.models.representative_solution import (
 )
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.problem import Problem
+from desdeo.problem.schema import Constraint, ConstraintTypeEnum
 from desdeo.tools.utils import available_solvers
 
 from .utils import ContextField, SessionContext, SessionContextGuard
@@ -455,7 +458,11 @@ def delete_problem(
     problem_id: int,
     context: Annotated[SessionContext, Depends(SessionContextGuard())],
 ):
-    """Delete a problem by its ID."""
+    """Delete a problem by its ID.
+
+    Temporary problems (is_temporary=True) can be deleted by their owner.
+    Non-temporary problems can only be deleted by admin users.
+    """
     db_session: Session = context.db_session
     user = context.user
 
@@ -464,7 +471,7 @@ def delete_problem(
         raise HTTPException(status_code=404, detail=f"Problem with ID {problem_id} not found.")
 
     if problem_db.user_id != user.id:
-        raise HTTPException(status_code=401, detail="Unauthorized user.")
+        raise HTTPException(status_code=403, detail="You do not own this problem.")
 
     db_session.delete(problem_db)
     db_session.commit()
@@ -488,3 +495,63 @@ def get_problem_json(
 
     problem = Problem.from_problemdb(problem_db)
     return JSONResponse(content=json.loads(problem.model_dump_json()), status_code=status.HTTP_200_OK)
+
+
+@router.post("/{problem_id}/constrained_variant")
+def create_constrained_variant(
+    problem_id: int,
+    request: ConstrainedVariantRequest,
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]))],
+) -> ConstrainedVariantResponse:
+    """Create a derived problem with additional EQ constraints fixing variables to specific values.
+
+    The original problem is not modified. The variant is stored as a new ProblemDB row
+    with parent_problem_id set to the original.
+    """
+    db_session: Session = context.db_session
+    user = context.user
+    problem_db = context.problem_db
+
+    # Reconstruct in-memory Problem
+    problem = Problem.from_problemdb(problem_db)
+
+    # Validate variable symbols and build constraints
+    all_var_symbols = [v.symbol for v in problem.variables]
+    new_constraints = []
+    for i, fixing in enumerate(request.variable_fixings):
+        if fixing.variable_symbol not in all_var_symbols:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Variable symbol '{fixing.variable_symbol}' not found in problem. Available: {all_var_symbols}",
+            )
+        new_constraints.append(
+            Constraint(
+                name=fixing.constraint_name or f"fix_{fixing.variable_symbol}_to_{fixing.fixed_value}",
+                symbol=f"_fix_{i}",
+                cons_type=ConstraintTypeEnum.EQ,
+                func=["Add", fixing.variable_symbol, -fixing.fixed_value],
+                is_linear=True,
+            )
+        )
+
+    # Create the variant (immutable copy with added constraints)
+    variant = problem.add_constraints(new_constraints)
+    variant_name = request.name or f"{problem_db.name} [variant]"
+    # Update the name on the frozen model
+    variant = variant.model_copy(update={"name": variant_name})
+
+    # Persist
+    variant_db = ProblemDB.from_problem(variant, user=user)
+    variant_db.is_temporary = request.is_temporary
+    variant_db.parent_problem_id = problem_id
+    db_session.add(variant_db)
+    db_session.commit()
+    db_session.refresh(variant_db)
+
+    return ConstrainedVariantResponse(
+        problem_id=variant_db.id,
+        parent_problem_id=problem_id,
+        name=variant_name,
+        is_temporary=variant_db.is_temporary,
+        n_constraints_added=len(new_constraints),
+    )

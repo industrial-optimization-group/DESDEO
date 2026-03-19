@@ -67,6 +67,32 @@ class ProblemAddFromJSONRequest(SQLModel):
     json_file: UploadFile
 
 
+class VariableFixing(BaseModel):
+    """Fix a single variable to a specific value via an EQ constraint."""
+
+    variable_symbol: str
+    fixed_value: float
+    constraint_name: str | None = None
+
+
+class ConstrainedVariantRequest(BaseModel):
+    """Request to create a derived problem with additional EQ constraints fixing variables."""
+
+    variable_fixings: list[VariableFixing]
+    name: str | None = None
+    is_temporary: bool = True
+
+
+class ConstrainedVariantResponse(BaseModel):
+    """Response after creating a constrained variant."""
+
+    problem_id: int
+    parent_problem_id: int
+    name: str
+    is_temporary: bool
+    n_constraints_added: int
+
+
 class ProblemInfo(ProblemBase):
     """Problem info request return data."""
 
@@ -129,6 +155,10 @@ class ProblemDB(ProblemBase, table=True):
     is_twice_differentiable: bool | None = Field(nullable=True, default=None)
     scenario_keys: list[str] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
     variable_domain: VariableDomainTypeEnum = Field()
+
+    # Variant tracking
+    is_temporary: bool = Field(default=False)
+    parent_problem_id: int | None = Field(default=None, foreign_key="problemdb.id")
 
     # Back populates
     user: "User" = Relationship(back_populates="problems")
