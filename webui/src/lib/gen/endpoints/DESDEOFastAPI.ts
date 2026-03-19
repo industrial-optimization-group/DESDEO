@@ -13,6 +13,8 @@ import type {
 	BodyAddProblemJsonProblemAddJsonPost,
 	BodyLoginLoginPost,
 	ConfigureGdmGdmScoreBandsConfigurePostParams,
+	ConstrainedVariantRequest,
+	ConstrainedVariantResponse,
 	CreateNewSessionSessionNewPostParams,
 	CreateSessionRequest,
 	DeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteParams,
@@ -579,6 +581,9 @@ export const getProblemProblemProblemIdGet = async (
 
 /**
  * Delete a problem by its ID.
+
+Temporary problems (is_temporary=True) can be deleted by their owner.
+Non-temporary problems can only be deleted by admin users.
  * @summary Delete Problem
  */
 export type deleteProblemProblemProblemIdDeleteResponse204 = {
@@ -1267,6 +1272,58 @@ export const getProblemJsonProblemProblemIdJsonGet = async (
 			method: 'GET',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
 			body: JSON.stringify(rPMSolveRequestENautilusStepRequestCreateSessionRequestNull)
+		}
+	);
+};
+
+/**
+ * Create a derived problem with additional EQ constraints fixing variables to specific values.
+
+The original problem is not modified. The variant is stored as a new ProblemDB row
+with parent_problem_id set to the original.
+ * @summary Create Constrained Variant
+ */
+export type createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse200 = {
+	data: ConstrainedVariantResponse;
+	status: 200;
+};
+
+export type createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type createConstrainedVariantProblemProblemIdConstrainedVariantPostResponseSuccess =
+	createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse200 & {
+		headers: Headers;
+	};
+export type createConstrainedVariantProblemProblemIdConstrainedVariantPostResponseError =
+	createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse422 & {
+		headers: Headers;
+	};
+
+export type createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse =
+	| createConstrainedVariantProblemProblemIdConstrainedVariantPostResponseSuccess
+	| createConstrainedVariantProblemProblemIdConstrainedVariantPostResponseError;
+
+export const getCreateConstrainedVariantProblemProblemIdConstrainedVariantPostUrl = (
+	problemId: number | null
+) => {
+	return `http://localhost:8000/problem/${problemId}/constrained_variant`;
+};
+
+export const createConstrainedVariantProblemProblemIdConstrainedVariantPost = async (
+	problemId: number | null,
+	constrainedVariantRequest: ConstrainedVariantRequest,
+	options?: RequestInit
+): Promise<createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse> => {
+	return customFetch<createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse>(
+		getCreateConstrainedVariantProblemProblemIdConstrainedVariantPostUrl(problemId),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(constrainedVariantRequest)
 		}
 	);
 };

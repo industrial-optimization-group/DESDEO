@@ -1586,6 +1586,9 @@ export const GetProblemProblemProblemIdGetResponse = zod
 
 /**
  * Delete a problem by its ID.
+
+Temporary problems (is_temporary=True) can be deleted by their owner.
+Non-temporary problems can only be deleted by admin users.
  * @summary Delete Problem
  */
 export const DeleteProblemProblemProblemIdDeleteParams = zod.object({
@@ -3582,6 +3585,47 @@ export const GetProblemJsonProblemProblemIdJsonGetBody = zod.union([
 ]);
 
 export const GetProblemJsonProblemProblemIdJsonGetResponse = zod.unknown();
+
+/**
+ * Create a derived problem with additional EQ constraints fixing variables to specific values.
+
+The original problem is not modified. The variant is stored as a new ProblemDB row
+with parent_problem_id set to the original.
+ * @summary Create Constrained Variant
+ */
+export const CreateConstrainedVariantProblemProblemIdConstrainedVariantPostParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()])
+});
+
+export const createConstrainedVariantProblemProblemIdConstrainedVariantPostBodyIsTemporaryDefault = true;
+
+export const CreateConstrainedVariantProblemProblemIdConstrainedVariantPostBody = zod
+	.object({
+		variable_fixings: zod.array(
+			zod
+				.object({
+					variable_symbol: zod.string(),
+					fixed_value: zod.number(),
+					constraint_name: zod.union([zod.string(), zod.null()]).optional()
+				})
+				.describe('Fix a single variable to a specific value via an EQ constraint.')
+		),
+		name: zod.union([zod.string(), zod.null()]).optional(),
+		is_temporary: zod
+			.boolean()
+			.default(createConstrainedVariantProblemProblemIdConstrainedVariantPostBodyIsTemporaryDefault)
+	})
+	.describe('Request to create a derived problem with additional EQ constraints fixing variables.');
+
+export const CreateConstrainedVariantProblemProblemIdConstrainedVariantPostResponse = zod
+	.object({
+		problem_id: zod.number(),
+		parent_problem_id: zod.number(),
+		name: zod.string(),
+		is_temporary: zod.boolean(),
+		n_constraints_added: zod.number()
+	})
+	.describe('Response after creating a constrained variant.');
 
 /**
  * Creates a new interactive session.
