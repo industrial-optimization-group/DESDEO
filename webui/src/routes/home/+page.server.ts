@@ -1,15 +1,11 @@
-import { z } from "zod";
 import { fail, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { loginLoginPost } from "$lib/gen/endpoints/DESDEOFastAPI";
 import type { BodyLoginLoginPost } from '$lib/gen/models';
 import { redirect, type Actions } from "@sveltejs/kit";
 import { dev } from "$app/environment";
+import { loginSchema } from "./loginSchema";
 
-const loginSchema = z.object({
-    username: z.string(),
-    password: z.string()
-});
 
 export const load = async () => {
     const form = await superValidate(zod4(loginSchema));
@@ -21,6 +17,7 @@ export const actions: Actions = {
     login: async ({request, cookies}) => {
 
         const form = await superValidate(request, zod4(loginSchema));
+        console.log(form);
 
         if (!form.valid) {
             return fail(400, { form });
