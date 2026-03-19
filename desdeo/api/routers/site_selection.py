@@ -68,6 +68,8 @@ class SiteSelectionMapResponse(BaseModel):
     nodes: list[SiteSelectionMapNode]
     edges: list[SiteSelectionMapEdge]
     center: list[float]
+    site_variable_symbols: list[str]
+    site_node_names: list[str]
 
 
 # --- Endpoints ---
@@ -261,4 +263,10 @@ def build_map(
     avg_lat = sum(n.lat for n in nodes_out) / len(nodes_out)
     avg_lon = sum(n.lon for n in nodes_out) / len(nodes_out)
 
-    return SiteSelectionMapResponse(nodes=nodes_out, edges=edges, center=[avg_lat, avg_lon])
+    return SiteSelectionMapResponse(
+        nodes=nodes_out,
+        edges=edges,
+        center=[avg_lat, avg_lon],
+        site_variable_symbols=meta.site_variable_symbols,
+        site_node_names=[s["node"] for s in sites],
+    )

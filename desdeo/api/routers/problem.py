@@ -30,7 +30,7 @@ from desdeo.api.models.representative_solution import (
 )
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.problem import Problem
-from desdeo.problem.schema import Constraint, ConstraintTypeEnum
+from desdeo.problem.schema import Constraint, ConstraintTypeEnum, TensorVariable
 from desdeo.tools.utils import available_solvers
 
 from .utils import ContextField, SessionContext, SessionContextGuard
@@ -515,21 +515,39 @@ def create_constrained_variant(
     # Reconstruct in-memory Problem
     problem = Problem.from_problemdb(problem_db)
 
-    # Validate variable symbols and build constraints
-    all_var_symbols = [v.symbol for v in problem.variables]
+    # Build a mapping from valid variable symbols to their MathJSON reference expression.
+    # Scalar variables: "x" → "x" (plain symbol in MathJSON).
+    # Tensor variables: unrolled names like "sv_5" → ["At", "sv", 5, 1] (indexed access).
+    # Pyomo creates tensor variables with index sets for each dimension of the shape,
+    # so shape [60, 1] needs a 2D index (i, 1). Shape [3, 4] would enumerate all 12
+    # elements as sv_1..sv_12 in row-major order with 1-based Pyomo indices.
+    import itertools
+
+    var_symbol_to_expr: dict[str, str | list] = {}
+    for v in problem.variables:
+        if isinstance(v, TensorVariable):
+            # Enumerate all elements in row-major order (matching solver unrolling convention)
+            ranges = [range(1, dim + 1) for dim in v.shape]
+            for flat_idx, indices in enumerate(itertools.product(*ranges), start=1):
+                var_symbol_to_expr[f"{v.symbol}_{flat_idx}"] = ["At", v.symbol, *indices]
+        else:
+            var_symbol_to_expr[v.symbol] = v.symbol
+
     new_constraints = []
     for i, fixing in enumerate(request.variable_fixings):
-        if fixing.variable_symbol not in all_var_symbols:
+        if fixing.variable_symbol not in var_symbol_to_expr:
             raise HTTPException(
                 status_code=422,
-                detail=f"Variable symbol '{fixing.variable_symbol}' not found in problem. Available: {all_var_symbols}",
+                detail=f"Variable symbol '{fixing.variable_symbol}' not found in problem. "
+                f"Available: {sorted(var_symbol_to_expr.keys())}",
             )
+        var_expr = var_symbol_to_expr[fixing.variable_symbol]
         new_constraints.append(
             Constraint(
                 name=fixing.constraint_name or f"fix_{fixing.variable_symbol}_to_{fixing.fixed_value}",
                 symbol=f"_fix_{i}",
                 cons_type=ConstraintTypeEnum.EQ,
-                func=["Add", fixing.variable_symbol, -fixing.fixed_value],
+                func=["Add", var_expr, -fixing.fixed_value],
                 is_linear=True,
             )
         )
@@ -547,6 +565,24 @@ def create_constrained_variant(
     db_session.add(variant_db)
     db_session.commit()
     db_session.refresh(variant_db)
+
+    # Copy solver selection metadata from parent so the variant uses the same solver
+    if problem_db.problem_metadata is not None:
+        parent_solver_meta = [
+            m for m in problem_db.problem_metadata.all_metadata if m.metadata_type == "solver_selection_metadata"
+        ]
+        if parent_solver_meta:
+            variant_metadata = ProblemMetaDataDB(problem_id=variant_db.id)
+            db_session.add(variant_metadata)
+            db_session.commit()
+            db_session.refresh(variant_metadata)
+
+            variant_solver = SolverSelectionMetadata(
+                metadata_id=variant_metadata.id,
+                solver_string_representation=parent_solver_meta[-1].solver_string_representation,
+            )
+            db_session.add(variant_solver)
+            db_session.commit()
 
     return ConstrainedVariantResponse(
         problem_id=variant_db.id,

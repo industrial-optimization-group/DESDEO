@@ -6736,7 +6736,9 @@ export const BuildMapSiteSelectionMapPostResponse = zod
 				})
 				.describe('A coverage connection edge between two nodes.')
 		),
-		center: zod.array(zod.number())
+		center: zod.array(zod.number()),
+		site_variable_symbols: zod.array(zod.string()),
+		site_node_names: zod.array(zod.string())
 	})
 	.describe('Response body for the site selection map endpoint.');
 

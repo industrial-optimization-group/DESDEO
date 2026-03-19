@@ -15,4 +15,6 @@ export interface SiteSelectionMapResponse {
 	nodes: SiteSelectionMapNode[];
 	edges: SiteSelectionMapEdge[];
 	center: number[];
+	site_variable_symbols: string[];
+	site_node_names: string[];
 }
