@@ -126,7 +126,7 @@ def test_delete_problem_unauthorized(client: TestClient, session_and_user: dict)
         headers={"Authorization": f"Bearer {other_token}"},
     )
 
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.status_code == status.HTTP_403_FORBIDDEN
 
     # Problem should still exist
     assert session.get(ProblemDB, problem_id) is not None

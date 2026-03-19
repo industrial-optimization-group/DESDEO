@@ -126,8 +126,7 @@ def test_constrained_variant_wrong_owner(client: TestClient, session_and_user: d
     }
 
     response = post_json(client, f"/problem/{other_problem.id}/constrained_variant", payload, access_token)
-    # SessionContextGuard returns 400 (context missing) when user doesn't own the problem
-    assert response.status_code == 400
+    assert response.status_code == 403
 
 
 def test_constrained_variant_not_found(client: TestClient, session_and_user: dict):
@@ -139,8 +138,7 @@ def test_constrained_variant_not_found(client: TestClient, session_and_user: dic
     }
 
     response = post_json(client, "/problem/99999/constrained_variant", payload, access_token)
-    # SessionContextGuard returns 400 (context missing) when problem doesn't exist
-    assert response.status_code == 400
+    assert response.status_code == 404
 
 
 def test_constrained_variant_preserves_original(client: TestClient, session_and_user: dict):

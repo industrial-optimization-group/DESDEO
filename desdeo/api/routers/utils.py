@@ -89,19 +89,28 @@ def fetch_user_problem(user: User, request: RequestType, session: Session) -> Pr
         session (Session): the database session from which to fetch the problem.
 
     Raises:
-        HTTPException: a problem with the given id (`request.problem_id`) could not be found (404).
+        HTTPException: 404 if the problem does not exist, 403 if it belongs to another user.
 
     Returns:
-        Problem: the instance of `ProblemDB` with the given id.
+        ProblemDB | None: the instance of `ProblemDB` with the given id, or None if no problem_id was given.
     """
     if request.problem_id is None:
         return None
 
-    statement = select(ProblemDB).where(
-        ProblemDB.user_id == user.id,
-        ProblemDB.id == request.problem_id,
-    )
-    return session.exec(statement).first()
+    problem_db = session.get(ProblemDB, request.problem_id)
+    if problem_db is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Problem with ID {request.problem_id} not found.",
+        )
+
+    if problem_db.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Access to problem with ID {request.problem_id} denied.",
+        )
+
+    return problem_db
 
 
 def fetch_parent_state(
@@ -265,6 +274,6 @@ class SessionContextGuard:
         for field in self.require:
             if getattr(context, field.value) is None:
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"{field} context missing.",
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"{field} not found or not provided.",
                 )
