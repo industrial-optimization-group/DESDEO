@@ -5,7 +5,6 @@
 	import GalleryVerticalEndIcon from '@lucide/svelte/icons/orbit';
 	import main_image from '$lib/assets/main.jpg';
 	import { superForm } from 'sveltekit-superforms';
-	import { invalid } from '@sveltejs/kit';
 	import LoadingSpinner from '$lib/components/custom/notifications/loading-spinner.svelte';
 	import { zod4 } from 'sveltekit-superforms/adapters';
 	import { loginSchema } from './loginSchema';
