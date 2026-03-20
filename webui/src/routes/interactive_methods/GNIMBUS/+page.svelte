@@ -683,6 +683,11 @@
 	);
 </script>
 
+<svelte:head>
+	<title>GNIMBUS | DESDEO</title>
+	<meta name="description" content="This page implements the Group NIMBUS interactive multiobjective optimization method in DESDEO" />
+</svelte:head>
+
 {#if $isLoading}
 	<LoadingSpinner />
 {/if}

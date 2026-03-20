@@ -197,6 +197,11 @@
 });
 </script>
 
+<svelte:head>
+	<title>Select Method | DESDEO</title>
+	<meta name="description" content="This page displays a list of available optimization methods in DESDEO and allows the user to select a method for a specific problem" />
+</svelte:head>
+
 <div class="container mx-auto px-4 py-8">
 	<div class="mb-8 space-y-4">
 		<div class="flex items-center justify-between">
