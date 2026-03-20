@@ -73,6 +73,11 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Groups | DESDEO</title>
+	<meta name="description" content="a list of user groups in DESDEO" />
+</svelte:head>
+
 <div class="px-8">
 	<h1 class="primary mb-2 pt-4 text-left text-lg font-semibold text-pretty lg:text-xl">
 		User Groups

@@ -550,6 +550,11 @@
 	});
 </script>
 
+<svelte:head>
+	<title>EMO | DESDEO</title>
+	<meta name="description" content="This page provides an interface for EMO methods from the DESDEO framework" />
+</svelte:head>
+
 <!--
     Template Structure
     ==================

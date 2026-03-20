@@ -729,6 +729,11 @@
 	}
 </script>
 
+<svelte:head>
+	<title>GDM-SCORE-bands | DESDEO</title>
+	<meta name="description" content="Group decision making interface using Score-band method" />
+</svelte:head>
+
 <div class="container mx-auto p-6">
 	{#if $errorMessage}
 		<Alert title="Error" message={$errorMessage} variant="destructive" />

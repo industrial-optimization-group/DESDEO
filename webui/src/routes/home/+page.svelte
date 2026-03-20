@@ -12,10 +12,15 @@
 	let loginError: string | null = null; // whether login is successful or not
 </script>
 
+<svelte:head>
+	<title>Login | DESDEO</title>
+	<meta name="description" content="user login page" />
+</svelte:head>
+
 <div class="grid min-h-svh lg:grid-cols-2">
 	<div class="left-inner-shadow flex flex-col gap-4 p-6 md:p-10">
 		<div class="flex justify-center gap-2 md:justify-start">
-			<a href="##" class="flex items-center gap-2 font-medium">
+			<a href="https://desdeo.it.jyu.fi/" class="flex items-center gap-2 font-medium">
 				<div
 					class="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md"
 				>
@@ -41,7 +46,7 @@
 						<div class="grid gap-3">
 							<div class="flex items-center">
 								<Label for="password">Password</Label>
-								<a href="##" class="ml-auto text-sm underline-offset-4 hover:underline">
+								<a href="/home/forgot-password" class="ml-auto text-sm underline-offset-4 hover:underline">
 									Forgot your password?
 								</a>
 							</div>
@@ -60,7 +65,7 @@
 					</div>
 					<div class="text-center text-sm">
 						Don&apos;t have an account?
-						<a href="##" class="underline underline-offset-4"> Sign up </a>
+						<a href="/home/registration" class="underline underline-offset-4"> Sign up </a>
 						or
 						<a href="/dashboard" class="underline underline-offset-4">
 							explore DESDEO as a guest.
