@@ -51,8 +51,8 @@
 	import MathExpressionRenderer from '$lib/components/ui/MathExpressionRenderer/MathExpressionRenderer.svelte';
 
 	let { data }: PageProps = $props();
-	let problemList = data.problemList;
-	let groupList = data.groupList;
+	let problemList = $derived(data.problemList);
+	let groupList = $derived(data.groupList);
 	let selectedGroup = $state<GroupInfo | undefined>(undefined);
 	let selectedProblem = $state<ProblemInfo | undefined>(undefined);
 
@@ -72,6 +72,11 @@
 		return '';
 	}
 </script>
+
+<svelte:head>
+	<title>Groups | DESDEO</title>
+	<meta name="description" content="a list of user groups in DESDEO" />
+</svelte:head>
 
 <div class="px-8">
 	<h1 class="primary mb-2 pt-4 text-left text-lg font-semibold text-pretty lg:text-xl">
@@ -129,7 +134,7 @@
 													selectedGroup = group;
 													selectedProblem = problem;
 													if (problem) {
-														methodSelection.set(problem.id ?? null, $methodSelection.selectedMethod);
+														methodSelection.setProblem(problem.id ?? null);
 													}
 													await goto(`/methods/initialize?group=${group.id}`);
 												}}

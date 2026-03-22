@@ -1,49 +1,52 @@
 import type { HandleFetch } from '@sveltejs/kit';
+import { refreshAccessTokenRefreshPost } from '$lib/gen/endpoints/DESDEOFastAPI';
+import { dev } from '$app/environment';
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8000';
+// const API = process.env.API_BASE_URL ?? '/';
 
 export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
-  // For SSR requests, ensure cookies are forwarded
-  // The fetch function in hooks automatically includes cookies, but we need to handle 401 refresh
-  
+  // TODO: check that the request originates from our app, instead of being a third party
+  const originalRequest = request.clone();
   let res = await fetch(request);
 
-  // If the request succeeds or it's not a 401, return immediately
-  if (res.status !== 401) {
-    return res;
-  }
+  // No auth errors, assuming either ok or other errors, pass the response back.
+  if (res.status !== 401) return res;
 
-  // 401 Unauthorized - try to refresh the token
-  const refreshToken = event.cookies.get('refresh_token');
-  
-  if (!refreshToken) {
-    // No refresh token available, return the original 401
-    return res;
-  }
+  // 401, try refreshing the access token ONCE and then try again with the original request.
 
-  // Try to refresh with the refresh token cookie
-  const refreshRes = await fetch(`${API_BASE_URL}/refresh`, {
-    method: 'POST',
+  const refreshToken = event.cookies.get("refresh_token");
+
+  if (!refreshToken) return res;
+
+  const response_with_new_cookies = await refreshAccessTokenRefreshPost({
+    fetchImpl: fetch,
     headers: {
-      'Cookie': `refresh_token=${refreshToken}`
-    }
+      cookie: `refresh_token=${refreshToken}`,
+    },
+  } as RequestInit);
+
+  if (response_with_new_cookies.status != 200 || !response_with_new_cookies.data?.access_token) return res;
+
+  // access ok!
+  event.cookies.set("access_token", response_with_new_cookies.data.access_token, {
+    httpOnly: true,
+    secure: !dev,
+    sameSite: "lax",
+    path: "/",
   });
 
-  if (!refreshRes.ok) {
-    return res;
-  }
+  const cookieHeader = event.cookies
+    .getAll()
+    .map(({ name, value }) => `${name}=${value}`)
+    .join("; ");
 
-  const { access_token } = await refreshRes.json();
-  event.cookies.set("access_token", access_token, { 
-    httpOnly: true, 
-    secure: true, 
-    sameSite: "lax", 
-    path: '/' 
+  // try again with new access cookie
+  const retryRequest = new Request(originalRequest, {
+    headers: new Headers({
+      ...Object.fromEntries(request.headers.entries()),
+      cookie: cookieHeader,
+    }),
   });
-
-  // Retry the original request with the new token
-  const retryRequest = request.clone();
-  retryRequest.headers.set('Authorization', `Bearer ${access_token}`);
   res = await fetch(retryRequest);
 
   return res;

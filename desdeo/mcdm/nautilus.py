@@ -7,7 +7,6 @@ TODO: update
 
 from warnings import warn
 
-import numpy as np
 from pydantic import BaseModel, Field
 
 from desdeo.mcdm.nautili import solve_reachable_bounds
@@ -74,13 +73,12 @@ def solve_reachable_solution(
 
     Args:
         problem (Problem): the problem being solved.
-        preference (dict[str, float]): the weights defining the direction of improvement. Must be calculated
+        weights (dict[str, float]): the weights defining the direction of improvement. Must be calculated
             from the preference provided by the DM (weights, ranks, or reference point).
         previous_nav_point (dict[str, float]): the previous navigation point. The reachable solution found
             is always better than the previous navigation point.
         solver (BaseSolver | None, optional): solver to solve the problem.
             If None, then a solver is utilized bases on the problem's properties. Defaults to None.
-        bounds (dict[str, float] | None, optional): the bounds of the problem. Defaults to None.
 
     Returns:
         SolverResults: the results of the projection.
@@ -114,8 +112,8 @@ def solve_reachable_solution(
     problem_w_asf = problem_w_asf.add_constraints(
         [
             Constraint(
-                name=f"_const_{i+1}",
-                symbol=f"_const_{i+1}",
+                name=f"_const_{i + 1}",
+                symbol=f"_const_{i + 1}",
                 func=f"{obj.symbol}_min - {previous_nav_point[obj.symbol] * (-1 if obj.maximize else 1)}",
                 cons_type=ConstraintTypeEnum.LTE,
                 is_linear=obj.is_linear,
@@ -159,7 +157,7 @@ def nautilus_init(problem: Problem, solver: BaseSolver | None = None) -> NAUTILU
     )
 
 
-def nautilus_step(  # NOQA: PLR0913
+def nautilus_step(
     problem: Problem,
     steps_remaining: int,
     step_number: int,
@@ -230,7 +228,7 @@ def __nautilus_all_steps(
     preference: dict,
     previous_responses: list[NAUTILUS_Response],
     solver: BaseSolver | None = None,
-):
+) -> list[NAUTILUS_Response]:
     """Performs all steps of the NAUTILUS method.
 
     NAUTILUS needs to be initialized before calling this function. Once initialized, this function performs all
@@ -243,8 +241,7 @@ def __nautilus_all_steps(
     Args:
         problem (Problem): The problem to be solved.
         steps_remaining (int): The number of steps remaining.
-        preference (dict): The reference point provided by the DM.
-        bounds (dict): The bounds of the problem provided by the DM.
+        preference (dict): The points provided by the DM for defining preference.
         previous_responses (list[NAUTILUS_Response]): The previous responses of the method.
         solver (BaseSolver | None, optional): The solver to use. Defaults to None, in which case the
             algorithm will guess the best solver for the problem.
@@ -266,7 +263,7 @@ def __nautilus_all_steps(
                 steps_remaining=steps_remaining,
                 step_number=step_number,
                 nav_point=nav_point,
-                preference=preference,
+                points=preference,
                 solver=solver,
             )
             first_iteration = False
@@ -290,8 +287,7 @@ def __nautilus_all_steps(
 
 # implement preferential factors for other preference types
 def calculate_preferential_factors():
-    """TODO: implement"""
-    pass
+    """TODO: implement."""
 
 
 def step_back_index(responses: list[NAUTILUS_Response], step_number: int) -> int:
@@ -363,7 +359,7 @@ def ranks_to_weights(ranks: dict[str, int], problem: Problem) -> dict[str, float
     tol = 1e-10
     weights = {}
     for key, rank in ranks.items():
-        max_mult = [obj.maximize for obj in problem.objectives if obj.symbol == key][0]
+        max_mult = next(obj.maximize for obj in problem.objectives if obj.symbol == key)
         max_mult = -1 if max_mult else 1
         weights[key] = rank * (nadir[key] * max_mult - ideal[key] * max_mult + tol)
     return weights
@@ -388,11 +384,11 @@ def points_to_weights(points: dict[str, float], problem: Problem) -> dict[str, f
     weights = {}
     check_sum = 0
     for key, point in points.items():
-        max_mult = [obj.maximize for obj in problem.objectives if obj.symbol == key][0]
+        max_mult = next(obj.maximize for obj in problem.objectives if obj.symbol == key)
         max_mult = -1 if max_mult else 1
         weights[key] = point / 100 * (nadir[key] * max_mult - ideal[key] * max_mult + tol)
         check_sum += point
-    if check_sum != 100:
+    if check_sum != 100:  # noqa: PLR2004
         raise ValueError(f"The sum of the points must be 100. The sum is {check_sum}.")
     return weights
 
@@ -422,13 +418,13 @@ if __name__ == "__main__":
     # calculate reachable solution (direction)
     opt_result = solve_reachable_solution(problem, weights, nav_point)
 
-    assert opt_result.success
+    assert opt_result.success  # noqa: S101
 
     reachable_point = opt_result.optimal_objectives
 
     # update nav point
     nav_point = calculate_navigation_point(problem, nav_point, reachable_point, steps_remaining)
-    print(f"{nav_point=}")
+    print(f"{nav_point=}")  # noqa: T201
 
     # update_bounds
     lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point)
@@ -441,7 +437,7 @@ if __name__ == "__main__":
     # no new preference, reachable point (direction) stays the same
     # update nav point
     nav_point = calculate_navigation_point(problem, nav_point, reachable_point, steps_remaining)
-    print(f"{nav_point=}")
+    print(f"{nav_point=}")  # noqa: T201
 
     # update bounds
     lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point)
@@ -458,13 +454,13 @@ if __name__ == "__main__":
     # calculate reachable solution (direction)
     opt_result = solve_reachable_solution(problem, weights, nav_point)
 
-    assert opt_result.success
+    assert opt_result.success  # noqa: S101
 
     reachable_point = opt_result.optimal_objectives
 
     # update nav point
     nav_point = calculate_navigation_point(problem, nav_point, reachable_point, steps_remaining)
-    print(f"{nav_point=}")
+    print(f"{nav_point=}")  # noqa: T201
 
     # update_bounds
     lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point)

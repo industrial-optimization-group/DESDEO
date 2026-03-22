@@ -95,7 +95,7 @@ def objective_dict_has_all_symbols(problem: Problem, obj_dict: dict[str, float])
     return all(obj.symbol in obj_dict for obj in problem.objectives)
 
 
-def add_asf_nondiff(  # noqa: PLR0913
+def add_asf_nondiff(
     problem: Problem,
     symbol: str,
     reference_point: dict[str, float],
@@ -232,7 +232,7 @@ def add_asf_nondiff(  # noqa: PLR0913
     return problem.add_scalarization(scalarization_function), symbol
 
 
-def add_asf_generic_diff(  # noqa: PLR0913
+def add_asf_generic_diff(
     problem: Problem,
     symbol: str,
     reference_point: dict[str, float],
@@ -384,7 +384,7 @@ def add_asf_generic_diff(  # noqa: PLR0913
     return _problem.add_constraints(constraints), symbol
 
 
-def add_asf_generic_nondiff(  # noqa: PLR0913
+def add_asf_generic_nondiff(
     problem: Problem,
     symbol: str,
     reference_point: dict[str, float],
@@ -523,7 +523,7 @@ def add_asf_generic_nondiff(  # noqa: PLR0913
     return problem.add_scalarization(scalarization_function), symbol
 
 
-def add_nimbus_sf_diff(  # noqa: PLR0913
+def add_nimbus_sf_diff(
     problem: Problem,
     symbol: str,
     classifications: dict[str, tuple[str, float | None]],
@@ -785,7 +785,7 @@ def add_nimbus_sf_diff(  # noqa: PLR0913
     return _problem.add_constraints(constraints), symbol
 
 
-def add_nimbus_sf_nondiff(  # noqa: PLR0913
+def add_nimbus_sf_nondiff(
     problem: Problem,
     symbol: str,
     classifications: dict[str, tuple[str, float | None]],
@@ -1430,7 +1430,6 @@ def add_guess_sf_nondiff(
             to calculate nadir point from problem.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
-        delta (float, optional): a small scalar to define the utopian point. Defaults to 1e-6.
 
     Returns:
         tuple[Problem, str]: a tuple with the copy of the problem with the added
@@ -1845,7 +1844,7 @@ def create_epsilon_constraints_json(
     return scalarization_expr, constraint_exprs
 
 
-def __create_HDF(
+def __create_HDF(  # noqa: N802
     y: str,
     a: float,
     r: float,
@@ -1881,7 +1880,7 @@ def __create_HDF(
         d1 (float): The desirability for the aspiration level.
         d2 (float): The desirability for the reservation level.
 
-    Returns: 
+    Returns:
         callable (Function): A function that computes the desirability for a given value.
     """
     if not (0 < d1 < 1 and 0 < d2 < 1):
@@ -1893,15 +1892,14 @@ def __create_HDF(
     b1: float = -np.log(-np.log(d2)) + np.log(-np.log(d1)) / (r - a)
     b0: float = -np.log(-np.log(d1)) - b1 * a
 
-    def __HDF(y: float):
+    def __HDF(y: float):  # noqa: N802
         """Compute the desirability for a given value."""
         return np.exp(-np.exp(-(b0 + b1 * y)))
 
-    func = f"Exp(-Exp(-({b0} + {b1} * {y})))"
-    return func
+    return f"Exp(-Exp(-({b0} + {b1} * {y})))"
 
 
-def __create_MDF(y: str, a: float, r: float, d1: float = 0.9, d2: float = 0.1) -> str:
+def __create_MDF(y: str, a: float, r: float, d1: float = 0.9, d2: float = 0.1) -> str:  # noqa: N802
     """Create MaoMao's desirability function.
 
     Distinctions form MaoMao's original function:
@@ -1914,7 +1912,7 @@ def __create_MDF(y: str, a: float, r: float, d1: float = 0.9, d2: float = 0.1) -
         d1 (float): The desirability for the aspiration level.
         d2 (float): The desirability for the reservation level.
 
-    Returns: 
+    Returns:
         callable (Function): A function that computes the desirability for a given value.
     """
     if not (0 < d1 < 1 and 0 < d2 < 1):
@@ -1932,18 +1930,17 @@ def __create_MDF(y: str, a: float, r: float, d1: float = 0.9, d2: float = 0.1) -
     m3 = -er * er * (a - r) / (d1 - d2)
     b3 = -r - er * (a - r) / (d1 - d2)
 
-    def MDF1(y):
+    def MDF1(y):  # noqa: N802
         """Compute the desirability for a given value."""
         if isinstance(y, np.ndarray):
             return np.array([MDF1(yi) for yi in y])
         if y < a:
             return 1 + m1 / (y + b1)
-        elif a <= y <= r:
+        if a <= y <= r:
             return m2 * y + b2
-        else:
-            return m3 / (y + b3)
+        return m3 / (y + b3)
 
-    def MDF(y):
+    def MDF(y):  # noqa: N802
         """Compute the desirability for a given value."""
         # Same but without the if statements
         if isinstance(y, np.ndarray):
@@ -1954,13 +1951,12 @@ def __create_MDF(y: str, a: float, r: float, d1: float = 0.9, d2: float = 0.1) -
             + max(y - a, 0) * max(r - y, 0) * (m2 * y + b2) / ((y - a) * (r - y))
         )
 
-    func = (
+    return (
         f"Max({a} - {y}, 0) * (1 + {m1} / ({y} + {b1})) / ({a} - {y}) + "
         f"Max({y} - {r}, 0) * ({m3} / ({y} + {b3})) / ({y} - {r}) + "
         f"Max({y} - {a}, 0) * Max({r} - {y}, 0) * ({m2} * {y} + {b2}) / "
         f"(({y} - {a}) * ({r} - {y}))"
     )
-    return func
 
 
 def add_desirability_funcs(
@@ -1985,7 +1981,7 @@ def add_desirability_funcs(
             objective function symbols and values to desirability levels, where each value is a tuple of (d1, d2). If
             not given, the default values for d1 and d2 are used, which are 0.9 and 0.1 respectively. Defaults to None.
         desirability_func (str, optional): The type of desirability function to use. Currently, only "Harrington" or
-        "MaoMao" is supported. Defaults to "Harrington".
+            "MaoMao" is supported. Defaults to "Harrington".
 
     Returns:
         Problem: A copy of the problem with the added desirability functions as scalarization functions.
@@ -2037,7 +2033,7 @@ def add_desirability_funcs(
     return problem_, symbols
 
 
-def add_iopis_funcs(
+def add_iopis_funcs(  # TODO (@light-weaver): Add docstrings here.
     problem: Problem,
     reference_point: dict[str, float],
     ideal: dict[str, float] | None = None,

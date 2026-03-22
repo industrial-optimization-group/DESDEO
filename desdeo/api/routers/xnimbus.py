@@ -8,9 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from numpy import allclose
 from sqlmodel import Session, select
 
-from desdeo.api.db import get_session
 from desdeo.api.models import (
-    InteractiveSessionDB,
     IntermediateSolutionRequest,
     NIMBUSClassificationRequest,
     NIMBUSClassificationResponse,
@@ -27,7 +25,6 @@ from desdeo.api.models import (
     NIMBUSSaveRequest,
     NIMBUSSaveResponse,
     NIMBUSSaveState,
-    ProblemDB,
     ReferencePoint,
     SavedSolutionReference,
     SolutionReference,
@@ -42,10 +39,11 @@ from desdeo.api.models.nimbus import NIMBUSMultiplierRequest, NIMBUSMultiplierRe
 from desdeo.api.models.state import IntermediateSolutionState
 from desdeo.api.routers.generic import solve_intermediate
 from desdeo.api.routers.problem import check_solver
-from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.nimbus import generate_starting_point, solve_sub_problems
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
+
+from .utils import ContextField, SessionContext, SessionContextGuard
 
 router = APIRouter(prefix="/method/xnimbus")
 
@@ -132,65 +130,19 @@ def collect_all_solutions(
 @router.post("/solve")
 def solve_solutions(
     request: NIMBUSClassificationRequest,
-    user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    context: Annotated[
+        SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
+    ],
 ) -> NIMBUSClassificationResponse:
     """Solve the problem using the XNIMBUS method."""
-    if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(
-            InteractiveSessionDB.id == request.session_id
-        )
-        interactive_session = session.exec(statement)
-
-        if interactive_session is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Could not find interactive session with id={request.session_id}.",
-            )
-    else:
-        # request.session_id is None:
-        # use active session instead
-        statement = select(InteractiveSessionDB).where(
-            InteractiveSessionDB.id == user.active_session_id
-        )
-
-        interactive_session = session.exec(statement).first()
-
-    # fetch the problem from the DB
-    statement = select(ProblemDB).where(
-        ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id
-    )
-    problem_db = session.exec(statement).first()
-
-    if problem_db is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Problem with id={request.problem_id} could not be found.",
-        )
+    db_session = context.db_session
+    user = context.user
+    problem_db = context.problem_db
+    interactive_session = context.interactive_session
+    parent_state = context.parent_state
 
     solver = check_solver(problem_db=problem_db)
-
     problem = Problem.from_problemdb(problem_db)
-
-    # fetch parent state
-    if request.parent_state_id is None:
-        # parent state is assumed to be the last state added to the session.
-        parent_state = (
-            interactive_session.states[-1]
-            if (interactive_session is not None and len(interactive_session.states) > 0)
-            else None
-        )
-
-    else:
-        # request.parent_state_id is not None
-        statement = select(StateDB).where(StateDB.id == request.parent_state_id)
-        parent_state = session.exec(statement).first()
-
-        if parent_state is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Could not find state with id={request.parent_state_id}",
-            )
 
     solver_results: list[SolverResults] = solve_sub_problems(
         problem=problem,
@@ -215,7 +167,7 @@ def solve_solutions(
 
     # create DB state and add it to the DB with explicit XNIMBUS kind
     state = StateDB.create(
-        database_session=session,
+        database_session=db_session,
         problem_id=problem_db.id,
         session_id=interactive_session.id if interactive_session is not None else None,
         parent_id=parent_state.id if parent_state is not None else None,
@@ -223,17 +175,17 @@ def solve_solutions(
         kind=StateKind.XNIMBUS_SOLVE,
     )
 
-    session.add(state)
-    session.commit()
-    session.refresh(state)
+    db_session.add(state)
+    db_session.commit()
+    db_session.refresh(state)
 
     # Collect all current solutions
     current_solutions: list[SolutionReference] = []
     for i, _ in enumerate(solver_results):
         current_solutions.append(SolutionReference(state=state, solution_index=i))
 
-    saved_solutions = collect_saved_solutions(user, request.problem_id, session)
-    all_solutions = collect_all_solutions(user, request.problem_id, session)
+    saved_solutions = collect_saved_solutions(user, request.problem_id, db_session)
+    all_solutions = collect_all_solutions(user, request.problem_id, db_session)
 
     return NIMBUSClassificationResponse(
         state_id=state.id,
@@ -248,46 +200,18 @@ def solve_solutions(
 @router.post("/initialize")
 def initialize(
     request: NIMBUSInitializationRequest,
-    user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    context: Annotated[
+        SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
+    ],
 ) -> NIMBUSInitializationResponse:
     """Initialize the problem for the XNIMBUS method."""
-    if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(
-            InteractiveSessionDB.id == request.session_id
-        )
-        interactive_session = session.exec(statement)
-
-        if interactive_session is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Could not find interactive session with id={request.session_id}.",
-            )
-    else:
-        # request.session_id is None:
-        # use active session instead
-        statement = select(InteractiveSessionDB).where(
-            InteractiveSessionDB.id == user.active_session_id
-        )
-
-        interactive_session = session.exec(statement).first()
-
-    print(interactive_session)
-
-    # fetch the problem from the DB
-    statement = select(ProblemDB).where(
-        ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id
-    )
-    problem_db = session.exec(statement).first()
-
-    if problem_db is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Problem with id={request.problem_id} could not be found.",
-        )
+    db_session = context.db_session
+    user = context.user
+    problem_db = context.problem_db
+    interactive_session = context.interactive_session
+    parent_state = context.parent_state
 
     solver = check_solver(problem_db=problem_db)
-
     problem = Problem.from_problemdb(problem_db)
 
     if isinstance(ref_point := request.starting_point, ReferencePoint):
@@ -298,7 +222,7 @@ def initialize(
         # SolutionInfo
         # fetch the solution
         statement = select(StateDB).where(StateDB.id == info.state_id)
-        state = session.exec(statement).first()
+        state = db_session.exec(statement).first()
 
         if state is None:
             raise HTTPException(
@@ -320,19 +244,6 @@ def initialize(
         solver_options=request.solver_options,
     )
 
-    # fetch parent state if it is given
-    if request.parent_state_id is None:
-        parent_state = None
-    else:
-        statement = session.select(StateDB).where(StateDB.id == request.parent_state_id)
-        parent_state = session.exec(statement).first()
-
-        if parent_state is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Could not find state with id={request.parent_state_id}",
-            )
-
     initialization_state = NIMBUSInitializationState(
         reference_point=starting_point,
         scalarization_options=request.scalarization_options,
@@ -342,7 +253,7 @@ def initialize(
 
     # create DB state and add it to the DB with explicit XNIMBUS kind
     state = StateDB.create(
-        database_session=session,
+        database_session=db_session,
         problem_id=problem_db.id,
         session_id=interactive_session.id if interactive_session is not None else None,
         parent_id=parent_state.id if parent_state is not None else None,
@@ -350,13 +261,13 @@ def initialize(
         kind=StateKind.XNIMBUS_INIT,
     )
 
-    session.add(state)
-    session.commit()
-    session.refresh(state)
+    db_session.add(state)
+    db_session.commit()
+    db_session.refresh(state)
 
     current_solutions = [SolutionReference(state=state, solution_index=0)]
-    saved_solutions = collect_saved_solutions(user, request.problem_id, session)
-    all_solutions = collect_all_solutions(user, request.problem_id, session)
+    saved_solutions = collect_saved_solutions(user, request.problem_id, db_session)
+    all_solutions = collect_all_solutions(user, request.problem_id, db_session)
 
     return NIMBUSInitializationResponse(
         state_id=state.id,
@@ -369,43 +280,24 @@ def initialize(
 @router.post("/save")
 def save(
     request: NIMBUSSaveRequest,
-    user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    context: Annotated[SessionContext, Depends(SessionContextGuard())],
 ) -> NIMBUSSaveResponse:
     """Save solutions."""
-    if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(
-            InteractiveSessionDB.id == request.session_id
-        )
-        interactive_session = session.exec(statement)
+    db_session = context.db_session
+    user = context.user
+    interactive_session = context.interactive_session
+    parent_state = context.parent_state
 
-        if interactive_session is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Could not find interactive session with id={request.session_id}.",
-            )
-    else:
-        # request.session_id is None:
-        # use active session instead
-        statement = select(InteractiveSessionDB).where(
-            InteractiveSessionDB.id == user.active_session_id
-        )
-
-        interactive_session = session.exec(statement).first()
-
-    # fetch parent state
     if request.parent_state_id is None:
-        # parent state is assumed to be the last state added to the session.
         parent_state = (
             interactive_session.states[-1]
             if (interactive_session is not None and len(interactive_session.states) > 0)
             else None
         )
-
     else:
-        # request.parent_state_id is not None
-        statement = select(StateDB).where(StateDB.id == request.parent_state_id)
-        parent_state = session.exec(statement).first()
+        parent_state = db_session.exec(
+            select(StateDB).where(StateDB.id == request.parent_state_id)
+        ).first()
 
         if parent_state is None:
             raise HTTPException(
@@ -418,7 +310,7 @@ def save(
     new_solutions: list[UserSavedSolutionDB] = []
 
     for info in request.solution_info:
-        existing_solution = session.exec(
+        existing_solution = db_session.exec(
             select(UserSavedSolutionDB).where(
                 UserSavedSolutionDB.origin_state_id == info.state_id,
                 UserSavedSolutionDB.solution_index == info.solution_index,
@@ -429,13 +321,13 @@ def save(
             # Update the name of the existing solution
             existing_solution.name = info.name
 
-            session.add(existing_solution)
+            db_session.add(existing_solution)
 
             updated_solutions.append(existing_solution)
         else:
             # This is a new solution
             new_solution = UserSavedSolutionDB.from_state_info(
-                session,
+                db_session,
                 user.id,
                 request.problem_id,
                 info.state_id,
@@ -443,21 +335,21 @@ def save(
                 info.name,
             )
 
-            session.add(new_solution)
+            db_session.add(new_solution)
 
             new_solutions.append(new_solution)
 
     # Commit existing and new solutions
-    if updated_solutions or new_solution:
-        session.commit()
-        [session.refresh(row) for row in updated_solutions + new_solutions]
+    if updated_solutions or new_solutions:
+        db_session.commit()
+        [db_session.refresh(row) for row in updated_solutions + new_solutions]
 
     # save solver results for state in SolverResults format just for consistency (dont save name field to state)
     save_state = NIMBUSSaveState(solutions=updated_solutions + new_solutions)
 
     # create DB state with explicit XNIMBUS kind
     state = StateDB.create(
-        database_session=session,
+        database_session=db_session,
         problem_id=request.problem_id,
         session_id=interactive_session.id if interactive_session is not None else None,
         parent_id=parent_state.id if parent_state is not None else None,
@@ -465,9 +357,9 @@ def save(
         kind=StateKind.XNIMBUS_SAVE,
     )
 
-    session.add(state)
-    session.commit()
-    session.refresh(state)
+    db_session.add(state)
+    db_session.commit()
+    db_session.refresh(state)
 
     return NIMBUSSaveResponse(state_id=state.id)
 
@@ -475,20 +367,24 @@ def save(
 @router.post("/intermediate")
 def solve_xnimbus_intermediate(
     request: IntermediateSolutionRequest,
-    user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    context: Annotated[
+        SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
+    ],
 ) -> NIMBUSIntermediateSolutionResponse:
     """Solve intermediate solutions by forwarding the request to generic intermediate endpoint with context xnimbus."""
+    db_session = context.db_session
+    user = context.user
+
     # Add XNIMBUS context to request
     request.context = "xnimbus"
     # Forward to generic endpoint
-    intermediate_response = solve_intermediate(request, user, session)
+    intermediate_response = solve_intermediate(request, context)
 
     # Get saved solutions for this user and problem
-    saved_solutions = collect_saved_solutions(user, request.problem_id, session)
+    saved_solutions = collect_saved_solutions(user, request.problem_id, db_session)
 
     # Get all solutions including the newly generated intermediate ones
-    all_solutions = collect_all_solutions(user, request.problem_id, session)
+    all_solutions = collect_all_solutions(user, request.problem_id, db_session)
 
     return NIMBUSIntermediateSolutionResponse(
         state_id=intermediate_response.state_id,
@@ -503,8 +399,9 @@ def solve_xnimbus_intermediate(
 @router.post("/get-or-initialize")
 def get_or_initialize(
     request: NIMBUSInitializationRequest,
-    user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    context: Annotated[
+        SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
+    ],
 ) -> (
     NIMBUSInitializationResponse
     | NIMBUSClassificationResponse
@@ -512,23 +409,9 @@ def get_or_initialize(
     | NIMBUSFinalizeResponse
 ):
     """Get the latest XNIMBUS state if it exists, or initialize a new one if it doesn't."""
-    if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(
-            InteractiveSessionDB.id == request.session_id
-        )
-        interactive_session = session.exec(statement)
-
-        if interactive_session is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Could not find interactive session with id={request.session_id}.",
-            )
-    else:
-        # use active session instead
-        statement = select(InteractiveSessionDB).where(
-            InteractiveSessionDB.id == user.active_session_id
-        )
-        interactive_session = session.exec(statement).first()
+    db_session = context.db_session
+    user = context.user
+    interactive_session = context.interactive_session
 
     # Look for latest relevant state in the session
     statement = (
@@ -544,7 +427,7 @@ def get_or_initialize(
         )
         .order_by(StateDB.id.desc())
     )
-    states = session.exec(statement).all()
+    states = db_session.exec(statement).all()
 
     # Find the latest relevant XNIMBUS state
     latest_state = None
@@ -567,8 +450,8 @@ def get_or_initialize(
                 break
 
     if latest_state is not None:
-        saved_solutions = collect_saved_solutions(user, request.problem_id, session)
-        all_solutions = collect_all_solutions(user, request.problem_id, session)
+        saved_solutions = collect_saved_solutions(user, request.problem_id, db_session)
+        all_solutions = collect_all_solutions(user, request.problem_id, db_session)
         # Handle both single result and list of results cases
         solver_results = latest_state.state.solver_results
         if isinstance(solver_results, list):
@@ -630,21 +513,21 @@ def get_or_initialize(
         )
 
     # No relevant state found, initialize a new one
-    return initialize(request, user, session)
+    return initialize(request, context)
 
 
 @router.post("/finalize")
 def finalize_xnimbus(
     request: NIMBUSFinalizeRequest,
-    user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    context: Annotated[
+        SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
+    ],
 ) -> NIMBUSFinalizeResponse:
     """An endpoint for finishing up the xnimbus process.
 
     Args:
         request (NIMBUSFinalizeRequest): The request containing the final solution, etc.
-        user (Annotated[User, Depends): The current user.
-        session (Annotated[Session, Depends): The database session.
+        context (Annotated[SessionContext, SessionContextGuard): The current context.
 
     Raises:
         HTTPException
@@ -652,55 +535,18 @@ def finalize_xnimbus(
     Returns:
         NIMBUSFinalizeResponse: Response containing info on the final solution.
     """
-    if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(
-            InteractiveSessionDB.id == request.session_id
-        )
-        interactive_session = session.exec(statement)
-
-        if interactive_session is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Could not find interactive session with id={request.session_id}.",
-            )
-    else:
-        # request.session_id is None:
-        # use active session instead
-        statement = select(InteractiveSessionDB).where(
-            InteractiveSessionDB.id == user.active_session_id
-        )
-
-        interactive_session = session.exec(statement).first()
-
-    if request.parent_state_id is None:
-        parent_state = None
-    else:
-        statement = session.select(StateDB).where(StateDB.id == request.parent_state_id)
-        parent_state = session.exec(statement).first()
-
-        if parent_state is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Could not find state with id={request.parent_state_id}",
-            )
-
-    # fetch the problem from the DB
-    statement = select(ProblemDB).where(
-        ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id
-    )
-    problem_db = session.exec(statement).first()
-
-    if problem_db is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Problem with id={request.problem_id} could not be found.",
-        )
+    db_session = context.db_session
+    user = context.user
+    interactive_session = context.interactive_session
+    parent_state = context.parent_state
+    problem_db = context.problem_db
 
     solution_state_id = request.solution_info.state_id
     solution_index = request.solution_info.solution_index
 
     statement = select(StateDB).where(StateDB.id == solution_state_id)
-    actual_state = session.exec(statement).first().state
+    state = db_session.exec(statement).first()
+    actual_state = state.state if state else None
     if actual_state is None:
         raise HTTPException(
             detail="No concrete substate!",
@@ -715,7 +561,7 @@ def finalize_xnimbus(
 
     # create DB state with explicit XNIMBUS kind
     state = StateDB.create(
-        database_session=session,
+        database_session=db_session,
         problem_id=problem_db.id,
         session_id=interactive_session.id if interactive_session is not None else None,
         parent_id=parent_state.id if parent_state is not None else None,
@@ -723,9 +569,9 @@ def finalize_xnimbus(
         kind=StateKind.XNIMBUS_FINAL,
     )
 
-    session.add(state)
-    session.commit()
-    session.refresh(state)
+    db_session.add(state)
+    db_session.commit()
+    db_session.refresh(state)
 
     solution_reference_response = SolutionReferenceResponse(
         solution_index=solution_index,
@@ -738,10 +584,10 @@ def finalize_xnimbus(
         state_id=state.id,
         final_solution=solution_reference_response,
         saved_solutions=collect_saved_solutions(
-            user=user, problem_id=problem_db.id, session=session
+            user=user, problem_id=problem_db.id, session=db_session
         ),
         all_solutions=collect_all_solutions(
-            user=user, problem_id=problem_db.id, session=session
+            user=user, problem_id=problem_db.id, session=db_session
         ),
     )
 
@@ -749,15 +595,13 @@ def finalize_xnimbus(
 @router.post("/delete_save")
 def delete_save(
     request: NIMBUSDeleteSaveRequest,
-    user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    context: Annotated[SessionContext, Depends(SessionContextGuard())],
 ) -> NIMBUSDeleteSaveResponse:
     """Endpoint for deleting saved solutions.
 
     Args:
         request (NIMBUSDeleteSaveRequest): request containing necessary information for deleting a save
-        user (Annotated[User, Depends): the current  (logged in) user
-        session (Annotated[Session, Depends): database session
+        context (Annotated[SessionContext, Depends): session context
 
     Raises:
         HTTPException
@@ -765,7 +609,9 @@ def delete_save(
     Returns:
         NIMBUSDeleteSaveResponse: Response acknowledging the deletion of save and other useful info.
     """
-    to_be_deleted = session.exec(
+    db_session = context.db_session
+
+    to_be_deleted = db_session.exec(
         select(UserSavedSolutionDB).where(
             UserSavedSolutionDB.origin_state_id == request.state_id,
             UserSavedSolutionDB.solution_index == request.solution_index,
@@ -778,10 +624,10 @@ def delete_save(
             status_code=status.HTTP_404_NOT_FOUND,
         )
 
-    session.delete(to_be_deleted)
-    session.commit()
+    db_session.delete(to_be_deleted)
+    db_session.commit()
 
-    to_be_deleted = session.exec(
+    to_be_deleted = db_session.exec(
         select(UserSavedSolutionDB).where(
             UserSavedSolutionDB.origin_state_id == request.state_id,
             UserSavedSolutionDB.solution_index == request.solution_index,
@@ -800,12 +646,14 @@ def delete_save(
 @router.post("/get-multipliers-info")
 def get_multipliers_info(
     request: NIMBUSMultiplierRequest,
-    user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    context: Annotated[SessionContext, Depends(SessionContextGuard())],
 ) -> NIMBUSMultiplierResponse:
     """Get Lagrange multipliers information from an state. The multipliers are available from the solver results."""
+    db_session = context.db_session
     empty_response = {"lagrange_multipliers": None}
-    state = session.exec(select(StateDB).where(StateDB.id == request.state_id)).first()
+    state = db_session.exec(
+        select(StateDB).where(StateDB.id == request.state_id)
+    ).first()
 
     if state is None or not hasattr(state, "state"):
         return empty_response
@@ -886,8 +734,8 @@ def get_multipliers_info(
         # Save filtered multipliers and tradeoffs
         actual_state.filtered_lagrange_multipliers = lagrange_multipliers
         actual_state.tradeoffs_matrix = tradeoffs_list
-        session.add(actual_state)
-        session.commit()
+        db_session.add(actual_state)
+        db_session.commit()
 
     print(lagrange_multipliers)
 

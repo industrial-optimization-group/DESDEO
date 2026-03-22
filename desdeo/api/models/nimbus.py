@@ -48,6 +48,11 @@ class NIMBUSDeleteSaveRequest(SQLModel):
     solution_index: int = Field(
         description="The ID of the solution within the above state."
     )
+    state_id: int = Field(description="The ID of the save state.")
+    solution_index: int = Field(
+        description="The ID of the solution within the above state."
+    )
+    problem_id: int = Field(description="The ID of the problem.")
 
 
 class NIMBUSFinalizeRequest(SQLModel):
@@ -114,7 +119,7 @@ class NIMBUSDeleteSaveResponse(SQLModel):
 
     response_type: str = "nimbus.delete_save"
 
-    message: str | None
+    message: str | None = None
 
 
 class NIMBUSFinalizeResponse(SQLModel):

@@ -1,19 +1,21 @@
 [project]
 name = "desdeo"
-version = "2.0.0"
+version = "2.2.2"
 description = "DESDEO is a modular and open source framework for interactive multiobjective optimization."
 authors = [
-    {name="Giovanni Misitano",  email="giovanni.a.misitano@jyu.fi"},
-    {name="Bhupinder Saini", email="bhupinder.s.saini@jyu.fi"},
+    { name = "Giovanni Misitano", email = "giovanni.a.misitano@jyu.fi" },
+    { name = "Bhupinder Saini", email = "bhupinder.s.saini@jyu.fi" },
 ]
 license = "MIT"
 readme = "README.md"
-exclude = [
-    "tests",
-    "desdeo/api",
-    "desdeo/utopia_stuff"
+exclude = ["tests", "desdeo/api", "desdeo/utopia_stuff"]
+keywords = [
+    "optimization",
+    "decision-support",
+    "multiobjective optimization",
+    "evolutionary optimization",
+    "interactive methods",
 ]
-keywords=["optimization", "decision-support", "multiobjective optimization", "evolutionary optimization", "interactive methods"]
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "numpy >= 2.2.0",
@@ -42,21 +44,21 @@ dependencies = [
 ]
 
 [project.urls]
-homepage="https://github.com/industrial-optimization-group/DESDEO"
-repository="https://github.com/industrial-optimization-group/DESDEO"
-documentation="https://desdeo.readthedocs.io/en/latest/"
-"Bug tracker"="https://github.com/industrial-optimization-group/DESDEO/issues"
+homepage = "https://github.com/industrial-optimization-group/DESDEO"
+repository = "https://github.com/industrial-optimization-group/DESDEO"
+documentation = "https://desdeo.readthedocs.io/en/latest/"
+"Bug tracker" = "https://github.com/industrial-optimization-group/DESDEO/issues"
 
 [dependency-groups]
 dev = [
     "ruff>=0.11",
-    "isort>=6.0",
     "mypy>=1.0",
     "pytest>=8.0",
     "pytest-xdist>=3.5.0",
     "pytest-testmon>=2.1.1",
     "pytest-asyncio>=0.26.0",
     "snakeviz>=2.2.0",
+    "pre-commit>=0.14.14",
 ]
 
 docs = [
@@ -64,18 +66,15 @@ docs = [
     "mkdocs-material>=9.5.12",
     "mkdocstrings-python>=1.0",
     "mkdocs-macros-plugin>=1.0.5",
-    "mkdocs-jupyter>=0.25.1",
+    "mkdocs-jupyter @ git+https://github.com/gialmisi/mkdocs-jupyter.git@build",
     "mkdocs-include-markdown-plugin[cache]>=7.0.0",
     "neoteroi-mkdocs>=1.1.2",
     "griffe>=1.4.1",
     "python-markdown-math>=0.9",
+    "mkdocs-llmstxt>=0.5.0",
 ]
 
-jupyter = [
-    "jupyter>=1.0",
-    "jupyterlab>=4.0",
-    "jupytext>=1.16.4"
-]
+jupyter = ["jupyter>=1.0", "jupyterlab>=4.0", "jupytext>=1.16.4"]
 
 web = [
     "httpx>=0.28.1",
@@ -89,20 +88,13 @@ web = [
     "websockets>=15.0.1",
 ]
 
-viz = [
-    "seaborn>=0.13.0",
-    "scienceplots>=2.1.1",
-    "pyparsing[diagrams]>=3.1.1"
-]
+viz = ["seaborn>=0.13.0", "scienceplots>=2.1.1", "pyparsing[diagrams]>=3.1.1"]
 
-tools = [
-    "djlint>=1.34.1",
-    "eralchemy>=1.5.0"
-]
+tools = ["djlint>=1.34.1", "eralchemy>=1.5.0"]
 
 server = [ # production!
     "gunicorn>=23.0.0",
-    "psycopg2>=2.9.10"
+    "psycopg2>=2.9.10",
 ]
 
 all-dev = [
@@ -142,8 +134,6 @@ lint.select = [
     "PIE",
     "RET",
     "PTH",
-    "TD",   # Comment this out if too annoying
-    "FIX",  # Comment this out if too annoying
     "SIM",
     "PL",
     "TRY",
@@ -156,15 +146,19 @@ lint.select = [
 ]
 lint.ignore = [
     "COM812",  # Enforcing trailing commas is too annoying.
+    "FBT001",  # "boolean typed pos arg"
+    "FBT002",  # "boolean default pos"
+    "PLR0911", # "too many return statements (>6)"
+    "PLR0912", # "too many branches"
+    "PLR0913", # "too many function args"
     "PLR0915", # "too many statements (>50)"
-    "T201",    # TODO: remove? it allow print statements
     "TRY003",  # allow long error messages
 ]
 lint.pydocstyle.convention = "google"
 
 
 # Allow autofix for all enabled rules (when `--fix`) is provided.
-lint.fixable = []
+lint.fixable = ["ALL"]
 lint.unfixable = []
 
 # Allow unused variables when underscore-prefixed.
@@ -203,7 +197,6 @@ target-version = "py312"
 [tool.ruff.lint.mccabe]
 max-complexity = 15
 
-[tool.ruff.per-file-ignores]
 [tool.ruff.lint.per-file-ignores]
 # Ignore certain rules in test files
 "**/tests/**/*.py" = [
@@ -219,18 +212,13 @@ quote-style = "double"
 [tool.djlint]
 profile = "jinja"
 
-[tool.isort]
-profile = "black"
-
 [tool.mypy]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 markers = [
-    "skip: stests marked to be skipped",
     "slow: mark test as slow",
     "nautilus_navigator: tests related to the NAUTILUS Navigator method",
-    "performance: tests that are related to performance. Skipped by default",
     "infix_parser: tests related to the infix parser",
     "pyomo: tests related to pyomo models, their parsing, and evaluation",
     "sympy: tests related to sympy expressions, their parsing, and evaluatio.",
@@ -252,7 +240,6 @@ markers = [
     "json: tests related to the Math JSON parser.",
     "schema: tests related to the Problem schema.",
     "utils: tests related to various utilities.",
-    "nogithub: tests that should not be run in GitHub actions.",
     "simulator_support: tests related to simulator and surrogate support",
     "explainer: tests related to explainers and related functionalities.",
     "explanation_utils: tests related to explanations module utilities.",
@@ -262,14 +249,14 @@ markers = [
     "enautilus: tests related to the E-NAUTILUS method.",
     "gdmtools: tests related to group decision making.",
     "gnimbus: tests related to group nimbus method.",
-    "external: tests related to providers interfacing to external problems."
+    "external: tests related to providers interfacing to external problems.",
+    "fixme: tests that are not passing, but maybe should, yet are ignored.",
+    "githubskip: skip these tests on GitHub workflows.",
 ]
 pythonpath = "."
 asyncio_default_fixture_loop_scope = "function"
-filterwarnings = [
-	"default::RuntimeWarning",
-	"default::UserWarning",
-]
+filterwarnings = ["default::RuntimeWarning", "default::UserWarning"]
+testpaths = ["tests", "desdeo/api/tests"]
 
 [build-system]
 requires = ["poetry-core"]

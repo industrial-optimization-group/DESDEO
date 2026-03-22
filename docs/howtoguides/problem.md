@@ -6,7 +6,7 @@ how problems are modelled in DESDEO, please refer to
 Problems with different types of objectives, constraints and extra functions
 can also be defined. For example, the same problem can have analytical and simulator
 and surrogate based objectives. These types of problems can be evaluated
-using the [`Evaluator`][desdeo.problem.simulator_evaluator.Evaluator]
+using the [`SimulatorEvaluator`][desdeo.problem.simulator_evaluator.SimulatorEvaluator]
 that has methods to evaluate simulator and surrogate based objectives,
 constraints and extra functions and the evaluator also utilizes
 the [`PolarsEvaluator`][desdeo.problem.evaluator.PolarsEvaluator] to
@@ -260,7 +260,7 @@ Here we have two objectives `f_1` and `f_2` that get their values from the diffe
 The objectives' surrogates are defined as lists of strings or a pyhton's pathlib.Path objects
 that are paths to surrogate models that are stored on the disk. The surrogates can be left
 empty, in which case when evaluating the problem using the
-[`Evaluator`][desdeo.problem.simulator_evaluator.Evaluator], the evaluator needs the paths as
+[`SimulatorEvaluator`][desdeo.problem.simulator_evaluator.SimulatorEvaluator], the evaluator needs the paths as
 an argument to be able to evaluate the surrogate based objectives.
 
 ```python

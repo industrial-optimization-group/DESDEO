@@ -5,7 +5,7 @@ import { get } from 'svelte/store';
 import { browser } from '$app/environment';
 
 
-const BASE_URL = import.meta.env.VITE_API_URL;
+const BASE_URL = (import.meta.env.VITE_API_URL as string).replace(/\/+$/, '');
 
 export const api = createClient<paths>({baseUrl: BASE_URL});
 

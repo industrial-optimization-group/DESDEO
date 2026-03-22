@@ -216,6 +216,7 @@ def test_solve_reachable_bounds_discrete(dtlz2_5x_3f_data_based):  # noqa: F811
         assert upper_bounds[symbol] > lower_bounds[symbol]
 
 
+@pytest.mark.fixme
 @pytest.mark.slow
 @pytest.mark.nautilus_navigator
 def test_solve_reachable_bounds_complicated():

@@ -5,6 +5,8 @@ hide:
 ---
 # Explanation
 
+Explanations are understanding-oriented and are meant to help users understand how different aspects of the framework function.
+
 ## Core-logic
 
 - **[The problem format](problem_format.ipynb):** Learn about how multiobjective optimization problems are modeled in DESDEO

@@ -6,27 +6,25 @@ import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlmodel import Session, select
+from sqlmodel import select
 
-from desdeo.api.db import get_session
 from desdeo.api.models import (
-    InteractiveSessionDB,
     IntermediateSolutionRequest,
     IntermediateSolutionState,
-    ProblemDB,
     ScoreBandsRequest,
     ScoreBandsResponse,
     SolutionReference,
     StateDB,
-    User,
 )
 from desdeo.api.models.generic import GenericIntermediateSolutionResponse
 from desdeo.api.models.generic_states import State, StateKind
-from desdeo.api.routers.user_authentication import get_current_user
+from desdeo.api.models.problem import ProblemDB
 from desdeo.mcdm.nimbus import solve_intermediate_solutions
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
 from desdeo.tools.score_bands import calculate_axes_positions, cluster, order_dimensions
+
+from .utils import ContextField, SessionContext, SessionContextGuard
 
 router = APIRouter(prefix="/method/generic")
 
@@ -55,44 +53,35 @@ class MethodPreferenceResponse(BaseModel):
 @router.post("/intermediate")
 def solve_intermediate(
     request: IntermediateSolutionRequest,
-    user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    context: Annotated[
+        SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
+    ],
 ) -> GenericIntermediateSolutionResponse:
-    """Solve intermediate solutions between given two solutions."""
-    if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(
-            InteractiveSessionDB.id == request.session_id
-        )
-        interactive_session = session.exec(statement)
+    """Solve intermediate solutions between given two solutions.
 
-        if interactive_session is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Could not find interactive session with id={request.session_id}.",
-            )
-    else:
-        # request.session_id is None:
-        # use active session instead
-        statement = select(InteractiveSessionDB).where(
-            InteractiveSessionDB.id == user.active_session_id
-        )
-
-        interactive_session = session.exec(statement).first()
+    Args:
+        request (IntermediateSolutionRequest): The request object containing parameters
+            for fetching results.
+        context (Annotated[SessionContext, Depends]): The session context.
+    """
+    db_session = context.db_session
+    problem_db = context.problem_db
+    interactive_session = context.interactive_session
+    parent_state = context.parent_state
 
     # query both reference solutions' variable values
-    # stored as lit of tuples, first element of each tuple are variables values, second are objective function values
     var_and_obj_values_of_references: list[tuple[dict, dict]] = []
     reference_states = []
+
     for solution_info in [request.reference_solution_1, request.reference_solution_2]:
-        solution_state = session.exec(
+        solution_state = db_session.exec(
             select(StateDB).where(StateDB.id == solution_info.state_id)
         ).first()
 
         if solution_state is None:
-            # no StateDB found with the given id
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Could not find a state with the given id{solution_state.state_id}.",
+                detail=f"Could not find a state with id={solution_info.state_id}.",
             )
 
         reference_states.append(solution_state)
@@ -100,7 +89,6 @@ def solve_intermediate(
         try:
             _var_values = solution_state.state.result_variable_values
             var_values = _var_values[solution_info.solution_index]
-
         except IndexError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -112,7 +100,6 @@ def solve_intermediate(
         try:
             _obj_values = solution_state.state.result_objective_values
             obj_values = _obj_values[solution_info.solution_index]
-
         except IndexError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -122,18 +109,6 @@ def solve_intermediate(
             ) from exc
 
         var_and_obj_values_of_references.append((var_values, obj_values))
-
-    # fetch the problem from the DB
-    statement = select(ProblemDB).where(
-        ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id
-    )
-    problem_db = session.exec(statement).first()
-
-    if problem_db is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Problem with id={request.problem_id} could not be found.",
-        )
 
     problem = Problem.from_problemdb(problem_db)
 
@@ -147,26 +122,9 @@ def solve_intermediate(
         solver_options=request.solver_options,
     )
 
-    # fetch parent state
-    if request.parent_state_id is None:
-        # parent state is assumed to be the last state added to the session.
-        parent_state = (
-            interactive_session.states[-1]
-            if (interactive_session is not None and len(interactive_session.states) > 0)
-            else None
-        )
-
-    else:
-        # request.parent_state_id is not None
-        statement = session.select(StateDB).where(StateDB.id == request.parent_state_id)
-        parent_state = session.exec(statement).first()
-
-        if parent_state is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Could not find state with id={request.parent_state_id}",
-            )
-
+    # --------------------------------------
+    # parent_state is already loaded in context
+    # --------------------------------------
     intermediate_state = IntermediateSolutionState(
         scalarization_options=request.scalarization_options,
         context=request.context,
@@ -180,16 +138,16 @@ def solve_intermediate(
 
     # create DB state and add it to the DB
     state = StateDB.create(
-        database_session=session,
+        database_session=db_session,
         problem_id=problem_db.id,
         session_id=interactive_session.id if interactive_session is not None else None,
         parent_id=parent_state.id if parent_state is not None else None,
         state=intermediate_state,
     )
 
-    session.add(state)
-    session.commit()
-    session.refresh(state)
+    db_session.add(state)
+    db_session.commit()
+    db_session.refresh(state)
 
     return GenericIntermediateSolutionResponse(
         state_id=state.id,
@@ -274,8 +232,9 @@ def calculate_score_bands_from_objective_data(
 @router.get("/final-solutions/{problem_id}")
 def get_final_solutions(
     problem_id: int,
-    user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    context: Annotated[
+        SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
+    ],
 ) -> FinalSolutionsResponse:
     """Get the latest NIMBUS_FINAL and XNIMBUS_FINAL states with their solutions for a given problem.
 
@@ -283,10 +242,8 @@ def get_final_solutions(
     -----------
     problem_id : int
         The ID of the problem
-    user : User
-        The current authenticated user (dependency injection)
-    session : Session
-        The database session (dependency injection)
+    context : SessionContext
+        The session context (dependency injection)
 
     Returns:
     --------
@@ -299,6 +256,8 @@ def get_final_solutions(
     HTTPException
         - 404: If problem not found or doesn't belong to user
     """
+    user = context.user
+    session = context.db_session
     # Verify that the problem belongs to the current user
     statement = select(ProblemDB).where(
         ProblemDB.user_id == user.id, ProblemDB.id == problem_id
@@ -355,8 +314,7 @@ def get_final_solutions(
 @router.post("/save-method-preference")
 def save_method_preference(
     request: MethodPreferenceRequest,
-    user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    context: Annotated[SessionContext, Depends(SessionContextGuard())],
 ) -> MethodPreferenceResponse:
     """Save the user's preferred method (NIMBUS or XNIMBUS).
 
@@ -364,10 +322,8 @@ def save_method_preference(
     -----------
     request : MethodPreferenceRequest
         Contains the preferred method name
-    user : User
-        The current authenticated user (dependency injection)
-    session : Session
-        The database session (dependency injection)
+    context : SessionContext
+        The session context (dependency injection)
 
     Returns:
     --------
@@ -379,6 +335,9 @@ def save_method_preference(
     HTTPException
         - 400: If invalid method name provided
     """
+    user = context.user
+    session = context.db_session
+
     # Validate method name
     if request.preferred_method not in ["NIMBUS", "XNIMBUS"]:
         raise HTTPException(

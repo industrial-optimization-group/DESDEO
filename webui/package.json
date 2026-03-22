@@ -17,7 +17,7 @@
     "test:e2e": "playwright test",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "generate:types": "openapi-typescript http://localhost:8000/openapi.json -o src/lib/api/client-types.ts",
+    "generate:client": "orval",
     "svelte-check": "svelte-check"
   },
   "dependencies": {
@@ -32,6 +32,7 @@
     "effect": "^3.19.19",
     "embla-carousel-svelte": "^8.6.0",
     "formsnap": "^2.0.1",
+    "fs-extra": "^11.3.4",
     "katex": "^0.16.23",
     "layerchart": "^2.0.0-next.10",
     "mathlive": "^0.107.1",
@@ -39,6 +40,7 @@
     "msw": "^2.11.5",
     "openapi-fetch": "^0.14.1",
     "openapi-typescript-fetch": "^2.2.1",
+    "orval": "^8.0.2",
     "svelte": "^5.46.4",
     "svelte-sonner": "^1.0.5",
     "sveltekit-superforms": "^2.27.2",

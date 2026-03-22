@@ -1,3 +1,5 @@
+"""Exports of the 'options' module."""
+
 from .crossover import (
     BlendAlphaCrossoverOptions,
     BoundedExponentialCrossoverOptions,
@@ -17,6 +19,7 @@ from .generator import (
     RandomGeneratorOptions,
     RandomIntegerGeneratorOptions,
     RandomMixedIntegerGeneratorOptions,
+    SeededHybridGeneratorOptions,
     generator_constructor,
 )
 from .mutation import (
@@ -105,4 +108,5 @@ __all__ = [  # noqa: RUF022
     "selection_constructor",
     "RepairOptions",
     "repair_constructor",
+    "SeededHybridGeneratorOptions",
 ]

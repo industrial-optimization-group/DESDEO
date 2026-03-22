@@ -43,9 +43,9 @@
 
 	let open = $state(false);
 	let triggerRef: HTMLButtonElement | null = $state(null);
-	let selected = $state(defaultSelected ?? '');
+	let selected = $state('');
 
-	// Update selected when defaultSelected changes
+	// Sync with defaultSelected prop
 	$effect(() => {
 		selected = defaultSelected ?? '';
 	});

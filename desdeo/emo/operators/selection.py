@@ -274,7 +274,7 @@ class BaseDecompositionSelector(BaseSelector):
         Args:
             z (np.ndarray): Preferred solution(s).
             translation_param (float): Parameter determining how close the reference vectors are to the central vector
-            **v** defined by using the selected solution(s) z.
+                **v** defined by using the selected solution(s) z.
         """
         if z.shape[0] == 1:
             # single preferred solution

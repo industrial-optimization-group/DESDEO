@@ -63,7 +63,7 @@
 	}>();
 	type ProblemInfo = components['schemas']['ProblemInfo'];
 	let problem: ProblemInfo | undefined = $state(undefined);
-	let problem_list: ProblemInfo[] = $state(data.problems);
+	let problem_list: ProblemInfo[] = $derived(data.problems);
 
 	let data_loaded = $state(false);
 	let loading_error: string | null = $state(null);
@@ -357,6 +357,11 @@
 		}
 	}
 </script>
+
+<svelte:head>
+	<title>SCORE-bands | DESDEO</title>
+	<meta name="description" content="Placeholder page for single-user SCORE-bands interactive multiobjective optimization method" />
+</svelte:head>
 
 <div class="container mx-auto p-6">
 	{#if $errorMessage}

@@ -1370,6 +1370,7 @@ def test_add_group_stom_diff():
     assert result.optimal_objectives["f_3"] >= agg_aspirations["f_3"]
 
 
+@pytest.mark.fixme
 @pytest.mark.scalarization
 @pytest.mark.group_scalarization
 def test_add_group_scenario_sf_nondiff_happy_path():

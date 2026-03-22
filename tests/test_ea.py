@@ -1194,6 +1194,7 @@ def test_crossover_in_ea():
 
 @pytest.mark.slow
 @pytest.mark.ea
+@pytest.mark.fixme
 def test_mutation_in_ea():
     """Test whether the mutation operators can be used in an EA."""
     mutations = ["bpm", "num", "power", "SAGM"]

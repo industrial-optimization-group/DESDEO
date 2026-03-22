@@ -66,6 +66,17 @@ ncu -u
 
 this will upgrade the project's packages to their latest (mutually) compatible versions. **This can introduce breaking changes!**
 
+## WSL / HTTP note
+
+Auth cookies are set with `secure: !dev`, meaning they require HTTPS only in
+production builds. In development mode (`npm run dev`), cookies are sent over
+plain HTTP, which is necessary when running through WSL2 on Windows where the
+browser may not treat the forwarded address as a secure context.
+
+If you build and preview a production bundle locally over HTTP, authentication
+will fail because `secure` cookies are not sent. Use `npm run dev` for local
+development, or serve the production build behind HTTPS.
+
 ## Developing
 
 Once the project's dependencies have been installed, start a development server:
@@ -79,8 +90,10 @@ npm run dev -- --open
 
 ### Generating OpenAPI clients
 
-When the web-API is updated, it is important to update the OpenAPI clients, which automatically use the schemas defined in the web-API
-on the GUI side. To generate them, make sure the web-API is running, and issue the command:
+When the web-API is updated, it is important to update the OpenAPI clients,
+which automatically use the schemas defined in the web-API on the GUI side. To
+generate them, make sure the web-API is running on the URL defined in `OPENAPI_URL` in the file
+`orval.config.mjs`, and issue the command:
 
 ```bash
 npm run generate:client

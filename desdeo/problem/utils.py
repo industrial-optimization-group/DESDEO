@@ -115,7 +115,7 @@ def unflatten_variable_array(problem: Problem, var_array: np.ndarray) -> dict[st
     # check if values remain in var_array
     if array_i < len(var_array):
         # some values remain, warn user, but do not raise an error
-        msg = f"Warning, the variable array had some values that were not unflattened: f{["...", *var_array[array_i:]]}"
+        msg = f"Warning, the variable array had some values that were not unflattened: f{['...', *var_array[array_i:]]}"
         warnings.warn(msg, stacklevel=2)
 
     # return the variable dict

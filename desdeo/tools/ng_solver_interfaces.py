@@ -60,7 +60,7 @@ def parse_ng_results(results: dict, problem: Problem, evaluator: SympyEvaluator)
             `recommendation`, which points to a parametrization returned by
             nevergrad solvers, `message` with information about the optimization,
             and `success` indicating whther a recommendation was found successfully
-        or not.
+            or not.
         problem (Problem): the problem the results belong to.
         evaluator (GenericEvaluator): the evaluator used to evaluate the problem.
 
@@ -123,10 +123,6 @@ class NevergradGenericSolver(BaseSolver):
             options (NgOptOptions | None): options to be passes to the solver.
                 If none, `_default_ng_ngopt_options` are used. Defaults to None.
 
-        Returns:
-            Callable[[str], SolverResults]: returns a callable function that takes
-                as its argument one of the symbols defined for a function expression in
-                problem.
         """
         self.problem = problem
         self.options = options if options is not None else _default_nevergrad_generic_options

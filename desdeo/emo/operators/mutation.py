@@ -133,7 +133,7 @@ class BoundedPolynomialMutation(BaseMutation):
         max_val = np.ones_like(offspring) * self.upper_bounds
         k = self.rng.random(size=offspring.shape)
         miu = self.rng.random(size=offspring.shape)
-        temp = np.logical_and((k <= self.mutation_probability), (miu < 0.5))
+        temp = np.logical_and((k <= self.mutation_probability), (miu < 0.5))  # noqa: PLR2004
         offspring_scaled = (offspring - min_val) / (max_val - min_val)
         offspring[temp] = offspring[temp] + (
             (max_val[temp] - min_val[temp])
@@ -143,7 +143,7 @@ class BoundedPolynomialMutation(BaseMutation):
                 - 1
             )
         )
-        temp = np.logical_and((k <= self.mutation_probability), (miu >= 0.5))
+        temp = np.logical_and((k <= self.mutation_probability), (miu >= 0.5))  # noqa: PLR2004
         offspring[temp] = offspring[temp] + (
             (max_val[temp] - min_val[temp])
             * (
@@ -769,7 +769,7 @@ class MPTMutation(BaseMutation):
         ]
 
 
-#TODO (@light-weaver): Get rid of the max_generations parameter and instead get it from a message
+# TODO (@light-weaver): Get rid of the max_generations parameter and instead get it from a message
 # Additionally, allow the operator to use max_evaluations as a basis for decay
 # Make sure that the ratio never exceeds 1.0, otherwise there will be issues
 class NonUniformMutation(BaseMutation):
@@ -831,7 +831,7 @@ class NonUniformMutation(BaseMutation):
             1 / len(self.variable_symbols) if mutation_probability is None else mutation_probability
         )
 
-    def _mutate_value(self, x, lower_bound, upper_bound, mutation_threshold=0.5):
+    def _mutate_value(self, x: float, lower_bound: float, upper_bound: float, mutation_threshold: float = 0.5) -> float:
         """Apply non-uniform mutation to a single float value.
 
         Args:
@@ -900,9 +900,7 @@ class NonUniformMutation(BaseMutation):
         if not isinstance(message.value, int):
             return
         if message.topic != TerminatorMessageTopics.GENERATION:
-            raise ValueError(
-                f"Expected message topic {TerminatorMessageTopics.GENERATION}, got {message.topic}."
-            )
+            raise ValueError(f"Expected message topic {TerminatorMessageTopics.GENERATION}, got {message.topic}.")
         self.current_generation = message.value
 
     def state(self) -> Sequence[Message]:

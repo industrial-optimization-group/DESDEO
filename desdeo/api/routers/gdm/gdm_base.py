@@ -43,24 +43,23 @@ class ManagerError(Exception):
 class GroupManager:
     """A group manager. Manages connections, disconnections, optimization and communication to users."""
 
-    def __init__(self, group_id: int):
+    def __init__(self, group_id: int, db_session: Session):
         """Initializes the instance of the group manager."""
         self.lock = asyncio.Lock()
         self.sockets: dict[int, WebSocket] = {}
         self.group_id: int = group_id
 
         # Get session and make sure the group exists
-        session = next(get_session())
-        group = session.exec(select(Group).where(Group.id == group_id)).first()
+        group = db_session.exec(select(Group).where(Group.id == group_id)).first()
         if group is None:
-            session.close()
+            db_session.close()
             raise ManagerError(f"No group with ID {group_id} found!")
 
         # Initialize the socket dict (at the very least to avoid KeyErrors)
         for user_id in group.user_ids:
             self.sockets[user_id] = None
 
-        session.close()
+        db_session.close()
 
     async def send_message(self, message: str, websocket: WebSocket):
         """Notify the user of the existing results that have to be fetched."""
@@ -69,7 +68,7 @@ class GroupManager:
         except WebSocketDisconnect:
             return
 
-    async def connect(self, user_id: int, websocket: WebSocket):
+    async def connect(self, user_id: int, websocket: WebSocket, db_session: Session):
         """Connect to websocket.
 
         The connection has been accepted beforehand for sending error messages
@@ -78,28 +77,28 @@ class GroupManager:
         self.sockets[user_id] = websocket
 
         # If there are pending notifications, send notifications
-        session = next(get_session())
-        group = session.exec(select(Group).where(Group.id == self.group_id)).first()
+        group = db_session.exec(select(Group).where(Group.id == self.group_id)).first()
         try:
-            head_iter = session.exec(select(GroupIteration)
-                                     .where(GroupIteration.id == group.head_iteration_id)).first()
+            head_iter = db_session.exec(
+                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
+            ).first()
             if head_iter is None:
-                session.close()
+                db_session.close()
                 return
             prev_iter = head_iter.parent
             if prev_iter is None:
-                session.close()
+                db_session.close()
                 return
             if not prev_iter.notified[str(user_id)]:
                 await self.send_message("Please fetch results.", websocket)
                 notified = prev_iter.notified.copy()
                 notified[user_id] = True
                 prev_iter.notified = notified
-                session.add(prev_iter)
-                session.commit()
-                session.close()
+                db_session.add(prev_iter)
+                db_session.commit()
+                db_session.close()
         except Exception:
-            session.close()
+            db_session.close()
             return
 
     async def disconnect(self, user_id: int, websocket: WebSocket):
@@ -239,8 +238,9 @@ def delete_group(
 
     # Get the root iteration
     # TODO: Adapt this to the new cascade with multiple children
-    head: GroupIteration = session.exec(select(GroupIteration)
-                                        .where(GroupIteration.id == group.head_iteration_id)).first()
+    head: GroupIteration = session.exec(
+        select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
+    ).first()
     iter_count = 0
     if head is not None:
         while head.parent is not None:

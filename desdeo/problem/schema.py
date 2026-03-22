@@ -16,7 +16,7 @@ from collections.abc import Iterable
 from enum import Enum
 from itertools import product
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Self, TypeAliasType
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
 
 import numpy as np
 from pydantic import (
@@ -61,13 +61,10 @@ def tensor_custom_error_validator(value: Any, handler: ValidatorFunctionWrapHand
         raise PydanticCustomError("invalid tensor", "Input is not a valid tensor") from exc
 
 
-Tensor = TypeAliasType(
-    "Tensor",
-    Annotated[
-        list["Tensor"] | list[VariableType] | VariableType | Literal["List"] | None,
-        WrapValidator(tensor_custom_error_validator),
-    ],
-)
+type Tensor = Annotated[
+    list["Tensor"] | list[VariableType] | VariableType | Literal["List"] | None,
+    WrapValidator(tensor_custom_error_validator),
+]
 
 
 def parse_infix_to_func(cls: "Problem", v: str | list) -> list:
@@ -756,7 +753,7 @@ class Simulator(BaseModel):
     """Path to a python file with the connection to simulators."""
     url: Url | None = Field(
         description=(
-            "Optional. A URL to the simulator. A GET request to this URL should be used to evaluate solutions in batches."
+            "Optional. URL to the simulator. A GET request to this URL should be used to evaluate solutions in batches."
         ),
         default=None,
     )

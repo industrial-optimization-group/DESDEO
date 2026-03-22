@@ -243,14 +243,14 @@ class Publisher:
                     subscriber.update(message)
 
 
-def createblanksubs(interested_topics):
+def createblanksubs(interested_topics: Sequence[MessageTopics]) -> type["Subscriber"]:
     """Create a blank subscriber for testing purposes.
 
     Args:
         interested_topics (list[MessageTopics]): the topics the subscriber is interested in.
 
     Returns:
-        class: the blank subscriber class.
+        type[Subscriber]: the blank subscriber class.
     """
 
     class BlankSubscriber(Subscriber):

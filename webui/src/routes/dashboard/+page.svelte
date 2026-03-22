@@ -63,6 +63,11 @@
 
 </script>
 
+<svelte:head>
+	<title>Dashboard | DESDEO</title>
+	<meta name="description" content="Dashboard of features and functionalities of DESDEO" />
+</svelte:head>
+
 <div class="flex min-h-screen w-full flex-col">
 	<Topbar />
 

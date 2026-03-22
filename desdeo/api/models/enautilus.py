@@ -1,5 +1,8 @@
 """Models specific to the E-NAUTILUS point method."""
 
+from typing import Literal
+
+from pydantic import ConfigDict
 from sqlmodel import JSON, Column, Field, SQLModel
 
 from desdeo.tools import SolverResults
@@ -54,14 +57,6 @@ class ENautilusStepResponse(SQLModel):
     )
 
 
-class ENautilusStateRequest(SQLModel):
-    """Model to request a previous state of the E-NAUTILUS method."""
-
-    state_id: int = Field(
-        description="The id of the requested 'StateDB' object containing an instance of an 'ENautilusState."
-    )
-
-
 class ENautilusStateResponse(SQLModel):
     """The response model when requesting a state in E-NAUTILUS."""
 
@@ -77,8 +72,93 @@ class ENautilusRepresentativeSolutionsResponse(SQLModel):
     )
 
 
-class ENautilusRepresentativeSolutionsRequest(ENautilusStateRequest):
-    """Model to request the representative solutions of intermediate points.
+class ENautilusFinalizeRequest(SQLModel):
+    """Request to finalize E-NAUTILUS and select the final solution."""
 
-    Note that only the id of the 'StateDB' object with the relevant 'ENautilusInstance' is required.
-    """
+    problem_id: int
+    session_id: int | None = Field(default=None)
+    parent_state_id: int = Field(description="The E-NAUTILUS step state (must have iterations_left == 0).")
+    selected_point_index: int = Field(description="Index of the selected intermediate point (0-based).")
+
+
+class ENautilusFinalizeResponse(SQLModel):
+    """Response from E-NAUTILUS finalization."""
+
+    response_type: Literal["e-nautilus.finalize"] = "e-nautilus.finalize"
+
+    state_id: int = Field(description="The ID of the created final state.")
+    selected_intermediate_point: dict[str, float] = Field(
+        sa_column=Column(JSON),
+        description="The intermediate point that was selected by the DM.",
+    )
+    final_solution: SolverResults = Field(
+        description=(
+            "The final solution projected to the representative Pareto front. "
+            "Note: This is the nearest point on the representative set; a true Pareto "
+            "optimal solution dominating this point may exist."
+        ),
+    )
+
+
+class ENautilusTreeNodeResponse(SQLModel):
+    """A node in the E-NAUTILUS session tree."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    node_id: int = Field(description="The StateDB id of this node.")
+    parent_node_id: int | None = Field(default=None, description="The StateDB id of the parent node.")
+    depth: int = Field(description="Depth of this node in the tree (root = 0).")
+    node_type: Literal["step", "final"] = Field(description="Whether this is a step or final node.")
+
+    # Step node fields
+    current_iteration: int | None = Field(default=None, description="The iteration number at this step.")
+    iterations_left: int | None = Field(default=None, description="Iterations remaining at this step.")
+    selected_point: dict[str, float] | None = Field(
+        default=None, sa_column=Column(JSON), description="The DM's position when this step was taken."
+    )
+    intermediate_points: list[dict[str, float]] | None = Field(
+        default=None, sa_column=Column(JSON), description="Intermediate points shown at this step."
+    )
+    closeness_measures: list[float] | None = Field(default=None, description="Closeness measures at this step.")
+
+    # Final node fields
+    selected_point_index: int | None = Field(default=None, description="Index of the selected intermediate point.")
+    selected_intermediate_point: dict[str, float] | None = Field(
+        default=None, sa_column=Column(JSON), description="The intermediate point selected in finalization."
+    )
+    final_solution_objectives: dict[str, float] | None = Field(
+        default=None, sa_column=Column(JSON), description="Objective values of the final projected solution."
+    )
+
+
+class ENautilusDecisionEventResponse(SQLModel):
+    """A decision event capturing a transition from parent to child node."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    parent_node_id: int = Field(description="The parent node id.")
+    child_node_id: int = Field(description="The child node id.")
+    parent_iteration: int = Field(description="Iteration number at the parent.")
+    child_iteration: int = Field(description="Iteration number at the child.")
+    iterations_left_after: int = Field(description="Iterations left after this decision.")
+    starting_point: dict[str, float] | None = Field(
+        default=None, sa_column=Column(JSON), description="The DM's position when viewing options."
+    )
+    chosen_point: dict[str, float] | None = Field(
+        default=None, sa_column=Column(JSON), description="The point the DM chose."
+    )
+    chosen_option_idx: int | None = Field(default=None, description="Index of chosen option among those shown.")
+
+
+class ENautilusSessionTreeResponse(SQLModel):
+    """The complete E-NAUTILUS session tree."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    session_id: int = Field(description="The interactive session id.")
+    nodes: list[ENautilusTreeNodeResponse] = Field(description="All nodes in the tree (step and final).")
+    edges: list[list[int]] = Field(description="Edges as [parent_id, child_id] pairs.")
+    root_ids: list[int] = Field(description="IDs of root nodes (no parent).")
+    decision_events: list[ENautilusDecisionEventResponse] = Field(
+        description="Pre-computed decision events for each parent-child transition."
+    )

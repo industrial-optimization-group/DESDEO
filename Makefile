@@ -15,32 +15,37 @@
 #
 # test-failures: rerun the last falures only.
 #
-# requirements-rtd: Exports the current requiremetns into a requirements.txt
-# 	file and ouputs it into the docs folder. This file is needed when the DESDEO
-# 	docs are built on readthedocs.org.
-#
-# requirements-pip: Like above, but creates a requirements.txt file for
-# 	installing DESDEO utilizing pip/pipx.
-#
 # fullstack: run the web-API and web-GUI for local develpment.
 
+# Pytest conf (defined with `?=` can be overridden, e.g., `make test
+# PYTST_MARK="-m slow"`)
+PYTEST 		?= pytest -n auto
+PYTEST_SKIP 	?= -m "not fixme"
+PYTEST_OPTS 	?= --disable-warnings
+
+# Other conf
+TEST_API_PATH := ./desdeo/api/tests
+
 test:
-	pytest -n 4 -m "not nautilus and not performance and not skip"
+	$(PYTEST) $(PYTEST_SKIP) $(PYTEST_OPTS)
+
+test-api:
+	$(PYTEST) $(PYTEST_SKIP) $(PYTEST_OPTS) $(TEST_API_PATH)
 
 test-all:
-	pytest -n 4
+	$(PYTEST)
 
 test-changes:
-	pytest -n 4 --testmon
+	$(PYTEST) --testmon
 
 test-failures:
-	pytest -n 4 --lf
-
-requirements-rtd:
-	poetry export --format requirements.txt --all-extras --without-hashes --output docs/requirements.txt
-
-requirements-pip:
-	poetry export --format requirements.txt --all-extras --without-hashes --output ./requirements.txt
+	$(PYTEST) --lf $(PYTEST_SKIP) $(PYTEST_OPTS)
 
 fullstack:
 	./run_fullstack.sh
+
+docs-fast:
+	mkdocs serve -f mkdocs.yml
+
+docs-rtd:
+	mkdocs serve -f mkdocs.rtd.yml

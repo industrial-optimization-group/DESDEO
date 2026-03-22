@@ -4,16 +4,30 @@
 # Required
 version: 2
 
+mkdocs:
+  configuration: mkdocs.rtd.yml
+
 # Set the version of Python and other tools you might need
 build:
-  os: ubuntu-22.04
+  os: ubuntu-24.04
   tools:
     python: "3.12"
+  jobs:
+    pre_create_environment:
+      - asdf plugin add uv
+      - asdf install uv latest
+      - asdf global uv latest
+    create_environment:
+      - uv venv "${READTHEDOCS_VIRTUALENV_PATH}"
+    install:
+      - UV_PROJECT_ENVIRONMENT="${READTHEDOCS_VIRTUALENV_PATH}" uv sync --frozen --all-extras
 
-mkdocs:
-  configuration: mkdocs.yml
+      # Ensure optimization solver binaries are available while building docs.
+      - mkdir -p "$HOME/tmp/custom_binaries"
+      - wget https://github.com/industrial-optimization-group/DESDEO/releases/download/supplementary/solver_binaries.tgz -O "$HOME/tmp/binaries.tgz"
+      - tar --strip-components=1 -xzf "$HOME/tmp/binaries.tgz" -C "$HOME/tmp/custom_binaries"
+      - chmod +x "$HOME/tmp/custom_binaries"/*
 
-# Optionally declare the Python requirements required to build your docs
-python:
-  install:
-  - requirements: docs/requirements.txt
+      - cp -a "$HOME/tmp/custom_binaries"/. "${READTHEDOCS_VIRTUALENV_PATH}/bin/"
+
+      - bash -lc 'command -v ipopt && command -v bonmin'

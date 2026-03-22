@@ -1,0 +1,53 @@
+name: pre-commit (changed files)
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          cache: true
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Sync dev dependencies
+        run: uv sync --group dev
+
+      - name: Cache pre-commit environments
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Run pre-commit on changed files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Get changed files (A/M/R), NUL-delimited to be safe with filenames.
+          git diff --name-only -z --diff-filter=AMR "$BASE_SHA" "$HEAD_SHA" > /tmp/changed_files.txt
+
+          if [ ! -s /tmp/changed_files.txt ]; then
+            echo "No applicable files changed."
+            exit 0
+          fi
+
+          echo "Running pre-commit on changed files…"
+          # Read NUL-delimited list into an array
+          mapfile -d '' files < /tmp/changed_files.txt
+
+          uv run pre-commit run --show-diff-on-failure --color=always --files "${files[@]}"

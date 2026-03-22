@@ -3,7 +3,9 @@
 NOTE: No routers should be defined in this file!
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -18,12 +20,18 @@ from desdeo.api.models import (
     StateDB,
     User,
 )
+from desdeo.api.models.session import CreateSessionRequest
 from desdeo.api.routers.user_authentication import get_current_user
 
-RequestType = RPMSolveRequest | ENautilusStepRequest
+RequestType = RPMSolveRequest | ENautilusStepRequest | CreateSessionRequest
 
 
-def fetch_interactive_session(user: User, request: RequestType, session: Session) -> InteractiveSessionDB | None:
+def fetch_interactive_session(
+        user: User,
+        session: Session,
+        request: RequestType | None = None,
+        session_id: int | None = None,
+    ) -> InteractiveSessionDB | None:
     """Gets the desired instance of `InteractiveSessionDB`.
 
     Args:
@@ -31,6 +39,7 @@ def fetch_interactive_session(user: User, request: RequestType, session: Session
         request (RequestType): the request with possibly information on which interactive session to query.
         session (Session): the database session (not to be confused with the interactive session) from
             which the interactive session should be queried.
+        session_id (int): the id of a session
 
     Note:
         If no explicit `session_id` is given in `request`, this function will try to fetch the
@@ -43,23 +52,28 @@ def fetch_interactive_session(user: User, request: RequestType, session: Session
     Returns:
         InteractiveSessionDB | None: an interactive session DB model, or nothing.
     """
-    if request.session_id is not None:
+    # session_id param has highest priority
+    actual_session_id = session_id or (getattr(request, "session_id", None) if request else None)
+
+
+    if actual_session_id is not None:
         # specific interactive session id is given, try using that
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
+        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == actual_session_id)
         interactive_session = session.exec(statement).first()
 
         if interactive_session is None:
             # Raise if explicitly requested interactive session cannot be found
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Could not find interactive session with id={request.session_id}.",
+                detail=f"Could not find interactive session with id={actual_session_id}.",
             )
     else:
-        # request.session_id is None
+        if user.active_session_id is None:
+            return None
+        # actual_session_id is None
         # try to use active session instead
 
         statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
-
         interactive_session = session.exec(statement).first()
 
     # At this point interactive_session is either an instance of InteractiveSessionDB or None (which is fine)
@@ -67,7 +81,7 @@ def fetch_interactive_session(user: User, request: RequestType, session: Session
     return interactive_session
 
 
-def fetch_user_problem(user: User, request: RequestType, session: Session) -> ProblemDB:
+def fetch_user_problem(user: User, request: RequestType, session: Session) -> ProblemDB | None:
     """Fetches a user's `ProblemDB` based on the id in the given request.
 
     Args:
@@ -81,19 +95,21 @@ def fetch_user_problem(user: User, request: RequestType, session: Session) -> Pr
     Returns:
         Problem: the instance of `ProblemDB` with the given id.
     """
-    statement = select(ProblemDB).where(ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id)
-    problem_db = session.exec(statement).first()
+    if request.problem_id is None:
+        return None
 
-    if problem_db is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
-        )
-
-    return problem_db
+    statement = select(ProblemDB).where(
+        ProblemDB.user_id == user.id,
+        ProblemDB.id == request.problem_id,
+    )
+    return session.exec(statement).first()
 
 
 def fetch_parent_state(
-    user: User, request: RequestType, session: Session, interactive_session: InteractiveSessionDB | None = None
+    user: User,
+    request: RequestType,
+    session: Session,
+    interactive_session: InteractiveSessionDB | None = None,
 ) -> StateDB | None:
     """Fetches the parent state, if an id is given, or if defined in the given interactive session.
 
@@ -105,18 +121,17 @@ def fetch_parent_state(
     given `interactive_session`, if available. If neither source provides a
     parent state, `None` is returned.
 
-
     Args:
-        user (User): the user for which the parent state is fetched.
-        request (RequestType): request containing details about the parent state and optionally the
-            interactive session.
-        session (Session): the database session from which to fetch the parent state.
-        interactive_session (InteractiveSessionDB | None, optional): the interactive session containing
-            information about the parent state. Defaults to None.
+    user (User): the user for which the parent state is fetched.
+    request (RequestType): request containing details about the parent state and optionally the
+        interactive session.
+    session (Session): the database session from which to fetch the parent state.
+    interactive_session (InteractiveSessionDB | None, optional): the interactive session containing
+        information about the parent state. Defaults to None.
 
     Raises:
-        HTTPException: when `request.parent_state_id` is not `None` and a `StateDB` with this id cannot
-            be found in the given database session.
+    HTTPException: when `request.parent_state_id` is not `None` and a `StateDB` with this id cannot
+        be found in the given database session.
 
     Returns:
         StateDB | None: if `request.parent_state_id` is given, returns the corresponding `StateDB`.
@@ -126,25 +141,29 @@ def fetch_parent_state(
     if request.parent_state_id is None:
         # parent state is assumed to be the last sate added to the session.
         # if `interactive_session` is None, then parent state is set to None.
-        parent_state = (
-            interactive_session.states[-1]
-            if (interactive_session is not None and len(interactive_session.states) > 0)
-            else None
+        return interactive_session.states[-1] if interactive_session and interactive_session.states else None
+
+    # request.parent_state_id is not None
+    statement = select(StateDB).where(StateDB.id == request.parent_state_id)
+    parent_state = session.exec(statement).first()
+
+    # this error is raised because if a parent_state_id is given, it is assumed that the
+    # user wished to use that state explicitly as the parent.
+    if parent_state is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Could not find state with id={request.parent_state_id}",
         )
 
-    else:
-        # request.parent_state_id is not None
-        statement = select(StateDB).where(StateDB.id == request.parent_state_id)
-        parent_state = session.exec(statement).first()
-
-        # this error is raised because if a parent_state_id is given, it is assumed that the
-        # user wished to use that state explicitly as the parent.
-        if parent_state is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
-            )
-
     return parent_state
+
+
+class ContextField(StrEnum):
+    """Enum class to specify context fields."""
+
+    PROBLEM = "problem_db"
+    INTERACTIVE_SESSION = "interactive_session"
+    PARENT_STATE = "parent_state"
 
 
 @dataclass(frozen=True)
@@ -153,35 +172,98 @@ class SessionContext:
 
     user: User
     db_session: Session
-    problem_db: ProblemDB
-    interactive_session: InteractiveSessionDB | None
-    parent_state: StateDB | None
+    problem_db: ProblemDB | None = None
+    interactive_session: InteractiveSessionDB | None = None
+    parent_state: StateDB | None = None
 
 
-def get_session_context(
-    request: RequestType,
-    user: Annotated[User, Depends(get_current_user)],
-    db_session: Annotated[Session, Depends(get_session)],
-) -> SessionContext:
-    """Gets the current session context. Should be used as a dep.
+class SessionContextGuard:
+    """FastAPI dependency that builds a SessionContext and validates required fields."""
 
-    Args:
-        request (RequestType): request based on which the context is fetched.
-        user (Annotated[User, Depends): the current user (dep).
-        db_session (Annotated[Session, Depends): the current database session (dep).
+    def __init__(self, require: Iterable[ContextField] | None = None):
+        """Init method for the SessionContextGuard class.
 
-    Returns:
-        SessionContext: the current session context with the relevant instances
-            of `User`, `Session`, `ProblemDB`, `InteractiveSessionDB`, and `StateDB`.
-    """
-    problem_db = fetch_user_problem(user, request, db_session)
-    interactive_session = fetch_interactive_session(user, request, db_session)
-    parent_state = fetch_parent_state(user, request, db_session, interactive_session=interactive_session)
+        Args:
+            require (Iterable[ContextField] | None, optional): fields that the guard will check
+                are included in the request. Defaults to None.
+        """
+        self.require = set(require or [])
 
-    return SessionContext(
-        user=user,
-        db_session=db_session,
-        problem_db=problem_db,
-        interactive_session=interactive_session,
-        parent_state=parent_state,
-    )
+    def __call__(
+        self,
+        user: Annotated[User, Depends(get_current_user)],
+        db_session: Annotated[Session, Depends(get_session)],
+        request: RequestType | None = None,
+        problem_id: int | None = None,
+    ) -> SessionContext:
+        """Call method for the SessionContextGuard class.
+
+        Args:
+            user (Annotated[User, Depends): the current user (dep)
+            db_session (Annotated[Session, Depends): the current database session (dep).
+            request (RequestType | None, optional): request based on which the context is fetched.
+                Defaults to None.
+            problem_id (int): ID of the problem.
+
+        Returns:
+            SessionContext: the session context with the required fields specified in `self.require`.
+        """
+        problem_db = None
+        interactive_session = None
+        parent_state = None
+
+        # Only fetch request-based context if request exists
+        if request is not None:
+            if hasattr(request, "problem_id"):
+                problem_db = fetch_user_problem(user, request, db_session)
+
+            if problem_db is None and problem_id is not None:
+                class _ProblemOnly:
+                    def __init__(self, problem_id: int):
+                        self.problem_id = problem_id
+                        self.session_id = None
+                        self.parent_state_id = None
+                problem_db = fetch_user_problem(user, _ProblemOnly(problem_id), db_session)
+
+            if hasattr(request, "interactive_session_id") or hasattr(request, "problem_id"):
+                interactive_session = fetch_interactive_session(user, request, db_session)
+
+            if hasattr(request, "parent_state_id") or hasattr(request, "problem_id"):
+                parent_state = fetch_parent_state(
+                    user,
+                    request,
+                    db_session,
+                    interactive_session=interactive_session,
+                )
+        elif problem_id is not None:
+            # Build a minimal fake request-like object
+            class _ProblemOnly:
+                def __init__(self, problem_id: int):
+                    self.problem_id = problem_id
+                    self.session_id = None
+                    self.parent_state_id = None
+
+            pseudo_request = _ProblemOnly(problem_id)
+
+            problem_db = fetch_user_problem(user, pseudo_request, db_session)
+
+        context = SessionContext(
+            user=user,
+            db_session=db_session,
+            problem_db=problem_db,
+            interactive_session=interactive_session,
+            parent_state=parent_state,
+        )
+
+        self._validate(context)
+
+        return context
+
+    def _validate(self, context: SessionContext) -> None:
+        """Ensure required fields exist."""
+        for field in self.require:
+            if getattr(context, field.value) is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"{field} context missing.",
+                )

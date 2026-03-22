@@ -15,12 +15,6 @@ class CreateSessionRequest(SQLModel):
     info: str | None = Field(default=None)
 
 
-class GetSessionRequest(SQLModel):
-    """Model of the request to get a specific session."""
-
-    session_id: int = Field()
-
-
 class InteractiveSessionBase(SQLModel):
     """The base model for representing interactive sessions."""
 
@@ -42,5 +36,8 @@ class InteractiveSessionDB(InteractiveSessionBase, table=True):
     info: str | None = Field(default=None)
 
     # Back populates
-    states: list["StateDB"] = Relationship(back_populates="session")
+    states: list["StateDB"] = Relationship(
+        back_populates="session",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
     user: "User" = Relationship(back_populates="sessions")

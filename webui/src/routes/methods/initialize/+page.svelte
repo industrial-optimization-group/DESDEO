@@ -77,7 +77,21 @@
 			path: '/interactive_methods/XNIMBUS',
 			description: 'Explainable NIMBUS method for MOO.',
 			preferencesType: ['classification']
-		}
+		},
+				{
+			name: 'Group NIMBUS',
+			path: '/interactive_methods/GNIMBUS',
+			description: 'Group NIMBUS method for collaborative MOO.',
+			preferencesType: ['classification'],
+			supportsGroups: true
+		},
+		{
+			name: 'GDM-SCORE-bands',
+			path: '/interactive_methods/GDM-SCORE-bands',
+			description: 'SCORE bands for GDM.',
+			preferencesType: ['preferred ranges'],
+			supportsGroups: true
+		},
 		/* {
 			name: 'GDM-SCORE-bands',
 			path: '/interactive_methods/GDM-SCORE-bands',
@@ -111,16 +125,26 @@
 	let searchQuery = $state('');
 	let selectedPreferenceType = $state<MethodFilterType>('all');
 	let isCompactView = $state(false);
+	let selectedSessionId: number | null = $state(null);
+	let selectedSessionInfo: string | null = $state(null);
 
 	const { data } = $props<{
 			data: {
 				problems: ProblemInfo[],
 				groupId?: string // This exists only in GDM when user comes to this page through group selecting page.
-			} 
+			}
 		}>();
-	let problemList = data.problems ?? [];
+	let problemList = $derived(data.problems ?? []);
 
 	const preferenceTypes = [...new Set(baseMethods.flatMap((m) => m.preferencesType))];
+
+	let selectedSessionLabel = $derived.by(() => {
+		if (!selectedSessionId) return 'None';
+		const info = selectedSessionInfo?.trim();
+		return info && info.length > 0
+			? `#${selectedSessionId} — ${info}`
+			: `#${selectedSessionId}`;
+	});
 
 	let filteredMethods = $derived(
 		baseMethods.filter((method) => {
@@ -131,11 +155,15 @@
 
 			const matchesPreference =
 				selectedPreferenceType === 'all' || method.preferencesType.includes(selectedPreferenceType);
-			
+
 			const matchesGroupMode = data.groupId ? method.supportsGroups === true : method.supportsGroups !== true;
 
 			return matchesSearch && matchesPreference && matchesGroupMode;
 		})
+	);
+
+	const hasRepresentativeSets = $derived(
+		(problem?.problem_metadata?.representative_nd_metadata?.length ?? 0) > 0
 	);
 
 	// Button enable logic: for group methods, enable if groupId exists; for individual methods, enable if problem exists
@@ -143,19 +171,38 @@
 		if (method.supportsGroups && data.groupId) {
 			// Group method: enable if we have a groupId (DM users can access group problems they don't own)
 			return true;
+		} else if (!problem) {
+			return false;
+		} else if (method.name === 'E-NAUTILUS' && !hasRepresentativeSets) {
+			return false;
 		} else {
-			// Individual method: enable only if problem exists in user's problem list
-			return !!problem;
+			return true;
 		}
+	};
+
+	const getDisabledHint = (method: Method): string | null => {
+		if (!problem) return null;
+		if (method.name === 'E-NAUTILUS' && !hasRepresentativeSets) {
+			return 'Requires representative solution sets';
+		}
+		return null;
 	};
 
 	onMount(() => {
 		problemId = $methodSelection.selectedProblemId;
+		selectedSessionId = $methodSelection.selectedSessionId;
+		selectedSessionInfo = $methodSelection.selectedSessionInfo;
+
 		if (problemId) {
 			problem = problemList.find((p: ProblemInfo) => String(p.id) === String(problemId));
 		}
-	});
+});
 </script>
+
+<svelte:head>
+	<title>Select Method | DESDEO</title>
+	<meta name="description" content="This page displays a list of available optimization methods in DESDEO and allows the user to select a method for a specific problem" />
+</svelte:head>
 
 <div class="container mx-auto px-4 py-8">
 	<div class="mb-8 space-y-4">
@@ -184,10 +231,17 @@
 				</p>
 				<Button variant="outline" size="sm" href="/problems">Change</Button>
 			</div>
+			<div class="bg-secondary/20 flex items-center justify-between rounded-lg px-4 py-2">
+				<p class="text-sm">
+					Selected session:
+					<span class="text-primary font-bold">{selectedSessionLabel}</span>
+				</p>
+				<Button variant="outline" size="sm" href="/methods/sessions">Change</Button>
+			</div>
 		{:else if data.groupId}
 			<div class="bg-info/10 flex items-center justify-between rounded-lg px-4 py-2">
 				<p class="text-sm">
-					Group mode: <span class="text-primary font-bold">Group ID {data.groupId}</span> 
+					Group mode: <span class="text-primary font-bold">Group ID {data.groupId}</span>
 					- Group methods are available for collaborative decision making
 				</p>
 				<Button variant="outline" size="sm" href="/groups">Back to Groups</Button>
@@ -250,11 +304,15 @@
 						<p class="text-muted-foreground text-sm">{method.description}</p>
 					</div>
 					<div class="flex items-center gap-2">
+						{#if getDisabledHint(method)}
+							<span class="text-xs text-amber-600">{getDisabledHint(method)}</span>
+						{/if}
 						<Button
 							variant="outline"
 							size="sm"
 							disabled={!isMethodEnabled(method)}
 							href={`${method.path}`}
+							onclick={() => methodSelection.setMethod(method.name)}
 							class={!isMethodEnabled(method) ? 'opacity-50' : 'hover:bg-secondary/90'}
 						>
 							<Play class="mr-2 size-4" />
@@ -295,16 +353,20 @@
 						{/if}
 					</Card.Content>
 
-					<Card.Footer class="pt-4">
+					<Card.Footer class="flex-col gap-1 pt-4">
 						<Button
 							variant="default"
 							disabled={!isMethodEnabled(method)}
 							href={`${method.path}`}
+							onclick={() => methodSelection.setMethod(method.name)}
 							class="w-full justify-center {!isMethodEnabled(method) ? 'opacity-50' : 'hover:bg-primary/90'}"
 						>
 							<Play class="mr-2" size={18} />
 							Use {method.name}
 						</Button>
+						{#if getDisabledHint(method)}
+							<p class="text-xs text-amber-600">{getDisabledHint(method)}</p>
+						{/if}
 					</Card.Footer>
 				</Card.Root>
 			{/each}

@@ -7,13 +7,15 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import GalleryVerticalEndIcon from '@lucide/svelte/icons/orbit';
-	import main_image from '$lib/assets/main.jpg';
-	import { setTime } from 'effect/TestClock';
-	import { methodSelection } from '../../stores/methodSelection';
-	methodSelection.set(null, null); // reset method selection on home page
-	let username = ''; // from login form
-	let password = '';
-	let loginError: string | null = null; // whether login is successful or not
+	import { superForm } from 'sveltekit-superforms';
+
+	let { data } = $props();
+	const { form, enhance } = $derived(superForm(data.form));
+
+	let username = $state('');
+	let password = $state('');
+	let loginError = $state<string | null>(null); // whether login is successful or not
+	const main_image = '/main.jpg';
 
 	async function handleLogin() {
 		const res = await api.POST('/login', {
@@ -50,16 +52,26 @@
 		}
 
 		// user info available, update that as well
-		auth.setAuth(token, userRes.data);
+		auth.setAuth(token, {
+			id: userRes.data.id,
+			username: userRes.data.username,
+			role: userRes.data.role,
+			group: ''
+		});
 
 		goto('/dashboard');
 	}
 </script>
 
+<svelte:head>
+	<title>Login | DESDEO</title>
+	<meta name="description" content="user login page" />
+</svelte:head>
+
 <div class="grid min-h-svh lg:grid-cols-2">
 	<div class="left-inner-shadow flex flex-col gap-4 p-6 md:p-10">
 		<div class="flex justify-center gap-2 md:justify-start">
-			<a href="##" class="flex items-center gap-2 font-medium">
+			<a href="https://desdeo.it.jyu.fi/" class="flex items-center gap-2 font-medium">
 				<div
 					class="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md"
 				>
@@ -70,7 +82,13 @@
 		</div>
 		<div class="flex flex-1 items-center justify-center">
 			<div class="w-full max-w-xs">
-				<form class="flex flex-col gap-6" on:submit|preventDefault={handleLogin}>
+				<form
+					class="flex flex-col gap-6"
+					onsubmit={(e) => {
+						e.preventDefault();
+						void handleLogin();
+					}}
+				>
 					<div class="flex flex-col items-center gap-2 text-center">
 						<h1 class="text-2xl font-bold">Login to your account</h1>
 						<p class="text-muted-foreground text-balance text-sm">
@@ -85,7 +103,7 @@
 						<div class="grid gap-3">
 							<div class="flex items-center">
 								<Label for="password">Password</Label>
-								<a href="##" class="ml-auto text-sm underline-offset-4 hover:underline">
+								<a href="/home/forgot-password" class="ml-auto text-sm underline-offset-4 hover:underline">
 									Forgot your password?
 								</a>
 							</div>
@@ -98,7 +116,7 @@
 					</div>
 					<div class="text-center text-sm">
 						Don&apos;t have an account?
-						<a href="##" class="underline underline-offset-4"> Sign up </a>
+						<a href="/home/registration" class="underline underline-offset-4"> Sign up </a>
 						or
 						<a href="/dashboard" class="underline underline-offset-4">
 							explore DESDEO as a guest.
