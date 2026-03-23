@@ -113,6 +113,25 @@ def test_refresh(client: TestClient):
 
     assert response_good.json()["access_token"] != response_refresh.json()["access_token"]
 
+def test_debug_endpoint_valid_codes(client):
+    """Test that debug endpoint returns the requested HTTP error codes."""
+    # Test 404
+    response = client.get("/method/generic/debug/404")
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["detail"] == "Debug triggered HTTP 404 error"
+
+    # Test 500
+    response = client.get("/method/generic/debug/500")
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert response.json()["detail"] == "Debug triggered HTTP 500 error"
+
+
+def test_debug_endpoint_invalid_code(client):
+    """Test that invalid HTTP codes return 400."""
+    response = client.get("/method/generic/debug/999")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Invalid HTTP code" in response.json()["detail"]
+
 
 def test_get_problem(client: TestClient):
     """Test fetching specific problems based on their id."""
