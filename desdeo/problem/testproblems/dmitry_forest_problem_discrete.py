@@ -1,4 +1,5 @@
 """A forest problem with discrete representation."""
+
 from pathlib import Path
 
 import polars as pl
@@ -20,17 +21,22 @@ def dmitry_forest_problem_disc() -> Problem:
         Problem: A problem instance representing the forest problem.
     """
     path = Path(__file__)
-    while not str(path).endswith("/DESDEO"):
+    while path.name != "DESDEO":
         path = path.parent
 
-    path = path / "tests/data/dmitry_discrete_repr/dmitry_forest_problem_non_dom_solns.csv"
+    path = (
+        path / "tests/data/dmitry_discrete_repr/dmitry_forest_problem_non_dom_solns.csv"
+    )
 
     obj_names = ["Rev", "HA", "Carb", "DW"]
 
     var_name = "index"
 
     data = pl.read_csv(
-        path, has_header=True, columns=["Rev", "HA", "Carb", "DW"], separator=",", #decimal_comma=True
+        path,
+        has_header=True,
+        columns=["Rev", "HA", "Carb", "DW"],
+        separator=",",  # decimal_comma=True
     )
 
     variables = [
