@@ -3,14 +3,13 @@ import type { getProblemJsonProblemProblemIdJsonGetResponse } from '$lib/gen/end
 import { deleteProblemProblemProblemIdDelete } from '$lib/gen/endpoints/DESDEOFastAPI';
 import { getProblemJsonProblemProblemIdJsonGet } from '$lib/gen/endpoints/DESDEOFastAPI';
 import { getMetadataProblemGetMetadataPost } from '$lib/gen/endpoints/DESDEOFastAPI';
-import { getAvailableSolversProblemAssignSolverGet } from '$lib/gen/endpoints/DESDEOFastAPI';
 import { selectSolverProblemAssignSolverPost } from '$lib/gen/endpoints/DESDEOFastAPI';
-import { addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPost } from '$lib/gen/endpoints/DESDEOFastAPI';
-import type { RepresentativeSolutionSetRequest } from '$lib/gen/models';
+import { addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPost } from '$lib/gen/endpoints/DESDEOFastAPI';
+import type { RepresentativeSolutionSetBase } from '$lib/gen/models';
 
 export async function deleteProblem(problemId: number): Promise<boolean> {
 	const response: deleteProblemProblemProblemIdDeleteResponse =
-		await deleteProblemProblemProblemIdDelete(problemId);
+		await deleteProblemProblemProblemIdDelete(problemId, null);
 
 	if (response.status !== 204) {
 		console.error('Failed to delete problem:', response.status);
@@ -22,7 +21,7 @@ export async function deleteProblem(problemId: number): Promise<boolean> {
 
 export async function downloadProblemJson(problemId: number, problemName: string): Promise<void> {
 	const response: getProblemJsonProblemProblemIdJsonGetResponse =
-		await getProblemJsonProblemProblemIdJsonGet(problemId);
+		await getProblemJsonProblemProblemIdJsonGet(problemId, null);
 
 	if (response.status !== 200) {
 		console.error('Failed to download problem:', response.status);
@@ -52,14 +51,9 @@ export async function getAssignedSolver(problemId: number): Promise<string | nul
 }
 
 export async function getAvailableSolvers(): Promise<string[]> {
-	const response = await getAvailableSolversProblemAssignSolverGet();
-
-	if (response.status !== 200) {
-		console.error('Failed to fetch available solvers:', response.status);
-		return [];
-	}
-
-	return response.data;
+	// Note: The API does not provide a dedicated endpoint to get available solvers.
+	// This function should be updated once the API exposes this functionality.
+	return [];
 }
 
 export async function assignSolver(problemId: number, solver: string): Promise<boolean> {
@@ -77,10 +71,11 @@ export async function assignSolver(problemId: number, solver: string): Promise<b
 }
 
 export async function addRepresentativeSolutionSet(
-	payload: RepresentativeSolutionSetRequest
+	problemId: number,
+	payload: RepresentativeSolutionSetBase
 ): Promise<boolean> {
 	const response =
-		await addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPost(payload);
+		await addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPost(problemId, payload);
 
 	if (response.status !== 200) {
 		console.error('Failed to add representative solution set:', response.status);

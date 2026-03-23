@@ -8,20 +8,8 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import ChartArea from '@lucide/svelte/icons/chart-area';
 	import SquareFunction from '@lucide/svelte/icons/square-function';
-	import type { components } from '$lib/api/client-types';
-
-	import { methodSelection } from '../../stores/methodSelection';
-
 
 	import { goto } from '$app/navigation';
-
-	import type { PageProps } from './$types';
-	type ProblemInfo = components['schemas']['ProblemInfo'];
-
-
-	let { data }: PageProps = $props();
-	let problemList = data.problemList;
-	let selectedProblem = $state<ProblemInfo | undefined>(undefined);
 
 	function goToDocumentation() {
 		// Replace with the actual URL of your documentation
@@ -43,24 +31,6 @@
 	function goToScoreBands() {
 		goto('/interactive_methods/SCORE-bands');
 	}
-
-	function goToExplainableNIMBUS() {
-		// Get the first problem from the problem list
-		const selectedProblem = problemList[0];
-		// Set the selected problem in the store
-		methodSelection.set(selectedProblem?.id ?? null, $methodSelection.selectedMethod); // Update method selection store with the selected problem ID
-		goto('/interactive_methods/XNIMBUS');
-	}
-	function goToObtainedSolutions() {
-
-		goto('/solutions');
-	}
-	function goToNIMBUS() {
-		const selectedProblem = problemList[0];
-		methodSelection.set(selectedProblem?.id ?? null, $methodSelection.selectedMethod); // Update method selection store with the selected problem ID
-		goto('/interactive_methods/NIMBUS');
-	}
-
 </script>
 
 <svelte:head>
@@ -90,19 +60,41 @@
 					<div
 						class="bg-secondary/15 group-hover:bg-secondary/25 rounded-full p-4 transition-colors"
 					>
+						<Trees class="text-secondary-foreground size-12" strokeWidth={1.5} />
+					</div></Card.Header
+				>
+				<Card.Content class="flex-1 text-left">
+					<h2 class="text-secondary-foreground mb-1 text-lg font-semibold">
+						Forest Management Tool
+					</h2>
+					<p class="text-muted-foreground leading-snug">
+						Optimize forest management decisions considering multiple objectives.
+					</p>
+				</Card.Content>
+				<Card.Footer>
+					<Button class="w-full" onclick={goToForestManagement}>Try Forest Management Tool</Button>
+				</Card.Footer>
+			</Card.Root>
+			<Card.Root
+				class="group flex h-[300px] flex-col transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
+			>
+				<Card.Header class="flex items-center justify-center">
+					<div
+						class="bg-secondary/15 group-hover:bg-secondary/25 rounded-full p-4 transition-colors"
+					>
 						<Problem class="text-secondary-foreground size-12" strokeWidth={1.5} />
 					</div></Card.Header
 				>
 				<Card.Content class="flex-1 text-left">
 					<h2 class="text-secondary-foreground mb-1 text-lg font-semibold">
-						NIMBUS
+						Optimization Problems
 					</h2>
 					<p class="text-muted-foreground leading-snug">
-						Solve the river pollution problem using the NIMBUS method.
+						Browse and select from a variety of pre-defined multi-objective optimization problems.
 					</p>
 				</Card.Content>
 				<Card.Footer>
-					<Button class="w-full" onclick={goToNIMBUS}>Start</Button>
+					<Button class="w-full" onclick={goToOptimizationProblems}>Explore Problems</Button>
 				</Card.Footer>
 			</Card.Root>
 			<Card.Root
@@ -116,13 +108,13 @@
 					</div></Card.Header
 				>
 				<Card.Content class="flex-1 text-left">
-					<h2 class="text-secondary-foreground mb-1 text-lg font-semibold">Explainable NIMBUS</h2>
+					<h2 class="text-secondary-foreground mb-1 text-lg font-semibold">Optimization Methods</h2>
 					<p class="text-muted-foreground leading-snug">
-						Use the explainable version of the NIMBUS method to solve the river pollution problem.
+						Discover various interactive methods for solving multi-objective optimization problems.
 					</p>
 				</Card.Content>
 				<Card.Footer>
-					<Button class="w-full" onclick={goToExplainableNIMBUS}>Start</Button>
+					<Button class="w-full" onclick={goToOptimizationMethods}>View Methods</Button>
 				</Card.Footer>
 			</Card.Root>
 			<Card.Root
@@ -136,13 +128,54 @@
 					</div></Card.Header
 				>
 				<Card.Content class="flex-1 text-left">
-					<h2 class="text-secondary-foreground mb-1 text-lg font-semibold">Obtained Solutions</h2>
+					<h2 class="text-secondary-foreground mb-1 text-lg font-semibold">SCORE Bands</h2>
 					<p class="text-muted-foreground leading-snug">
-						See the solutions obtained from the NIMBUS and explainable NIMBUS methods.
+						Visualize and analyze solution sets using an advanced parallel coordinates
+						visualization.
 					</p>
 				</Card.Content>
 				<Card.Footer>
-					<Button class="w-full" onclick={goToObtainedSolutions}>View Solutions</Button>
+					<Button class="w-full" onclick={goToScoreBands}>Open Visualization</Button>
+				</Card.Footer>
+			</Card.Root>
+			<Card.Root
+				class="group flex h-[300px] flex-col transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
+			>
+				<Card.Header class="flex items-center justify-center">
+					<div
+						class="bg-secondary/15 group-hover:bg-secondary/25 rounded-full p-4 transition-colors"
+					>
+						<SquareFunction class="text-secondary-foreground size-12" strokeWidth={1.5} />
+					</div></Card.Header
+				>
+				<Card.Content class="flex-1 text-left">
+					<h2 class="text-secondary-foreground mb-1 text-lg font-semibold">Custom Problem</h2>
+					<p class="text-muted-foreground leading-snug">
+						Create and define your own multi-objective optimization problem with custom parameters.
+					</p>
+				</Card.Content>
+				<Card.Footer>
+					<Button class="w-full" onclick={createCustomProblem}>Create Problem</Button>
+				</Card.Footer>
+			</Card.Root>
+			<Card.Root
+				class="group flex h-[300px] flex-col transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
+			>
+				<Card.Header class="flex items-center justify-center">
+					<div
+						class="bg-secondary/15 group-hover:bg-secondary/25 rounded-full p-4 transition-colors"
+					>
+						<HelpCircle class="text-secondary-foreground size-12" strokeWidth={1.5} />
+					</div></Card.Header
+				>
+				<Card.Content class="flex-1 text-left">
+					<h2 class="text-secondary-foreground mb-1 text-lg font-semibold">Documentation</h2>
+					<p class="text-muted-foreground leading-snug">
+						Access comprehensive guides, tutorials, and API documentation for DESDEO.
+					</p>
+				</Card.Content>
+				<Card.Footer>
+					<Button class="w-full" onclick={goToDocumentation}>Go to the documentation page</Button>
 				</Card.Footer>
 			</Card.Root>
 		</div>
