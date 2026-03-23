@@ -1,5 +1,8 @@
 """Defines end-points to access functionalities related to the XNIMBUS method (explainable NIMBUS)."""
 
+"""TODO (glarraga): This should be merged with the main NIMBUS endpoint as they share a lot of code and functionalities. 
+For now, we keep it separate as we need to store different state kinds for this method during the experiments."""
+
 from collections import defaultdict
 import re
 from typing import Annotated
