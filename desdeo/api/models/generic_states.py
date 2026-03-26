@@ -17,7 +17,7 @@ from sqlmodel import (
 
 from desdeo.problem import Tensor, VariableType
 
-from .nautilus import NautilusNavigatorInitializationState, NautilusNavigatorNavigationState
+from .nautilus_navigator import NautilusNavigatorInitializationState, NautilusNavigatorNavigationState
 from .state import (
     EMOFetchState,
     EMOIterateState,

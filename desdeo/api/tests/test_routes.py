@@ -6,6 +6,7 @@ import time
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from desdeo.api.db_models import Problem as ProblemInDB
 from desdeo.api.models import (
     CreateSessionRequest,
     EMOFetchRequest,
@@ -42,6 +43,7 @@ from desdeo.api.models import (
     User,
     UserPublic,
 )
+from desdeo.api.models.generic_states import State
 from desdeo.api.models.nimbus import NIMBUSInitializationResponse
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.emo.options.algorithms import rvea_options
@@ -54,6 +56,136 @@ from desdeo.tools.utils import available_solvers
 
 from .conftest import get_json, login, post_file_multipart, post_json
 from .test_models import compare_models
+
+# --- NAUTILUS Navigator endpoint tests ---
+
+def test_initialize_navigator(client: TestClient, session_and_user: dict):
+    """Test /nautilus/initialize using the existing test user."""
+    access_token = login(client)
+    user = session_and_user["user"]
+    session = session_and_user["session"]
+
+    ProblemInDB.metadata.create_all(bind=session.bind, tables=[ProblemInDB.__table__])
+
+    # Create a test problem
+    problem = dtlz2(3, 2).model_dump()  # raw dict
+    # Remove fields not allowed by Problem model
+    problem.pop("is_convex_", None)
+    problem.pop("is_linear_", None)
+    problem.pop("is_twice_differentiable_", None)
+
+    problem_db = ProblemInDB(
+        owner=user.id,
+        name="test_problem",
+        kind="continuous",
+        obj_kind="analytical",
+        value=problem
+    )
+    session.add(problem_db)
+    session.commit()
+    session.refresh(problem_db)
+
+    response = client.post(
+        "/nautilus/initialize",
+        json={"problem_id": problem_db.id},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    # Assertions
+    assert response.status_code == 200
+    data = response.json()
+    assert "state_id" in data
+    assert "navigation_point" in data
+    assert "step_number" in data
+    assert "lower_bounds" in data
+    assert "upper_bounds" in data
+
+    # Clean up
+    session.delete(problem_db)
+    session.commit()
+
+def test_navigate_navigator(client: TestClient, session_and_user: dict):
+    """Test performing a NAUTILUS navigation step using the updated StateDB-based endpoint."""
+    access_token = login(client)
+    user = session_and_user["user"]
+    session = session_and_user["session"]
+
+    ProblemInDB.metadata.create_all(bind=session.bind, tables=[ProblemInDB.__table__])
+
+
+    # --- Create a REAL problem ---
+    problem_obj = dtlz2(3, 2)  # 3 variables, 2 objectives
+    problem_dict = problem_obj.model_dump()
+
+    # Remove forbidden fields for Problem model
+    problem_dict.pop("is_convex_", None)
+    problem_dict.pop("is_linear_", None)
+    problem_dict.pop("is_twice_differentiable_", None)
+
+    problem_db = ProblemInDB(
+        owner=user.id,
+        name="test_problem",
+        kind="continuous",
+        obj_kind="analytical",
+        value=problem_dict
+    )
+
+    session.add(problem_db)
+    session.commit()
+    session.refresh(problem_db)
+
+    # --- Initialize first ---
+    init_response = client.post(
+        "/nautilus/initialize",
+        json={"problem_id": problem_db.id},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert init_response.status_code == 200
+    init_data = init_response.json()
+    assert "state_id" in init_data
+
+    # --- Prepare reference point and bounds for all objectives ---
+    # Use the actual objective names from the problem
+    validated_problem = Problem.model_validate(problem_dict)
+    objective_names = [obj.name for obj in validated_problem.objectives]
+
+    ref_point = {name: 0.5 for name in objective_names}
+    bounds = {name: 1.0 for name in objective_names}  # upper limit for each objective
+
+    # --- Navigate ---
+    navigate_payload = {
+        "problem_id": problem_db.id,
+        "steps_remaining": 1,
+        "reference_point": ref_point,
+        "bounds": bounds,
+        "go_back_step": 0,
+    }
+
+    response = client.post(
+        "/nautilus/navigate",
+        json=navigate_payload,
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert "state_id" in data
+    assert "steps" in data
+    assert isinstance(data["steps"], list)
+
+    if data["steps"]:
+        step = data["steps"][0]
+        assert "step_number" in step
+        assert "navigation_point" in step
+        assert "reachable_solution" in step
+        assert "lower_bounds" in step
+        assert "upper_bounds" in step
+
+    # --- Clean up ---
+    session.delete(problem_db)
+    session.commit()
 
 
 def test_user_login(client: TestClient):

@@ -1,9 +1,12 @@
 """Database configuration file for the API."""
 
 from sqlalchemy import event
+from sqlalchemy.orm import declarative_base
 from sqlmodel import Session, create_engine
 
 from desdeo.api.config import DatabaseConfig, SettingsConfig
+
+Base = declarative_base()
 
 if SettingsConfig.debug:
     # debug and development stuff

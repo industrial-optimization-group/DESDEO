@@ -21,8 +21,13 @@ class NautilusNavigatorInitializationState(SQLModel, table=True):
     __tablename__ = "nautilus_navigator_initialization_states"
 
     # Primary key referencing the base State entry.
-    state_id: int | None = Field(
-        sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True)
+    # state_id: int | None = Field(
+    #     sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True)
+    # )
+    id: int | None = Field(
+        default=None,
+        primary_key=True,
+        foreign_key="states.id",
     )
 
 class NautilusNavigatorNavigationState(SQLModel, table=True):
@@ -68,12 +73,20 @@ class NautilusNavigatorNavigationState(SQLModel, table=True):
 
     __tablename__ = "nautilus_navigator_navigation_states"
 
-    # Primary key referencing the base State entry.
-    state_id: int | None = Field(
-        sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True)
+    # Primary key referencing the base State entry
+    id: int | None = Field(
+        default=None,
+        primary_key=True,
+        foreign_key="states.id",
     )
+
+    # Foreign key referencing base State entry
+    # state_id: int | None = Field(
+    #     sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True)
+    # )
     steps_remaining: int
     reference_point: dict[str, float] = Field(sa_column=Column(JSON))
     bounds: dict[str, float] | None = Field(default=None, sa_column=Column(JSON))
     previous_responses: list[dict] = Field(sa_column=Column(JSON))
     navigator_results: list[dict] = Field(sa_column=Column(JSON))
+    parent_state_id: int | None = Field(default=None)
