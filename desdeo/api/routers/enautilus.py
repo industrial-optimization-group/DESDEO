@@ -36,7 +36,7 @@ router = APIRouter(prefix="/method/enautilus")
 @router.post("/step")
 def step(
     request: ENautilusStepRequest,
-    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]))],
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
 ) -> ENautilusStepResponse:
     """Steps the E-NAUTILUS method."""
     db_session = context.db_session
@@ -243,7 +243,7 @@ def finalize_enautilus(
     request: ENautilusFinalizeRequest,
     context: Annotated[
         SessionContext,
-        Depends(SessionContextGuard(require=[ContextField.PROBLEM, ContextField.PARENT_STATE])),
+        Depends(SessionContextGuard(require=[ContextField.PROBLEM, ContextField.PARENT_STATE]).post),
     ],
 ) -> ENautilusFinalizeResponse:
     """Finalize E-NAUTILUS by selecting the final solution.
@@ -362,7 +362,7 @@ def finalize_enautilus(
 
 @router.get("/session_tree/{session_id}")
 def get_session_tree(
-    session_id: int, context: Annotated[SessionContext, Depends(SessionContextGuard())]
+    session_id: int, context: Annotated[SessionContext, Depends(SessionContextGuard().get)]
 ) -> ENautilusSessionTreeResponse:
     """Extract the full E-NAUTILUS decision tree for a session.
 

@@ -1,5 +1,6 @@
 """Defines models for representing the state of various interactive methods."""
 
+from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -67,6 +68,11 @@ class StateKind(str, Enum):
     ENAUTILUS_FINAL = "e-nautilus.final"
     NAUTILUS_NAVIGATE = "nautilus.navigate"
     NAUTILUS_INITIALIZE = "nautilus.initialize"
+    XNIMBUS_SOLVE = "xnimbus.solve_candidates"
+    XNIMBUS_SAVE = "xnimbus.save_solutions"
+    XNIMBUS_INIT = "xnimbus.initialize"
+    XNIMBUS_FINAL = "xnimbus.final"
+
 
 
 class State(SQLModel, table=True):
@@ -81,6 +87,7 @@ class State(SQLModel, table=True):
     method: str = Field(index=True)  # the method name
     phase: str = Field(index=True)  # the phase of the method
     kind: StateKind = Field(index=True)  # normalized "{method}.{phase}", lowercase
+    date_time: str | None = Field(default=None)
 
 
 class StateDB(SQLModel, table=True):
@@ -129,21 +136,20 @@ class StateDB(SQLModel, table=True):
         session_id: int | None = None,
         parent_id: int | None = None,
         state: SQLModel | None = None,
+        kind: StateKind | None = None,
     ) -> "StateDB":
         """Build a StateDB + base State with a concrete substate."""
-        sub_cls = type(state)
-        kind: StateKind | None = None
-
-        for cls_in_mro in sub_cls.mro():
-            if cls_in_mro in SUBSTATE_TO_KIND:
-                kind = SUBSTATE_TO_KIND[cls_in_mro]
-                break
-
         if kind is None:
-            raise ValueError(f"No StateKind mapping for substate type {sub_cls!r}")
+            sub_cls = type(state)
+            for cls_in_mro in sub_cls.mro():
+                if cls_in_mro in SUBSTATE_TO_KIND:
+                    kind = SUBSTATE_TO_KIND[cls_in_mro]
+                    break
+            if kind is None:
+                raise ValueError(f"No StateKind mapping for substate type {sub_cls!r}")
 
         method, phase = _method_phase_from_kind(kind)
-        base = State(method=method, phase=phase, kind=kind)
+        base = State(method=method, phase=phase, kind=kind, date_time=datetime.now().isoformat())
 
         row = cls(
             problem_id=problem_id,
@@ -199,6 +205,11 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.ENAUTILUS_FINAL: ENautilusFinalState,
     StateKind.NAUTILUS_NAVIGATE: NautilusNavigatorNavigationState,
     StateKind.NAUTILUS_INITIALIZE: NautilusNavigatorInitializationState
+    StateKind.XNIMBUS_SOLVE: NIMBUSClassificationState,
+    StateKind.XNIMBUS_SAVE: NIMBUSSaveState,
+    StateKind.XNIMBUS_INIT: NIMBUSInitializationState,
+    StateKind.XNIMBUS_FINAL: NIMBUSFinalState,
+
 }
 
 SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {

@@ -1,10 +1,8 @@
-import type { components } from '$lib/api/client-types';
-
-type ProblemInfo = components['schemas']['ProblemInfo'];
+import type { ProblemInfo } from '$lib/gen/models';
 
 /**
  * Transform 2D array of objective values into visualization-ready format
- * 
+ *
  * @param solutions_objective_values - Array of objective value arrays for each solution
  * @param problem - Problem definition with objective symbols
  * @returns Array of objects with named objective properties, symbol as name
@@ -28,7 +26,7 @@ export function transformObjectiveData(
 
 /**
  * Transform 2D array of decision values into visualization-ready format
- * 
+ *
  * @param solutions_decision_values - Array of decision variable arrays for each solution
  * @param problem - Problem definition with variable symbols
  * @returns Array of objects with named variable properties, symbol as name
@@ -54,7 +52,7 @@ export function transformDecisionData(
 
 /**
  * Create dimensions array for visualization components from problem objectives
- * 
+ *
  * @param problem - Problem definition with objectives
  * @returns Array of dimension definitions with bounds and direction
  */
@@ -72,7 +70,7 @@ export function createObjectiveDimensions(problem: ProblemInfo | null) {
 
 /**
  * Create dimensions array for decision variables
- * 
+ *
  * @param problem - Problem definition with variables
  * @returns Array of dimension definitions with bounds
  */

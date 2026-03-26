@@ -94,10 +94,8 @@
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { cn } from '$lib/utils.js';
 	//import { createEventDispatcher } from 'svelte';
-	import type { components } from '$lib/api/client-types';
+	import type { ProblemInfo } from '$lib/gen/models';
 
-	// Use the OpenAPI type for a problem
-	type ProblemInfo = components['schemas']['ProblemInfo'];
 
 	import { z } from 'zod';
 	import { goto } from '$app/navigation';

@@ -7,9 +7,9 @@
 	 * @updated November 2025
 	 *
 	 * @description
-	 * This component renders a table of solutions for both NIMBUS and GNIMBUS interactive multiobjective 
+	 * This component renders a table of solutions for both NIMBUS and GNIMBUS interactive multiobjective
 	 * optimization methods. It displays objective values for solutions and supports various interaction modes
-	 * including selection, saving, and editing. The table adapts its display based on the current view mode 
+	 * including selection, saving, and editing. The table adapts its display based on the current view mode
 	 * and method type (current solutions, history etc, NIMBUS vs GNIMBUS).
 	 *
 	 * @props
@@ -85,7 +85,7 @@
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { renderSnippet } from '$lib/components/ui/data-table/render-helpers.js';
 	import { Button } from '$lib/components/ui/button';
-	import type { components } from '$lib/api/client-types';
+	import type { ProblemInfo, SolutionReferenceResponse } from '$lib/gen/models';
 	import { getDisplayAccuracy, formatNumber } from '$lib/helpers';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
 	import PenIcon from '@lucide/svelte/icons/pen';
@@ -105,17 +105,11 @@
 	import UserResults from './solution-table-gdm-user-results.svelte';
 
 	// Types matching your original solution-table
-	type ProblemInfo = components['schemas']['ProblemInfo'];
-	type Solution = components['schemas']['SolutionReferenceResponse'] & {
-            name?: string | null;
-            solution_index?: number | null;
-            readonly objective_values: {
-                [key: string]: number;
-            } | null;
-            iteration_number?: number;
-            readonly state_id: number;
-            readonly num_solutions: number;
-        };;
+
+	type Solution = SolutionReferenceResponse & {
+		iteration_number?: number;
+		num_solutions?: number;
+	};
 	type MethodPage = 'nimbus' | 'gnimbus';
 
 	// Props matching your original solution-table for compatibility
@@ -179,14 +173,14 @@
 					return `Group solution ${idx}`;
 				}
 				return 'Group solution';
-			
+
 		}
 	});
 
 	// Helper function to get objective title for display
 	function getObjectiveTitle(objective: any): string {
 		if (!objective) return '';
-		
+
 		const tooltip = objective.description || objective.name;
 		return objective.unit ? `${tooltip} (${objective.unit})` : tooltip;
 	}

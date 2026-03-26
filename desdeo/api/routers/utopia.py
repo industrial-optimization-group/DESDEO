@@ -24,10 +24,7 @@ router = APIRouter(prefix="/utopia")
 @router.post("/")
 def get_utopia_data(  # noqa: C901
     request: UtopiaRequest,
-    context: Annotated[
-        SessionContext,
-        Depends(SessionContextGuard())
-    ],
+    context: Annotated[SessionContext, Depends(SessionContextGuard().post)],
 ) -> UtopiaResponse:
     """Request and receive the Utopia map corresponding to the decision variables sent.
 

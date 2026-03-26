@@ -1,9 +1,9 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import type { components } from '$lib/api/client-types';
+	import type { SolutionReferenceResponse } from '$lib/gen/models';
 	import { Input } from '$lib/components/ui/input/index.js';
-	type Solution = components['schemas']['SolutionReferenceResponse'];
+	type Solution = SolutionReferenceResponse;
 
 		interface Props {
 		onChange?: (event: { value: string}) => void;
@@ -45,20 +45,20 @@
 	</Sidebar.Header>
 	<Sidebar.Content class="h-full px-4">
 		<p class="mb-2 text-sm text-gray-500">Provide the maximum number of solutions to generate</p>
-			<Input 
-				type="number" 
-				placeholder="Number of solutions" 
-				class="mb-2 w-full" 
-				bind:value={numSolutions} 
+			<Input
+				type="number"
+				placeholder="Number of solutions"
+				class="mb-2 w-full"
+				bind:value={numSolutions}
 				oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
 					const numValue = Number(e.currentTarget.value);
 					// Clamp value within allowed range
 					const clampedValue = Math.max(minNumSolutions, Math.min(maxNumSolutions, numValue));
-					
+
 					if (numValue !== clampedValue) {
 						numSolutions = clampedValue;
 					}
-					onChange?.({ 
+					onChange?.({
 						value: e.currentTarget.value,
 					});
 				}}
@@ -71,11 +71,11 @@
 							{#if solution.name}
                                 <div class="font-medium text-primary">{solution.name}</div>
                             {:else}
-								<div class="font-medium text-primary">Solution {solution.solution_index!== null ? (solution.solution_index+1) : ""} (iteration {solution.state_id})</div> 
+								<div class="font-medium text-primary">Solution {solution.solution_index!== null ? (solution.solution_index+1) : ""} (iteration {solution.state_id})</div>
                             {/if}
 					</div>
 				{/each}
-				
+
 				{#if currentSolutions.length < 2}
 					<div class="text-amber-500">Select one more solution to find intermediate solutions.</div>
 				{/if}

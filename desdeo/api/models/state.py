@@ -129,6 +129,14 @@ class NIMBUSClassificationState(ResultInterface, SQLModel, table=True):
     current_objectives: dict[str, float] = Field(sa_column=Column(JSON), default_factory=dict)
     num_desired: int | None = 1
     previous_preferences: ReferencePoint = Field(sa_column=Column(PreferenceType))
+    filtered_lagrange_multipliers: list[dict[str, float] | None] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+    )
+    tradeoffs_matrix: list[dict[str, dict[str, float]] | None] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+    )
 
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))

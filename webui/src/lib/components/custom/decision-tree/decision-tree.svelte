@@ -6,7 +6,7 @@
 		TreeNodeResponse,
 		DecisionEventResponse
 	} from './tree-types';
-	import type { components } from '$lib/api/client-types';
+	import type { ProblemInfo } from '$lib/gen/models';
 	import { buildHierarchy, analyzeTradeoffs } from './tree-utils';
 	import DecisionTreeNode from './decision-tree-node.svelte';
 	import DecisionTreeTooltip from './decision-tree-tooltip.svelte';
@@ -14,7 +14,6 @@
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
 	import { getDisplayAccuracy, formatNumber } from '$lib/helpers';
 
-	type ProblemInfo = components['schemas']['ProblemInfo'];
 
 	interface Props {
 		treeData: SessionTreeResponse | null;

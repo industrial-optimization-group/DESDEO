@@ -6,4 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * The objective values of the referenced solution. None if not applicable.
+ */
 export type SolutionReferenceObjectiveValues = { [key: string]: number } | null;

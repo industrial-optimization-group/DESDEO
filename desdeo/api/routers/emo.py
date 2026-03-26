@@ -146,10 +146,7 @@ def get_templates() -> list[TemplateOptions]:
 @router.post("/iterate")
 def iterate(
     request: EMOIterateRequest,
-    context: Annotated[
-        SessionContext,
-        Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
-    ],
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
 ) -> EMOIterateResponse:
     """Fetches results from a completed EMO method.
 
@@ -216,6 +213,7 @@ def iterate(
     ).start()
 
     return EMOIterateResponse(method_ids=web_socket_ids, client_id=client_id, state_id=state_id)
+
 
 def _spawn_emo_process(
     problem: Problem,
@@ -361,10 +359,7 @@ async def _ea_async(
 @router.post("/fetch")
 async def fetch_results(
     request: EMOFetchRequest,
-    context: Annotated[
-        SessionContext,
-        Depends(SessionContextGuard(require=[ContextField.PARENT_STATE]))
-    ],
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PARENT_STATE]).post)],
 ) -> StreamingResponse:
     """Fetches results from a completed EMO method.
 
@@ -404,12 +399,12 @@ async def fetch_results(
 
     return StreamingResponse(result_stream())
 
+
 @router.post("/fetch_score")
 async def fetch_score_bands(
     request: EMOScoreRequest,
     context: Annotated[
-        SessionContext,
-        Depends(SessionContextGuard(require=[ContextField.PROBLEM, ContextField.PARENT_STATE]))
+        SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM, ContextField.PARENT_STATE]).post)
     ],
 ) -> EMOScoreResponse:
     """Fetches results from a completed EMO method.

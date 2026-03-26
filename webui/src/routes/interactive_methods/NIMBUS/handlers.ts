@@ -1,30 +1,42 @@
 /**
  * NIMBUS API Client-Side Handlers
  *
- * @author Stina Palomäki <palomakistina@gmail.com>
- * @created August 2025
- *
- * @description
- * This file contains a set of handler functions responsible for preparing data and invoking
- * the `callNimbusAPI` function for various NIMBUS method operations. Each handler corresponds
- * to a specific user action in the NIMBUS UI, such as starting an iteration, saving a solution,
- * or generating intermediate points.
- *
- * These functions act as a bridge between the Svelte components and the generic API calling logic,
- * ensuring that the data sent to the backend proxy is correctly structured. They also perform
- * initial client-side validation, such as checking for the presence of a problem context.
+ * Uses Orval-generated endpoint functions to call the backend directly,
+ * replacing the previous +server.ts proxy + callNimbusAPI pattern.
  */
+import {
+	solveSolutionsMethodNimbusSolvePost,
+	getOrInitializeMethodNimbusGetOrInitializePost,
+	saveMethodNimbusSavePost,
+	deleteSaveMethodNimbusDeleteSavePost,
+	finalizeNimbusMethodNimbusFinalizePost,
+	solveNimbusIntermediateMethodNimbusIntermediatePost,
+	getUtopiaDataUtopiaPost
+} from '$lib/gen/endpoints/DESDEOFastAPI';
+import type {
+	NIMBUSClassificationRequest,
+	NIMBUSInitializationRequest,
+	NIMBUSSaveRequest,
+	NIMBUSDeleteSaveRequest,
+	NIMBUSFinalizeRequest,
+	IntermediateSolutionRequest,
+	SolutionInfo
+} from '$lib/gen/models';
 import type { ProblemInfo, Solution } from '$lib/types';
 import type { Response, ReferencePoint, FinishResponse } from './types';
-import { callNimbusAPI } from './helper-functions';
-import { errorMessage } from '../../../stores/uiState';
+import { errorMessage, isLoading } from '../../../stores/uiState';
+
+/** Convert a Solution (SolutionReferenceResponse) to a SolutionInfo for API requests. */
+function toSolutionInfo(solution: Solution, name?: string | null): SolutionInfo {
+	return {
+		state_id: solution.state_id,
+		solution_index: solution.solution_index ?? 0,
+		name: name ?? solution.name
+	};
+}
 
 /**
  * Handles the generation of intermediate solutions between two selected reference solutions.
- * @param problem The active problem context.
- * @param selected_solutions An array containing the two solutions to generate intermediate points between.
- * @param num_desired The number of intermediate solutions to generate.
- * @returns A promise that resolves with the API response containing the new solutions, or null on failure.
  */
 export async function handle_intermediate(
 	problem: ProblemInfo | null,
@@ -36,32 +48,44 @@ export async function handle_intermediate(
 		console.error('No problem selected');
 		return null;
 	}
-	// Check if we have exactly 2 solutions selected
 	if (selected_solutions.length !== 2) {
 		errorMessage.set('Exactly 2 solutions must be selected for intermediate solutions');
 		console.error('Exactly 2 solutions must be selected for intermediate solutions');
 		return null;
 	}
 
-	const result = await callNimbusAPI<Response>('intermediate', {
-		problem_id: problem.id,
-		session_id: null, // Using active session
-		parent_state_id: null, // No specific parent
-		reference_solution_1: selected_solutions[0],
-		reference_solution_2: selected_solutions[1],
-		num_desired: num_desired
-	});
+	isLoading.set(true);
+	errorMessage.set(null);
 
-	return result;
+	try {
+		const request: IntermediateSolutionRequest = {
+			problem_id: problem.id,
+			reference_solution_1: toSolutionInfo(selected_solutions[0]),
+			reference_solution_2: toSolutionInfo(selected_solutions[1]),
+			num_desired: num_desired
+		};
+
+		const response = await solveNimbusIntermediateMethodNimbusIntermediatePost(request);
+
+		if (response.status !== 200) {
+			errorMessage.set(`Intermediate solutions failed with status ${response.status}`);
+			console.error('NIMBUS intermediate failed:', response.status);
+			return null;
+		}
+
+		return response.data as unknown as Response;
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : 'Unknown error';
+		errorMessage.set(msg);
+		console.error('Error in handle_intermediate:', msg);
+		return null;
+	} finally {
+		isLoading.set(false);
+	}
 }
 
 /**
  * Handles a NIMBUS iteration based on user-defined preferences and classifications.
- * @param problem The active problem context.
- * @param current_preference The user's specified reference point.
- * @param selected_iteration_objectives Objectives of the selected solution.
- * @param current_num_iteration_solutions The number of new solutions to generate.
- * @returns A promise that resolves with the API response containing the new solutions, or null on failure.
  */
 export async function handle_iterate(
 	problem: ProblemInfo,
@@ -69,35 +93,49 @@ export async function handle_iterate(
 	selected_iteration_objectives: Record<string, number>,
 	current_num_iteration_solutions: number
 ): Promise<Response | null> {
-	const preference = {
-		preference_type: 'reference_point',
-		aspiration_levels: problem.objectives.reduce(
-			(acc, obj, idx) => {
-				acc[obj.symbol] = current_preference[idx];
-				return acc;
-			},
-			{} as Record<string, number>
-		)
-	};
+	isLoading.set(true);
+	errorMessage.set(null);
 
-	const result = await callNimbusAPI<Response>('iterate', {
-		problem_id: problem.id,
-		session_id: null,
-		parent_state_id: null,
-		current_objectives: selected_iteration_objectives,
-		num_desired: current_num_iteration_solutions,
-		preference: preference
-	});
+	try {
+		const preference: ReferencePoint = {
+			preference_type: 'reference_point',
+			aspiration_levels: problem.objectives.reduce(
+				(acc, obj, idx) => {
+					acc[obj.symbol] = current_preference[idx];
+					return acc;
+				},
+				{} as Record<string, number>
+			)
+		};
 
-	return result;
+		const request: NIMBUSClassificationRequest = {
+			problem_id: problem.id,
+			current_objectives: selected_iteration_objectives,
+			num_desired: current_num_iteration_solutions,
+			preference: preference
+		};
+
+		const response = await solveSolutionsMethodNimbusSolvePost(request);
+
+		if (response.status !== 200) {
+			errorMessage.set(`Iteration failed with status ${response.status}`);
+			console.error('NIMBUS iterate failed:', response.status);
+			return null;
+		}
+
+		return response.data as unknown as Response;
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : 'Unknown error';
+		errorMessage.set(msg);
+		console.error('Error in handle_iterate:', msg);
+		return null;
+	} finally {
+		isLoading.set(false);
+	}
 }
 
 /**
  * Saves a solution with an optional user-provided name.
- * @param problem The active problem context.
- * @param solution The solution to be saved.
- * @param name An optional name for the solution.
- * @returns A promise that resolves to true on success, or false on failure.
  */
 export async function handle_save(
 	problem: ProblemInfo | null,
@@ -110,29 +148,36 @@ export async function handle_save(
 		return false;
 	}
 
-	// Create a copy of the solution with the name
-	const solutionToSave = {
-		...solution,
-		name: name ?? null
-	};
+	isLoading.set(true);
+	errorMessage.set(null);
 
-	interface SaveResponse {
-		success: boolean;
+	try {
+		const request: NIMBUSSaveRequest = {
+			problem_id: problem.id,
+			solution_info: [toSolutionInfo(solution, name ?? null)]
+		};
+
+		const response = await saveMethodNimbusSavePost(request);
+
+		if (response.status !== 200) {
+			errorMessage.set(`Save failed with status ${response.status}`);
+			console.error('NIMBUS save failed:', response.status);
+			return false;
+		}
+
+		return true;
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : 'Unknown error';
+		errorMessage.set(msg);
+		console.error('Error in handle_save:', msg);
+		return false;
+	} finally {
+		isLoading.set(false);
 	}
-
-	const result = await callNimbusAPI<SaveResponse>('save', {
-		problem_id: problem.id,
-		solution_info: [solutionToSave]
-	});
-
-	return result !== null;
 }
 
 /**
  * Removes a previously saved solution.
- * @param problem The active problem context.
- * @param solution The saved solution to remove.
- * @returns A promise that resolves to true on success, or false on failure.
  */
 export async function handle_remove_saved(
 	problem: ProblemInfo | null,
@@ -144,23 +189,37 @@ export async function handle_remove_saved(
 		return false;
 	}
 
-	interface RemoveResponse {
-		success: boolean;
+	isLoading.set(true);
+	errorMessage.set(null);
+
+	try {
+		const request: NIMBUSDeleteSaveRequest = {
+			state_id: solution.state_id,
+			solution_index: solution.solution_index ?? 0,
+			problem_id: problem.id
+		};
+
+		const response = await deleteSaveMethodNimbusDeleteSavePost(request);
+
+		if (response.status !== 200) {
+			errorMessage.set(`Delete save failed with status ${response.status}`);
+			console.error('NIMBUS delete save failed:', response.status);
+			return false;
+		}
+
+		return true;
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : 'Unknown error';
+		errorMessage.set(msg);
+		console.error('Error in handle_remove_saved:', msg);
+		return false;
+	} finally {
+		isLoading.set(false);
 	}
-
-	const result = await callNimbusAPI<RemoveResponse>('remove_saved', {
-		state_id: solution.state_id,
-		solution_index: solution.solution_index
-	});
-
-	return result !== null;
 }
 
 /**
  * Marks a solution as the final chosen solution for the session.
- * @param problem The active problem context.
- * @param solution The final solution to be chosen.
- * @returns A promise that resolves to true on success, or false on failure.
  */
 export async function handle_finish(
 	problem: ProblemInfo | null,
@@ -173,20 +232,36 @@ export async function handle_finish(
 		return false;
 	}
 
-	const result = await callNimbusAPI<FinishResponse>('choose', {
-		problem_id: problem.id,
-		solution_info: solution,
-		preferences: preferences
-	});
+	isLoading.set(true);
+	errorMessage.set(null);
 
-	return result !== null;
+	try {
+		const request: NIMBUSFinalizeRequest = {
+			problem_id: problem.id,
+			solution_info: toSolutionInfo(solution)
+		};
+
+		const response = await finalizeNimbusMethodNimbusFinalizePost(request);
+
+		if (response.status !== 200) {
+			errorMessage.set(`Finalize failed with status ${response.status}`);
+			console.error('NIMBUS finalize failed:', response.status);
+			return false;
+		}
+
+		return true;
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : 'Unknown error';
+		errorMessage.set(msg);
+		console.error('Error in handle_finish:', msg);
+		return false;
+	} finally {
+		isLoading.set(false);
+	}
 }
 
 /**
  * Fetches map data related to a specific solution for UTOPIA visualization.
- * @param problem The active problem context.
- * @param solution The solution for which to fetch map data.
- * @returns A promise that resolves with the map data, or null on failure.
  */
 export async function get_maps(
 	problem: ProblemInfo,
@@ -199,45 +274,71 @@ export async function get_maps(
 	description: string;
 	compensation: number;
 } | null> {
-	interface MapsResponse {
-		years: string[];
-		options: Record<string, any>;
-		map_json: object;
-		map_name: string;
-		description: string;
-		compensation: number;
-	}
+	isLoading.set(true);
+	errorMessage.set(null);
 
-	const result = await callNimbusAPI<MapsResponse>('get_maps', {
-		problem_id: problem.id,
-		solution: solution
-	});
+	try {
+		const response = await getUtopiaDataUtopiaPost({
+			problem_id: problem.id,
+			solution: toSolutionInfo(solution)
+		});
 
-	if (result) {
-		// Apply the formatter function client-side
-		for (const year of result.years) {
-			if (result.options[year].tooltip.formatterEnabled) {
-				result.options[year].tooltip.formatter = function (params: any) {
-					return `${params.name}`;
-				};
+		if (response.status !== 200) {
+			errorMessage.set(`Get maps failed with status ${response.status}`);
+			console.error('NIMBUS get maps failed:', response.status);
+			return null;
+		}
+
+		const result = response.data as any;
+
+		if (result) {
+			for (const year of result.years) {
+				if (result.options[year].tooltip.formatterEnabled) {
+					result.options[year].tooltip.formatter = function (params: any) {
+						return `${params.name}`;
+					};
+				}
 			}
 		}
+
+		return result;
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : 'Unknown error';
+		errorMessage.set(msg);
+		console.error('Error in get_maps:', msg);
+		return null;
+	} finally {
+		isLoading.set(false);
 	}
-	return result;
 }
 
 /**
- * Initializes a new NIMBUS state for a given problem.
- * @param problem_id The ID of the problem to initialize.
- * @returns A promise that resolves with the initial state of the NIMBUS session, or null on failure.
+ * Initializes a new NIMBUS state for a given problem, or retrieves the latest one.
  */
 export async function initialize_nimbus_state(problem_id: number): Promise<Response | null> {
-	const result = await callNimbusAPI<Response>('initialize', {
-		problem_id: problem_id,
-		session_id: null, // Use active session
-		parent_state_id: null, // No parent for initialization
-		solver: null // Use default solver
-	});
+	isLoading.set(true);
+	errorMessage.set(null);
 
-	return result;
+	try {
+		const request: NIMBUSInitializationRequest = {
+			problem_id: problem_id
+		};
+
+		const response = await getOrInitializeMethodNimbusGetOrInitializePost(request);
+
+		if (response.status !== 200) {
+			errorMessage.set(`Initialization failed with status ${response.status}`);
+			console.error('NIMBUS initialization failed:', response.status);
+			return null;
+		}
+
+		return response.data as unknown as Response;
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : 'Unknown error';
+		errorMessage.set(msg);
+		console.error('Error in initialize_nimbus_state:', msg);
+		return null;
+	} finally {
+		isLoading.set(false);
+	}
 }

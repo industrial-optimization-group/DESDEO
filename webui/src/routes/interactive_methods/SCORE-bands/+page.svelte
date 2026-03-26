@@ -40,7 +40,7 @@
 	import ParallelCoordinates from '$lib/components/visualizations/parallel-coordinates/parallel-coordinates.svelte';
 	import ScoreBandsSolutionTable from './score-bands-solution-table.svelte';
 	import { onMount } from 'svelte';
-	import type { components } from '$lib/api/client-types';
+	import type { ProblemInfo, SCOREBandsResult, SCOREBandsConfig, SCOREBandsGDMConfig } from '$lib/gen/models';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import { errorMessage } from '../../../stores/uiState';
 	import Alert from '$lib/components/custom/notifications/alert.svelte';
@@ -54,14 +54,13 @@
 	} from './helper-functions.js';
 
 	// Page data props
-	type Problem = components['schemas']['ProblemInfo'];
+	type Problem = ProblemInfo;
 
 	const { data } = $props<{
 		data: {
 			problems: Problem[];
 		};
 	}>();
-	type ProblemInfo = components['schemas']['ProblemInfo'];
 	let problem: ProblemInfo | undefined = $state(undefined);
 	let problem_list: ProblemInfo[] = $derived(data.problems);
 
@@ -69,8 +68,8 @@
 	let loading_error: string | null = $state(null);
 
 	// SCORE-bands state variables
-	let scoreBandsResult: components['schemas']['SCOREBandsResult'] | null = $state(null);
-	let scoreBandsConfig: components['schemas']['SCOREBandsConfig'] = $state({
+	let scoreBandsResult: SCOREBandsResult | null = $state(null);
+	let scoreBandsConfig: SCOREBandsConfig = $state({
 		clustering_algorithm: {
 			name: 'KMeans',
 			n_clusters: 5
@@ -102,7 +101,7 @@
 		}
 
 		// Type assertion to help TypeScript understand the structure
-		const result = scoreBandsResult as components['schemas']['SCOREBandsResult'];
+		const result = scoreBandsResult as SCOREBandsResult;
 
 		const derivedData = {
 			// Direct mappings
@@ -346,7 +345,7 @@
 	 *
 	 * @param config Configuration object with SCORE bands parameters
 	 */
-	async function configure(config: components['schemas']['SCOREBandsGDMConfig']) {
+	async function configure(config: SCOREBandsGDMConfig) {
 		try {
 			// Not implemented for individual SCORE bands method
 			console.log('configure: Not implemented for individual method');

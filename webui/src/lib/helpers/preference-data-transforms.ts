@@ -1,6 +1,4 @@
-import type { components } from '$lib/api/client-types';
-
-type ProblemInfo = components['schemas']['ProblemInfo'];
+import type { ProblemInfo } from '$lib/gen/models';
 
 export type Solution = {
     values: { [key: string]: number };
@@ -20,7 +18,7 @@ export type ReferenceData = {
 
 /**
  * Create reference data from preference values
- * 
+ *
  * @param current_preference_values - Current iteration's preference values
  * @param previous_preference_values - Array of previous iterations' preference values
  * @param problem - Problem definition with objective symbols
@@ -64,13 +62,13 @@ export function createReferenceData(
                 values: {},
                 label: labels?.previousRefLabel ? `${labels.previousRefLabel}` : `Previous preference`
             };
-            
+
             preferenceArray.forEach((value, index) => {
                 if (problem.objectives[index]) {
                     previousReferencePoint.values[problem.objectives[index].symbol] = value;
                 }
             });
-            
+
             if (Object.keys(previousReferencePoint.values).length > 0) {
                 previousReferencePoints.push(previousReferencePoint);
             }
@@ -144,7 +142,7 @@ export function createReferenceData(
 
 /**
  * Convert preference values array to named object, symbol as name
- * 
+ *
  * @param preference_values - Array of preference values
  * @param problem - Problem definition with objective symbols
  * @returns Object mapping objective symbols to preference values
@@ -154,7 +152,7 @@ export function preferencesToNamedObject(
     problem: ProblemInfo | null
 ): { [key: string]: number } {
     const result: { [key: string]: number } = {};
-    
+
     if (!problem?.objectives || !preference_values.length) return result;
 
     preference_values.forEach((value, index) => {

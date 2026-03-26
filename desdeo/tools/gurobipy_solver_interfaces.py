@@ -14,6 +14,12 @@ from desdeo.problem import (
 from desdeo.tools.generics import BaseSolver, PersistentSolver, SolverResults
 
 
+def _constraint_contains_objective(constraint: Constraint, objective_symbol: str) -> bool:
+    """Check if a constraint's function contains a specific objective symbol."""
+    func_str = str(constraint.func)
+    return objective_symbol in func_str
+
+
 def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvaluator) -> SolverResults:
     """Parses results from GurobipyEvaluator's model into DESDEO SolverResults.
 
@@ -41,6 +47,15 @@ def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvalua
         if problem.scalarization_funcs is not None
         else None
     )
+    lagrange_multipliers = None
+    if problem.constraints is not None:
+        objective_symbols = set(objective_values.keys())
+        lagrange_multipliers = {
+            con.symbol: results[con.symbol]
+            for con in problem.constraints
+            if any(obj_sym in con.symbol for obj_sym in objective_symbols)
+        }
+
     success = evaluator.model.status == gp.GRB.OPTIMAL
     if evaluator.model.status == gp.GRB.OPTIMAL:
         status = "Optimal solution found."
@@ -60,6 +75,7 @@ def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvalua
         constraint_values=constraint_values,
         extra_func_values=extra_func_values,
         scalarization_values=scalarization_values,
+        lagrange_multipliers=lagrange_multipliers,
         success=success,
         message=msg,
     )

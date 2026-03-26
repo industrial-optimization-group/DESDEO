@@ -21,7 +21,7 @@ router = APIRouter(prefix="/session")
 @router.post("/new")
 def create_new_session(
     request: CreateSessionRequest,
-    context: Annotated[SessionContext, Depends(SessionContextGuard())],
+    context: Annotated[SessionContext, Depends(SessionContextGuard().post)],
 ) -> InteractiveSessionInfo:
     """Creates a new interactive session."""
     user = context.user
@@ -42,6 +42,7 @@ def create_new_session(
     db_session.commit()
 
     return interactive_session
+
 
 @router.get("/get/{session_id}")
 def get_session(

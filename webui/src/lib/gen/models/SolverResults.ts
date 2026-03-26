@@ -7,6 +7,7 @@
  */
 import type { SolverResultsConstraintValues } from './SolverResultsConstraintValues';
 import type { SolverResultsExtraFuncValues } from './SolverResultsExtraFuncValues';
+import type { SolverResultsLagrangeMultipliers } from './SolverResultsLagrangeMultipliers';
 import type { SolverResultsOptimalObjectives } from './SolverResultsOptimalObjectives';
 import type { SolverResultsOptimalVariables } from './SolverResultsOptimalVariables';
 import type { SolverResultsScalarizationValues } from './SolverResultsScalarizationValues';
@@ -25,6 +26,8 @@ export interface SolverResults {
 	extra_func_values?: SolverResultsExtraFuncValues;
 	/** The scalarization function values of the problem. */
 	scalarization_values?: SolverResultsScalarizationValues;
+	/** The Lagrange multipliers of the problem. */
+	lagrange_multipliers?: SolverResultsLagrangeMultipliers;
 	/** A boolean flag indicating whether the optimization was successful or not. */
 	success: boolean;
 	/** Description of the cause of termination. */

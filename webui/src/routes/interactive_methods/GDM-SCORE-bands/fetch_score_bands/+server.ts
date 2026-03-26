@@ -16,7 +16,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { api } from '$lib/api/client';
-import type { components } from '$lib/api/client-types';
+import type { GDMScoreBandsInitializationRequest } from '$lib/gen/models';
 
 /**
  * POST handler for GDM SCORE Bands fetch requests
@@ -37,7 +37,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		// Call fetch_score endpoint using the authenticated API client
 		const { group_id, score_bands_config, from_iteration } = requestData;
-		const scoreBandRequest: components['schemas']['GDMScoreBandsInitializationRequest'] = {
+		const scoreBandRequest: GDMScoreBandsInitializationRequest = {
 			group_id,
 			score_bands_config: {
 				from_iteration,

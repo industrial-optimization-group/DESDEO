@@ -7,6 +7,9 @@
  */
 import type { Tensor } from './Tensor';
 
+/**
+ * The variable values of the referenced solution. None if not apllicable.
+ */
 export type SolutionReferenceVariableValues = {
 	[key: string]: number | number | boolean | Tensor;
 } | null;

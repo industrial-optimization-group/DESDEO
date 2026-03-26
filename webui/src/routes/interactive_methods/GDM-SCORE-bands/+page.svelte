@@ -69,7 +69,7 @@
 	import HistoryBrowser from './history-browser.svelte';
 	import ConfigPanel from './config-panel.svelte';
 	import { onMount, onDestroy } from 'svelte';
-	import type { components } from '$lib/api/client-types';
+	import type { GroupPublic, ProblemInfo, GDMSCOREBandsResponse, GDMSCOREBandsDecisionResponse, SCOREBandsResult, SCOREBandsConfig, GDMSCOREBandFinalSelection, SCOREBandsGDMConfig } from '$lib/gen/models';
 	import { auth } from '../../../stores/auth';
 	import { errorMessage } from '../../../stores/uiState';
 	import Alert from '$lib/components/custom/notifications/alert.svelte';
@@ -89,8 +89,8 @@
 	const { data } = $props<{
 		data: {
 			refreshToken: string;
-			group: components['schemas']['GroupPublic'];
-			problem: components['schemas']['ProblemInfo'];
+			group: GroupPublic;
+			problem: ProblemInfo;
 		};
 	}>();
 
@@ -174,17 +174,17 @@
 
 	// Iteration info: history, current iteration, phase, etc.
 	let history: (
-		| components['schemas']['GDMSCOREBandsResponse']
-		| components['schemas']['GDMSCOREBandsDecisionResponse']
+		| GDMSCOREBandsResponse
+		| GDMSCOREBandsDecisionResponse
 	)[] = $state([]);
 	let phase = $state('Consensus Reaching Phase'); // 'Consensus reaching phase' or 'Decision phase'
 	let iteration_id = $state(0); // for header and fetch_score_bands
 	// current iteration data for consensus reaching phase, when bands exist
-	let scoreBandsResult: components['schemas']['SCOREBandsResult'] | null = $state(null);
+	let scoreBandsResult: SCOREBandsResult | null = $state(null);
 
 	// Configuration and latestIteration are used in initialization and configPanel
 	let latestIteration: number | null = $state(null);
-	let scoreBandsConfig: components['schemas']['SCOREBandsConfig'] = $state({
+	let scoreBandsConfig: SCOREBandsConfig = $state({
 		clustering_algorithm: {
 			name: 'KMeans',
 			n_clusters: 5
@@ -197,7 +197,7 @@
 		interval_size: 0.25
 	});
 	// Current iteration data for decision phase, when solutions exist and not bands
-	let decisionResult: components['schemas']['GDMSCOREBandFinalSelection'] | null = $state(null);
+	let decisionResult: GDMSCOREBandFinalSelection | null = $state(null);
 
 	// Derived state to determine which phase we're in, for conditional component rendering
 	let isDecisionPhase = $derived(phase === 'Decision Phase');
@@ -495,12 +495,12 @@
 				if (currentResponse.method === 'gdm-score-bands') {
 					// Regular SCORE bands response - cast to proper type for TypeScript
 					const scoreBandsResponse =
-						currentResponse as components['schemas']['GDMSCOREBandsResponse'];
+						currentResponse as GDMSCOREBandsResponse;
 					latestIteration = scoreBandsResponse.latest_iteration
 						? scoreBandsResponse.latest_iteration
 						: null;
 					const scoreBandsData =
-						scoreBandsResponse.result as components['schemas']['SCOREBandsResult'];
+						scoreBandsResponse.result as SCOREBandsResult;
 					scoreBandsResult = scoreBandsData;
 					scoreBandsConfig = scoreBandsData.options;
 					iteration_id = scoreBandsResponse.group_iter_id;
@@ -510,7 +510,7 @@
 				} else if (currentResponse.method === 'gdm-score-bands-final') {
 					// Decision phase response
 					const finalDecisionData =
-						currentResponse.result as components['schemas']['GDMSCOREBandFinalSelection'];
+						currentResponse.result as GDMSCOREBandFinalSelection;
 					latestIteration = null;
 					decisionResult = finalDecisionData;
 					iteration_id = currentResponse.group_iter_id;
@@ -692,7 +692,7 @@
 	/**
 	 * Updates SCORE bands configuration and recalculates bands (owner only)
 	 */
-	async function configure(config: components['schemas']['SCOREBandsGDMConfig']) {
+	async function configure(config: SCOREBandsGDMConfig) {
 		try {
 			const configureResponse = await fetch('/interactive_methods/GDM-SCORE-bands/configure', {
 				method: 'POST',

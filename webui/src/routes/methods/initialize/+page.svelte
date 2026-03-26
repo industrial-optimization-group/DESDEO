@@ -47,8 +47,7 @@
 	import Search from '@lucide/svelte/icons/search';
 	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
 	import LayoutList from '@lucide/svelte/icons/layout-list';
-	import type { components } from '$lib/api/client-types';
-	type ProblemInfo = components['schemas']['ProblemInfo'];
+	import type { ProblemInfo } from '$lib/gen/models';
 
 	type PreferenceType =
 		| 'reference point'
@@ -70,6 +69,12 @@
 			name: 'NIMBUS',
 			path: '/interactive_methods/NIMBUS',
 			description: 'NIMBUS method for MOO.',
+			preferencesType: ['classification']
+		},
+		{
+			name: 'Explainable NIMBUS',
+			path: '/interactive_methods/XNIMBUS',
+			description: 'NIMBUS with Lagrange multiplier explanations (tradeoff analysis, active objectives).',
 			preferencesType: ['classification']
 		},
 		{
@@ -119,7 +124,7 @@
 	type MethodFilterType = PreferenceType | 'all';
 
 	let problemId: number | null = $state(null);
-	let problem: ProblemInfo | null = $state(null);
+	let problem = $state<ProblemInfo | null>(null);
 	let searchQuery = $state('');
 	let selectedPreferenceType = $state<MethodFilterType>('all');
 	let isCompactView = $state(false);

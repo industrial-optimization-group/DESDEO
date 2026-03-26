@@ -17,7 +17,7 @@
  *
  */
 
-import type { components } from '$lib/api/client-types';
+import type { SCOREBandsResult, ProblemInfo } from '$lib/gen/models';
 
 /**
  * Calculates scales for SCORE-bands visualization with priority fallback system
@@ -33,8 +33,8 @@ import type { components } from '$lib/api/client-types';
  * @returns Record mapping axis names to [min, max] scale ranges
  */
 export function calculateScales(
-	result: components['schemas']['SCOREBandsResult'],
-	problem?: components['schemas']['ProblemInfo']
+	result: SCOREBandsResult,
+	problem?: ProblemInfo
 ): Record<string, [number, number]> {
 	// First try to use ideal and nadir from problem (highest priority)
 	if (problem?.objectives) {
@@ -179,7 +179,7 @@ export function canToggleMedians(
  *
  * @returns Mock SCOREBandsResult with realistic test data
  */
-export function createDemoData(): components['schemas']['SCOREBandsResult'] {
+export function createDemoData(): SCOREBandsResult {
 	return {
 		ordered_dimensions: ['Objective 1', 'Objective 3', 'Objective 2'],
 		axis_positions: { 'Objective 1': 0, 'Objective 2': 1, 'Objective 3': 0.2 },
@@ -199,5 +199,5 @@ export function createDemoData(): components['schemas']['SCOREBandsResult'] {
 			}
 		},
 		clusters: {}
-	} as unknown as components['schemas']['SCOREBandsResult'];
+	} as unknown as SCOREBandsResult;
 }

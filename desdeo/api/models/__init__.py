@@ -46,6 +46,8 @@ __all__ = [  # noqa: RUF022
     "NIMBUSFinalizeRequest",
     "NIMBUSFinalizeResponse",
     "NIMBUSFinalState",
+    "NIMBUSMultiplierRequest",
+    "NIMBUSMultiplierResponse",
     "NIMBUSSaveState",
     "NonPreferredSolutions",
     "ObjectiveDB",
@@ -214,6 +216,8 @@ from .nimbus import (
     NIMBUSInitializationRequest,
     NIMBUSInitializationResponse,
     NIMBUSIntermediateSolutionResponse,
+    NIMBUSMultiplierRequest,
+    NIMBUSMultiplierResponse,
     NIMBUSSaveRequest,
     NIMBUSSaveResponse,
 )

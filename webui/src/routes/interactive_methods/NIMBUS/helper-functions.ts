@@ -9,16 +9,15 @@
  * @created August 2025
  */
 
-import type { components } from '$lib/api/client-types';
-import { errorMessage, isLoading } from '../../../stores/uiState';
+import type {
+	ProblemInfo,
+	SolutionReferenceResponse,
+	NIMBUSClassificationResponse,
+	NIMBUSInitializationResponse
+} from '$lib/gen/models';
 
 // Type definitions for NIMBUS components
-type ProblemInfo = components['schemas']['ProblemInfo'];
-type Solution = components['schemas']['SolutionReferenceResponse'];
-
-// Define the Response type needed for our helper functions
-type NIMBUSClassificationResponse = components['schemas']['NIMBUSClassificationResponse'];
-type NIMBUSInitializationResponse = components['schemas']['NIMBUSInitializationResponse'];
+type Solution = SolutionReferenceResponse;
 type Response = NIMBUSClassificationResponse | NIMBUSInitializationResponse;
 
 /**
@@ -229,62 +228,4 @@ export function updateSolutionNames(
 	}
 
 	return updatedSolutions;
-}
-
-/**
- * Generic API call function for NIMBUS operations.
- * This function wraps the fetch API to provide a consistent way to interact with the NIMBUS backend proxy.
- * It handles setting a loading state, clearing previous errors, request timeouts, and unified error handling.
- *
- * @param type The specific NIMBUS operation to perform (e.g., 'initialize', 'iterate').
- * @param data The payload to send in the request body.
- * @param timeout The timeout for the request in milliseconds. Defaults to 10000 (10 seconds).
- * @returns A promise that resolves with the data from the API response, or null if an error occurs.
- * @template T The expected type of the data in the successful response.
- */
-export async function callNimbusAPI<T>(
-	type: string,
-	data: Record<string, any>,
-	timeout = 10000 // 10s default
-): Promise<T | null> {
-	isLoading.set(true);
-	errorMessage.set(null);
-	const controller = new AbortController();
-	const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-	try {
-		const response = await fetch(`/interactive_methods/NIMBUS/?type=${type}`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(data),
-			signal: controller.signal
-		});
-
-		clearTimeout(timeoutId);
-
-		const result = await response.json();
-
-		if (!response.ok || !result.success) {
-			const errorMsg = result.error || `HTTP error! Status: ${response.status}`;
-			throw new Error(errorMsg);
-		}
-
-		return result.data as T;
-	} catch (error) {
-		let errorMsg: string;
-		if (error instanceof Error) {
-			if (error.name === 'AbortError') {
-				errorMsg = 'The request timed out. Please try again.';
-			} else {
-				errorMsg = error.message;
-			}
-		} else {
-			errorMsg = 'An unknown error occurred';
-		}
-		errorMessage.set(errorMsg);
-		console.error(`Error calling NIMBUS ${type} API:`, errorMsg);
-		return null;
-	} finally {
-		isLoading.set(false);
-	}
 }

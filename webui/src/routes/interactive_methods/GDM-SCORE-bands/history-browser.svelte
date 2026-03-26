@@ -33,7 +33,7 @@
 	 * - Svelte 5 runes for reactive state management
 	 */
 	import { Button } from '$lib/components/ui/button';
-	import type { components } from '$lib/api/client-types';
+	import type { GDMSCOREBandsResponse, GDMSCOREBandsDecisionResponse } from '$lib/gen/models';
 
 	// Component props
 	const {
@@ -43,8 +43,8 @@
 		isOwner = false
 	} = $props<{
 		history: (
-			| components['schemas']['GDMSCOREBandsResponse']
-			| components['schemas']['GDMSCOREBandsDecisionResponse']
+			| GDMSCOREBandsResponse
+			| GDMSCOREBandsDecisionResponse
 		)[];
 		currentIterationId: number;
 		onRevertToIteration: (iteration: number) => void;

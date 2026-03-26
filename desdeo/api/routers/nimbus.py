@@ -32,9 +32,17 @@ from desdeo.api.models import (
     UserSavedSolutionDB,
 )
 from desdeo.api.models.generic import SolutionInfo
+from desdeo.api.models.generic_states import StateKind
+from desdeo.api.models.nimbus import NIMBUSMultiplierRequest, NIMBUSMultiplierResponse
 from desdeo.api.models.state import IntermediateSolutionState
 from desdeo.api.routers.generic import solve_intermediate
 from desdeo.api.routers.problem import check_solver
+from desdeo.explanations.lagrange import (
+    compute_tradeoffs,
+    determine_active_objectives,
+    filter_constraint_values,
+    filter_lagrange_multipliers,
+)
 from desdeo.mcdm.nimbus import generate_starting_point, solve_sub_problems
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
@@ -108,10 +116,7 @@ def collect_all_solutions(user: User, problem_id: int, session: Session) -> list
 @router.post("/solve")
 def solve_solutions(
     request: NIMBUSClassificationRequest,
-    context: Annotated[
-        SessionContext,
-        Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
-    ],
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
 ) -> NIMBUSClassificationResponse:
     """Solve the problem using the NIMBUS method."""
     db_session = context.db_session
@@ -178,10 +183,7 @@ def solve_solutions(
 @router.post("/initialize")
 def initialize(
     request: NIMBUSInitializationRequest,
-    context: Annotated[
-        SessionContext,
-        Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
-    ],
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
 ) -> NIMBUSInitializationResponse:
     """Initialize the problem for the NIMBUS method."""
     db_session = context.db_session
@@ -253,8 +255,7 @@ def initialize(
 
 @router.post("/save")
 def save(
-    request: NIMBUSSaveRequest,
-    context: Annotated[SessionContext, Depends(SessionContextGuard())]
+    request: NIMBUSSaveRequest, context: Annotated[SessionContext, Depends(SessionContextGuard().post)]
 ) -> NIMBUSSaveResponse:
     """Save solutions."""
     db_session = context.db_session
@@ -328,10 +329,7 @@ def save(
 @router.post("/intermediate")
 def solve_nimbus_intermediate(
     request: IntermediateSolutionRequest,
-    context: Annotated[
-        SessionContext,
-        Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
-    ],
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
 ) -> NIMBUSIntermediateSolutionResponse:
     """Solve intermediate solutions by forwarding the request to generic intermediate endpoint with context nimbus."""
     db_session = context.db_session
@@ -361,10 +359,7 @@ def solve_nimbus_intermediate(
 @router.post("/get-or-initialize")
 def get_or_initialize(
     request: NIMBUSInitializationRequest,
-    context: Annotated[
-        SessionContext,
-        Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
-    ],
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
 ) -> (
     NIMBUSInitializationResponse
     | NIMBUSClassificationResponse
@@ -459,7 +454,7 @@ def get_or_initialize(
 @router.post("/finalize")
 def finalize_nimbus(
     request: NIMBUSFinalizeRequest,
-    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]))]
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
 ) -> NIMBUSFinalizeResponse:
     """An endpoint for finishing up the nimbus process.
 
@@ -525,8 +520,7 @@ def finalize_nimbus(
 
 @router.post("/delete_save")
 def delete_save(
-    request: NIMBUSDeleteSaveRequest,
-    context: Annotated[SessionContext, Depends(SessionContextGuard())]
+    request: NIMBUSDeleteSaveRequest, context: Annotated[SessionContext, Depends(SessionContextGuard().post)]
 ) -> NIMBUSDeleteSaveResponse:
     """Endpoint for deleting saved solutions.
 
@@ -567,3 +561,69 @@ def delete_save(
             detail="Could not delete the saved solution!", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
     return NIMBUSDeleteSaveResponse(message="Save deleted.")
+
+
+@router.post("/get-multipliers-info")
+def get_multipliers_info(
+    request: NIMBUSMultiplierRequest,
+    context: Annotated[SessionContext, Depends(SessionContextGuard().post)],
+) -> NIMBUSMultiplierResponse:
+    """Get Lagrange multipliers, tradeoffs, and active objectives from a state's solver results."""
+    db_session = context.db_session
+
+    state = db_session.exec(select(StateDB).where(StateDB.id == request.state_id)).first()
+
+    if state is None or not hasattr(state, "state"):
+        return NIMBUSMultiplierResponse(lagrange_multipliers=None)
+
+    actual_state = state.state
+    objective_symbols = request.objective_symbols
+
+    if not hasattr(actual_state, "solver_results") or actual_state.solver_results is None:
+        return NIMBUSMultiplierResponse(lagrange_multipliers=None)
+
+    lagrange_multipliers: list[dict[str, float] | None] = []
+    constraint_values: list[dict[str, float] | None] = []
+
+    # Handle states with multiple results (list of SolverResults)
+    results_list = (
+        actual_state.solver_results if isinstance(actual_state.solver_results, list) else [actual_state.solver_results]
+    )
+
+    for result in results_list:
+        if hasattr(result, "lagrange_multipliers") and result.lagrange_multipliers is not None:
+            lagrange_multipliers.append(filter_lagrange_multipliers(result.lagrange_multipliers, objective_symbols))
+            if hasattr(result, "constraint_values") and result.constraint_values is not None:
+                constraint_values.append(filter_constraint_values(result.constraint_values, objective_symbols))
+            else:
+                constraint_values.append(None)
+        else:
+            lagrange_multipliers.append(None)
+            constraint_values.append(None)
+
+    # Compute tradeoffs matrix for each solution
+    tradeoffs_list = [compute_tradeoffs(m) for m in lagrange_multipliers]
+
+    # Determine active objectives
+    active_objectives = determine_active_objectives(lagrange_multipliers, constraint_values, objective_symbols)
+
+    # Persist to state if it's a NIMBUS/XNIMBUS classification state
+    if (
+        isinstance(actual_state, NIMBUSClassificationState)
+        and state.base_state is not None
+        and state.base_state.kind
+        in (
+            StateKind.NIMBUS_SOLVE,
+            StateKind.XNIMBUS_SOLVE,
+        )
+    ):
+        actual_state.filtered_lagrange_multipliers = lagrange_multipliers
+        actual_state.tradeoffs_matrix = tradeoffs_list
+        db_session.add(actual_state)
+        db_session.commit()
+
+    return NIMBUSMultiplierResponse(
+        lagrange_multipliers=lagrange_multipliers,
+        tradeoffs_matrix=tradeoffs_list,
+        active_objectives=active_objectives,
+    )

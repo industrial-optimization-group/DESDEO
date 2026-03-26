@@ -38,13 +38,13 @@
 	import FlexRender from '$lib/components/ui/data-table/flex-render.svelte';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { renderSnippet } from '$lib/components/ui/data-table/render-helpers.js';
-	import type { components } from '$lib/api/client-types';
+	import type { ProblemInfo, SolutionReferenceResponse } from '$lib/gen/models';
 	import { getDisplayAccuracy, formatNumber } from '$lib/helpers';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
 
 	// Types matching your original solution-table
-	type ProblemInfo = components['schemas']['ProblemInfo'];
-	type Solution = components['schemas']['SolutionReferenceResponse'];
+
+	type Solution = SolutionReferenceResponse;
 
 	// Props matching your original solution-table for compatibility
 	let {

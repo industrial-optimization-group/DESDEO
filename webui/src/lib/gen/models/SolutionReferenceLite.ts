@@ -18,7 +18,10 @@ export interface SolutionReferenceLite {
 	solution_index?: number | null;
 	/** The reference state with the solution information. */
 	state: StateDB;
+	/** The state id. */
 	readonly state_id: number;
+	/** Number of solutions contained in the referenced state. */
 	readonly num_solutions: number;
+	/** The objective values of the referenced solution. None if not applicable. */
 	readonly objective_values: SolutionReferenceLiteObjectiveValues;
 }

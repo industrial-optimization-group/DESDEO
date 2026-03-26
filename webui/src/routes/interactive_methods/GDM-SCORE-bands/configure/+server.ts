@@ -16,7 +16,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { api } from '$lib/api/client';
-import type { components } from '$lib/api/client-types';
 
 /**
  * POST handler for SCORE bands configuration requests
