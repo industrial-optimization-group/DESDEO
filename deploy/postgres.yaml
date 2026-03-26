@@ -1,0 +1,108 @@
+# deploy/postgres.yaml
+#
+# In-cluster PostgreSQL using the Bitnami image, which is designed to run
+# as a non-root user and is therefore compatible with OpenShift / Rahti SCCs.
+#
+# Apply with:
+#   oc apply -f deploy/postgres.yaml
+#
+# Bitnami env var names differ from the official postgres image:
+#   POSTGRESQL_USERNAME  →  creates a non-superuser (matches DATABASE_URL user)
+#   POSTGRESQL_PASSWORD  →  password for POSTGRESQL_USERNAME
+#   POSTGRESQL_DATABASE  →  database to create on first start
+#   POSTGRESQL_POSTGRES_PASSWORD  →  password for the postgres superuser
+#
+# Data is persisted in the PVC mounted at /bitnami/postgresql.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: desdeo-postgres
+  labels:
+    app: desdeo-postgres
+spec:
+  # ClusterIP only — Postgres is not exposed outside the cluster.
+  clusterIP: None          # headless service for StatefulSet DNS
+  selector:
+    app: desdeo-postgres
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: desdeo-postgres
+  labels:
+    app: desdeo-postgres
+spec:
+  selector:
+    matchLabels:
+      app: desdeo-postgres
+  serviceName: desdeo-postgres
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: desdeo-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: docker.io/bitnami/postgresql:16
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRESQL_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: desdeo-secrets
+              key: POSTGRES_USER
+        - name: POSTGRESQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: desdeo-secrets
+              key: POSTGRES_PASSWORD
+        - name: POSTGRESQL_DATABASE
+          value: desdeo
+        - name: POSTGRESQL_POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: desdeo-secrets
+              key: POSTGRES_SUPERUSER_PASSWORD
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /bitnami/postgresql
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U $POSTGRESQL_USERNAME -d desdeo
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 6
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U $POSTGRESQL_USERNAME -d desdeo
+          initialDelaySeconds: 5
+          periodSeconds: 5
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 2Gi

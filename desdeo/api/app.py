@@ -40,6 +40,12 @@ app.include_router(gnimbus_routers.router)
 app.include_router(enautilus.router)
 app.include_router(gdm_score_bands_routers.router)
 
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 origins = AuthConfig.cors_origins
 
 app.add_middleware(

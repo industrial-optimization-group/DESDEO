@@ -1,0 +1,62 @@
+# deploy/webui-buildconfig.yaml
+#
+# BuildConfig for the DESDEO web UI using Docker build strategy.
+#
+# The Dockerfile lives at webui/Dockerfile in the repository.
+# contextDir: webui  →  all COPY paths in the Dockerfile are relative to webui/.
+#
+# VITE_API_URL is baked into the client-side bundle at build time.
+# It must be the *public* HTTPS URL of the API Route.
+# If you ever change the API hostname, you must trigger a new webui build.
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: desdeo-webui
+  labels:
+    app: desdeo-webui
+spec:
+  # ── Source ───────────────────────────────────────────────────────────────
+  source:
+    type: Git
+    git:
+      uri: https://github.com/industrial-optimization-group/DESDEO.git
+      ref: <DEPLOY_BRANCH>
+    # Only the webui/ subtree is needed as the Docker build context.
+    contextDir: webui
+
+  # ── Build strategy ───────────────────────────────────────────────────────
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+      # Build arguments — passed as ARG to the Dockerfile.
+      buildArgs:
+      - name: VITE_API_URL
+        value: "https://gialmisi-desdeo-api.rahtiapp.fi"
+
+  # ── Output ───────────────────────────────────────────────────────────────
+  output:
+    to:
+      kind: ImageStreamTag
+      name: desdeo-webui:latest
+
+  # ── Triggers ─────────────────────────────────────────────────────────────
+  triggers:
+  - type: GitHub
+    github:
+      secretReference:
+        name: desdeo-secrets
+  - type: ConfigChange
+
+  # ── Build pod resources ───────────────────────────────────────────────────
+  # npm ci + vite build is memory-hungry; 2Gi is usually sufficient.
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1"
+
+  runPolicy: Serial

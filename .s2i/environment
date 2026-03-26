@@ -1,5 +1,27 @@
+# S2I environment variables for the DESDEO API build and runtime.
+# These are read both during the S2I *build* (assemble) and at *runtime*.
+#
+# UPGRADE_PIP_TO_LATEST is no longer needed because the assemble script
+# upgrades pip explicitly before installing uv. Kept here as a no-op for
+# compatibility with any base-image hooks that check for it.
 UPGRADE_PIP_TO_LATEST=1
+
+# Entry point: Gunicorn loads the FastAPI app from this module path.
 APP_MODULE=desdeo.api.app:app
+
+# Gunicorn flags.
+#   --workers=1          Single worker is safe for the current single-pod setup.
+#                        Increase to 2-4 if the pod gets >1 CPU allocated.
+#   --worker-class       uvicorn.workers.UvicornWorker gives async support.
+#   --bind               Must be 0.0.0.0:8080 to match the Service targetPort.
+#   --access-logfile -   Log to stdout so OpenShift can capture it.
 GUNICORN_CMD_ARGS=--bind=0.0.0.0:8080 --workers=1 --access-logfile=- --worker-class uvicorn.workers.UvicornWorker
-DESDEO_INSTALL=. --group web --group server
+
+# Passed to `uv sync` in the assemble script.
+# Format: flags passed after the implicit project root (.).
+# --group web --group server: include the FastAPI/gunicorn/uvicorn dependency groups.
+# NOTE: This variable is used in assemble, not by pip directly.
+DESDEO_INSTALL=--group web --group server
+
+# Runtime default; override via Deployment env or Secret.
 DEBUG=false

@@ -1,0 +1,85 @@
+# deploy/api-buildconfig.yaml
+#
+# BuildConfig for the DESDEO API using OpenShift S2I strategy.
+#
+# Builder image: python:3.12-ubi9 from the shared 'openshift' namespace.
+# The custom .s2i/bin/assemble script in the repository overrides the default
+# assemble behaviour and uses uv to install dependencies.
+#
+# Triggers:
+#   - GitHub webhook (push to DEPLOY_BRANCH)  ← main CI/CD trigger
+#   - ImageChange on the builder image         ← rebuilds on Python security patches
+#
+# To get the webhook URL after applying:
+#   oc describe bc/desdeo-api | grep -A2 Webhook
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: desdeo-api
+  labels:
+    app: desdeo-api
+spec:
+  # ── Source ───────────────────────────────────────────────────────────────
+  source:
+    type: Git
+    git:
+      uri: https://github.com/industrial-optimization-group/DESDEO.git
+      # Replace with the branch you want to track (e.g. master, deploy, main).
+      ref: <DEPLOY_BRANCH>
+    # No contextDir: the pyproject.toml and .s2i/ are at the repo root.
+
+  # ── Build strategy ───────────────────────────────────────────────────────
+  strategy:
+    type: Source
+    sourceStrategy:
+      # Python 3.12 UBI9 S2I builder available in every Rahti project via the
+      # shared 'openshift' ImageStream.  Verify with:
+      #   oc get is python -n openshift
+      from:
+        kind: ImageStreamTag
+        name: python:3.12-ubi9
+        namespace: openshift
+      # Environment variables available during the S2I *build* (assemble).
+      # Runtime env vars go in the Deployment, not here.
+      env:
+      - name: UPGRADE_PIP_TO_LATEST
+        value: "1"
+      - name: DESDEO_INSTALL
+        value: "--group web --group server"
+      - name: DEBUG
+        value: "false"
+
+  # ── Output ───────────────────────────────────────────────────────────────
+  output:
+    to:
+      kind: ImageStreamTag
+      name: desdeo-api:latest
+
+  # ── Triggers ─────────────────────────────────────────────────────────────
+  triggers:
+  # Rebuild when the Python builder image is updated (security patches).
+  - type: ImageChange
+    imageChange: {}
+  # GitHub webhook — authenticates with WEBHOOK_SECRET_API from the Secret.
+  - type: GitHub
+    github:
+      secretReference:
+        name: desdeo-secrets
+        # Key in the Secret that holds the webhook secret string.
+        # Note: this uses secretReference (key in existing Secret) rather than
+        # an inline secret so we don't store the value in this manifest.
+  # Manual / API trigger.
+  - type: ConfigChange
+
+  # ── Run policy ───────────────────────────────────────────────────────────
+  runPolicy: Serial
+
+  # ── Resource limits for the build pod ────────────────────────────────────
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1"
