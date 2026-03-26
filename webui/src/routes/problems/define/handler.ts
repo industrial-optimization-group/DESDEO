@@ -5,7 +5,7 @@ import type {
 	ObjectiveDB,
 	ProblemInfo,
 	VariableDB
-} from '$lib/gen/models';
+} from '$lib/gen/endpoints/DESDEOFastAPI';
 import { addProblemJsonProblemAddJsonPost, addProblemProblemAddPost, getProblemProblemProblemIdGet } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 export type ObjectivePayload = Omit<ObjectiveDB, 'func'> & {

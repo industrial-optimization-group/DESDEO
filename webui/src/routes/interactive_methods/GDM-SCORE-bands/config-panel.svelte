@@ -78,7 +78,7 @@
 	 * - Advanced configuration options are marked as null for future implementation
 	 */
 	import { Button } from '$lib/components/ui/button';
-	import type { SCOREBandsConfig, SCOREBandsGDMConfig, DistanceFormula } from '$lib/gen/models';
+	import type { SCOREBandsConfig, SCOREBandsGDMConfig, DistanceFormula } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 	// Component props
 	const {

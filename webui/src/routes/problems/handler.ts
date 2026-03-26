@@ -6,7 +6,7 @@ import { getMetadataProblemGetMetadataPost } from '$lib/gen/endpoints/DESDEOFast
 import { getAvailableSolversProblemAssignSolverGet } from '$lib/gen/endpoints/DESDEOFastAPI';
 import { selectSolverProblemAssignSolverPost } from '$lib/gen/endpoints/DESDEOFastAPI';
 import { addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPost } from '$lib/gen/endpoints/DESDEOFastAPI';
-import type { RepresentativeSolutionSetBase } from '$lib/gen/models';
+import type { RepresentativeSolutionSetBase } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 export async function deleteProblem(problemId: number): Promise<boolean> {
 	const response: deleteProblemProblemProblemIdDeleteResponse =

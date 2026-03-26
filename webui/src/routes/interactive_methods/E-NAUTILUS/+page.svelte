@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import type { MethodSelectionState } from '../../../stores/methodSelection';
-	import { type ENautilusRepresentativeSolutionsResponse, type InteractiveSessionBase } from '$lib/gen/models';
+	import { type ENautilusRepresentativeSolutionsResponse, type InteractiveSessionBase } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { isLoading, errorMessage } from '../../../stores/uiState';
 
 	import BaseLayout from '$lib/components/custom/method_layout/base-layout.svelte';
@@ -14,14 +14,14 @@
 	import Combobox from '$lib/components/ui/combobox/combobox.svelte';
 	import { EndStateView } from '$lib/components/custom/end-state-view';
 	import { DecisionJourney } from '$lib/components/custom/decision-journey';
-	import type { ENautilusSessionTreeResponse } from '$lib/gen/models';
+	import type { ENautilusSessionTreeResponse } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 	import type {
 		ENautilusStepRequest,
 		ENautilusStepResponse,
 		ProblemGetRequest,
 		ProblemInfo
-	} from '$lib/gen/models';
+	} from '$lib/gen/endpoints/DESDEOFastAPI';
 	import {
 		step_enautilus,
 		fetch_problem_info,

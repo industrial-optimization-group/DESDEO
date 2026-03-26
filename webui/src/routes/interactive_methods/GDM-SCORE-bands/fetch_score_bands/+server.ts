@@ -10,7 +10,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { getOrInitializeGdmScoreBandsGetOrInitializePost } from '$lib/gen/endpoints/DESDEOFastAPI';
-import type { GDMScoreBandsInitializationRequest } from '$lib/gen/models';
+import type { GDMScoreBandsInitializationRequest } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	const refreshToken = cookies.get('refresh_token');

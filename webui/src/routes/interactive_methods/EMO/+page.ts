@@ -1,6 +1,6 @@
 import type { PageLoad } from './$types';
 import { getProblemsInfoProblemAllInfoGet } from '$lib/gen/endpoints/DESDEOFastAPI';
-import type { ProblemInfo } from '$lib/gen/models';
+import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 type ProblemList = ProblemInfo[];
 

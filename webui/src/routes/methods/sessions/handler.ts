@@ -1,4 +1,4 @@
-import type { CreateSessionRequest, InteractiveSessionBase } from '$lib/gen/models';
+import type { CreateSessionRequest, InteractiveSessionBase } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type {
 	createNewSessionSessionNewPostResponse,
 	deleteSessionSessionSessionIdDeleteResponse,
@@ -43,4 +43,3 @@ export async function delete_session(session_id: number): Promise<boolean> {
   }
   return true;
 }
-

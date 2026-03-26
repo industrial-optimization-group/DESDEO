@@ -6,7 +6,7 @@
 		TreeNodeResponse,
 		DecisionEventResponse
 	} from './tree-types';
-	import type { ProblemInfo } from '$lib/gen/models';
+	import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { buildHierarchy, analyzeTradeoffs } from './tree-utils';
 	import DecisionTreeNode from './decision-tree-node.svelte';
 	import DecisionTreeTooltip from './decision-tree-tooltip.svelte';

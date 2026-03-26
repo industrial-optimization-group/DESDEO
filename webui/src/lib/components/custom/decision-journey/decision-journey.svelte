@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ENautilusSessionTreeResponse, ProblemInfo } from '$lib/gen/models';
+	import type { ENautilusSessionTreeResponse, ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { extractPathToLeaf, computeJourneyData, type JourneyStep } from './journey-utils';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors';
 	import { formatNumber } from '$lib/helpers';

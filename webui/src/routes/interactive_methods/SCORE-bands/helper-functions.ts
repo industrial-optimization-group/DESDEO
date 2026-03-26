@@ -17,7 +17,7 @@
  *
  */
 
-import type { SCOREBandsResult, ProblemInfo } from '$lib/gen/models';
+import type { SCOREBandsResult, ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 /**
  * Calculates scales for SCORE-bands visualization with priority fallback system

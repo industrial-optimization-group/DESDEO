@@ -1,4 +1,4 @@
-import type { ENautilusRepresentativeSolutionsResponse, ENautilusSessionTreeResponse, ENautilusStateResponse, ENautilusStepRequest, ENautilusStepResponse, ProblemGetRequest, ProblemInfo } from "$lib/gen/models";
+import type { ENautilusRepresentativeSolutionsResponse, ENautilusSessionTreeResponse, ENautilusStateResponse, ENautilusStepRequest, ENautilusStepResponse, ProblemGetRequest, ProblemInfo } from "$lib/gen/endpoints/DESDEOFastAPI";
 import type { getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse, getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse, getStateMethodEnautilusGetStateStateIdGetResponse, stepMethodEnautilusStepPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
 import { stepMethodEnautilusStepPost, getProblemProblemProblemIdGet, getStateMethodEnautilusGetStateStateIdGet, getRepresentativeMethodEnautilusGetRepresentativeStateIdGet, getSessionTreeMethodEnautilusSessionTreeSessionIdGet } from "$lib/gen/endpoints/DESDEOFastAPI";
 import type { getProblemProblemProblemIdGetResponse } from "$lib/gen/endpoints/DESDEOFastAPI";

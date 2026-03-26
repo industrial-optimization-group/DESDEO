@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { isLoading, errorMessage } from '../../../stores/uiState';
-	import type { InteractiveSessionBase } from '$lib/gen/models';
+	import type { InteractiveSessionBase } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card/index.js';

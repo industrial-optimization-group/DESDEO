@@ -47,7 +47,7 @@
 	import Search from '@lucide/svelte/icons/search';
 	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
 	import LayoutList from '@lucide/svelte/icons/layout-list';
-	import type { ProblemInfo } from '$lib/gen/models';
+	import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 	type PreferenceType =
 		| 'reference point'

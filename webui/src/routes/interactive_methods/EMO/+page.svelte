@@ -42,7 +42,7 @@
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
 	import AdvancedSidebar from '$lib/components/custom/preferences-bar/advanced-sidebar.svelte';
 	import { methodSelection } from '../../../stores/methodSelection';
-	import type { ProblemInfo, ReferencePoint } from '$lib/gen/models';
+	import type { ProblemInfo, ReferencePoint } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { onMount } from 'svelte';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import { PREFERENCE_TYPES } from '$lib/constants';

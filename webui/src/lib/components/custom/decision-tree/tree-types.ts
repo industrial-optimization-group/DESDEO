@@ -4,9 +4,9 @@ export type {
     ENautilusTreeNodeResponse as TreeNodeResponse,
     ENautilusDecisionEventResponse as DecisionEventResponse,
     ENautilusSessionTreeResponse as SessionTreeResponse,
-} from "$lib/gen/models";
+} from "$lib/gen/endpoints/DESDEOFastAPI";
 
-import type { ENautilusTreeNodeResponse } from "$lib/gen/models";
+import type { ENautilusTreeNodeResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
 
 /** Internal node type used for d3-hierarchy. */
 export interface TreeHierarchyDatum {

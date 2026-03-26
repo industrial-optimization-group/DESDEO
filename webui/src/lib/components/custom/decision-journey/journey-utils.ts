@@ -5,7 +5,7 @@ import type {
 	ENautilusTreeNodeResponse,
 	ENautilusDecisionEventResponse,
 	ProblemInfo,
-} from "$lib/gen/models";
+} from "$lib/gen/endpoints/DESDEOFastAPI";
 import { analyzeTradeoffs, type ObjectiveTradeoff } from "$lib/components/custom/decision-tree/tree-utils";
 
 export interface AlternativeDelta {

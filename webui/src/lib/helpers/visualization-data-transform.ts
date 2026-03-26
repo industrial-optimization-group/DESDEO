@@ -1,4 +1,4 @@
-import type { ProblemInfo } from '$lib/gen/models';
+import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 /**
  * Transform 2D array of objective values into visualization-ready format

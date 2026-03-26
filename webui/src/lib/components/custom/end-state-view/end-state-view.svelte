@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FinalResultTable from '$lib/components/custom/nimbus/final-result-table.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
-	import type { ProblemInfo } from '$lib/gen/models';
+	import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 	interface SolutionData {
 		objective_values: { [key: string]: number } | null;

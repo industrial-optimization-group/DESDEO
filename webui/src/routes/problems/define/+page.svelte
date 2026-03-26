@@ -10,12 +10,12 @@
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
-	import type { ConstraintDB, ObjectiveDB, VariableDB } from '$lib/gen/models';
+	import type { ConstraintDB, ObjectiveDB, VariableDB } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import {
 		ConstraintTypeEnum,
 		ObjectiveTypeEnum,
 		VariableTypeEnum
-	} from '$lib/gen/models';
+	} from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { createProblem, fetchProblem, type ProblemPayload, uploadProblemJson } from './handler';
 
 	type VariableForm = {

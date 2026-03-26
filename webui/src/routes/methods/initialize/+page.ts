@@ -1,6 +1,6 @@
 import type { PageLoad } from './$types';
 import { getProblemsProblemAllGet } from '$lib/gen/endpoints/DESDEOFastAPI';
-import type { ProblemInfoSmall } from '$lib/gen/models';
+import type { ProblemInfoSmall } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 export const load: PageLoad = async ({url}) => {
 	const res = await getProblemsProblemAllGet();

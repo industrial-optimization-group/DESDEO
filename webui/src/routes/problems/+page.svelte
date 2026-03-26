@@ -43,7 +43,7 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Button } from '$lib/components/ui/button';
-	import type { ProblemInfo } from '$lib/gen/models';
+	import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { methodSelection } from '../../stores/methodSelection';
 	import { invalidateAll } from '$app/navigation';
 	import { deleteProblem, downloadProblemJson, getAssignedSolver, getAvailableSolvers, assignSolver, addRepresentativeSolutionSet } from './handler';

@@ -5,104 +5,1846 @@
  * A rest API for the DESDEO framework.
  * OpenAPI spec version: 0.1.0
  */
-import type {
-	AddProblemJsonProblemAddJsonPostParams,
-	AddProblemProblemAddPostParams,
-	BodyAddNewAnalystAddNewAnalystPost,
-	BodyAddNewDmAddNewDmPost,
-	BodyAddProblemJsonProblemAddJsonPost,
-	BodyLoginLoginPost,
-	ConfigureGdmGdmScoreBandsConfigurePostParams,
-	CreateNewSessionSessionNewPostParams,
-	CreateSessionRequest,
-	DeleteProblemProblemProblemIdDeleteParams,
-	DeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteParams,
-	DeleteSaveMethodNimbusDeleteSavePostParams,
-	DeleteSaveMethodXnimbusDeleteSavePostParams,
-	ENautilusFinalizeRequest,
-	ENautilusFinalizeResponse,
-	ENautilusRepresentativeSolutionsResponse,
-	ENautilusSessionTreeResponse,
-	ENautilusStateResponse,
-	ENautilusStepRequest,
-	ENautilusStepResponse,
-	FinalizeEnautilusMethodEnautilusFinalizePostParams,
-	FinalizeNimbusMethodNimbusFinalizePostParams,
-	FinalizeXnimbusMethodXnimbusFinalizePostParams,
-	ForestProblemMetaData,
-	GDMSCOREBandsHistoryResponse,
-	GDMSCOREBandsRevertRequest,
-	GDMScoreBandsInitializationRequest,
-	GDMScoreBandsVoteRequest,
-	GNIMBUSAllIterationsResponse,
-	GNIMBUSResultResponse,
-	GNIMBUSSwitchPhaseRequest,
-	GNIMBUSSwitchPhaseResponse,
-	GenericIntermediateSolutionResponse,
-	GetAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetParams,
-	GetMetadataProblemGetMetadataPostParams,
-	GetMultipliersInfoMethodNimbusGetMultipliersInfoPostParams,
-	GetMultipliersInfoMethodXnimbusGetMultipliersInfoPostParams,
-	GetOrInitializeMethodNimbusGetOrInitializePostParams,
-	GetOrInitializeMethodXnimbusGetOrInitializePostParams,
-	GetProblemJsonProblemProblemIdJsonGetParams,
-	GetProblemProblemProblemIdGetParams,
-	GetRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetParams,
-	GetSessionTreeMethodEnautilusSessionTreeSessionIdGetParams,
-	GetUtopiaDataUtopiaPostParams,
-	GroupCreateRequest,
-	GroupInfoRequest,
-	GroupModifyRequest,
-	GroupPublic,
-	GroupRevertRequest,
-	HTTPValidationError,
-	InitializeMethodNimbusInitializePostParams,
-	InitializeMethodXnimbusInitializePostParams,
-	InteractiveSessionBase,
-	IntermediateSolutionRequest,
-	LoginLoginPostParams,
-	NIMBUSClassificationRequest,
-	NIMBUSClassificationResponse,
-	NIMBUSDeleteSaveRequest,
-	NIMBUSDeleteSaveResponse,
-	NIMBUSFinalizeRequest,
-	NIMBUSFinalizeResponse,
-	NIMBUSInitializationRequest,
-	NIMBUSInitializationResponse,
-	NIMBUSIntermediateSolutionResponse,
-	NIMBUSMultiplierRequest,
-	NIMBUSMultiplierResponse,
-	NIMBUSSaveRequest,
-	NIMBUSSaveResponse,
-	ProblemInfo,
-	ProblemInfoSmall,
-	ProblemMetaDataGetRequest,
-	ProblemSelectSolverRequest,
-	RPMSolveRequest,
-	RPMState,
-	RepresentativeNonDominatedSolutions,
-	RepresentativeSolutionSetBase,
-	SCOREBandsGDMConfig,
-	SaveMethodNimbusSavePostParams,
-	SaveMethodXnimbusSavePostParams,
-	ScoreBandsRequest,
-	ScoreBandsResponse,
-	SelectSolverProblemAssignSolverPostParams,
-	SolveIntermediateMethodGenericIntermediatePostParams,
-	SolveNimbusIntermediateMethodNimbusIntermediatePostParams,
-	SolveSolutionsMethodNimbusSolvePostParams,
-	SolveSolutionsMethodRpmSolvePostParams,
-	SolveSolutionsMethodXnimbusSolvePostParams,
-	SolveXnimbusIntermediateMethodXnimbusIntermediatePostParams,
-	SolverSelectionMetadata,
-	StepMethodEnautilusStepPostParams,
-	Tokens,
-	UserPublic,
-	UtopiaRequest,
-	UtopiaResponse
-} from '../models';
-
 import { customFetch } from '../../api/new-client';
+export interface BodyAddNewAnalystAddNewAnalystPost {
+	grant_type?: string | null;
+	username: string;
+	password: string;
+	scope?: string;
+	client_id?: string | null;
+	client_secret?: string | null;
+}
+
+export interface BodyAddNewDmAddNewDmPost {
+	grant_type?: string | null;
+	username: string;
+	password: string;
+	scope?: string;
+	client_id?: string | null;
+	client_secret?: string | null;
+}
+
+export type ReferencePointAspirationLevels = { [key: string]: number };
+
+/**
+ * Model for representing a reference point type of preference.
+ */
+export interface ReferencePoint {
+	preference_type?: 'reference_point';
+	aspiration_levels: ReferencePointAspirationLevels;
+}
+
+export type RPMSolveRequestScalarizationOptions = {
+	[key: string]: number | string | boolean;
+} | null;
+
+export type RPMSolveRequestSolverOptions = { [key: string]: number | string | boolean } | null;
+
+/**
+ * Model of the request to the reference point method.
+ */
+export interface RPMSolveRequest {
+	problem_id: number;
+	session_id?: number | null;
+	parent_state_id?: number | null;
+	scalarization_options?: RPMSolveRequestScalarizationOptions;
+	solver?: string | null;
+	solver_options?: RPMSolveRequestSolverOptions;
+	preference?: ReferencePoint;
+}
+
+/**
+ * The selected intermediate point. If first iteration, set this to be the (approximated) nadir point. If not set, then the point is assumed to be the nadir point of the current approximating set.
+ */
+export type ENautilusStepRequestSelectedPoint = { [key: string]: number } | null;
+
+/**
+ * Model of the request to the E-NAUTILUS method.
+ */
+export interface ENautilusStepRequest {
+	problem_id: number;
+	session_id?: number | null;
+	parent_state_id?: number | null;
+	/** The id of the representative solutions to be used. */
+	representative_solutions_id: number;
+	/** The number of the current iteration. */
+	current_iteration: number;
+	/** The number of iterations left. */
+	iterations_left: number;
+	/** The selected intermediate point. If first iteration, set this to be the (approximated) nadir point. If not set, then the point is assumed to be the nadir point of the current approximating set. */
+	selected_point: ENautilusStepRequestSelectedPoint;
+	/** The indices indicating the point on the non-dominated set that are reachable from the currently selected point. */
+	reachable_point_indices: number[];
+	/** The number of intermediate points to be generated. */
+	number_of_intermediate_points: number;
+}
+
+/**
+ * Model of the request to create a new session.
+ */
+export interface CreateSessionRequest {
+	info?: string | null;
+}
+
+export interface BodyAddProblemJsonProblemAddJsonPost {
+	json_file: Blob;
+	request?: RPMSolveRequest | ENautilusStepRequest | CreateSessionRequest | null;
+}
+
+export interface BodyLoginLoginPost {
+	grant_type?: string | null;
+	username: string;
+	password: string;
+	scope?: string;
+	client_id?: string | null;
+	client_secret?: string | null;
+}
+
+/**
+ * The SQLModel equivalent to `Constant`.
+ */
+export interface ConstantDB {
+	/** Descriptive name of the constant. This can be used in UI and visualizations. Example: 'maximum cost'. */
+	name: string;
+	/** Symbol to represent the constant. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations. Example: 'c_1'. */
+	symbol: string;
+	/** The value of the constant. */
+	value: number;
+	id?: number | null;
+	problem_id?: number | null;
+}
+
+/**
+ * Model for a URL.
+ */
+export interface Url {
+	/** A URL to the simulator. A GET request to this URL should be used to evaluate solutions in batches. */
+	url: string;
+	/** Optional. A tuple of username and password to be used for authentication when making requests to the URL. */
+	auth?: [string, string] | null;
+}
+
+/**
+ * An enumerator for supported constraint expression types.
+ */
+export type ConstraintTypeEnum = (typeof ConstraintTypeEnum)[keyof typeof ConstraintTypeEnum];
+
+export const ConstraintTypeEnum = {
+	'=': '=',
+	'<=': '<='
+} as const;
+
+/**
+ * The SQLModel equivalent to `Constraint`.
+ */
+export interface ConstraintDB {
+	func: unknown[];
+	scenario_keys?: string[] | null;
+	surrogates?: string[] | null;
+	simulator_path?: string | Url | null;
+	/** Descriptive name of the constraint. This can be used in UI and visualizations. Example: 'maximum length'. */
+	name: string;
+	/** Symbol to represent the constraint. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations. Example: 'g_1'. */
+	symbol: string;
+	/** The type of the constraint. Constraints are assumed to be in a standard form where the supplied 'func' expression is on the left hand side of the constraint's expression, and on the right hand side a zero value is assume. The comparison between the left hand side and right hand side is either and quality comparison ('=') or lesser than equal comparison ('<='). */
+	cons_type: ConstraintTypeEnum;
+	/** Whether the constraint is linear or not. Defaults to True, e.g., a linear constraint is assumed. */
+	is_linear?: boolean;
+	/** Whether the function expression is convex or not (non-convex). Defaults to `False`. */
+	is_convex?: boolean;
+	/** Whether the function expression is twice differentiable or not. Defaults to `False` */
+	is_twice_differentiable?: boolean;
+	id?: number | null;
+	problem_id?: number | null;
+}
+
+/**
+ * Options for custom clustering provided by the user.
+ */
+export interface CustomClusterOptions {
+	/** Custom user-provided clusters. */
+	name?: string;
+	/** List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs. */
+	clusters: number[];
+}
+
+/**
+ * Options for DBSCAN clustering algorithm.
+ */
+export interface DBSCANOptions {
+	/** DBSCAN clustering algorithm. */
+	name?: string;
+}
+
+/**
+ * Kind of clustering to use. Either "EqualWidth", which divides the dimension range into equal width intervals,
+or "EqualFrequency", which divides the dimension values into intervals with equal number of solutions.
+Defaults to "EqualWidth".
+ */
+export type DimensionClusterOptionsKind =
+	(typeof DimensionClusterOptionsKind)[keyof typeof DimensionClusterOptionsKind];
+
+export const DimensionClusterOptionsKind = {
+	EqualWidth: 'EqualWidth',
+	EqualFrequency: 'EqualFrequency'
+} as const;
+
+/**
+ * Options for clustering by one of the objectives/decision variables.
+ */
+export interface DimensionClusterOptions {
+	/** Clustering by one of the dimensions. */
+	name?: string;
+	/** Dimension to use for clustering. */
+	dimension_name: string;
+	/** Number of clusters to use. Defaults to 5. */
+	n_clusters?: number;
+	/** Kind of clustering to use. Either "EqualWidth", which divides the dimension range into equal width intervals,
+  or "EqualFrequency", which divides the dimension values into intervals with equal number of solutions.
+  Defaults to "EqualWidth". */
+	kind?: DimensionClusterOptionsKind;
+}
+
+export type DiscreteRepresentationDBVariableValues = { [key: string]: (number | boolean)[] };
+
+export type DiscreteRepresentationDBObjectiveValues = { [key: string]: number[] };
+
+/**
+ * The SQLModel equivalent to `DiscreteRepresentation`.
+ */
+export interface DiscreteRepresentationDB {
+	non_dominated?: boolean;
+	variable_values: DiscreteRepresentationDBVariableValues;
+	objective_values: DiscreteRepresentationDBObjectiveValues;
+	id?: number | null;
+	problem_id?: number | null;
+}
+
+/**
+ * Distance formulas supported by SCORE bands. See the paper for details.
+ */
+export type DistanceFormula = (typeof DistanceFormula)[keyof typeof DistanceFormula];
+
+export const DistanceFormula = {
+	NUMBER_1: 1,
+	NUMBER_2: 2
+} as const;
+
+/**
+ * The DM's position when viewing options.
+ */
+export type ENautilusDecisionEventResponseStartingPoint = { [key: string]: number } | null;
+
+/**
+ * The point the DM chose.
+ */
+export type ENautilusDecisionEventResponseChosenPoint = { [key: string]: number } | null;
+
+/**
+ * A decision event capturing a transition from parent to child node.
+ */
+export interface ENautilusDecisionEventResponse {
+	/** The parent node id. */
+	parent_node_id: number;
+	/** The child node id. */
+	child_node_id: number;
+	/** Iteration number at the parent. */
+	parent_iteration: number;
+	/** Iteration number at the child. */
+	child_iteration: number;
+	/** Iterations left after this decision. */
+	iterations_left_after: number;
+	/** The DM's position when viewing options. */
+	starting_point?: ENautilusDecisionEventResponseStartingPoint;
+	/** The point the DM chose. */
+	chosen_point?: ENautilusDecisionEventResponseChosenPoint;
+	/** Index of chosen option among those shown. */
+	chosen_option_idx?: number | null;
+}
+
+/**
+ * Request to finalize E-NAUTILUS and select the final solution.
+ */
+export interface ENautilusFinalizeRequest {
+	problem_id: number;
+	session_id?: number | null;
+	/** The E-NAUTILUS step state (must have iterations_left == 0). */
+	parent_state_id: number;
+	/** Index of the selected intermediate point (0-based). */
+	selected_point_index: number;
+}
+
+/**
+ * The intermediate point that was selected by the DM.
+ */
+export type ENautilusFinalizeResponseSelectedIntermediatePoint = { [key: string]: number };
+
+/**
+ * The optimal decision variables found.
+ */
+export type SolverResultsOptimalVariables = { [key: string]: number | unknown[] };
+
+/**
+ * The objective function values corresponding to the optimal decision variables found.
+ */
+export type SolverResultsOptimalObjectives = { [key: string]: number | number[] };
+
+/**
+ * The constraint values of the problem. A negative value means the constraint is respected, a positive one means it has been breached.
+ */
+export type SolverResultsConstraintValues =
+	| { [key: string]: number | number[] | unknown[] }
+	| unknown
+	| null;
+
+/**
+ * The extra function values of the problem.
+ */
+export type SolverResultsExtraFuncValues = { [key: string]: number | number[] } | null;
+
+/**
+ * The scalarization function values of the problem.
+ */
+export type SolverResultsScalarizationValues = { [key: string]: number | number[] } | null;
+
+/**
+ * The Lagrange multipliers of the problem.
+ */
+export type SolverResultsLagrangeMultipliers = { [key: string]: number | number[] } | null;
+
+/**
+ * Defines a schema for a dataclass to store the results of a solver.
+ */
+export interface SolverResults {
+	/** The optimal decision variables found. */
+	optimal_variables: SolverResultsOptimalVariables;
+	/** The objective function values corresponding to the optimal decision variables found. */
+	optimal_objectives: SolverResultsOptimalObjectives;
+	/** The constraint values of the problem. A negative value means the constraint is respected, a positive one means it has been breached. */
+	constraint_values?: SolverResultsConstraintValues;
+	/** The extra function values of the problem. */
+	extra_func_values?: SolverResultsExtraFuncValues;
+	/** The scalarization function values of the problem. */
+	scalarization_values?: SolverResultsScalarizationValues;
+	/** The Lagrange multipliers of the problem. */
+	lagrange_multipliers?: SolverResultsLagrangeMultipliers;
+	/** A boolean flag indicating whether the optimization was successful or not. */
+	success: boolean;
+	/** Description of the cause of termination. */
+	message: string;
+}
+
+/**
+ * Response from E-NAUTILUS finalization.
+ */
+export interface ENautilusFinalizeResponse {
+	response_type?: 'e-nautilus.finalize';
+	/** The ID of the created final state. */
+	state_id: number;
+	/** The intermediate point that was selected by the DM. */
+	selected_intermediate_point: ENautilusFinalizeResponseSelectedIntermediatePoint;
+	/** The final solution projected to the representative Pareto front. Note: This is the nearest point on the representative set; a true Pareto optimal solution dominating this point may exist. */
+	final_solution: SolverResults;
+}
+
+/**
+ * Model of the response when requesting representative solutions from E-NAUTILUS.
+ */
+export interface ENautilusRepresentativeSolutionsResponse {
+	/** The solutions on the non-dominated front closest to the intermediate points. */
+	solutions: SolverResults[];
+}
+
+/**
+ * Whether this is a step or final node.
+ */
+export type ENautilusTreeNodeResponseNodeType =
+	(typeof ENautilusTreeNodeResponseNodeType)[keyof typeof ENautilusTreeNodeResponseNodeType];
+
+export const ENautilusTreeNodeResponseNodeType = {
+	step: 'step',
+	final: 'final'
+} as const;
+
+/**
+ * The DM's position when this step was taken.
+ */
+export type ENautilusTreeNodeResponseSelectedPoint = { [key: string]: number } | null;
+
+/**
+ * Intermediate points shown at this step.
+ */
+export type ENautilusTreeNodeResponseIntermediatePoints = { [key: string]: number }[] | null;
+
+/**
+ * The intermediate point selected in finalization.
+ */
+export type ENautilusTreeNodeResponseSelectedIntermediatePoint = { [key: string]: number } | null;
+
+/**
+ * Objective values of the final projected solution.
+ */
+export type ENautilusTreeNodeResponseFinalSolutionObjectives = { [key: string]: number } | null;
+
+/**
+ * A node in the E-NAUTILUS session tree.
+ */
+export interface ENautilusTreeNodeResponse {
+	/** The StateDB id of this node. */
+	node_id: number;
+	/** The StateDB id of the parent node. */
+	parent_node_id?: number | null;
+	/** Depth of this node in the tree (root = 0). */
+	depth: number;
+	/** Whether this is a step or final node. */
+	node_type: ENautilusTreeNodeResponseNodeType;
+	/** The iteration number at this step. */
+	current_iteration?: number | null;
+	/** Iterations remaining at this step. */
+	iterations_left?: number | null;
+	/** The DM's position when this step was taken. */
+	selected_point?: ENautilusTreeNodeResponseSelectedPoint;
+	/** Intermediate points shown at this step. */
+	intermediate_points?: ENautilusTreeNodeResponseIntermediatePoints;
+	/** Closeness measures at this step. */
+	closeness_measures?: number[] | null;
+	/** Index of the selected intermediate point. */
+	selected_point_index?: number | null;
+	/** The intermediate point selected in finalization. */
+	selected_intermediate_point?: ENautilusTreeNodeResponseSelectedIntermediatePoint;
+	/** Objective values of the final projected solution. */
+	final_solution_objectives?: ENautilusTreeNodeResponseFinalSolutionObjectives;
+}
+
+/**
+ * The complete E-NAUTILUS session tree.
+ */
+export interface ENautilusSessionTreeResponse {
+	/** The interactive session id. */
+	session_id: number;
+	/** All nodes in the tree (step and final). */
+	nodes: ENautilusTreeNodeResponse[];
+	/** Edges as [parent_id, child_id] pairs. */
+	edges: number[][];
+	/** IDs of root nodes (no parent). */
+	root_ids: number[];
+	/** Pre-computed decision events for each parent-child transition. */
+	decision_events: ENautilusDecisionEventResponse[];
+}
+
+export type ENautilusStepResponseIntermediatePointsItem = { [key: string]: number };
+
+export type ENautilusStepResponseReachableBestBoundsItem = { [key: string]: number };
+
+export type ENautilusStepResponseReachableWorstBoundsItem = { [key: string]: number };
+
+/**
+ * The response from E-NAUTILUS step endpoint.
+ */
+export interface ENautilusStepResponse {
+	/** The id of the state created by the request that generated this response */
+	state_id: number | null;
+	/** Number of the current iteration. */
+	current_iteration: number;
+	/** Number of iterations left. */
+	iterations_left: number;
+	/** New intermediate points */
+	intermediate_points: ENautilusStepResponseIntermediatePointsItem[];
+	/** Best bounds of the objective function values reachable from each intermediate point. */
+	reachable_best_bounds: ENautilusStepResponseReachableBestBoundsItem[];
+	/** Worst bounds of the objective function values reachable from each intermediate point. */
+	reachable_worst_bounds: ENautilusStepResponseReachableWorstBoundsItem[];
+	/** Closeness measures of each intermediate point. */
+	closeness_measures: number[];
+	/** Indices of the reachable points from each intermediate point. */
+	reachable_point_indices: number[][];
+}
+
+/**
+ * The response model when requesting a state in E-NAUTILUS.
+ */
+export interface ENautilusStateResponse {
+	/** The original request for generating the state. */
+	request: ENautilusStepRequest;
+	/** The state generated by the request. */
+	response: ENautilusStepResponse;
+}
+
+export type EndProcessPreferenceSetPreferences = { [key: string]: boolean };
+
+/**
+ * A structure for storing info on whether everyone is happy to end the gnimbus process.
+ */
+export interface EndProcessPreference {
+	method?: string;
+	success: boolean | null;
+	set_preferences: EndProcessPreferenceSetPreferences;
+}
+
+/**
+ * The SQLModel equivalent to `ExtraFunction`.
+ */
+export interface ExtraFunctionDB {
+	func: unknown[];
+	scenario_keys?: string[] | null;
+	surrogates?: string[] | null;
+	simulator_path?: string | Url | null;
+	/** Descriptive name of the function. Example: 'normalization'. */
+	name: string;
+	/** Symbol to represent the function. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations. Example: 'avg'. */
+	symbol: string;
+	/** Whether the function expression is linear or not. Defaults to `False`. */
+	is_linear?: boolean;
+	/** Whether the function expression is convex or not (non-convex). Defaults to `False`. */
+	is_convex?: boolean;
+	/** Whether the function expression is twice differentiable or not. Defaults to `False` */
+	is_twice_differentiable?: boolean;
+	id?: number | null;
+	problem_id?: number | null;
+}
+
+export type ForestProblemMetaDataScheduleDict = { [key: string]: unknown };
+
+export type ForestProblemMetaDataStandDescriptor = { [key: string]: unknown } | null;
+
+/**
+ * A problem metadata class to hold UTOPIA forest problem specific information.
+ */
+export interface ForestProblemMetaData {
+	id?: number | null;
+	metadata_id?: number | null;
+	metadata_type?: string;
+	map_json: string;
+	schedule_dict: ForestProblemMetaDataScheduleDict;
+	years: string[];
+	stand_id_field: string;
+	stand_descriptor?: ForestProblemMetaDataStandDescriptor;
+	compensation?: number | null;
+}
+
+export type OptimizationPreferenceSetPreferences = { [key: string]: ReferencePoint };
+
+/**
+ * A structure for storing optimization preferences. See GNIMBUS for details.
+ */
+export interface OptimizationPreference {
+	method?: string;
+	phase?: string;
+	set_preferences: OptimizationPreferenceSetPreferences;
+}
+
+export type VotingPreferenceSetPreferences = { [key: string]: number };
+
+/**
+ * A structure for storing voting preferences.
+ */
+export interface VotingPreference {
+	method?: string;
+	set_preferences: VotingPreferenceSetPreferences;
+}
+
+/**
+ * State holder with a single relationship to the base State.
+ */
+export interface StateDB {
+	id?: number | null;
+	problem_id?: number | null;
+	session_id?: number | null;
+	parent_id?: number | null;
+	state_id?: number | null;
+}
+
+/**
+ * The objective values of the referenced solution. None if not applicable.
+ */
+export type SolutionReferenceLiteObjectiveValues = { [key: string]: number } | null;
+
+/**
+ * The same as SolutionReference, but without decision variables for more efficient transport over the internet.
+ */
+export interface SolutionReferenceLite {
+	/** Optional name to help identify the solution if, e.g., saved. */
+	name?: string | null;
+	/** The index of the referenced solution, if multiple solutions exist in the reference state. */
+	solution_index?: number | null;
+	/** The reference state with the solution information. */
+	state: StateDB;
+	/** The state id. */
+	readonly state_id: number;
+	/** Number of solutions contained in the referenced state. */
+	readonly num_solutions: number;
+	/** The objective values of the referenced solution. None if not applicable. */
+	readonly objective_values: SolutionReferenceLiteObjectiveValues;
+}
+
+/**
+ * A full iteration item containing results from a complete or incomplete iteration.
+
+This is a format to send information to the user interface.
+ */
+export interface FullIteration {
+	/** The phase of the iteration. */
+	phase: string;
+	/** The preferences related to the optimization stage of the full iteration. */
+	optimization_preferences: OptimizationPreference | null;
+	/** The preferences related to the voting phase of the iteration.             either actual votes or a vote to see whether to just continue. */
+	voting_preferences: VotingPreference | EndProcessPreference | null;
+	/** The starting result of the optimization process. Fetched from the previous             iteration's final result. */
+	starting_result: SolutionReferenceLite | null;
+	/** The common results (1 to 4) generated by gnimbus. */
+	common_results: SolutionReferenceLite[];
+	/** The user specific results generated by gnimbus in phases learning and crp. */
+	user_results: SolutionReferenceLite[];
+	/** The user result index of requester. */
+	personal_result_index: number | null;
+	/** The final result after voting. */
+	final_result: SolutionReferenceLite | null;
+}
+
+/**
+ * Dictionary of votes.
+ */
+export type GDMSCOREBandFinalSelectionUserVotes = { [key: string]: number };
+
+export type GDMSCOREBandFinalSelectionSolutionVariables = { [key: string]: (number | boolean)[] };
+
+export type GDMSCOREBandFinalSelectionSolutionObjectives = { [key: string]: number[] };
+
+export type GDMSCOREBandFinalSelectionWinnerSolutionVariables = { [key: string]: number | boolean };
+
+export type GDMSCOREBandFinalSelectionWinnerSolutionObjectives = { [key: string]: number };
+
+/**
+ * Class for containing the final 10 or less solutions, the final solution and the votes that led to it.
+ */
+export interface GDMSCOREBandFinalSelection {
+	method?: string;
+	/** Dictionary of votes. */
+	user_votes: GDMSCOREBandFinalSelectionUserVotes;
+	/** List of users who want to move on. */
+	user_confirms: number[];
+	solution_variables: GDMSCOREBandFinalSelectionSolutionVariables;
+	solution_objectives: GDMSCOREBandFinalSelectionSolutionObjectives;
+	winner_solution_variables: GDMSCOREBandFinalSelectionWinnerSolutionVariables;
+	winner_solution_objectives: GDMSCOREBandFinalSelectionWinnerSolutionObjectives;
+}
+
+/**
+ * Response class for gdm score bands that includes the last 10 or less solutions.
+ */
+export interface GDMSCOREBandsDecisionResponse {
+	method?: string;
+	/** The group in question. */
+	group_id: number;
+	/** ID of the latest group iteration. */
+	group_iter_id: number;
+	/** The container for the solutions and the winner solution. */
+	result: GDMSCOREBandFinalSelection;
+}
+
+/**
+ * Scoring method to use for GMM. Either "BIC" or "silhouette". Defaults to "silhouette".
+This option determines how the number of clusters is chosen.
+ */
+export type GMMOptionsScoringMethod =
+	(typeof GMMOptionsScoringMethod)[keyof typeof GMMOptionsScoringMethod];
+
+export const GMMOptionsScoringMethod = {
+	BIC: 'BIC',
+	silhouette: 'silhouette'
+} as const;
+
+/**
+ * Options for Gaussian Mixture Model clustering algorithm.
+ */
+export interface GMMOptions {
+	/** Gaussian Mixture Model clustering algorithm. */
+	name?: string;
+	/** Scoring method to use for GMM. Either "BIC" or "silhouette". Defaults to "silhouette".
+  This option determines how the number of clusters is chosen. */
+	scoring_method?: GMMOptionsScoringMethod;
+}
+
+/**
+ * Options for KMeans clustering algorithm.
+ */
+export interface KMeansOptions {
+	/** KMeans clustering algorithm. */
+	name?: string;
+	/** Number of clusters to use. Defaults to 5. */
+	n_clusters?: number;
+}
+
+/**
+ * Optional dictionary mapping dimensions to descriptive names for display in the visualization.
+If None, the original dimension names are used. Defaults to None.
+ */
+export type SCOREBandsConfigDescriptiveNames = { [key: string]: string } | null;
+
+/**
+ * Optional dictionary mapping dimensions to their units for display in the visualization.
+If None, no units are displayed. Defaults to None.
+ */
+export type SCOREBandsConfigUnits = { [key: string]: string } | null;
+
+/**
+ * Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
+objective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to
+manually set the axis positions. If None, the axis positions are calculated automatically based on correlations.
+Defaults to None.
+ */
+export type SCOREBandsConfigAxisPositions = { [key: string]: number } | null;
+
+/**
+ * Optional dictionary specifying the min and max values for each objective. The keys should be the
+objective names (i.e., column names in the data), and the values should be tuples of (min, max).
+If not provided, the min and max will be calculated from the data.
+ */
+export type SCOREBandsConfigScales = { [key: string]: [number, number] } | null;
+
+/**
+ * Configuration options for SCORE bands visualization.
+ */
+export interface SCOREBandsConfig {
+	/** List of variable/objective names (i.e., column names in the data) to include in the visualization.
+  If None, all columns in the data are used. Defaults to None. */
+	dimensions?: string[] | null;
+	/** Optional dictionary mapping dimensions to descriptive names for display in the visualization.
+  If None, the original dimension names are used. Defaults to None. */
+	descriptive_names?: SCOREBandsConfigDescriptiveNames;
+	/** Optional dictionary mapping dimensions to their units for display in the visualization.
+  If None, no units are displayed. Defaults to None. */
+	units?: SCOREBandsConfigUnits;
+	/** Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
+  objective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to
+  manually set the axis positions. If None, the axis positions are calculated automatically based on correlations.
+  Defaults to None. */
+	axis_positions?: SCOREBandsConfigAxisPositions;
+	/** Clustering algorithm to use. Currently supported options: "GMM", "DBSCAN",
+      and "KMeans". Defaults to "DBSCAN". */
+	clustering_algorithm?:
+		| GMMOptions
+		| DBSCANOptions
+		| KMeansOptions
+		| DimensionClusterOptions
+		| CustomClusterOptions;
+	/** Distance formula to use. The value should be 1 or 2. Check the paper for details. Defaults to 1. */
+	distance_formula?: DistanceFormula;
+	/** Change the relative distances between the objective axes. Increase this value if objectives are placed too close
+  together. Decrease this value if the objectives are equidistant in a problem with objective clusters. Defaults
+  to 0.05. */
+	distance_parameter?: number;
+	/** Whether to use absolute value of the correlation to calculate the placement of axes. Defaults to False. */
+	use_absolute_correlations?: boolean;
+	/** Whether to include individual solutions. Defaults to False. If True, the size of the resulting figure may be
+  very large for datasets with many solutions. Moreover, the individual traces are hidden by default, but can be
+  viewed interactively in the figure. */
+	include_solutions?: boolean;
+	/** Whether to include cluster medians. Defaults to False. If True, the median traces are hidden by default, but
+  can be viewed interactively in the figure. */
+	include_medians?: boolean;
+	/** The size (as a fraction) of the interval to use for the bands. Defaults to 0.95, meaning that 95% of the
+  middle solutions in a cluster will be included in the band. The rest will be considered outliers. */
+	interval_size?: number;
+	/** Optional dictionary specifying the min and max values for each objective. The keys should be the
+  objective names (i.e., column names in the data), and the values should be tuples of (min, max).
+  If not provided, the min and max will be calculated from the data. */
+	scales?: SCOREBandsConfigScales;
+}
+
+/**
+ * Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
+objective is at position 0.0, and the last objective is at position 1.0.
+ */
+export type SCOREBandsResultAxisPositions = { [key: string]: number };
+
+/**
+ * Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding band
+extremes (min, max).
+ */
+export type SCOREBandsResultBands = { [key: string]: { [key: string]: [number, number] } };
+
+/**
+ * Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding median values.
+ */
+export type SCOREBandsResultMedians = { [key: string]: { [key: string]: number } };
+
+/**
+ * Dictionary mapping cluster IDs to the number of solutions in each cluster.
+ */
+export type SCOREBandsResultCardinalities = { [key: string]: number };
+
+/**
+ * Pydantic/JSON model for representing SCORE Bands.
+ */
+export interface SCOREBandsResult {
+	/** Configuration options used to generate the SCORE bands. */
+	options: SCOREBandsConfig;
+	/** List of variable/objective names (i.e., column names in the data).
+  Ordered according to their placement in the SCORE bands visualization. */
+	ordered_dimensions: string[];
+	/** List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs. */
+	clusters: number[];
+	/** Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
+  objective is at position 0.0, and the last objective is at position 1.0. */
+	axis_positions: SCOREBandsResultAxisPositions;
+	/** Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding band
+  extremes (min, max). */
+	bands: SCOREBandsResultBands;
+	/** Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding median values. */
+	medians: SCOREBandsResultMedians;
+	/** Dictionary mapping cluster IDs to the number of solutions in each cluster. */
+	cardinalities: SCOREBandsResultCardinalities;
+}
+
+/**
+ * Response class for GDMSCOREBands, whether it is initialization or not.
+ */
+export interface GDMSCOREBandsResponse {
+	method?: string;
+	/** The group in question. */
+	group_id: number;
+	/** ID of the latest group iteration. */
+	group_iter_id: number;
+	/** The latest GDM iteration number. Different from Group Iteration id. */
+	latest_iteration: number;
+	/** The results of the score bands procedure. */
+	result: SCOREBandsResult;
+}
+
+/**
+ * Response class for all history. Allows for going to a previous iteration.
+ */
+export interface GDMSCOREBandsHistoryResponse {
+	history: (GDMSCOREBandsResponse | GDMSCOREBandsDecisionResponse)[];
+}
+
+/**
+ * Request for reverting to a previous setup.
+ */
+export interface GDMSCOREBandsRevertRequest {
+	/** Group ID. */
+	group_id: number;
+	/** The number of the iteration that we want to revert to. */
+	iteration_number: number;
+}
+
+/**
+ * Configuration for the SCORE bands based GDM.
+ */
+export interface SCOREBandsGDMConfig {
+	score_bands_config?: SCOREBandsConfig;
+	/** @exclusiveMinimum 0 */
+	minimum_votes?: number;
+	from_iteration: number | null;
+}
+
+/**
+ * Request class for initialization of score bands.
+ */
+export interface GDMScoreBandsInitializationRequest {
+	/** The group to be initialized. */
+	group_id: number;
+	/** The configuration for the initial score banding. */
+	score_bands_config: SCOREBandsGDMConfig;
+}
+
+/**
+ * Request for voting for a band.
+ */
+export interface GDMScoreBandsVoteRequest {
+	/** ID of the group in question */
+	group_id: number;
+	/** The vote. Vaalisalaisuus. */
+	vote: number;
+}
+
+/**
+ * The response model for getting all found solutions among others.
+ */
+export interface GNIMBUSAllIterationsResponse {
+	all_full_iterations: FullIteration[];
+}
+
+export type Tensor = (Tensor | null)[] | (number | boolean)[] | number | boolean | 'List' | null;
+
+export type SolutionReferenceObjectiveValuesAllItem = { [key: string]: number };
+
+export type SolutionReferenceVariableValuesAllItem = {
+	[key: string]: number | boolean | Tensor | null;
+};
+
+/**
+ * The objective values of the referenced solution. None if not applicable.
+ */
+export type SolutionReferenceObjectiveValues = { [key: string]: number } | null;
+
+/**
+ * The variable values of the referenced solution. None if not apllicable.
+ */
+export type SolutionReferenceVariableValues = {
+	[key: string]: number | boolean | Tensor | null;
+} | null;
+
+/**
+ * A full solution reference with objectives and variables.
+ */
+export interface SolutionReference {
+	/** Optional name to help identify the solution if, e.g., saved. */
+	name?: string | null;
+	/** The index of the referenced solution, if multiple solutions exist in the reference state. */
+	solution_index?: number | null;
+	/** The reference state with the solution information. */
+	state: StateDB;
+	/** The state id. */
+	readonly state_id: number;
+	/** Number of solutions contained in the referenced state. */
+	readonly num_solutions: number;
+	/** All the objective values of the result. */
+	readonly objective_values_all: readonly SolutionReferenceObjectiveValuesAllItem[];
+	/** All the variable values of the result. */
+	readonly variable_values_all: readonly SolutionReferenceVariableValuesAllItem[];
+	/** The objective values of the referenced solution. None if not applicable. */
+	readonly objective_values: SolutionReferenceObjectiveValues;
+	/** The variable values of the referenced solution. None if not apllicable. */
+	readonly variable_values: SolutionReferenceVariableValues;
+}
+
+/**
+ * The response for getting GNIMBUS results. NOTE: OBSOLETE!
+ */
+export interface GNIMBUSResultResponse {
+	method: string;
+	phase: string;
+	preferences: VotingPreference | OptimizationPreference;
+	common_results: SolutionReference[];
+	user_results: SolutionReference[];
+	personal_result_index: number | null;
+}
+
+/**
+ * A request for a certain phase. Comes from the group owner/analyst.
+ */
+export interface GNIMBUSSwitchPhaseRequest {
+	group_id: number;
+	new_phase: string;
+}
+
+/**
+ * A response for the above request.
+ */
+export interface GNIMBUSSwitchPhaseResponse {
+	old_phase: string;
+	new_phase: string;
+}
+
+export type SolutionReferenceResponseObjectiveValues = { [key: string]: number } | null;
+
+export type SolutionReferenceResponseVariableValues = {
+	[key: string]: number | boolean | Tensor | null;
+} | null;
+
+/**
+ * The response information provided when `SolutionReference` object are returned from the client.
+ */
+export interface SolutionReferenceResponse {
+	name?: string | null;
+	solution_index: number | null;
+	state_id: number;
+	objective_values: SolutionReferenceResponseObjectiveValues;
+	variable_values: SolutionReferenceResponseVariableValues;
+}
+
+/**
+ * The response from computing intermediate values.
+ */
+export interface GenericIntermediateSolutionResponse {
+	/** The newly created state id */
+	state_id: number | null;
+	/** The first solution used when computing intermediate solutions. */
+	reference_solution_1: SolutionReferenceResponse;
+	/** The second solution used when computing intermediate solutions. */
+	reference_solution_2: SolutionReferenceResponse;
+	/** The intermediate solutions computed. */
+	intermediate_solutions: SolutionReferenceResponse[];
+}
+
+/**
+ * Used for requesting a group to be created.
+ */
+export interface GroupCreateRequest {
+	group_name: string;
+	problem_id: number;
+}
+
+/**
+ * Class for requesting group information.
+ */
+export interface GroupInfoRequest {
+	group_id: number;
+}
+
+/**
+ * Used for adding a user into group and removing a user from group.
+ */
+export interface GroupModifyRequest {
+	group_id: number;
+	user_id: number;
+}
+
+/**
+ * Response model for Group.
+ */
+export interface GroupPublic {
+	id: number;
+	name: string;
+	owner_id: number;
+	user_ids: number[];
+	problem_id: number;
+}
+
+/**
+ * Class for requesting reverting to certain iteration.
+ */
+export interface GroupRevertRequest {
+	/** The ID of the group we wish to revert. */
+	group_id: number;
+	/** The state's ID to which we want to revert to. Corresponds to state_id in GroupIteration. */
+	state_id: number;
+}
+
+export interface ValidationError {
+	loc: (string | number)[];
+	msg: string;
+	type: string;
+}
+
+export interface HTTPValidationError {
+	detail?: ValidationError[];
+}
+
+/**
+ * The base model for representing interactive sessions.
+ */
+export interface InteractiveSessionBase {
+	id: number | null;
+	user_id: number | null;
+	info: string | null;
+}
+
+export type IntermediateSolutionRequestScalarizationOptions = {
+	[key: string]: number | string | boolean;
+} | null;
+
+export type IntermediateSolutionRequestSolverOptions = {
+	[key: string]: number | string | boolean;
+} | null;
+
+/**
+ * Used when we wish to reference a solution in some `StateDB` stored in the database.
+ */
+export interface SolutionInfo {
+	/** State of the desired solution. */
+	state_id: number;
+	/** Index of the desired solution. */
+	solution_index: number;
+	/** Name to be given to the solution. Optional. */
+	name?: string | null;
+}
+
+/**
+ * Model of the request to solve intermediate solutions between two solutions.
+ */
+export interface IntermediateSolutionRequest {
+	problem_id: number;
+	session_id?: number | null;
+	parent_state_id?: number | null;
+	context?: string | null;
+	scalarization_options?: IntermediateSolutionRequestScalarizationOptions;
+	solver?: string | null;
+	solver_options?: IntermediateSolutionRequestSolverOptions;
+	num_desired?: number | null;
+	reference_solution_1: SolutionInfo;
+	reference_solution_2: SolutionInfo;
+}
+
+export type NIMBUSClassificationRequestScalarizationOptions = {
+	[key: string]: number | string | boolean;
+} | null;
+
+export type NIMBUSClassificationRequestSolverOptions = {
+	[key: string]: number | string | boolean;
+} | null;
+
+/**
+ * The objectives used for iteration.
+ */
+export type NIMBUSClassificationRequestCurrentObjectives = { [key: string]: number };
+
+/**
+ * Model of the request to the nimbus method.
+ */
+export interface NIMBUSClassificationRequest {
+	problem_id: number;
+	session_id?: number | null;
+	parent_state_id?: number | null;
+	scalarization_options?: NIMBUSClassificationRequestScalarizationOptions;
+	solver?: string | null;
+	solver_options?: NIMBUSClassificationRequestSolverOptions;
+	preference?: ReferencePoint;
+	/** The objectives used for iteration. */
+	current_objectives: NIMBUSClassificationRequestCurrentObjectives;
+	num_desired?: number | null;
+}
+
+/**
+ * The previous solutions objectives used for iteration.
+ */
+export type NIMBUSClassificationResponsePreviousObjectives = { [key: string]: number };
+
+/**
+ * The response from NIMBUS classification endpoint.
+ */
+export interface NIMBUSClassificationResponse {
+	response_type?: 'nimbus.classification';
+	/** The newly created state id */
+	state_id: number | null;
+	/** The previous preference used. */
+	previous_preference: ReferencePoint;
+	/** The previous solutions objectives used for iteration. */
+	previous_objectives: NIMBUSClassificationResponsePreviousObjectives;
+	/** The solutions from the current iteration of nimbus. */
+	current_solutions: SolutionReferenceResponse[];
+	/** The best candidate solutions saved by the decision maker. */
+	saved_solutions: SolutionReferenceResponse[];
+	/** All solutions generated by NIMBUS in all iterations. */
+	all_solutions: SolutionReferenceResponse[];
+}
+
+/**
+ * Request model for deletion of a saved solution.
+ */
+export interface NIMBUSDeleteSaveRequest {
+	/** The ID of the save state. */
+	state_id: number;
+	/** The ID of the solution within the above state. */
+	solution_index: number;
+	/** The ID of the problem. */
+	problem_id: number;
+}
+
+/**
+ * Response of NIMBUS save deletion.
+ */
+export interface NIMBUSDeleteSaveResponse {
+	response_type?: string;
+	message?: string | null;
+}
+
+/**
+ * Request model for finalizing the NIMBUS procedure.
+ */
+export interface NIMBUSFinalizeRequest {
+	problem_id: number;
+	session_id?: number | null;
+	parent_state_id?: number | null;
+	solution_info: SolutionInfo;
+}
+
+/**
+ * The response from NIMBUS finish endpoint.
+ */
+export interface NIMBUSFinalizeResponse {
+	response_type?: 'nimbus.finalize';
+	/** The newly created state id */
+	state_id: number | null;
+	/** The final solution. We do not need the other current solutions. */
+	final_solution: SolutionReferenceResponse;
+	/** The best candidate solutions saved by the decision maker. */
+	saved_solutions: SolutionReferenceResponse[];
+	/** All solutions generated by NIMBUS in all iterations. */
+	all_solutions: SolutionReferenceResponse[];
+}
+
+export type NIMBUSInitializationRequestScalarizationOptions = {
+	[key: string]: number | string | boolean;
+} | null;
+
+export type NIMBUSInitializationRequestSolverOptions = {
+	[key: string]: number | string | boolean;
+} | null;
+
+/**
+ * Model of the request to the nimbus method.
+ */
+export interface NIMBUSInitializationRequest {
+	problem_id: number;
+	session_id?: number | null;
+	parent_state_id?: number | null;
+	starting_point?: ReferencePoint | SolutionInfo | null;
+	scalarization_options?: NIMBUSInitializationRequestScalarizationOptions;
+	solver?: string | null;
+	solver_options?: NIMBUSInitializationRequestSolverOptions;
+}
+
+/**
+ * The response from NIMBUS classification endpoint.
+ */
+export interface NIMBUSInitializationResponse {
+	response_type?: 'nimbus.initialization';
+	/** The newly created state id */
+	state_id: number | null;
+	/** The solutions from the current interation of nimbus. */
+	current_solutions: SolutionReferenceResponse[];
+	/** The best candidate solutions saved by the decision maker. */
+	saved_solutions: SolutionReferenceResponse[];
+	/** All solutions generated by NIMBUS in all iterations. */
+	all_solutions: SolutionReferenceResponse[];
+}
+
+/**
+ * The first solution used when computing intermediate points.
+ */
+export type NIMBUSIntermediateSolutionResponseReferenceSolution1 = { [key: string]: number };
+
+/**
+ * The second solution used when computing intermediate points.
+ */
+export type NIMBUSIntermediateSolutionResponseReferenceSolution2 = { [key: string]: number };
+
+/**
+ * The response from NIMBUS classification endpoint.
+ */
+export interface NIMBUSIntermediateSolutionResponse {
+	response_type?: 'nimbus.intermediate';
+	/** The newly created state id */
+	state_id: number | null;
+	/** The first solution used when computing intermediate points. */
+	reference_solution_1: NIMBUSIntermediateSolutionResponseReferenceSolution1;
+	/** The second solution used when computing intermediate points. */
+	reference_solution_2: NIMBUSIntermediateSolutionResponseReferenceSolution2;
+	/** The solutions from the current iteration of NIMBUS. */
+	current_solutions: SolutionReferenceResponse[];
+	/** The best candidate solutions saved by the decision maker. */
+	saved_solutions: SolutionReferenceResponse[];
+	/** All solutions generated by NIMBUS in all iterations. */
+	all_solutions: SolutionReferenceResponse[];
+}
+
+/**
+ * Request to get Lagrange multipliers from the solutions in a state.
+ */
+export interface NIMBUSMultiplierRequest {
+	state_id: number;
+	objective_symbols?: string[] | null;
+}
+
+/**
+ * List of Lagrange multipliers for each solution, or None if not available
+ */
+export type NIMBUSMultiplierResponseLagrangeMultipliers =
+	| ({ [key: string]: number } | null)[]
+	| null;
+
+/**
+ * List of tradeoffs matrices for each solution, or None if not available
+ */
+export type NIMBUSMultiplierResponseTradeoffsMatrix =
+	| ({ [key: string]: { [key: string]: number } } | null)[]
+	| null;
+
+/**
+ * Response model for Lagrange multipliers and tradeoffs.
+ */
+export interface NIMBUSMultiplierResponse {
+	/** List of Lagrange multipliers for each solution, or None if not available */
+	lagrange_multipliers: NIMBUSMultiplierResponseLagrangeMultipliers;
+	/** List of tradeoffs matrices for each solution, or None if not available */
+	tradeoffs_matrix?: NIMBUSMultiplierResponseTradeoffsMatrix;
+	/** List of active objectives for each solution, or None if not available */
+	active_objectives?: string[][] | null;
+}
+
+/**
+ * Request model for saving solutions from any method's state.
+ */
+export interface NIMBUSSaveRequest {
+	problem_id: number;
+	session_id?: number | null;
+	parent_state_id?: number | null;
+	solution_info: SolutionInfo[];
+}
+
+/**
+ * The response from NIMBUS save endpoint.
+ */
+export interface NIMBUSSaveResponse {
+	response_type?: 'nimbus.save';
+	/** The id of the newest state */
+	state_id: number | null;
+}
+
+/**
+ * An enumerator for supported objective function types.
+ */
+export type ObjectiveTypeEnum = (typeof ObjectiveTypeEnum)[keyof typeof ObjectiveTypeEnum];
+
+export const ObjectiveTypeEnum = {
+	analytical: 'analytical',
+	data_based: 'data_based',
+	simulator: 'simulator',
+	surrogate: 'surrogate'
+} as const;
+
+/**
+ * The SQLModel equivalent to `Objective`.
+ */
+export interface ObjectiveDB {
+	func: unknown[] | null;
+	scenario_keys?: string[] | null;
+	surrogates?: string[] | null;
+	simulator_path?: string | Url | null;
+	/** A longer description of the objective function. This can be used in UI and visualizations.             Meant to have longer text than what name should have. */
+	description?: string | null;
+	/** Descriptive name of the objective function. This can be used in UI and visualizations. Example: 'time'. */
+	name: string;
+	/** Symbol to represent the objective function. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations. Example: 'f_1'. */
+	symbol: string;
+	/** The unit of the objective function. This is optional. Used in UIs and visualizations. Example: 'seconds' or 'millions of hectares'. */
+	unit?: string | null;
+	/** Whether the objective function is to be maximized or minimized. */
+	maximize?: boolean;
+	/** Ideal value of the objective. This is optional. */
+	ideal?: number | null;
+	/** Nadir value of the objective. This is optional. */
+	nadir?: number | null;
+	/** The type of objective function. 'analytical' means the objective function value is calculated based on 'func'. 'data_based' means the objective function value should be retrieved from a table. In case of 'data_based' objective function, the 'func' field is ignored. Defaults to 'analytical'. */
+	objective_type?: ObjectiveTypeEnum;
+	/** Whether the function expression is linear or not. Defaults to `False`. */
+	is_linear?: boolean;
+	/** Whether the function expression is convex or not (non-convex). Defaults to `False`. */
+	is_convex?: boolean;
+	/** Whether the function expression is twice differentiable or not. Defaults to `False` */
+	is_twice_differentiable?: boolean;
+	id?: number | null;
+	problem_id?: number | null;
+}
+
+/**
+ * An enumerator for the possible variable type domains of a problem.
+ */
+export type VariableDomainTypeEnum =
+	(typeof VariableDomainTypeEnum)[keyof typeof VariableDomainTypeEnum];
+
+export const VariableDomainTypeEnum = {
+	continuous: 'continuous',
+	binary: 'binary',
+	integer: 'integer',
+	mixed: 'mixed'
+} as const;
+
+/**
+ * The SQLModel equivalent to `TensorConstant`.
+ */
+export interface TensorConstantDB {
+	values: Tensor | null;
+	shape: number[];
+	/** Descriptive name of the tensor representing the values. E.g., 'distances' */
+	name: string;
+	/** Symbol to represent the constant. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1. */
+	symbol: string;
+	id?: number | null;
+	problem_id?: number | null;
+}
+
+/**
+ * An enumerator for possible variable types.
+ */
+export type VariableTypeEnum = (typeof VariableTypeEnum)[keyof typeof VariableTypeEnum];
+
+export const VariableTypeEnum = {
+	real: 'real',
+	integer: 'integer',
+	binary: 'binary'
+} as const;
+
+/**
+ * The SQLModel equivalent to `Variable`.
+ */
+export interface VariableDB {
+	/** Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'. */
+	name: string;
+	/** Symbol to represent the variable. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations. Example: 'v_1'. */
+	symbol: string;
+	/** Type of the variable. Can be real, integer or binary. */
+	variable_type: VariableTypeEnum;
+	/** Lower bound of the variable. */
+	lowerbound?: number | null;
+	/** Upper bound of the variable. */
+	upperbound?: number | null;
+	/** Initial value of the variable. This is optional. */
+	initial_value?: number | null;
+	id?: number | null;
+	problem_id?: number | null;
+}
+
+/**
+ * The SQLModel equivalent to `TensorVariable`.
+ */
+export interface TensorVariableDB {
+	initial_values: Tensor | null;
+	lowerbounds: Tensor | null;
+	upperbounds: Tensor | null;
+	shape: number[];
+	/** Descriptive name of the variable. This can be used in UI and visualizations. Example: 'velocity'. */
+	name: string;
+	/** Symbol to represent the variable. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1. */
+	symbol: string;
+	/** Type of the variable. Can be real, integer, or binary. Note that each element of a TensorVariable is assumed to be of the same type. */
+	variable_type: VariableTypeEnum;
+	id?: number | null;
+	problem_id?: number | null;
+}
+
+/**
+ * The SQLModel equivalent to `ScalarizationFunction`.
+ */
+export interface ScalarizationFunctionDB {
+	func: unknown[];
+	scenario_keys: string[];
+	/** Name of the scalarization function. */
+	name: string;
+	/** Optional symbol to represent the scalarization function. This may be used in UIs and visualizations. */
+	symbol?: string | null;
+	/** Whether the function expression is linear or not. Defaults to `False`. */
+	is_linear?: boolean;
+	/** Whether the function expression is convex or not (non-convex). Defaults to `False`. */
+	is_convex?: boolean;
+	/** Whether the function expression is twice differentiable or not. Defaults to `False` */
+	is_twice_differentiable?: boolean;
+	id?: number | null;
+	problem_id?: number | null;
+}
+
+export type SimulatorDBParameterOptions = { [key: string]: unknown } | null;
+
+/**
+ * The SQLModel equivalent to `Simulator`.
+ */
+export interface SimulatorDB {
+	file?: string | null;
+	url?: Url | null;
+	parameter_options?: SimulatorDBParameterOptions;
+	/** Descriptive name of the simulator. This can be used in UI and visualizations. */
+	name: string;
+	/** Symbol to represent the simulator. This will be used in the rest of the problem definition. It may also be used in UIs and visualizations. */
+	symbol: string;
+	id?: number | null;
+	problem_id?: number | null;
+}
+
+/**
+ * The non-dominated solutions. It is assumed that columns exist for each variable and objective function. For functions, the `_min` variant should be present, and any tensor variables should be unrolled.
+ */
+export type RepresentativeNonDominatedSolutionsSolutionData = { [key: string]: number[] };
+
+/**
+ * The ideal objective function values of the representative set.
+ */
+export type RepresentativeNonDominatedSolutionsIdeal = { [key: string]: number };
+
+/**
+ * The nadir objective function values of the representative set.
+ */
+export type RepresentativeNonDominatedSolutionsNadir = { [key: string]: number };
+
+/**
+ * A problem metadata class to store representative solutions sets, i.e., non-dominated sets...
+
+A problem metadata class to store representative solutions sets, i.e., non-dominated sets that
+represent/approximate the Pareto optimal solution set of the problem.
+
+Note:
+    It is assumed that the solution set is non-dominated.
+ */
+export interface RepresentativeNonDominatedSolutions {
+	name: string;
+	description?: string | null;
+	/** The non-dominated solutions. It is assumed that columns exist for each variable and objective function. For functions, the `_min` variant should be present, and any tensor variables should be unrolled. */
+	solution_data: RepresentativeNonDominatedSolutionsSolutionData;
+	/** The ideal objective function values of the representative set. */
+	ideal: RepresentativeNonDominatedSolutionsIdeal;
+	/** The nadir objective function values of the representative set. */
+	nadir: RepresentativeNonDominatedSolutionsNadir;
+	id?: number | null;
+	metadata_id?: number | null;
+	metadata_type?: string;
+}
+
+/**
+ * Response model for ProblemMetaData.
+ */
+export interface ProblemMetaDataPublic {
+	problem_id: number;
+	forest_metadata: ForestProblemMetaData[] | null;
+	representative_nd_metadata: RepresentativeNonDominatedSolutions[] | null;
+}
+
+/**
+ * Problem info request return data.
+ */
+export interface ProblemInfo {
+	name: string;
+	description: string;
+	is_convex: boolean | null;
+	is_linear: boolean | null;
+	is_twice_differentiable: boolean | null;
+	scenario_keys: string[] | null;
+	variable_domain: VariableDomainTypeEnum;
+	id: number;
+	user_id: number;
+	constants: ConstantDB[] | null;
+	tensor_constants: TensorConstantDB[] | null;
+	variables: VariableDB[] | null;
+	tensor_variables: TensorVariableDB[] | null;
+	objectives: ObjectiveDB[];
+	constraints: ConstraintDB[] | null;
+	scalarization_funcs: ScalarizationFunctionDB[] | null;
+	extra_funcs: ExtraFunctionDB[] | null;
+	discrete_representation: DiscreteRepresentationDB | null;
+	simulators: SimulatorDB[] | null;
+	problem_metadata: ProblemMetaDataPublic | null;
+}
+
+/**
+ * Problem info request return data, but smaller.
+ */
+export interface ProblemInfoSmall {
+	name: string;
+	description: string;
+	is_convex: boolean | null;
+	is_linear: boolean | null;
+	is_twice_differentiable: boolean | null;
+	scenario_keys: string[] | null;
+	variable_domain: VariableDomainTypeEnum;
+	id: number;
+	user_id: number;
+	problem_metadata: ProblemMetaDataPublic | null;
+}
+
+/**
+ * Request model for getting specific type of metadata from a specific problem.
+ */
+export interface ProblemMetaDataGetRequest {
+	problem_id: number;
+	metadata_type: string;
+}
+
+/**
+ * Model to request a specific solver for a problem.
+ */
+export interface ProblemSelectSolverRequest {
+	/** ID of the problem that the solver is assigned to. */
+	problem_id: number;
+	/** One of the following: ['scipy_minimize', 'scipy_de', 'proximal', 'nevergrad', 'pyomo_bonmin', 'pyomo_cbc', 'pyomo_ipopt', 'pyomo_gurobi', 'gurobipy', 'gurobipy_persistent'] */
+	solver_string_representation: string;
+}
+
+export type RPMStateScalarizationOptions = { [key: string]: number | string | boolean } | null;
+
+export type RPMStateSolverOptions = { [key: string]: number | string | boolean } | null;
+
+/**
+ * Reference Point Method (k+1 candidates).
+ */
+export interface RPMState {
+	id: number | null;
+	preferences: ReferencePoint;
+	scalarization_options?: RPMStateScalarizationOptions;
+	solver?: string | null;
+	solver_options?: RPMStateSolverOptions;
+	solver_results: SolverResults[];
+}
+
+export type RepresentativeSolutionSetBaseSolutionData = { [key: string]: number[] };
+
+export type RepresentativeSolutionSetBaseIdeal = { [key: string]: number };
+
+export type RepresentativeSolutionSetBaseNadir = { [key: string]: number };
+
+/**
+ * Shared base model for representative solution sets.
+ */
+export interface RepresentativeSolutionSetBase {
+	name: string;
+	description?: string | null;
+	solution_data: RepresentativeSolutionSetBaseSolutionData;
+	ideal: RepresentativeSolutionSetBaseIdeal;
+	nadir: RepresentativeSolutionSetBaseNadir;
+}
+
+/**
+ * Model of the request to calculate SCORE bands parameters.
+ */
+export interface ScoreBandsRequest {
+	/** Matrix of objective values */
+	data: number[][];
+	/** Array of objective names for each column */
+	objs: string[];
+	/** Distance parameter for axis positioning */
+	dist_parameter?: number;
+	/** Use absolute correlation values */
+	use_absolute_corr?: boolean;
+	/** Distance formula (1 or 2) */
+	distance_formula?: number;
+	/** Whether to flip axes based on correlation signs */
+	flip_axes?: boolean;
+	/** Clustering algorithm (DBSCAN or GMM) */
+	clustering_algorithm?: string;
+	/** Clustering score metric */
+	clustering_score?: string;
+}
+
+/**
+ * Model of the response containing SCORE bands parameters.
+ */
+export interface ScoreBandsResponse {
+	/** Cluster group assignments for each data point */
+	groups: number[];
+	/** Normalized axis positions */
+	axis_dist: number[];
+	/** Axis direction signs (1 or -1) */
+	axis_signs: number[] | null;
+	/** Optimal order of objectives */
+	obj_order: number[];
+}
+
+/**
+ * A problem metadata class to store the preferred solver of a problem.
+
+A problem metadata class to store the preferred solver of a problem.
+See desdeo/tools/utils.py -> available_solvers for available solvers.
+ */
+export interface SolverSelectionMetadata {
+	id?: number | null;
+	metadata_id?: number | null;
+	metadata_type?: string;
+	/** The string representation of the selected solver. */
+	solver_string_representation: string;
+}
+
+/**
+ * A model for the authentication token.
+ */
+export interface Tokens {
+	access_token: string;
+	refresh_token: string;
+	token_type: string;
+}
+
+/**
+ * Possible user roles.
+ */
+export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+
+export const UserRole = {
+	guest: 'guest',
+	dm: 'dm',
+	analyst: 'analyst',
+	admin: 'admin'
+} as const;
+
+/**
+ * The object to handle public user information.
+ */
+export interface UserPublic {
+	username: string;
+	id: number;
+	role: UserRole;
+	group_ids: number[] | null;
+}
+
+/**
+ * The request for an Utopia map.
+ */
+export interface UtopiaRequest {
+	/** Problem for which the map is generated */
+	problem_id: number;
+	/** Solution for which to generate the map */
+	solution: SolutionInfo;
+}
+
+/**
+ * MapJSON representation of the geography.
+ */
+export type UtopiaResponseMapJson = { [key: string]: unknown };
+
+/**
+ * A dict with given years as keys containing options for each year.
+ */
+export type UtopiaResponseOptions = { [key: string]: unknown };
+
+/**
+ * The response to an UtopiaRequest.
+ */
+export interface UtopiaResponse {
+	/** True if map exists for this problem. */
+	is_utopia: boolean;
+	/** Name of the map. */
+	map_name: string;
+	/** MapJSON representation of the geography. */
+	map_json: UtopiaResponseMapJson;
+	/** A dict with given years as keys containing options for each year. */
+	options: UtopiaResponseOptions;
+	/** Description shown above the map. */
+	description: string;
+	/** A list of years for which the maps have been generated. */
+	years: string[];
+}
+
+export type LoginLoginPostParams = {
+	cookie_max_age?: number;
+};
+
+export type GetProblemProblemProblemIdGetParams = {
+	session_id?: number | null;
+};
+
+export type DeleteProblemProblemProblemIdDeleteParams = {
+	session_id?: number | null;
+};
+
+export type AddProblemProblemAddPostParams = {
+	problem_id?: number | null;
+};
+
+export type AddProblemJsonProblemAddJsonPostParams = {
+	problem_id?: number | null;
+};
+
+export type GetMetadataProblemGetMetadataPostParams = {
+	problem_id?: number | null;
+};
+
+export type SelectSolverProblemAssignSolverPostParams = {
+	problem_id?: number | null;
+};
+
+export type GetAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGetParams =
+	{
+		session_id?: number | null;
+	};
+
+export type GetRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGetParams = {
+	problem_id?: number | null;
+	session_id?: number | null;
+};
+
+export type DeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDeleteParams = {
+	problem_id?: number | null;
+	session_id?: number | null;
+};
+
+export type GetProblemJsonProblemProblemIdJsonGetParams = {
+	session_id?: number | null;
+};
+
+export type CreateNewSessionSessionNewPostParams = {
+	problem_id?: number | null;
+};
+
+export type SolveSolutionsMethodRpmSolvePostParams = {
+	problem_id?: number | null;
+};
+
+export type SolveSolutionsMethodNimbusSolvePostParams = {
+	problem_id?: number | null;
+};
+
+export type InitializeMethodNimbusInitializePostParams = {
+	problem_id?: number | null;
+};
+
+export type SaveMethodNimbusSavePostParams = {
+	problem_id?: number | null;
+};
+
+export type SolveNimbusIntermediateMethodNimbusIntermediatePostParams = {
+	problem_id?: number | null;
+};
+
+export type GetOrInitializeMethodNimbusGetOrInitializePostParams = {
+	problem_id?: number | null;
+};
+
+export type FinalizeNimbusMethodNimbusFinalizePostParams = {
+	problem_id?: number | null;
+};
+
+export type DeleteSaveMethodNimbusDeleteSavePostParams = {
+	problem_id?: number | null;
+};
+
+export type GetMultipliersInfoMethodNimbusGetMultipliersInfoPostParams = {
+	problem_id?: number | null;
+};
+
+export type SolveSolutionsMethodXnimbusSolvePostParams = {
+	problem_id?: number | null;
+};
+
+export type InitializeMethodXnimbusInitializePostParams = {
+	problem_id?: number | null;
+};
+
+export type SaveMethodXnimbusSavePostParams = {
+	problem_id?: number | null;
+};
+
+export type SolveXnimbusIntermediateMethodXnimbusIntermediatePostParams = {
+	problem_id?: number | null;
+};
+
+export type GetOrInitializeMethodXnimbusGetOrInitializePostParams = {
+	problem_id?: number | null;
+};
+
+export type FinalizeXnimbusMethodXnimbusFinalizePostParams = {
+	problem_id?: number | null;
+};
+
+export type DeleteSaveMethodXnimbusDeleteSavePostParams = {
+	problem_id?: number | null;
+};
+
+export type GetMultipliersInfoMethodXnimbusGetMultipliersInfoPostParams = {
+	problem_id?: number | null;
+};
+
+export type SolveIntermediateMethodGenericIntermediatePostParams = {
+	problem_id?: number | null;
+};
+
+export type GetUtopiaDataUtopiaPostParams = {
+	problem_id?: number | null;
+};
+
+export type StepMethodEnautilusStepPostParams = {
+	problem_id?: number | null;
+};
+
+export type FinalizeEnautilusMethodEnautilusFinalizePostParams = {
+	problem_id?: number | null;
+};
+
+export type GetSessionTreeMethodEnautilusSessionTreeSessionIdGetParams = {
+	problem_id?: number | null;
+};
+
+export type ConfigureGdmGdmScoreBandsConfigurePostParams = {
+	group_id: number;
+};
+
 /**
  * Return information about the current user.
 

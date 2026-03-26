@@ -1,4 +1,4 @@
-import type { ProblemInfo as ProblemInfoOrval, SolutionReferenceResponse } from '$lib/gen/models';
+import type { ProblemInfo as ProblemInfoOrval, SolutionReferenceResponse } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 /*Types for the entire UI*/
 

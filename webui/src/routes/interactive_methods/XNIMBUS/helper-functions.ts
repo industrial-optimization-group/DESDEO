@@ -7,7 +7,7 @@
 import type {
 	ProblemInfo,
 	SolutionReferenceResponse
-} from '$lib/gen/models';
+} from '$lib/gen/endpoints/DESDEOFastAPI';
 
 type Solution = SolutionReferenceResponse;
 

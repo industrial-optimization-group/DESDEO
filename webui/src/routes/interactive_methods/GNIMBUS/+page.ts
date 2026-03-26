@@ -3,7 +3,7 @@ import {
 	getGroupInfoGdmGetGroupInfoPost,
 	getProblemProblemProblemIdGet
 } from '$lib/gen/endpoints/DESDEOFastAPI';
-import type { ProblemInfo } from '$lib/gen/models';
+import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 type LoadData = {
 	refreshToken?: string;

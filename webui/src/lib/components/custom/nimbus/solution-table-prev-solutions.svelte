@@ -1,7 +1,7 @@
 <script lang="ts">
     import * as Table from '$lib/components/ui/table/index.js';
     import { formatNumber } from '$lib/helpers';
-    import type { ProblemInfo } from '$lib/gen/models';
+    import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
 
     let {
         problem,

@@ -40,7 +40,7 @@
 	import ParallelCoordinates from '$lib/components/visualizations/parallel-coordinates/parallel-coordinates.svelte';
 	import ScoreBandsSolutionTable from './score-bands-solution-table.svelte';
 	import { onMount } from 'svelte';
-	import type { ProblemInfo, SCOREBandsResult, SCOREBandsConfig, SCOREBandsGDMConfig } from '$lib/gen/models';
+	import type { ProblemInfo, SCOREBandsResult, SCOREBandsConfig, SCOREBandsGDMConfig } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import { errorMessage } from '../../../stores/uiState';
 	import Alert from '$lib/components/custom/notifications/alert.svelte';

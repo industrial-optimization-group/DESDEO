@@ -14,7 +14,7 @@ import type {
 	SolutionReferenceResponse,
 	NIMBUSClassificationResponse,
 	NIMBUSInitializationResponse
-} from '$lib/gen/models';
+} from '$lib/gen/endpoints/DESDEOFastAPI';
 
 // Type definitions for NIMBUS components
 type Solution = SolutionReferenceResponse;
