@@ -27,11 +27,11 @@ RequestType = RPMSolveRequest | ENautilusStepRequest | CreateSessionRequest
 
 
 def fetch_interactive_session(
-        user: User,
-        session: Session,
-        request: RequestType | None = None,
-        session_id: int | None = None,
-    ) -> InteractiveSessionDB | None:
+    user: User,
+    session: Session,
+    request: RequestType | None = None,
+    session_id: int | None = None,
+) -> InteractiveSessionDB | None:
     """Gets the desired instance of `InteractiveSessionDB`.
 
     Args:
@@ -54,7 +54,6 @@ def fetch_interactive_session(
     """
     # session_id param has highest priority
     actual_session_id = session_id or (getattr(request, "session_id", None) if request else None)
-
 
     if actual_session_id is not None:
         # specific interactive session id is given, try using that
@@ -178,7 +177,15 @@ class SessionContext:
 
 
 class SessionContextGuard:
-    """FastAPI dependency that builds a SessionContext and validates required fields."""
+    """FastAPI dependency that builds a SessionContext and validates required fields.
+
+    Use ``.post`` for POST endpoints (accepts a request body),
+    ``.get`` for GET endpoints (path/query params only), and
+    ``.delete`` for DELETE endpoints (path/query params only).
+
+    Calling the guard directly (via ``__call__``) is not allowed and will
+    raise an error immediately.
+    """
 
     def __init__(self, require: Iterable[ContextField] | None = None):
         """Init method for the SessionContextGuard class.
@@ -189,44 +196,43 @@ class SessionContextGuard:
         """
         self.require = set(require or [])
 
-    def __call__(
+    def __call__(self, *args, **kwargs):
+        """Direct invocation is not allowed. Use .post, .get, or .delete instead."""
+        raise RuntimeError(
+            "SessionContextGuard must not be called directly. "
+            "Use Depends(SessionContextGuard(...).post), "
+            "Depends(SessionContextGuard(...).get), or "
+            "Depends(SessionContextGuard(...).delete) instead."
+        )
+
+    def post(
         self,
         user: Annotated[User, Depends(get_current_user)],
         db_session: Annotated[Session, Depends(get_session)],
         request: RequestType | None = None,
         problem_id: int | None = None,
     ) -> SessionContext:
-        """Call method for the SessionContextGuard class.
-
-        Args:
-            user (Annotated[User, Depends): the current user (dep)
-            db_session (Annotated[Session, Depends): the current database session (dep).
-            request (RequestType | None, optional): request based on which the context is fetched.
-                Defaults to None.
-            problem_id (int): ID of the problem.
-
-        Returns:
-            SessionContext: the session context with the required fields specified in `self.require`.
-        """
+        """Dependency for POST endpoints. Accepts a request body (RequestType)."""
         problem_db = None
         interactive_session = None
         parent_state = None
 
-        # Only fetch request-based context if request exists
         if request is not None:
             if hasattr(request, "problem_id"):
                 problem_db = fetch_user_problem(user, request, db_session)
 
             if problem_db is None and problem_id is not None:
+
                 class _ProblemOnly:
                     def __init__(self, problem_id: int):
                         self.problem_id = problem_id
                         self.session_id = None
                         self.parent_state_id = None
+
                 problem_db = fetch_user_problem(user, _ProblemOnly(problem_id), db_session)
 
             if hasattr(request, "interactive_session_id") or hasattr(request, "problem_id"):
-                interactive_session = fetch_interactive_session(user, request, db_session)
+                interactive_session = fetch_interactive_session(user, db_session, request)
 
             if hasattr(request, "parent_state_id") or hasattr(request, "problem_id"):
                 parent_state = fetch_parent_state(
@@ -236,7 +242,7 @@ class SessionContextGuard:
                     interactive_session=interactive_session,
                 )
         elif problem_id is not None:
-            # Build a minimal fake request-like object
+
             class _ProblemOnly:
                 def __init__(self, problem_id: int):
                     self.problem_id = problem_id
@@ -244,7 +250,6 @@ class SessionContextGuard:
                     self.parent_state_id = None
 
             pseudo_request = _ProblemOnly(problem_id)
-
             problem_db = fetch_user_problem(user, pseudo_request, db_session)
 
         context = SessionContext(
@@ -256,8 +261,55 @@ class SessionContextGuard:
         )
 
         self._validate(context)
-
         return context
+
+    def get(
+        self,
+        user: Annotated[User, Depends(get_current_user)],
+        db_session: Annotated[Session, Depends(get_session)],
+        problem_id: int | None = None,
+        session_id: int | None = None,
+    ) -> SessionContext:
+        """Dependency for GET endpoints. No request body — only path/query params."""
+        problem_db = None
+        interactive_session = None
+
+        if problem_id is not None:
+
+            class _ProblemOnly:
+                def __init__(self, problem_id: int):
+                    self.problem_id = problem_id
+                    self.session_id = None
+                    self.parent_state_id = None
+
+            problem_db = fetch_user_problem(user, _ProblemOnly(problem_id), db_session)
+
+        if session_id is not None or (problem_id is not None):
+            interactive_session = fetch_interactive_session(
+                user,
+                db_session,
+                session_id=session_id,
+            )
+
+        context = SessionContext(
+            user=user,
+            db_session=db_session,
+            problem_db=problem_db,
+            interactive_session=interactive_session,
+        )
+
+        self._validate(context)
+        return context
+
+    def delete(
+        self,
+        user: Annotated[User, Depends(get_current_user)],
+        db_session: Annotated[Session, Depends(get_session)],
+        problem_id: int | None = None,
+        session_id: int | None = None,
+    ) -> SessionContext:
+        """Dependency for DELETE endpoints. No request body — delegates to .get logic."""
+        return self.get(user=user, db_session=db_session, problem_id=problem_id, session_id=session_id)
 
     def _validate(self, context: SessionContext) -> None:
         """Ensure required fields exist."""

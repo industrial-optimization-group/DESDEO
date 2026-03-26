@@ -42,7 +42,7 @@
 	import FlexRender from '$lib/components/ui/data-table/flex-render.svelte';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { renderSnippet } from '$lib/components/ui/data-table/render-helpers.js';
-	import type { components } from '$lib/api/client-types';
+	import type { ProblemInfo } from '$lib/gen/models';
 	import { getDisplayAccuracy, formatNumber } from '$lib/helpers';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
@@ -50,7 +50,7 @@
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 
 	// Types
-	type ProblemInfo = components['schemas']['ProblemInfo'];
+
 	type SolutionData = { [key: string]: number } & { index: number };
 
 	// Props

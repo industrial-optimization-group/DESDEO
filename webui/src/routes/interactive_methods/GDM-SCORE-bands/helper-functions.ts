@@ -21,7 +21,7 @@
  * - $lib/api/client-types for OpenAPI-generated TypeScript types
  * - Native SVG DOM manipulation (no external charting libraries)
  */
-import type { components } from '$lib/api/client-types';
+import type { ProblemInfo, SCOREBandsResult } from '$lib/gen/models';
 
 /**
  * Calculate agreement level for each axis based on voting data
@@ -186,8 +186,8 @@ export function generate_axis_options(
  * @returns Record mapping axis name to [min, max] range tuple
  */
 export function calculateScales(
-	problem: components['schemas']['ProblemInfo'],
-	result: components['schemas']['SCOREBandsResult']
+	problem: ProblemInfo,
+	result: SCOREBandsResult
 ): Record<string, [number, number]> {
 	// First, try to use ideal and nadir from problem definition
 	const scales: Record<string, [number, number]> = {};

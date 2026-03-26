@@ -266,6 +266,24 @@ def parse_pyomo_optimizer_results(
         if problem.scalarization_funcs is not None
         else None
     )
+    # Extract Lagrange multipliers with error handling
+    lagrange_multipliers = None
+    if problem.constraints:
+        try:
+            if hasattr(evaluator.model, "dual") and evaluator.model.dual:
+                lagrange_multipliers = {}
+                for con in problem.constraints:
+                    try:
+                        constraint_obj = getattr(evaluator.model, con.symbol)
+                        if constraint_obj in evaluator.model.dual:
+                            lagrange_multipliers["mu_" + con.symbol] = evaluator.model.dual[constraint_obj]
+                    except (AttributeError, KeyError):
+                        continue
+                if not lagrange_multipliers:
+                    lagrange_multipliers = None
+        except (AttributeError, KeyError):
+            lagrange_multipliers = None
+
     success = (
         opt_res.solver.status == _pyomo_SolverStatus.ok
         and opt_res.solver.termination_condition == _pyomo_TerminationCondition.optimal
@@ -281,6 +299,7 @@ def parse_pyomo_optimizer_results(
         constraint_values=constraint_values,
         extra_func_values=extra_func_values,
         scalarization_values=scalarization_values,
+        lagrange_multipliers=lagrange_multipliers,
         success=success,
         message=msg,
     )
@@ -319,6 +338,9 @@ class PyomoBonminSolver(BaseSolver):
             self.options = _default_bonmin_options
         else:
             self.options = options
+
+        # Add suffix to request dual values from Bonmin
+        self.evaluator.model.dual = pyomo.Suffix(direction=pyomo.Suffix.IMPORT)
 
     def solve(self, target: str) -> SolverResults:
         """Solve the problem for a given target.
@@ -371,6 +393,9 @@ class PyomoIpoptSolver(BaseSolver):
             self.options = _default_ipopt_options
         else:
             self.options = options
+
+        # Add suffix to request dual values from Ipopt
+        self.evaluator.model.dual = pyomo.Suffix(direction=pyomo.Suffix.IMPORT)
 
     def solve(self, target: str) -> SolverResults:
         """Solve the problem for a given target.

@@ -88,12 +88,13 @@ def get_problems_info(user: Annotated[User, Depends(get_current_user)]) -> list[
     """
     return user.problems
 
+
 @router.get("/{problem_id}")
 def get_problem(
     problem_id: int,
     context: Annotated[
         SessionContext,
-        Depends(SessionContextGuard(require=[ContextField.PROBLEM])),
+        Depends(SessionContextGuard(require=[ContextField.PROBLEM]).get),
     ],
 ) -> ProblemInfo:
     """Get a specific problem by id.
@@ -110,10 +111,11 @@ def get_problem(
     """
     return context.problem_db
 
+
 @router.post("/add")
 def add_problem(
     request: Annotated[Problem, Depends(parse_problem_json)],
-    context: Annotated[SessionContext, Depends(SessionContextGuard())],
+    context: Annotated[SessionContext, Depends(SessionContextGuard().post)],
 ) -> ProblemInfo:
     """Add a newly defined problem to the database.
 
@@ -157,7 +159,7 @@ def add_problem(
 @router.post("/add_json")
 def add_problem_json(
     json_file: UploadFile,
-    context: Annotated[SessionContext, Depends(SessionContextGuard())],
+    context: Annotated[SessionContext, Depends(SessionContextGuard().post)],
 ) -> ProblemInfo:
     """Adds a problem to the database based on its JSON definition.
 
@@ -198,7 +200,7 @@ def add_problem_json(
 @router.post("/get_metadata")
 def get_metadata(
     request: ProblemMetaDataGetRequest,
-    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[]))],
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[]).post)],
 ) -> list[ForestProblemMetaData | RepresentativeNonDominatedSolutions | SolverSelectionMetadata]:
     """Fetch specific metadata for a specific problem.
 
@@ -237,7 +239,7 @@ def get_available_solvers() -> list[str]:
 @router.post("/assign_solver")
 def select_solver(
     request: ProblemSelectSolverRequest,
-    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]))],
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
 ) -> JSONResponse:
     """Assign a specific solver for a problem.
 
@@ -303,7 +305,7 @@ def select_solver(
 def add_representative_solution_set(
     problem_id: int,
     request: RepresentativeSolutionSetBase,
-    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]))],
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
 ):
     """Add a new representative solution set as metadata to a problem.
 
@@ -351,10 +353,11 @@ def add_representative_solution_set(
         nadir=repr_metadata.nadir,
     )
 
+
 @router.get("/{problem_id}/all_representative_solution_sets")
 def get_all_representative_solution_sets(
     problem_id: int,
-    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[]))],
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[]).get)],
 ):
     """Get meta information about all representative solution sets for a given problem.
 
@@ -394,7 +397,7 @@ def get_all_representative_solution_sets(
 @router.get("/representative_solution_set/{set_id}")
 def get_representative_solution_set(
     set_id: int,
-    context: Annotated[SessionContext, Depends(SessionContextGuard())],
+    context: Annotated[SessionContext, Depends(SessionContextGuard().get)],
 ):
     """Fetch full information of a single representative solution set by its ID."""
     db_session: Session = context.db_session
@@ -423,7 +426,7 @@ def get_representative_solution_set(
 @router.delete("/representative_solution_set/{set_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_representative_solution_set(
     set_id: int,
-    context: Annotated[SessionContext, Depends(SessionContextGuard())],
+    context: Annotated[SessionContext, Depends(SessionContextGuard().delete)],
 ):
     """Delete a representative solution set by its ID."""
     db_session: Session = context.db_session
@@ -447,7 +450,7 @@ def delete_representative_solution_set(
 @router.delete("/{problem_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_problem(
     problem_id: int,
-    context: Annotated[SessionContext, Depends(SessionContextGuard())],
+    context: Annotated[SessionContext, Depends(SessionContextGuard().delete)],
 ):
     """Delete a problem by its ID."""
     db_session: Session = context.db_session
@@ -467,7 +470,7 @@ def delete_problem(
 @router.get("/{problem_id}/json")
 def get_problem_json(
     problem_id: int,
-    context: Annotated[SessionContext, Depends(SessionContextGuard())],
+    context: Annotated[SessionContext, Depends(SessionContextGuard().get)],
 ) -> JSONResponse:
     """Return a Problem as a serialized JSON object suitable for download/re-upload."""
     db_session: Session = context.db_session

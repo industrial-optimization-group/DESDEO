@@ -1,9 +1,8 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import PreferenceSwitcher from './preference-switcher.svelte';
-	import { writable, type Writable } from 'svelte/store';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import type { components } from '$lib/api/client-types';
+	import type { ProblemInfo } from '$lib/gen/models';
 	import {
 		HorizontalBar,
 		HorizontalBarRanges
@@ -19,7 +18,6 @@
 	} from '$lib/helpers/index.js';
 	import { PREFERENCE_TYPES } from '$lib/constants/index.js';
 
-	type ProblemInfo = components['schemas']['ProblemInfo'];
 
 	interface Props {
 		preferenceTypes: PreferenceValue[];

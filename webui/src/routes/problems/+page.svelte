@@ -43,7 +43,7 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Button } from '$lib/components/ui/button';
-	import type { components } from '$lib/api/client-types';
+	import type { ProblemInfo } from '$lib/gen/models';
 	import { methodSelection } from '../../stores/methodSelection';
 	import { invalidateAll } from '$app/navigation';
 	import { deleteProblem, downloadProblemJson, getAssignedSolver, getAvailableSolvers, assignSolver, addRepresentativeSolutionSet } from './handler';
@@ -52,7 +52,6 @@
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { openInputDialog } from '$lib/components/custom/dialogs/dialogs';
 
-	type ProblemInfo = components['schemas']['ProblemInfo'];
 
 	import type { PageProps } from './$types';
 	import MathExpressionRenderer from '$lib/components/ui/MathExpressionRenderer/MathExpressionRenderer.svelte';

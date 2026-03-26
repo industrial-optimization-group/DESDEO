@@ -1,15 +1,15 @@
 /**
  * Server-side API endpoint for solving optimization problems using an EMO (Evolutionary Multi-objective Optimization) method.
  * This endpoint acts as a proxy between the frontend and the backend DESDEO API.
- * 
+ *
  * Route: POST /interactive_methods/EMO/solve
- * 
+ *
  * Purpose:
  * - Receives EMO solve requests from the frontend
  * - Authenticates the request using refresh tokens
  * - Forwards the request to the backend DESDEO API
  * - Returns the optimization results to the frontend
- * 
+ *
  * Author: Giomara Larraga (glarragw@jyu.fi)
  * Created: July 2025
  */
@@ -18,7 +18,6 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import createClient from 'openapi-fetch';
 import type { paths } from '$lib/api/client-types';
-import type { components } from '$lib/api/client-types';
 
 /**
  * Create a server-side API client for communicating with the DESDEO backend.
@@ -31,13 +30,14 @@ const serverApi = createClient<paths>({
   baseUrl: process.env.API_URL || 'http://localhost:8000' // Default to localhost if API_URL not set
 });
 
-// Type definitions from the OpenAPI schema
-type EMOSolveRequest = components['schemas']['EMOSolveRequest'];
-type EMOState = components['schemas']['EMOState'];
+// Type definitions - EMOSolveRequest and EMOState are not in the current OpenAPI schema
+// Using inline types for the request/response shapes
+type EMOSolveRequest = Record<string, unknown>;
+type EMOState = Record<string, unknown>;
 
 /**
  * POST handler for EMO solve requests
- * 
+ *
  * Expected request body: EMOSolveRequest containing:
  * - problem_id: ID of the optimization problem to solve
  * - method: EMO algorithm to use (e.g., "NSGA3", "RVEA")
@@ -47,7 +47,7 @@ type EMOState = components['schemas']['EMOState'];
  * - use_archive: Whether to use solution archive
  * - session_id: Optional session identifier
  * - parent_state_id: Optional parent state for iterative solving
- * 
+ *
  * Returns: JSON response with EMOState containing optimization results
  */
 export const POST: RequestHandler = async ({ request, cookies }) => {
@@ -60,7 +60,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
   try {
     // Parse the incoming EMO solve request from the frontend
     const solveRequest: EMOSolveRequest = await request.json();
-    
+
     // Debug logging: Log the received request for troubleshooting
     console.log('Received solve request:', JSON.stringify(solveRequest, null, 2));
     console.log('Making API call to /method/emo/solve');
@@ -94,14 +94,14 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         statusText: response.response?.statusText,
         error: response.error
       });
-      
+
       // Return error response to frontend with details from backend
       return json(
-        { 
+        {
           error: 'Failed to solve problem',
           details: response.error || 'No data returned from API',
           status: response.response?.status
-        }, 
+        },
         { status: response.response?.status || 500 }
       );
     }
@@ -134,16 +134,16 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     const errorName = error instanceof Error ? error.name : 'Error';
     const errorStack = error instanceof Error ? error.stack : undefined;
-    
+
     // Detailed error logging for server-side debugging
     console.error('EMO solve error details:', {
         message: errorMessage,
         stack: errorStack,
         name: errorName
     });
-    
+
     // Return generic server error to frontend (don't expose internal details)
-    return json({ 
+    return json({
         error: 'Server error',
         details: errorMessage,
         type: errorName

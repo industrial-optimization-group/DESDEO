@@ -78,7 +78,7 @@
 	 * - Advanced configuration options are marked as null for future implementation
 	 */
 	import { Button } from '$lib/components/ui/button';
-	import type { components } from '$lib/api/client-types';
+	import type { SCOREBandsConfig, SCOREBandsGDMConfig, DistanceFormula } from '$lib/gen/models';
 
 	// Component props
 	const {
@@ -88,10 +88,10 @@
 		onRecalculate,
 		isVisible = true
 	} = $props<{
-		currentConfig: components['schemas']['SCOREBandsConfig'] | null;
+		currentConfig: SCOREBandsConfig | null;
 		latestIteration: number | null;
 		totalVoters: number;
-		onRecalculate: (config: components['schemas']['SCOREBandsGDMConfig']) => void;
+		onRecalculate: (config: SCOREBandsGDMConfig) => void;
 		isVisible?: boolean;
 	}>();
 
@@ -151,7 +151,7 @@
 	 * - axis_positions: null (auto-calculated)
 	 * - scales: null (auto-calculated ranges)
 	 */
-	function buildConfiguration(): components['schemas']['SCOREBandsGDMConfig'] {
+	function buildConfiguration(): SCOREBandsGDMConfig {
 		return {
 			score_bands_config: {
 				dimensions: null, // Future: Multi-select dropdown for objective subset selection
@@ -168,7 +168,7 @@
 				},
 
 				// IMPLEMENTED: Distance calculation parameters
-				distance_formula: distance_formula as components['schemas']['DistanceFormula'], // 1=Euclidean, 2=Manhattan
+				distance_formula: distance_formula as DistanceFormula, // 1=Euclidean, 2=Manhattan
 				distance_parameter: distance_parameter, // 0.0-1.0: Controls relative distances between objective axes
 
 				// IMPLEMENTED: Visualization behavior controls

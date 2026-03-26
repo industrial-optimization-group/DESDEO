@@ -23,10 +23,7 @@ router = APIRouter(prefix="/method/rpm")
 @router.post("/solve")
 def solve_solutions(
     request: RPMSolveRequest,
-    context: Annotated[
-        SessionContext,
-        Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
-    ],
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
 ) -> RPMState:
     """Runs an iteration of the reference point method.
 

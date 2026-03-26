@@ -1,9 +1,9 @@
-import type { components } from '$lib/api/client-types';
+import type { ProblemInfo as ProblemInfoOrval, SolutionReferenceResponse } from '$lib/gen/models';
 
 /*Types for the entire UI*/
 
-export type ProblemInfo = components['schemas']['ProblemInfo'];
-export type Solution = components['schemas']['SolutionReferenceResponse'];
+export type ProblemInfo = ProblemInfoOrval;
+export type Solution = SolutionReferenceResponse;
 
 export type MethodMode = 'iterate' | 'final' | 'intermediate';
 export type SolutionType = 'current' | 'best' | 'all';

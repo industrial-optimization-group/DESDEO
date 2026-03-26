@@ -29,10 +29,7 @@ router = APIRouter(prefix="/method/generic")
 @router.post("/intermediate")
 def solve_intermediate(
     request: IntermediateSolutionRequest,
-    context: Annotated[
-        SessionContext,
-        Depends(SessionContextGuard(require=[ContextField.PROBLEM]))
-    ],
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
 ) -> GenericIntermediateSolutionResponse:
     """Solve intermediate solutions between given two solutions.
 
@@ -140,6 +137,7 @@ def solve_intermediate(
             SolutionReference(state=state, solution_index=i) for i in range(state.state.num_solutions)
         ],
     )
+
 
 @router.post("/score-bands-obj-data")
 def calculate_score_bands_from_objective_data(

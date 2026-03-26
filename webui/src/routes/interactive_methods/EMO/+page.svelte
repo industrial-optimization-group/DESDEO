@@ -42,14 +42,13 @@
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
 	import AdvancedSidebar from '$lib/components/custom/preferences-bar/advanced-sidebar.svelte';
 	import { methodSelection } from '../../../stores/methodSelection';
-	import type { components } from '$lib/api/client-types';
+	import type { ProblemInfo, ReferencePoint } from '$lib/gen/models';
 	import { onMount } from 'svelte';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import { PREFERENCE_TYPES } from '$lib/constants';
 	import { formatNumber, formatNumberArray } from '$lib/helpers';
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 
-	type ProblemInfo = components['schemas']['ProblemInfo'];
 
 	/**
 	 * Type definition for preference values
@@ -231,8 +230,8 @@
 		update_from_optimization_procedure(data);
 	}
 
-	type EMOSolveRequest = components['schemas']['EMOSolveRequest'];
-	type ReferencePoint = components['schemas']['ReferencePoint'];
+	// EMOSolveRequest is not in current OpenAPI schema
+	type EMOSolveRequest = Record<string, unknown>;
 
 	/**
 	 * Handles the finish request from the sidebar

@@ -1,8 +1,7 @@
-import type { components } from '$lib/api/client-types';
+import type { ProblemInfo } from '$lib/gen/models';
 import { CLASSIFICATION_TYPES, PREFERENCE_TYPES, SIGNIFICANT_DIGITS } from '$lib/constants';
 
-type ObjectiveInfo = components['schemas']['ProblemInfo']['objectives'][0];
-type ProblemInfo = components['schemas']['ProblemInfo'];
+type ObjectiveInfo = ProblemInfo['objectives'][0];
 
 export function calculateClassification(
   objective: ObjectiveInfo,
@@ -36,12 +35,12 @@ export function calculateClassification(
 
   // Determine if the selected value is better or worse than solution value
   // based on objective's optimization direction
-  const isSelectedBetter = objective.maximize 
+  const isSelectedBetter = objective.maximize
     ? selectedValue > solutionValue  // For maximization: higher is better
     : selectedValue < solutionValue; // For minimization: lower is better
 
-  return isSelectedBetter 
-    ? CLASSIFICATION_TYPES.ImproveUntil 
+  return isSelectedBetter
+    ? CLASSIFICATION_TYPES.ImproveUntil
     : CLASSIFICATION_TYPES.WorsenUntil;
 }
 
@@ -81,7 +80,7 @@ export function formatNumberArray(values: number[], digits: number = SIGNIFICANT
 export function getDisplayAccuracy(problem: ProblemInfo | null): number[] {
     // Default to 2 significant digits if not specified
     const DEFAULT_ACCURACY = SIGNIFICANT_DIGITS;
-    
+
     if (!problem) {
         return [];
     }
@@ -95,7 +94,7 @@ export function getDisplayAccuracy(problem: ProblemInfo | null): number[] {
     // Anyway, this is just mocking anyway.
     if ('display_accuracy' in problem.problem_metadata) {
         const displayAccuracy = problem.problem_metadata.display_accuracy;
-        
+
         // If it's an array, use it (assuming it matches objectives length)
         if (Array.isArray(displayAccuracy)) {
             // Pad with defaults if array is shorter than objectives
@@ -105,7 +104,7 @@ export function getDisplayAccuracy(problem: ProblemInfo | null): number[] {
             }
             return result.map(acc => typeof acc === 'number' ? acc : DEFAULT_ACCURACY);
         }
-        
+
         // If it's a single number, use it for all objectives
         if (typeof displayAccuracy === 'number') {
             return problem.objectives.map(() => displayAccuracy);

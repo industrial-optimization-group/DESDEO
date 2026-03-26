@@ -1,12 +1,12 @@
 import type { PageLoad } from './$types';
 import { api } from '$lib/api/client';
-import type { components } from '$lib/api/client-types';
+import type { ProblemInfo } from '$lib/gen/models';
 
 type LoadData = {
 	refreshToken?: string;
 };
 
-type Problem = components['schemas']['ProblemInfo'];
+type Problem = ProblemInfo;
 
 export const load: PageLoad<LoadData> = async ({ url, data }) => {
 	const groupId = url.searchParams.get('group');

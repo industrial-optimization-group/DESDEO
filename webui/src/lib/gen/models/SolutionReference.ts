@@ -21,10 +21,16 @@ export interface SolutionReference {
 	solution_index?: number | null;
 	/** The reference state with the solution information. */
 	state: StateDB;
+	/** The state id. */
 	readonly state_id: number;
+	/** Number of solutions contained in the referenced state. */
 	readonly num_solutions: number;
+	/** All the objective values of the result. */
 	readonly objective_values_all: readonly SolutionReferenceObjectiveValuesAllItem[];
+	/** All the variable values of the result. */
 	readonly variable_values_all: readonly SolutionReferenceVariableValuesAllItem[];
+	/** The objective values of the referenced solution. None if not applicable. */
 	readonly objective_values: SolutionReferenceObjectiveValues;
+	/** The variable values of the referenced solution. None if not apllicable. */
 	readonly variable_values: SolutionReferenceVariableValues;
 }

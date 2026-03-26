@@ -1,4 +1,5 @@
 """A forest problem with discrete representation."""
+
 from pathlib import Path
 
 import polars as pl
@@ -19,10 +20,8 @@ def dmitry_forest_problem_disc() -> Problem:
     Returns:
         Problem: A problem instance representing the forest problem.
     """
-    path = Path(__file__)
-    while not str(path).endswith("/DESDEO"):
-        path = path.parent
-
+    # Navigate from this file (desdeo/problem/testproblems/) up to the repo root
+    path = Path(__file__).resolve().parent.parent.parent.parent
     path = path / "tests/data/dmitry_discrete_repr/dmitry_forest_problem_non_dom_solns.csv"
 
     obj_names = ["Rev", "HA", "Carb", "DW"]
@@ -30,7 +29,10 @@ def dmitry_forest_problem_disc() -> Problem:
     var_name = "index"
 
     data = pl.read_csv(
-        path, has_header=True, columns=["Rev", "HA", "Carb", "DW"], separator=",", #decimal_comma=True
+        path,
+        has_header=True,
+        columns=["Rev", "HA", "Carb", "DW"],
+        separator=",",  # decimal_comma=True
     )
 
     variables = [
@@ -63,7 +65,10 @@ def dmitry_forest_problem_disc() -> Problem:
 
     return Problem(
         name="Dmitry Forest Problem (Discrete)",
-        description="Defines a forest problem with four objectives: revenue, habitat availability, carbon storage, and deadwood.",
+        description=(
+            "Defines a forest problem with four objectives: "
+            "revenue, habitat availability, carbon storage, and deadwood."
+        ),
         variables=variables,
         objectives=objectives,
         discrete_representation=discrete_def,

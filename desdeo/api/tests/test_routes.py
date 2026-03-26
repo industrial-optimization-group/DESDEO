@@ -42,7 +42,11 @@ from desdeo.api.models import (
     User,
     UserPublic,
 )
-from desdeo.api.models.nimbus import NIMBUSInitializationResponse
+from desdeo.api.models.nimbus import (
+    NIMBUSInitializationResponse,
+    NIMBUSMultiplierRequest,
+    NIMBUSMultiplierResponse,
+)
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.emo.options.algorithms import rvea_options
 from desdeo.emo.options.templates import ReferencePointOptions
@@ -118,10 +122,7 @@ def test_get_problem(client: TestClient):
     """Test fetching specific problems based on their id."""
     access_token = login(client)
 
-    response = client.get(
-        "/problem/1",
-        headers={"Authorization": f"Bearer {access_token}"}
-    )
+    response = client.get("/problem/1", headers={"Authorization": f"Bearer {access_token}"})
 
     assert response.status_code == 200
 
@@ -130,10 +131,7 @@ def test_get_problem(client: TestClient):
     assert info.name == "dtlz2"
     assert info.problem_metadata is None
 
-    response = client.get(
-        "/problem/2",
-        headers={"Authorization": f"Bearer {access_token}"}
-    )
+    response = client.get("/problem/2", headers={"Authorization": f"Bearer {access_token}"})
 
     assert response.status_code == 200
 
@@ -1006,6 +1004,32 @@ def test_get_problem_metadata(client: TestClient):
     assert response.status_code == 404
 
 
+def test_get_metadata_after_session_creation(client: TestClient):
+    """Regression: get_metadata crashes when user has an active session.
+
+    The bug is in fetch_interactive_session being called with swapped
+    arguments (request, db_session) instead of (db_session, request),
+    so db_session.exec() is actually called on the request body object.
+    This only manifests when user.active_session_id is set (i.e., after
+    creating a session), because otherwise the early return on line 72
+    short-circuits before hitting session.exec().
+    """
+    access_token = login(client)
+
+    # Step 1: Create a session — this sets user.active_session_id
+    session_request = CreateSessionRequest(info="Test session")
+    resp = post_json(client, "/session/new", session_request.model_dump(), access_token)
+    assert resp.status_code == status.HTTP_200_OK
+
+    # Step 2: Call get_metadata — this should work, but crashes with
+    # AttributeError: 'ProblemMetaDataGetRequest' object has no attribute 'exec'
+    # because fetch_interactive_session receives the request body where it
+    # expects the database session.
+    metadata_req = {"problem_id": 2, "metadata_type": "forest_problem_metadata"}
+    resp = post_json(client, "/problem/get_metadata", metadata_req, access_token)
+    assert resp.status_code == status.HTTP_200_OK, f"Expected 200, got {resp.status_code}: {resp.text}"
+
+
 def test_gdm_score_bands(client: TestClient):
     """Test score bands endpoints."""
     access_token = login(client=client)
@@ -1077,3 +1101,160 @@ def test_gdm_score_bands(client: TestClient):
     assert cluster_size_1 > cluster_size_2
 
     # TODO: Test reverting, re-clustering
+
+
+def test_nimbus_get_multipliers_info(client: TestClient):
+    """Test that get-multipliers-info returns multiplier data after a NIMBUS solve."""
+    access_token = login(client)
+
+    # First, do a NIMBUS solve to create a state with solver results
+    preference = ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.6, "f_3": 0.4})
+    solve_request = NIMBUSClassificationRequest(
+        problem_id=1,
+        preference=preference,
+        current_objectives={"f_1": 0.6, "f_2": 0.4, "f_3": 0.5},
+        num_desired=2,
+    )
+    solve_response = post_json(client, "/method/nimbus/solve", solve_request.model_dump(), access_token)
+    assert solve_response.status_code == status.HTTP_200_OK
+    solve_result = NIMBUSClassificationResponse.model_validate(json.loads(solve_response.content.decode("utf-8")))
+
+    # Now request multipliers for that state
+    mult_request = NIMBUSMultiplierRequest(
+        state_id=solve_result.state_id,
+        objective_symbols=["f_1", "f_2", "f_3"],
+    )
+    mult_response = post_json(
+        client,
+        "/method/nimbus/get-multipliers-info",
+        mult_request.model_dump(),
+        access_token,
+    )
+    assert mult_response.status_code == status.HTTP_200_OK
+
+    result = NIMBUSMultiplierResponse.model_validate(json.loads(mult_response.content.decode("utf-8")))
+
+    # Response should have the right structure
+    if result.lagrange_multipliers is not None:
+        assert isinstance(result.lagrange_multipliers, list)
+        assert len(result.lagrange_multipliers) == 2  # num_desired=2
+
+    if result.tradeoffs_matrix is not None:
+        assert isinstance(result.tradeoffs_matrix, list)
+
+    if result.active_objectives is not None:
+        assert isinstance(result.active_objectives, list)
+
+
+def test_nimbus_get_multipliers_info_invalid_state(client: TestClient):
+    """Test that get-multipliers-info with an invalid state_id returns empty."""
+    access_token = login(client)
+
+    mult_request = NIMBUSMultiplierRequest(state_id=99999)
+    mult_response = post_json(
+        client,
+        "/method/nimbus/get-multipliers-info",
+        mult_request.model_dump(),
+        access_token,
+    )
+    assert mult_response.status_code == status.HTTP_200_OK
+    result = NIMBUSMultiplierResponse.model_validate(json.loads(mult_response.content.decode("utf-8")))
+    assert result.lagrange_multipliers is None
+
+
+def test_xnimbus_solve(client: TestClient):
+    """Test that XNIMBUS solve creates states with XNIMBUS kinds."""
+    access_token = login(client)
+
+    preference = ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.6, "f_3": 0.4})
+    request = NIMBUSClassificationRequest(
+        problem_id=1,
+        preference=preference,
+        current_objectives={"f_1": 0.6, "f_2": 0.4, "f_3": 0.5},
+        num_desired=2,
+    )
+
+    response = post_json(client, "/method/xnimbus/solve", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result = NIMBUSClassificationResponse.model_validate(json.loads(response.content.decode("utf-8")))
+    assert result.state_id is not None
+    assert result.previous_preference == preference
+    assert len(result.current_solutions) == 2
+
+
+def test_xnimbus_initialize(client: TestClient):
+    """Test that XNIMBUS initialize works."""
+    access_token = login(client)
+
+    request = NIMBUSInitializationRequest(problem_id=1)
+    response = post_json(client, "/method/xnimbus/initialize", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+
+
+def test_xnimbus_get_or_initialize(client: TestClient):
+    """Test that XNIMBUS get-or-initialize returns existing state or creates new one."""
+    access_token = login(client)
+
+    request = NIMBUSInitializationRequest(problem_id=1)
+
+    # First call should initialize
+    response1 = post_json(client, "/method/xnimbus/get-or-initialize", request.model_dump(), access_token)
+    assert response1.status_code == status.HTTP_200_OK
+
+    # Second call should return the same state
+    response2 = post_json(client, "/method/xnimbus/get-or-initialize", request.model_dump(), access_token)
+    assert response2.status_code == status.HTTP_200_OK
+
+
+def test_xnimbus_session_isolation_from_nimbus(client: TestClient):
+    """Test that XNIMBUS states don't interfere with NIMBUS states."""
+    access_token = login(client)
+
+    # Initialize NIMBUS
+    nimbus_request = NIMBUSInitializationRequest(problem_id=1)
+    nimbus_response = post_json(client, "/method/nimbus/get-or-initialize", nimbus_request.model_dump(), access_token)
+    assert nimbus_response.status_code == status.HTTP_200_OK
+    nimbus_state = json.loads(nimbus_response.content.decode("utf-8"))
+
+    # Initialize XNIMBUS (should create a new separate state)
+    xnimbus_request = NIMBUSInitializationRequest(problem_id=1)
+    xnimbus_response = post_json(
+        client, "/method/xnimbus/get-or-initialize", xnimbus_request.model_dump(), access_token
+    )
+    assert xnimbus_response.status_code == status.HTTP_200_OK
+    xnimbus_state = json.loads(xnimbus_response.content.decode("utf-8"))
+
+    # State IDs should be different (separate sessions)
+    assert nimbus_state.get("state_id") != xnimbus_state.get("state_id")
+
+
+def test_xnimbus_get_multipliers(client: TestClient):
+    """Test that XNIMBUS get-multipliers-info works after a solve."""
+    access_token = login(client)
+
+    # First solve
+    preference = ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.6, "f_3": 0.4})
+    solve_request = NIMBUSClassificationRequest(
+        problem_id=1,
+        preference=preference,
+        current_objectives={"f_1": 0.6, "f_2": 0.4, "f_3": 0.5},
+        num_desired=2,
+    )
+    solve_response = post_json(client, "/method/xnimbus/solve", solve_request.model_dump(), access_token)
+    assert solve_response.status_code == status.HTTP_200_OK
+    solve_result = NIMBUSClassificationResponse.model_validate(json.loads(solve_response.content.decode("utf-8")))
+
+    # Now get multipliers
+    mult_request = NIMBUSMultiplierRequest(
+        state_id=solve_result.state_id,
+        objective_symbols=["f_1", "f_2", "f_3"],
+    )
+    mult_response = post_json(
+        client,
+        "/method/xnimbus/get-multipliers-info",
+        mult_request.model_dump(),
+        access_token,
+    )
+    assert mult_response.status_code == status.HTTP_200_OK
+    result = NIMBUSMultiplierResponse.model_validate(json.loads(mult_response.content.decode("utf-8")))
+    assert result is not None

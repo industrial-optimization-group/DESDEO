@@ -57,7 +57,7 @@
 	 * - Handles container resize events for optimal display
 	 */
 
-	import type { components } from '$lib/api/client-types';
+	import type { ProblemInfo } from '$lib/gen/models';
 	import ParallelCoordinates from '$lib/components/visualizations/parallel-coordinates/parallel-coordinates.svelte';
 	import { createReferenceData } from '$lib/helpers/preference-data-transforms';
 	import {
@@ -67,8 +67,6 @@
 	import { onMount } from 'svelte';
 	import { SegmentedControl } from '$lib/components/custom/segmented-control';
 
-	// Type definitions from OpenAPI schema
-	type ProblemInfo = components['schemas']['ProblemInfo'];
 
 	/**
 	 * Component Props Interface

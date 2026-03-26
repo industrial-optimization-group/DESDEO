@@ -1,11 +1,11 @@
 <script lang="ts">
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { formatNumber } from '$lib/helpers';
-	import type { components } from '$lib/api/client-types';
+	import type { ProblemInfo } from '$lib/gen/models';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { Button } from '$lib/components/ui/button';
-	type ProblemInfo = components['schemas']['ProblemInfo'];
+
 
 	let {
 		problem,

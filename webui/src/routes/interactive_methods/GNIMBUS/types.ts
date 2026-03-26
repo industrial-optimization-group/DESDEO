@@ -8,10 +8,14 @@
  * @created October 2025
  */
 
-import type { components } from '$lib/api/client-types';
+import type {
+	ProblemInfo,
+	GNIMBUSAllIterationsResponse,
+	GroupPublic,
+	FullIteration
+} from '$lib/gen/models';
 
-export type ProblemInfo = components['schemas']['ProblemInfo'];
-// export type Solution = components['schemas']['SolutionReference'];
+export type { ProblemInfo };
 export type Solution = {
 	/**
 	 * Name
@@ -35,9 +39,9 @@ export type Solution = {
 	/** Num Solutions */
 	readonly num_solutions: number;
 };
-export type AllIterations = components['schemas']['GNIMBUSAllIterationsResponse'];
-export type Group = components['schemas']['GroupPublic'];
-export type Response = components['schemas']['FullIteration'];
+export type AllIterations = GNIMBUSAllIterationsResponse;
+export type Group = GroupPublic;
+export type Response = FullIteration;
 
 export type Step = 'optimization' | 'voting' | 'finish';
 export type PeriodKey = 'period1' | 'period2' | 'period3';

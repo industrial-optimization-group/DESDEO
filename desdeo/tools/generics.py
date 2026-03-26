@@ -58,6 +58,9 @@ class SolverResults(BaseModel):
     scalarization_values: dict[str, float | list[float]] | None = Field(
         description=("The scalarization function values of the problem."), default=None
     )
+    lagrange_multipliers: dict[str, float | list[float]] | None = Field(
+        description="The Lagrange multipliers of the problem.", default=None
+    )
     success: bool = Field(description="A boolean flag indicating whether the optimization was successful or not.")
     message: str = Field(description="Description of the cause of termination.")
 

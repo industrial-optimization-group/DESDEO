@@ -1,8 +1,7 @@
 <script lang="ts">
     import * as Table from '$lib/components/ui/table/index.js';
     import { formatNumber } from '$lib/helpers';
-    import type { components } from '$lib/api/client-types';
-    type ProblemInfo = components['schemas']['ProblemInfo'];
+    import type { ProblemInfo } from '$lib/gen/models';
 
     let {
         problem,

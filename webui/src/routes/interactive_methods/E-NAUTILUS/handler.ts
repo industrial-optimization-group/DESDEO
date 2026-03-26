@@ -1,7 +1,7 @@
 import type { ENautilusRepresentativeSolutionsResponse, ENautilusSessionTreeResponse, ENautilusStateResponse, ENautilusStepRequest, ENautilusStepResponse, ProblemGetRequest, ProblemInfo } from "$lib/gen/models";
 import type { getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse, getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse, getStateMethodEnautilusGetStateStateIdGetResponse, stepMethodEnautilusStepPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
-import { stepMethodEnautilusStepPost, getProblemProblemGetPost, getStateMethodEnautilusGetStateStateIdGet, getRepresentativeMethodEnautilusGetRepresentativeStateIdGet, getSessionTreeMethodEnautilusSessionTreeSessionIdGet } from "$lib/gen/endpoints/DESDEOFastAPI";
-import type { getProblemProblemGetPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
+import { stepMethodEnautilusStepPost, getProblemProblemProblemIdGet, getStateMethodEnautilusGetStateStateIdGet, getRepresentativeMethodEnautilusGetRepresentativeStateIdGet, getSessionTreeMethodEnautilusSessionTreeSessionIdGet } from "$lib/gen/endpoints/DESDEOFastAPI";
+import type { getProblemProblemProblemIdGetResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
 import { fetch_sessions, create_session } from '../../methods/sessions/handler';
 export { fetch_sessions, create_session };
 
@@ -62,7 +62,7 @@ export async function step_enautilus(
 }
 
 export async function fetch_problem_info(request: ProblemGetRequest): Promise<ProblemInfo | null> {
-    const response: getProblemProblemGetPostResponse = await getProblemProblemGetPost(request);
+    const response: getProblemProblemProblemIdGetResponse = await getProblemProblemProblemIdGet(request.problem_id, undefined);
 
     if (response.status != 200) {
         console.log("Could not fetch problem info.", response.status);

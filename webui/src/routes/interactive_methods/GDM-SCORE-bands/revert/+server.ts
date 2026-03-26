@@ -16,7 +16,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { api } from '$lib/api/client';
-import type { components } from '$lib/api/client-types';
+import type { GDMSCOREBandsRevertRequest } from '$lib/gen/models';
 
 /**
  * POST handler for iteration revert requests
@@ -50,7 +50,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		}
 
 		// Create the revert request object matching GDMSCOREBandsRevertRequest schema
-		const revertRequest: components['schemas']['GDMSCOREBandsRevertRequest'] = {
+		const revertRequest: GDMSCOREBandsRevertRequest = {
 			group_id,
 			iteration_number
 		};

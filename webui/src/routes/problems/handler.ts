@@ -5,8 +5,8 @@ import { getProblemJsonProblemProblemIdJsonGet } from '$lib/gen/endpoints/DESDEO
 import { getMetadataProblemGetMetadataPost } from '$lib/gen/endpoints/DESDEOFastAPI';
 import { getAvailableSolversProblemAssignSolverGet } from '$lib/gen/endpoints/DESDEOFastAPI';
 import { selectSolverProblemAssignSolverPost } from '$lib/gen/endpoints/DESDEOFastAPI';
-import { addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPost } from '$lib/gen/endpoints/DESDEOFastAPI';
-import type { RepresentativeSolutionSetRequest } from '$lib/gen/models';
+import { addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPost } from '$lib/gen/endpoints/DESDEOFastAPI';
+import type { RepresentativeSolutionSetBase } from '$lib/gen/models';
 
 export async function deleteProblem(problemId: number): Promise<boolean> {
 	const response: deleteProblemProblemProblemIdDeleteResponse =
@@ -77,10 +77,11 @@ export async function assignSolver(problemId: number, solver: string): Promise<b
 }
 
 export async function addRepresentativeSolutionSet(
-	payload: RepresentativeSolutionSetRequest
+	payload: RepresentativeSolutionSetBase & { problem_id: number }
 ): Promise<boolean> {
+	const { problem_id, ...body } = payload;
 	const response =
-		await addRepresentativeSolutionSetProblemAddRepresentativeSolutionSetPost(payload);
+		await addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPost(problem_id, body);
 
 	if (response.status !== 200) {
 		console.error('Failed to add representative solution set:', response.status);

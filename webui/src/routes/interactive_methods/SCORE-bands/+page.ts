@@ -1,8 +1,8 @@
 import type { PageLoad } from './$types';
 import { api } from '$lib/api/client';
-import type { components } from '$lib/api/client-types';
+import type { ProblemInfo } from '$lib/gen/models';
 
-type ProblemList = components['schemas']['ProblemInfo'][];
+type ProblemList = ProblemInfo[];
 
 export const load: PageLoad = async () => {
 	const res = await api.GET('/problem/all_info');
