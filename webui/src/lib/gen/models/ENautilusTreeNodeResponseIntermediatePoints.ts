@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type GetProblemJsonProblemProblemIdJsonGetParams = {
-	session_id?: number | null;
-};
+/**
+ * Intermediate points shown at this step.
+ */
+export type ENautilusTreeNodeResponseIntermediatePoints = { [key: string]: number }[] | null;
