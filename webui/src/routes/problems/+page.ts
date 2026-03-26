@@ -1,10 +1,10 @@
 import type { PageLoad } from './$types';
-import { api } from '$lib/api/client';
+import { getProblemsInfoProblemAllInfoGet } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 export const load: PageLoad = async () => {
-	const res = await api.GET('/problem/all_info');
+	const res = await getProblemsInfoProblemAllInfoGet();
 
-	if (!res.data) {
+	if (res.status !== 200) {
 		throw new Error('Failed to fetch problems');
 	}
 

@@ -1,9 +1,13 @@
 import type { PageLoad } from './$types';
-import { api } from '$lib/api/client';
+import {
+	getCurrentUserInfoUserInfoGet,
+	getGroupInfoGdmGetGroupInfoPost,
+	getProblemProblemProblemIdGet
+} from '$lib/gen/endpoints/DESDEOFastAPI';
 
 export const load: PageLoad = async () => {
-	const user = await api.GET('/user_info');
-	if (!user.data) {
+	const user = await getCurrentUserInfoUserInfoGet();
+	if (user.status !== 200) {
 		throw new Error('Failed to fetch user info');
 	}
 
@@ -14,18 +18,17 @@ export const load: PageLoad = async () => {
 
 	let groupList = [];
 	for (const id of groupIds) {
-		const info = await api.POST('/gdm/get_group_info', { body: { group_id: id } });
-		if (!info.data) {
+		const info = await getGroupInfoGdmGetGroupInfoPost({ group_id: id });
+		if (info.status !== 200) {
 			throw new Error(`Failed to fetch group info for group ID ${id}`);
 		}
 		groupList.push(info.data);
 	}
 
 	let problemList = [];
-	// for each group, get problem info by POST problem/get, giving problem_id as body
 	for (const group of groupList) {
-		const problem = await api.POST('/problem/get', { body: { problem_id: group.problem_id } });
-		if (!problem.data) {
+		const problem = await getProblemProblemProblemIdGet(group.problem_id);
+		if (problem.status !== 200) {
 			throw new Error(`Failed to fetch problem info for problem ID ${group.problem_id}`);
 		}
 		problemList.push(problem.data);
