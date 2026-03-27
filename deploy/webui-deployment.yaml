@@ -39,7 +39,7 @@ spec:
           value: "3000"
         # Server-side +server.ts proxy routes use this to reach the API
         # over the internal cluster network (avoids the public ingress).
-        - name: API_URL
+        - name: API_BASE_URL
           value: "http://desdeo-api:8080"
         # ORIGIN is required by SvelteKit for CSRF protection when behind a proxy.
         - name: ORIGIN
