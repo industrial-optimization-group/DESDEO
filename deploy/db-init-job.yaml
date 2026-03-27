@@ -46,9 +46,12 @@ spec:
       - name: db-init
         # Use the same image as the API Deployment.
         # Replace <PROJECT> with your Rahti project name.
-        image: image-registry.openshift-image-registry.svc:5000/<PROJECT>/desdeo-api:latest
+        image: image-registry.openshift-image-registry.svc:5000/gialmisi-desdeo/desdeo-api:latest
         # Run the production init script.
         command: ["python", "desdeo/api/db_init_prod.py"]
+        end:
+        - name: DESDEO_PRODUCTION
+          value: "true"
         envFrom:
         # Inject DATABASE_URL, SECRET_KEY, DESDEO_ADMIN_USERNAME,
         # DESDEO_ADMIN_PASSWORD from the shared Secret.

@@ -46,24 +46,42 @@ spec:
           name: http
           protocol: TCP
         env:
-        # ── Pulled from Secret ────────────────────────────────────────────
-        - name: DATABASE_URL
+        - name: DESDEO_PRODUCTION
+          value: "true"
+        - name: AUTHJWT_SECRET
           valueFrom:
             secretKeyRef:
               name: desdeo-secrets
-              key: DATABASE_URL
-        - name: SECRET_KEY
+              key: AUTHJWT_SECRET
+        - name: DB_HOST
           valueFrom:
             secretKeyRef:
               name: desdeo-secrets
-              key: SECRET_KEY
-        # ── Static runtime config ─────────────────────────────────────────
-        - name: DEBUG
-          value: "false"
-        # CORS: allow the public webui origin.
-        - name: ALLOWED_ORIGINS
-          value: "https://gialmisi-desdeo-webui.rahtiapp.fi"
-        # ── Gunicorn (matches .s2i/environment) ───────────────────────────
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: desdeo-secrets
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: desdeo-secrets
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: desdeo-secrets
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: desdeo-secrets
+              key: DB_PASSWORD
+        - name: CORS_ORIGINS
+          value: '["https://gialmisi-desdeo-webui.rahtiapp.fi"]'
+        - name: COOKIE_DOMAIN
+          value: "rahtiapp.fi"
         - name: APP_MODULE
           value: "desdeo.api.app:app"
         - name: GUNICORN_CMD_ARGS
