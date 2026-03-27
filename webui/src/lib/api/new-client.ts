@@ -21,16 +21,21 @@ const getBody = async <T>(c: Response | Request): Promise<T> => {
   return (c as Response).text() as Promise<T>;
 };
 
-// NOTE: Update just base url
 const getUrl = (contextUrl: string): string => {
   const url = new URL(contextUrl);
-  const origin = url.origin;
   const pathname = url.pathname;
   const search = url.search;
 
-  const requestUrl = new URL(`${origin}${pathname}${search}`);
+  const base =
+    typeof process !== 'undefined' && process.env?.API_BASE_URL
+      ? process.env.API_BASE_URL
+      : (import.meta.env.VITE_API_URL ?? 'http://localhost:8000');
 
-  return requestUrl.toString();
+  // base may be a relative path (e.g. '/api' in local dev via Vite proxy)
+  // in that case, fall back to localhost as the origin
+  const absoluteBase = base.startsWith('http') ? base : `http://localhost:8000`;
+
+  return new URL(`${absoluteBase}${pathname}${search}`).toString();
 };
 
 const getHeaders = (headers?: HeadersInit): HeadersInit => {
