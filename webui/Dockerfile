@@ -26,7 +26,7 @@ WORKDIR /app
 
 # Install dependencies first for layer-cache efficiency.
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Copy the rest of the source.
 COPY . .
