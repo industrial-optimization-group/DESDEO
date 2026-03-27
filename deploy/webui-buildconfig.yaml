@@ -20,8 +20,8 @@ spec:
   source:
     type: Git
     git:
-      uri: https://github.com/industrial-optimization-group/DESDEO.git
-      ref: <DEPLOY_BRANCH>
+      uri: https://github.com/gialmisi/DESDEO.git
+      ref: rahti-deploy
     # Only the webui/ subtree is needed as the Docker build context.
     contextDir: webui
 
@@ -34,6 +34,9 @@ spec:
       buildArgs:
       - name: VITE_API_URL
         value: "https://gialmisi-desdeo-api.rahtiapp.fi"
+      env:
+      - name: NODE_OPTIONS
+        value: "--max-old-space-size=3072"
 
   # ── Output ───────────────────────────────────────────────────────────────
   output:
@@ -53,10 +56,10 @@ spec:
   # npm ci + vite build is memory-hungry; 2Gi is usually sufficient.
   resources:
     requests:
-      memory: "1Gi"
+      memory: "2Gi"
       cpu: "500m"
     limits:
-      memory: "2Gi"
+      memory: "4Gi"
       cpu: "1"
 
   runPolicy: Serial

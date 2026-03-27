@@ -21,8 +21,7 @@ metadata:
   labels:
     app: desdeo-postgres
 spec:
-  # ClusterIP only — Postgres is not exposed outside the cluster.
-  clusterIP: None          # headless service for StatefulSet DNS
+  clusterIP: None
   selector:
     app: desdeo-postgres
   ports:
@@ -49,12 +48,12 @@ spec:
     spec:
       containers:
       - name: postgres
-        image: docker.io/bitnami/postgresql:16
+        image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql:16-el10
         ports:
         - containerPort: 5432
           name: postgres
         env:
-        - name: POSTGRESQL_USERNAME
+        - name: POSTGRESQL_USER
           valueFrom:
             secretKeyRef:
               name: desdeo-secrets
@@ -66,14 +65,9 @@ spec:
               key: POSTGRES_PASSWORD
         - name: POSTGRESQL_DATABASE
           value: desdeo
-        - name: POSTGRESQL_POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: desdeo-secrets
-              key: POSTGRES_SUPERUSER_PASSWORD
         volumeMounts:
         - name: postgres-data
-          mountPath: /bitnami/postgresql
+          mountPath: /var/lib/pgsql/data
         resources:
           requests:
             memory: "256Mi"
@@ -81,23 +75,24 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
-        livenessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - pg_isready -U $POSTGRESQL_USERNAME -d desdeo
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          failureThreshold: 6
         readinessProbe:
           exec:
             command:
             - /bin/sh
             - -c
-            - pg_isready -U $POSTGRESQL_USERNAME -d desdeo
-          initialDelaySeconds: 5
-          periodSeconds: 5
+            - psql -U $POSTGRESQL_USER -d desdeo -c "SELECT 1"
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 6
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - psql -U $POSTGRESQL_USER -d desdeo -c "SELECT 1"
+          initialDelaySeconds: 30
+          periodSeconds: 20
+          failureThreshold: 3
   volumeClaimTemplates:
   - metadata:
       name: postgres-data

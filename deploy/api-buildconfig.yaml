@@ -24,9 +24,9 @@ spec:
   source:
     type: Git
     git:
-      uri: https://github.com/industrial-optimization-group/DESDEO.git
+      uri: https://github.com/gialmisi/DESDEO.git
       # Replace with the branch you want to track (e.g. master, deploy, main).
-      ref: <DEPLOY_BRANCH>
+      ref: rahti-deploy
     # No contextDir: the pyproject.toml and .s2i/ are at the repo root.
 
   # ── Build strategy ───────────────────────────────────────────────────────
