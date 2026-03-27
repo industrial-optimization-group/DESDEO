@@ -1,0 +1,61 @@
+# deploy/builder-buildconfig.yaml
+#
+# BuildConfig that produces the custom DESDEO S2I builder image.
+# Uses Docker strategy to build desdeo-s2i-buildimage.Dockerfile
+# from the repository root.
+#
+# This only needs to be (re)built when:
+#   - The Dockerfile changes
+#   - The solver binaries release is updated
+#   - The base UBI8 image receives a security update (ImageChange trigger)
+#
+# To trigger a manual rebuild:
+#   oc start-build desdeo-builder --follow
+#
+# The output image is stored in the desdeo-builder ImageStream and
+# referenced by the api-buildconfig.yaml as the S2I builder.
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: desdeo-builder
+  labels:
+    app: desdeo-api
+    component: builder-image
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/gialmisi/DESDEO.git
+      ref: rahti-deploy
+
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: desdeo-s2i-buildimage.Dockerfile
+      # The Dockerfile temporarily switches to root to install packages,
+      # then switches back to UID 1001. This is expected and required.
+      noCache: false
+
+  output:
+    to:
+      kind: ImageStreamTag
+      name: desdeo-builder:latest
+
+  triggers:
+    # Rebuild when the base UBI8 image receives updates (security patches).
+    - type: ImageChange
+      imageChange: {}
+    # Manual / API trigger.
+    - type: ConfigChange
+
+  # The builder image download includes solver binaries (~100MB).
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "1"
+
+  runPolicy: Serial

@@ -16,7 +16,6 @@ metadata:
   labels:
     app: desdeo-webui
 spec:
-  # ── Source ───────────────────────────────────────────────────────────────
   source:
     type: Git
     git:
@@ -25,35 +24,31 @@ spec:
     # Only the webui/ subtree is needed as the Docker build context.
     contextDir: webui
 
-  # ── Build strategy ───────────────────────────────────────────────────────
   strategy:
     type: Docker
     dockerStrategy:
       dockerfilePath: Dockerfile
       # Build arguments — passed as ARG to the Dockerfile.
       buildArgs:
-      - name: VITE_API_URL
-        value: "https://gialmisi-desdeo-api.rahtiapp.fi"
+        - name: VITE_API_URL
+          value: "https://gialmisi-desdeo-api.rahtiapp.fi"
       env:
-      - name: NODE_OPTIONS
-        value: "--max-old-space-size=3072"
+        - name: NODE_OPTIONS
+          value: "--max-old-space-size=3072"
 
-  # ── Output ───────────────────────────────────────────────────────────────
   output:
     to:
       kind: ImageStreamTag
       name: desdeo-webui:latest
 
-  # ── Triggers ─────────────────────────────────────────────────────────────
   triggers:
-  - type: GitHub
-    github:
-      secretReference:
-        name: desdeo-secrets
-  - type: ConfigChange
+    - type: GitHub
+      github:
+        secretReference:
+          name: desdeo-secrets
+    - type: ConfigChange
 
-  # ── Build pod resources ───────────────────────────────────────────────────
-  # npm ci + vite build is memory-hungry; 2Gi is usually sufficient.
+  # npm install + vite build is memory-hungry; 2Gi is usually sufficient.
   resources:
     requests:
       memory: "2Gi"

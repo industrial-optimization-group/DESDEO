@@ -7,10 +7,10 @@
 #   oc apply -f deploy/postgres.yaml
 #
 # Bitnami env var names differ from the official postgres image:
-#   POSTGRESQL_USERNAME  →  creates a non-superuser (matches DATABASE_URL user)
-#   POSTGRESQL_PASSWORD  →  password for POSTGRESQL_USERNAME
-#   POSTGRESQL_DATABASE  →  database to create on first start
-#   POSTGRESQL_POSTGRES_PASSWORD  →  password for the postgres superuser
+#   POSTGRESQL_USERNAME: creates a non-superuser (matches DATABASE_URL user)
+#   POSTGRESQL_PASSWORD: password for POSTGRESQL_USERNAME
+#   POSTGRESQL_DATABASE: database to create on first start
+#   POSTGRESQL_POSTGRES_PASSWORD: password for the postgres superuser
 #
 # Data is persisted in the PVC mounted at /bitnami/postgresql.
 ---
@@ -25,9 +25,9 @@ spec:
   selector:
     app: desdeo-postgres
   ports:
-  - name: postgres
-    port: 5432
-    targetPort: 5432
+    - name: postgres
+      port: 5432
+      targetPort: 5432
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -47,57 +47,57 @@ spec:
         app: desdeo-postgres
     spec:
       containers:
-      - name: postgres
-        image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql:16-el10
-        ports:
-        - containerPort: 5432
-          name: postgres
-        env:
-        - name: POSTGRESQL_USER
-          valueFrom:
-            secretKeyRef:
-              name: desdeo-secrets
-              key: POSTGRES_USER
-        - name: POSTGRESQL_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: desdeo-secrets
-              key: POSTGRES_PASSWORD
-        - name: POSTGRESQL_DATABASE
-          value: desdeo
-        volumeMounts:
-        - name: postgres-data
-          mountPath: /var/lib/pgsql/data
+        - name: postgres
+          image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql:16-el10
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRESQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: desdeo-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: desdeo-secrets
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRESQL_DATABASE
+              value: desdeo
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/pgsql/data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - psql -U $POSTGRESQL_USER -d desdeo -c "SELECT 1"
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - psql -U $POSTGRESQL_USER -d desdeo -c "SELECT 1"
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 3
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "100m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
-        readinessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - psql -U $POSTGRESQL_USER -d desdeo -c "SELECT 1"
-          initialDelaySeconds: 15
-          periodSeconds: 10
-          failureThreshold: 6
-        livenessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - psql -U $POSTGRESQL_USER -d desdeo -c "SELECT 1"
-          initialDelaySeconds: 30
-          periodSeconds: 20
-          failureThreshold: 3
-  volumeClaimTemplates:
-  - metadata:
-      name: postgres-data
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      resources:
-        requests:
-          storage: 2Gi
+            storage: 2Gi

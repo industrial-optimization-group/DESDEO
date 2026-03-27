@@ -29,7 +29,7 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 0     # zero-downtime: new pod must be ready before old is removed
+      maxUnavailable: 0
       maxSurge: 1
   template:
     metadata:
@@ -37,76 +37,76 @@ spec:
         app: desdeo-api
     spec:
       containers:
-      - name: api
-        # Placeholder: the image change annotation above overwrites this on deploy.
-        image: desdeo-api:latest
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 8080
-          name: http
-          protocol: TCP
-        env:
-        - name: DESDEO_PRODUCTION
-          value: "true"
-        - name: AUTHJWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: desdeo-secrets
-              key: AUTHJWT_SECRET
-        - name: DB_HOST
-          valueFrom:
-            secretKeyRef:
-              name: desdeo-secrets
-              key: DB_HOST
-        - name: DB_PORT
-          valueFrom:
-            secretKeyRef:
-              name: desdeo-secrets
-              key: DB_PORT
-        - name: DB_NAME
-          valueFrom:
-            secretKeyRef:
-              name: desdeo-secrets
-              key: DB_NAME
-        - name: DB_USER
-          valueFrom:
-            secretKeyRef:
-              name: desdeo-secrets
-              key: DB_USER
-        - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: desdeo-secrets
-              key: DB_PASSWORD
-        - name: CORS_ORIGINS
-          value: '["https://gialmisi-desdeo-webui.rahtiapp.fi"]'
-        - name: COOKIE_DOMAIN
-          value: "rahtiapp.fi"
-        - name: APP_MODULE
-          value: "desdeo.api.app:app"
-        - name: GUNICORN_CMD_ARGS
-          value: "--bind=0.0.0.0:8080 --workers=1 --access-logfile=- --worker-class uvicorn.workers.UvicornWorker"
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
-            memory: "1Gi"
-            cpu: "1"
-        readinessProbe:
-          httpGet:
-            path: /health     # adjust if the FastAPI app exposes a different health endpoint
-            port: 8080
-          initialDelaySeconds: 15
-          periodSeconds: 10
-          failureThreshold: 3
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 20
-          failureThreshold: 3
+        - name: api
+          # Placeholder: the image change annotation above overwrites this on deploy.
+          image: desdeo-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          env:
+            - name: DESDEO_PRODUCTION
+              value: "true"
+            - name: AUTHJWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: desdeo-secrets
+                  key: AUTHJWT_SECRET
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: desdeo-secrets
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: desdeo-secrets
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: desdeo-secrets
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: desdeo-secrets
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: desdeo-secrets
+                  key: DB_PASSWORD
+            - name: CORS_ORIGINS
+              value: '["https://gialmisi-desdeo-webui.rahtiapp.fi"]'
+            - name: COOKIE_DOMAIN
+              value: "rahtiapp.fi"
+            - name: APP_MODULE
+              value: "desdeo.api.app:app"
+            - name: GUNICORN_CMD_ARGS
+              value: "--bind=0.0.0.0:8080 --workers=1 --access-logfile=- --worker-class uvicorn.workers.UvicornWorker"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 3
 ---
 apiVersion: v1
 kind: Service
@@ -118,9 +118,9 @@ spec:
   selector:
     app: desdeo-api
   ports:
-  - name: http
-    port: 8080
-    targetPort: 8080
+    - name: http
+      port: 8080
+      targetPort: 8080
 ---
 apiVersion: route.openshift.io/v1
 kind: Route
