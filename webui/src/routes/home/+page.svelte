@@ -11,13 +11,30 @@
 
 
 	let { data } = $props();
-	const { form, enhance, errors, submitting } = $derived(superForm(data.form,{
+	const { form, enhance, errors, submitting, message } = $derived(superForm(data.form,{
 		validators: zod4(loginSchema),
 		validationMethod: 'onblur'
 	}
 	));
 
-	let loginError: string | null = null; // whether login is successful or not
+	let loginError: string | null = $state(null);
+
+	$effect(() => {loginError = $message ?? null;})
+
+	//prevUsername, prevPassword and effect are used to clear error message when user starts typing again after login error
+	let prevUsername = '';
+	let prevPassword = '';
+
+	$effect(() => {
+		if (
+		$form.username !== prevUsername ||
+		$form.password !== prevPassword
+		) {
+			loginError = null;
+			prevUsername = $form.username;
+			prevPassword = $form.password;
+		}
+	})
 </script>
 
 <svelte:head>
@@ -54,7 +71,7 @@
 								name="username" 
 								placeholder="Enter your username" 
 								bind:value={$form.username} 
-								class={$errors.username ? 'border-red-500' : ''} 
+								class={$errors.username || loginError ? 'border-red-500' : ''}
 								required 
 							/>
 							{#if $errors.username}
@@ -74,14 +91,15 @@
 								name="password"
 								placeholder="Enter your password"
 								bind:value={$form.password}
-								class={$errors.password ? 'border-red-500' : ''}
+								class={$errors.password || loginError ? 'border-red-500' : ''}
 								required
 							/>
 							{#if $errors.password}
 								<small class="text-red-500">{$errors.password}</small>
 							{/if}
 						</div>
-						<Button type="submit" class="w-full" disabled={$submitting}>
+
+						<Button type="submit" class="w-full" disabled={$submitting || $form.username === "" || $form.password === ""}>
 							{#if $submitting}
 								<LoadingSpinner/>
 								Logging in...
