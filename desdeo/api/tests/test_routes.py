@@ -683,11 +683,13 @@ def test_nimbus_save_and_delete_save(client: TestClient):
 
 def test_add_new_dm(client: TestClient):
     """Test that adding a decision maker works."""
+    access_token = login(client)
+
     # Create a new user to the database
     good_response = client.post(
         "/add_new_dm",
         data={"username": "new_dm", "password": "new_dm", "grant_type": "password"},
-        headers={"content-type": "application/x-www-form-urlencoded"},
+        headers={"Authorization": f"Bearer {access_token}", "content-type": "application/x-www-form-urlencoded"},
     )
     assert good_response.status_code == status.HTTP_201_CREATED
 
@@ -695,7 +697,7 @@ def test_add_new_dm(client: TestClient):
     bad_response = client.post(
         "/add_new_dm",
         data={"username": "new_dm", "password": "new_dm", "grant_type": "password"},
-        headers={"content-type": "application/x-www-form-urlencoded"},
+        headers={"Authorization": f"Bearer {access_token}", "content-type": "application/x-www-form-urlencoded"},
     )
     assert bad_response.status_code == status.HTTP_409_CONFLICT
 
@@ -713,10 +715,14 @@ def test_add_new_analyst(client: TestClient):
     assert nologin_response.status_code == status.HTTP_401_UNAUTHORIZED
 
     # Try to create an analyst using a dm account.
+    analyst_token_for_setup = login(client)
     response = client.post(
         "/add_new_dm",
         data={"username": "new_dm", "password": "new_dm", "grant_type": "password"},
-        headers={"content-type": "application/x-www-form-urlencoded"},
+        headers={
+            "Authorization": f"Bearer {analyst_token_for_setup}",
+            "content-type": "application/x-www-form-urlencoded",
+        },
     )
     assert response.status_code == status.HTTP_201_CREATED
 
@@ -836,7 +842,7 @@ def test_group_operations(client: TestClient):
     response = client.post(
         "/add_new_dm",
         data={"username": "new_dm", "password": "new_dm", "grant_type": "password"},
-        headers={"content-type": "application/x-www-form-urlencoded"},
+        headers={"Authorization": f"Bearer {access_token}", "content-type": "application/x-www-form-urlencoded"},
     )
     assert response.status_code == status.HTTP_201_CREATED
 
@@ -1047,7 +1053,7 @@ def test_gdm_score_bands(client: TestClient):
     response = client.post(
         "/add_new_dm",
         data={"username": "dm", "password": "dm", "grant_type": "password"},
-        headers={"content-type": "application/x-www-form-urlencoded"},
+        headers={"Authorization": f"Bearer {access_token}", "content-type": "application/x-www-form-urlencoded"},
     )
     assert response.status_code == 201
 

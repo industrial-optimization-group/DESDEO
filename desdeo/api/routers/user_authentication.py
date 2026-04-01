@@ -335,6 +335,32 @@ def add_user_to_database(
         )
 
 
+@router.get("/users/dms")
+def get_dm_users(
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> list[UserPublic]:
+    """Return all users with the decision maker role. Requires analyst or admin.
+
+    Args:
+        user (Annotated[User, Depends]): the current user.
+        session (Annotated[Session, Depends]): the database session.
+
+    Returns:
+        list[UserPublic]: public information for all DM users.
+
+    Raises:
+        HTTPException: if the current user is not an analyst or admin.
+    """
+    if user.role not in (UserRole.analyst, UserRole.admin):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only analysts and admins can list users.",
+        )
+    statement = select(User).where(User.role == UserRole.dm)
+    return list(session.exec(statement).all())
+
+
 @router.get("/user_info")
 def get_current_user_info(user: Annotated[User, Depends(get_current_user)]) -> UserPublic:
     """Return information about the current user.

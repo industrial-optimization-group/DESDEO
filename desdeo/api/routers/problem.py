@@ -116,12 +116,15 @@ def get_problem(
 def add_problem(
     request: Annotated[Problem, Depends(parse_problem_json)],
     context: Annotated[SessionContext, Depends(SessionContextGuard().post)],
+    target_user_id: int | None = None,
 ) -> ProblemInfo:
     """Add a newly defined problem to the database.
 
     Args:
         request (Problem): the JSON representation of the problem.
         context (Annotated[SessionContext, Depends): the session context.
+        target_user_id (int | None): if provided, assign the problem to this user instead of
+            the caller. Only analysts and admins may use this parameter.
 
     Note:
         Users with the role 'guest' may not add new problems.
@@ -141,8 +144,22 @@ def add_problem(
             detail="Guest users are not allowed to add new problems.",
         )
 
+    effective_user = user
+    if target_user_id is not None:
+        if user.role not in (UserRole.analyst, UserRole.admin):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only analysts and admins can add problems on behalf of other users.",
+            )
+        effective_user = db_session.get(User, target_user_id)
+        if effective_user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with id={target_user_id} not found.",
+            )
+
     try:
-        problem_db = ProblemDB.from_problem(request, user=user)
+        problem_db = ProblemDB.from_problem(request, user=effective_user)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -160,12 +177,15 @@ def add_problem(
 def add_problem_json(
     json_file: UploadFile,
     context: Annotated[SessionContext, Depends(SessionContextGuard().post)],
+    target_user_id: int | None = None,
 ) -> ProblemInfo:
     """Adds a problem to the database based on its JSON definition.
 
     Args:
         json_file (UploadFile): a file in JSON format describing the problem.
         context (Annotated[SessionContext, Depends): the session context.
+        target_user_id (int | None): if provided, assign the problem to this user instead of
+            the caller. Only analysts and admins may use this parameter.
 
     Raises:
         HTTPException: if the provided `json_file` is empty.
@@ -176,6 +196,20 @@ def add_problem_json(
     """
     user = context.user
     db_session = context.db_session
+
+    effective_user = user
+    if target_user_id is not None:
+        if user.role not in (UserRole.analyst, UserRole.admin):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only analysts and admins can add problems on behalf of other users.",
+            )
+        effective_user = db_session.get(User, target_user_id)
+        if effective_user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with id={target_user_id} not found.",
+            )
 
     raw = json_file.file.read()
 
@@ -188,7 +222,7 @@ def add_problem_json(
         raise HTTPException(status_code=400, detail="Invalid JSON.") from e
 
     problem = Problem.model_validate_json(raw, by_name=True)
-    problem_db = ProblemDB.from_problem(problem, user=user)
+    problem_db = ProblemDB.from_problem(problem, user=effective_user)
 
     db_session.add(problem_db)
     db_session.commit()
