@@ -2,6 +2,7 @@
 
 from typing import TYPE_CHECKING
 
+from pydantic import ConfigDict
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -17,6 +18,8 @@ class CreateSessionRequest(SQLModel):
 
 class InteractiveSessionBase(SQLModel):
     """The base model for representing interactive sessions."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: int | None
     user_id: int | None

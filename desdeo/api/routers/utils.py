@@ -48,6 +48,36 @@ def fetch_problem_with_role_check(user: User, problem_id: int, session: Session)
     return session.exec(statement).first()
 
 
+def fetch_interactive_session_with_role_check(user: User, session_id: int, session: Session) -> InteractiveSessionDB:
+    """Fetch an InteractiveSessionDB by id, bypassing ownership for analysts and admins.
+
+    Args:
+        user (User): the requesting user.
+        session_id (int): id of the interactive session to fetch.
+        session (Session): the database session.
+
+    Raises:
+        HTTPException: when the session is not found (or not owned by the user for non-analysts).
+
+    Returns:
+        InteractiveSessionDB: the matching session.
+    """
+    if user.role in (UserRole.analyst, UserRole.admin):
+        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == session_id)
+    else:
+        statement = select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == session_id,
+            InteractiveSessionDB.user_id == user.id,
+        )
+    result = session.exec(statement).first()
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Could not find interactive session with id={session_id}.",
+        )
+    return result
+
+
 def fetch_interactive_session(
     user: User,
     session: Session,

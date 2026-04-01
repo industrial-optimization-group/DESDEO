@@ -3003,9 +3003,13 @@ export const GetProblemJsonProblemProblemIdJsonGetResponse = zod.unknown();
 
 /**
  * Creates a new interactive session.
+
+If ``target_user_id`` is provided, the session is created on behalf of that user.
+Only analysts and admins may use this parameter.
  * @summary Create New Session
  */
 export const CreateNewSessionSessionNewPostQueryParams = zod.object({
+	target_user_id: zod.union([zod.number(), zod.null()]).optional(),
 	problem_id: zod.union([zod.number(), zod.null()]).optional()
 });
 
@@ -3024,7 +3028,7 @@ export const CreateNewSessionSessionNewPostResponse = zod
 	.describe('The base model for representing interactive sessions.');
 
 /**
- * Return an interactive session with a current user.
+ * Return an interactive session. Analysts and admins may access any session.
  * @summary Get Session
  */
 export const GetSessionSessionGetSessionIdGetParams = zod.object({
@@ -3040,7 +3044,7 @@ export const GetSessionSessionGetSessionIdGetResponse = zod
 	.describe('The base model for representing interactive sessions.');
 
 /**
- * Return all interactive sessions of the current user.
+ * Return interactive sessions. Analysts and admins see all users' sessions; others see only their own.
  * @summary Get All Sessions
  */
 export const GetAllSessionsSessionGetAllGetResponseItem = zod
@@ -3055,7 +3059,7 @@ export const GetAllSessionsSessionGetAllGetResponse = zod.array(
 );
 
 /**
- * Delete an interactive session and all its related states.
+ * Delete an interactive session and all its related states. Analysts and admins may delete any session.
  * @summary Delete Session
  */
 export const DeleteSessionSessionSessionIdDeleteParams = zod.object({

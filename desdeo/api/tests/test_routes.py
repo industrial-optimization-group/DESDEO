@@ -264,8 +264,8 @@ def test_get_all_sessions_success(client: TestClient, session_and_user: dict):
     assert len(data) == 2
 
 
-def test_get_all_sessions_not_found(client: TestClient, session_and_user: dict):
-    """Test get_all returns 404 if user has no sessions."""
+def test_get_all_sessions_empty(client: TestClient, session_and_user: dict):
+    """Test get_all returns 200 + empty list if user has no sessions."""
     access_token = login(client)
 
     response = client.get(
@@ -273,7 +273,8 @@ def test_get_all_sessions_not_found(client: TestClient, session_and_user: dict):
         headers={"Authorization": f"Bearer {access_token}"},
     )
 
-    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == []
 
 
 def test_delete_session_success(client: TestClient, session_and_user: dict):
