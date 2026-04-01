@@ -475,12 +475,14 @@ def refresh_access_token(
 
 @router.post("/add_new_dm")
 def add_new_dm(
+    user: Annotated[User, Depends(get_current_user)],
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Annotated[Session, Depends(get_session)],
 ) -> JSONResponse:
-    """Add a new user of the role Decision Maker to the database. Requires no login.
+    """Add a new user of the role Decision Maker to the database. Requires a logged in analyst or an admin.
 
     Args:
+        user: Annotated[User, Depends(get_current_user)]: Logged in user with the role "analyst" or "admin".
         form_data (Annotated[OAuth2PasswordRequestForm, Depends()]): The user credentials to add to the database.
         session (Annotated[Session, Depends(get_session)]): the database session.
 
@@ -488,8 +490,15 @@ def add_new_dm(
         JSONResponse: A JSON response
 
     Raises:
-        HTTPException: if username is already in use or if saving to the database fails for some reason.
+        HTTPException: if the logged in user is not an analyst or an admin or if
+        username is already in use or if saving to the database fails for some reason.
     """
+    if user.role not in (UserRole.analyst, UserRole.admin):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Logged in user has insufficient rights.",
+        )
+
     add_user_to_database(
         form_data=form_data,
         role=UserRole.dm,

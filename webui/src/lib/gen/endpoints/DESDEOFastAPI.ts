@@ -5705,3 +5705,27 @@ export const configureGdmGdmScoreBandsConfigurePost = async (
 		}
 	);
 };
+
+/**
+ * @summary Health
+ */
+export type healthHealthGetResponse200 = {
+	data: unknown;
+	status: 200;
+};
+
+export type healthHealthGetResponseSuccess = healthHealthGetResponse200 & {
+	headers: Headers;
+};
+export type healthHealthGetResponse = healthHealthGetResponseSuccess;
+
+export const getHealthHealthGetUrl = () => {
+	return `http://localhost:8000/health`;
+};
+
+export const healthHealthGet = async (options?: RequestInit): Promise<healthHealthGetResponse> => {
+	return customFetch<healthHealthGetResponse>(getHealthHealthGetUrl(), {
+		...options,
+		method: 'GET'
+	});
+};

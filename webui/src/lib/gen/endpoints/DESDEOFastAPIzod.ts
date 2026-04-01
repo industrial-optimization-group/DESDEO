@@ -8006,3 +8006,8 @@ export const ConfigureGdmGdmScoreBandsConfigurePostBody = zod
 	.describe('Configuration for the SCORE bands based GDM.');
 
 export const ConfigureGdmGdmScoreBandsConfigurePostResponse = zod.unknown();
+
+/**
+ * @summary Health
+ */
+export const HealthHealthGetResponse = zod.unknown();
