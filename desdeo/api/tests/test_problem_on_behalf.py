@@ -81,9 +81,10 @@ def test_add_problem_for_dm_as_analyst(client: TestClient, session_and_user: dic
     dm_problems = get_json(client, "/problem/all", dm_token).json()
     assert any(p["name"] == "Simple two-objective Knapsack problem" for p in dm_problems)
 
-    # Analyst should NOT own the problem
-    analyst_problems = get_json(client, "/problem/all", analyst_token).json()
-    assert not any(p["name"] == "Simple two-objective Knapsack problem" for p in analyst_problems)
+    # Analyst sees all problems (including the DM's), but user_id must belong to the DM
+    all_problems = get_json(client, "/problem/all_info", analyst_token).json()
+    created = next(p for p in all_problems if p["name"] == "Simple two-objective Knapsack problem")
+    assert created["user_id"] == dm_id
 
 
 def test_add_problem_for_dm_as_dm_forbidden(client: TestClient):
@@ -162,3 +163,115 @@ def test_add_problem_json_for_dm_as_dm_forbidden(client: TestClient):
         jdm_a_token,
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def _add_problem_as_dm(client: TestClient, dm_token: str) -> int:
+    """Helper: DM adds a problem and returns its id."""
+    problem = simple_knapsack_vectors()
+    response = post_json(client, "/problem/add", problem.model_dump(), dm_token)
+    assert response.status_code == status.HTTP_200_OK
+    return response.json()["id"]
+
+
+def test_analyst_sees_all_problems(client: TestClient):
+    """Analyst sees problems from all users in GET /problem/all_info."""
+    analyst_token = login(client)
+    _add_dm(client, analyst_token, "vis_dm", "vis_dm")
+    dm_token = login(client, username="vis_dm", password="vis_dm")  # noqa: S106
+
+    dm_problem_id = _add_problem_as_dm(client, dm_token)
+
+    response = get_json(client, "/problem/all_info", analyst_token)
+    assert response.status_code == status.HTTP_200_OK
+    ids = [p["id"] for p in response.json()]
+    assert dm_problem_id in ids
+
+
+def test_dm_only_sees_own_problems(client: TestClient):
+    """A DM cannot see another DM's problems in GET /problem/all_info."""
+    analyst_token = login(client)
+    _add_dm(client, analyst_token, "dm_x", "dm_x")
+    _add_dm(client, analyst_token, "dm_y", "dm_y")
+
+    dm_x_token = login(client, username="dm_x", password="dm_x")  # noqa: S106
+    dm_y_token = login(client, username="dm_y", password="dm_y")  # noqa: S106
+
+    dm_x_problem_id = _add_problem_as_dm(client, dm_x_token)
+
+    # dm_y lists problems — must not see dm_x's problem
+    response = get_json(client, "/problem/all_info", dm_y_token)
+    assert response.status_code == status.HTTP_200_OK
+    ids = [p["id"] for p in response.json()]
+    assert dm_x_problem_id not in ids
+
+
+def test_analyst_can_get_problem_json_for_dm(client: TestClient):
+    """Analyst can download a DM's problem as JSON."""
+    analyst_token = login(client)
+    _add_dm(client, analyst_token, "json_owner", "json_owner")
+    dm_token = login(client, username="json_owner", password="json_owner")  # noqa: S106
+
+    dm_problem_id = _add_problem_as_dm(client, dm_token)
+
+    response = get_json(client, f"/problem/{dm_problem_id}/json", analyst_token)
+    assert response.status_code == status.HTTP_200_OK
+
+
+def test_dm_cannot_get_problem_json_of_other_dm(client: TestClient):
+    """A DM cannot download another DM's problem JSON."""
+    analyst_token = login(client)
+    _add_dm(client, analyst_token, "owner_dm", "owner_dm")
+    _add_dm(client, analyst_token, "thief_dm", "thief_dm")
+
+    owner_token = login(client, username="owner_dm", password="owner_dm")  # noqa: S106
+    thief_token = login(client, username="thief_dm", password="thief_dm")  # noqa: S106
+
+    owner_problem_id = _add_problem_as_dm(client, owner_token)
+
+    response = get_json(client, f"/problem/{owner_problem_id}/json", thief_token)
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_analyst_can_delete_dm_problem(client: TestClient):
+    """Analyst can delete a DM's problem."""
+    analyst_token = login(client)
+    _add_dm(client, analyst_token, "del_dm", "del_dm")
+    dm_token = login(client, username="del_dm", password="del_dm")  # noqa: S106
+
+    dm_problem_id = _add_problem_as_dm(client, dm_token)
+
+    response = client.delete(
+        f"/problem/{dm_problem_id}",
+        headers={"Authorization": f"Bearer {analyst_token}"},
+    )
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+
+
+def test_analyst_can_assign_solver_for_dm_problem(client: TestClient):
+    """Analyst can assign a solver to a DM's problem."""
+    analyst_token = login(client)
+    _add_dm(client, analyst_token, "solver_dm", "solver_dm")
+    dm_token = login(client, username="solver_dm", password="solver_dm")  # noqa: S106
+
+    dm_problem_id = _add_problem_as_dm(client, dm_token)
+
+    response = post_json(
+        client,
+        "/problem/assign_solver",
+        {"problem_id": dm_problem_id, "solver_string_representation": "scipy_minimize"},
+        analyst_token,
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+
+def test_analyst_can_get_repr_solution_sets_for_dm(client: TestClient):
+    """Analyst can list representative solution sets for a DM's problem."""
+    analyst_token = login(client)
+    _add_dm(client, analyst_token, "repr_dm", "repr_dm")
+    dm_token = login(client, username="repr_dm", password="repr_dm")  # noqa: S106
+
+    dm_problem_id = _add_problem_as_dm(client, dm_token)
+
+    response = get_json(client, f"/problem/{dm_problem_id}/all_representative_solution_sets", analyst_token)
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == []

@@ -1715,10 +1715,12 @@ export type DeleteProblemProblemProblemIdDeleteParams = {
 };
 
 export type AddProblemProblemAddPostParams = {
+	target_user_id?: number | null;
 	problem_id?: number | null;
 };
 
 export type AddProblemJsonProblemAddJsonPostParams = {
+	target_user_id?: number | null;
 	problem_id?: number | null;
 };
 
@@ -1843,6 +1845,43 @@ export type GetSessionTreeMethodEnautilusSessionTreeSessionIdGetParams = {
 
 export type ConfigureGdmGdmScoreBandsConfigurePostParams = {
 	group_id: number;
+};
+
+/**
+ * Return all users with the decision maker role. Requires analyst or admin.
+
+Args:
+    user (Annotated[User, Depends]): the current user.
+    session (Annotated[Session, Depends]): the database session.
+
+Returns:
+    list[UserPublic]: public information for all DM users.
+
+Raises:
+    HTTPException: if the current user is not an analyst or admin.
+ * @summary Get Dm Users
+ */
+export type getDmUsersUsersDmsGetResponse200 = {
+	data: UserPublic[];
+	status: 200;
+};
+
+export type getDmUsersUsersDmsGetResponseSuccess = getDmUsersUsersDmsGetResponse200 & {
+	headers: Headers;
+};
+export type getDmUsersUsersDmsGetResponse = getDmUsersUsersDmsGetResponseSuccess;
+
+export const getGetDmUsersUsersDmsGetUrl = () => {
+	return `http://localhost:8000/users/dms`;
+};
+
+export const getDmUsersUsersDmsGet = async (
+	options?: RequestInit
+): Promise<getDmUsersUsersDmsGetResponse> => {
+	return customFetch<getDmUsersUsersDmsGetResponse>(getGetDmUsersUsersDmsGetUrl(), {
+		...options,
+		method: 'GET'
+	});
 };
 
 /**
@@ -2038,9 +2077,10 @@ export const refreshAccessTokenRefreshPost = async (
 };
 
 /**
- * Add a new user of the role Decision Maker to the database. Requires no login.
+ * Add a new user of the role Decision Maker to the database. Requires a logged in analyst or an admin.
 
 Args:
+    user: Annotated[User, Depends(get_current_user)]: Logged in user with the role "analyst" or "admin".
     form_data (Annotated[OAuth2PasswordRequestForm, Depends()]): The user credentials to add to the database.
     session (Annotated[Session, Depends(get_session)]): the database session.
 
@@ -2048,7 +2088,8 @@ Returns:
     JSONResponse: A JSON response
 
 Raises:
-    HTTPException: if username is already in use or if saving to the database fails for some reason.
+    HTTPException: if the logged in user is not an analyst or an admin or if
+    username is already in use or if saving to the database fails for some reason.
  * @summary Add New Dm
  */
 export type addNewDmAddNewDmPostResponse200 = {
@@ -2197,13 +2238,14 @@ export const addNewAnalystAddNewAnalystPost = async (
 };
 
 /**
- * Get information on all the current user's problems.
+ * Get information on problems. Analysts and admins see all users' problems.
 
 Args:
     user (Annotated[User, Depends): the current user.
+    db_session (Annotated[Session, Depends]): the database session.
 
 Returns:
-    list[ProblemInfoSmall]: a list of information on all the problems.
+    list[ProblemInfoSmall]: a list of information on the problems.
  * @summary Get Problems
  */
 export type getProblemsProblemAllGetResponse200 = {
@@ -2230,13 +2272,14 @@ export const getProblemsProblemAllGet = async (
 };
 
 /**
- * Get detailed information on all the current user's problems.
+ * Get detailed information on problems. Analysts and admins see all users' problems.
 
 Args:
     user (Annotated[User, Depends): the current user.
+    db_session (Annotated[Session, Depends]): the database session.
 
 Returns:
-    list[ProblemInfo]: a list of the detailed information on all the problems.
+    list[ProblemInfo]: a list of the detailed information on the problems.
  * @summary Get Problems Info
  */
 export type getProblemsInfoProblemAllInfoGetResponse200 = {
@@ -2403,6 +2446,8 @@ export const deleteProblemProblemProblemIdDelete = async (
 Args:
     request (Problem): the JSON representation of the problem.
     context (Annotated[SessionContext, Depends): the session context.
+    target_user_id (int | None): if provided, assign the problem to this user instead of
+        the caller. Only analysts and admins may use this parameter.
 
 Note:
     Users with the role 'guest' may not add new problems.
@@ -2474,6 +2519,8 @@ export const addProblemProblemAddPost = async (
 Args:
     json_file (UploadFile): a file in JSON format describing the problem.
     context (Annotated[SessionContext, Depends): the session context.
+    target_user_id (int | None): if provided, assign the problem to this user instead of
+        the caller. Only analysts and admins may use this parameter.
 
 Raises:
     HTTPException: if the provided `json_file` is empty.

@@ -8,6 +8,30 @@
 import * as zod from 'zod';
 
 /**
+ * Return all users with the decision maker role. Requires analyst or admin.
+
+Args:
+    user (Annotated[User, Depends]): the current user.
+    session (Annotated[Session, Depends]): the database session.
+
+Returns:
+    list[UserPublic]: public information for all DM users.
+
+Raises:
+    HTTPException: if the current user is not an analyst or admin.
+ * @summary Get Dm Users
+ */
+export const GetDmUsersUsersDmsGetResponseItem = zod
+	.object({
+		username: zod.string(),
+		id: zod.number(),
+		role: zod.enum(['guest', 'dm', 'analyst', 'admin']).describe('Possible user roles.'),
+		group_ids: zod.union([zod.array(zod.number()), zod.null()])
+	})
+	.describe('The object to handle public user information.');
+export const GetDmUsersUsersDmsGetResponse = zod.array(GetDmUsersUsersDmsGetResponseItem);
+
+/**
  * Return information about the current user.
 
 Args:
@@ -80,9 +104,10 @@ Returns:
 export const RefreshAccessTokenRefreshPostResponse = zod.unknown();
 
 /**
- * Add a new user of the role Decision Maker to the database. Requires no login.
+ * Add a new user of the role Decision Maker to the database. Requires a logged in analyst or an admin.
 
 Args:
+    user: Annotated[User, Depends(get_current_user)]: Logged in user with the role "analyst" or "admin".
     form_data (Annotated[OAuth2PasswordRequestForm, Depends()]): The user credentials to add to the database.
     session (Annotated[Session, Depends(get_session)]): the database session.
 
@@ -90,7 +115,8 @@ Returns:
     JSONResponse: A JSON response
 
 Raises:
-    HTTPException: if username is already in use or if saving to the database fails for some reason.
+    HTTPException: if the logged in user is not an analyst or an admin or if
+    username is already in use or if saving to the database fails for some reason.
  * @summary Add New Dm
  */
 export const AddNewDmAddNewDmPostResponse = zod.unknown();
@@ -114,13 +140,14 @@ Raises:
 export const AddNewAnalystAddNewAnalystPostResponse = zod.unknown();
 
 /**
- * Get information on all the current user's problems.
+ * Get information on problems. Analysts and admins see all users' problems.
 
 Args:
     user (Annotated[User, Depends): the current user.
+    db_session (Annotated[Session, Depends]): the database session.
 
 Returns:
-    list[ProblemInfoSmall]: a list of information on all the problems.
+    list[ProblemInfoSmall]: a list of information on the problems.
  * @summary Get Problems
  */
 export const getProblemsProblemAllGetResponseProblemMetadataOneForestMetadataOneItemMetadataTypeDefault = `forest_problem_metadata`;
@@ -209,13 +236,14 @@ export const GetProblemsProblemAllGetResponseItem = zod
 export const GetProblemsProblemAllGetResponse = zod.array(GetProblemsProblemAllGetResponseItem);
 
 /**
- * Get detailed information on all the current user's problems.
+ * Get detailed information on problems. Analysts and admins see all users' problems.
 
 Args:
     user (Annotated[User, Depends): the current user.
+    db_session (Annotated[Session, Depends]): the database session.
 
 Returns:
-    list[ProblemInfo]: a list of the detailed information on all the problems.
+    list[ProblemInfo]: a list of the detailed information on the problems.
  * @summary Get Problems Info
  */
 export const getProblemsInfoProblemAllInfoGetResponseObjectivesItemMaximizeDefault = false;
@@ -1417,6 +1445,8 @@ export const DeleteProblemProblemProblemIdDeleteQueryParams = zod.object({
 Args:
     request (Problem): the JSON representation of the problem.
     context (Annotated[SessionContext, Depends): the session context.
+    target_user_id (int | None): if provided, assign the problem to this user instead of
+        the caller. Only analysts and admins may use this parameter.
 
 Note:
     Users with the role 'guest' may not add new problems.
@@ -1429,6 +1459,7 @@ Returns:
  * @summary Add Problem
  */
 export const AddProblemProblemAddPostQueryParams = zod.object({
+	target_user_id: zod.union([zod.number(), zod.null()]).optional(),
 	problem_id: zod.union([zod.number(), zod.null()]).optional()
 });
 
@@ -2073,6 +2104,8 @@ export const AddProblemProblemAddPostResponse = zod
 Args:
     json_file (UploadFile): a file in JSON format describing the problem.
     context (Annotated[SessionContext, Depends): the session context.
+    target_user_id (int | None): if provided, assign the problem to this user instead of
+        the caller. Only analysts and admins may use this parameter.
 
 Raises:
     HTTPException: if the provided `json_file` is empty.
@@ -2083,6 +2116,7 @@ Returns:
  * @summary Add Problem Json
  */
 export const AddProblemJsonProblemAddJsonPostQueryParams = zod.object({
+	target_user_id: zod.union([zod.number(), zod.null()]).optional(),
 	problem_id: zod.union([zod.number(), zod.null()]).optional()
 });
 

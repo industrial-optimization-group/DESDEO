@@ -43,7 +43,8 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Button } from '$lib/components/ui/button';
-	import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
+	import type { ProblemInfo, UserPublic } from '$lib/gen/endpoints/DESDEOFastAPI';
+	import { auth } from '../../stores/auth';
 	import { methodSelection } from '../../stores/methodSelection';
 	import { invalidateAll } from '$app/navigation';
 	import { deleteProblem, downloadProblemJson, getAssignedSolver, getAvailableSolvers, assignSolver, addRepresentativeSolutionSet } from './handler';
@@ -58,6 +59,41 @@
 
 	let { data }: PageProps = $props();
 	let problemList = $derived(data.problemList);
+	let dmUsers = $derived(data.dmUsers as UserPublic[]);
+
+	const isAnalystOrAdmin = $derived(
+		$auth.user?.role === 'analyst' || $auth.user?.role === 'admin'
+	);
+
+	const ownerMap = $derived(
+		Object.fromEntries(dmUsers.map((u: UserPublic) => [u.id, u.username]))
+	);
+
+	function getOwnerLabel(userId: number): string {
+		if (userId === $auth.user?.id) return $auth.user?.username ?? String(userId);
+		return ownerMap[userId] ?? `User #${userId}`;
+	}
+
+	// Unique users that have at least one problem in the list (for the filter dropdown)
+	const usersWithProblems = $derived(
+		isAnalystOrAdmin
+			? [...new Map(problemList.map((p: ProblemInfo) => [p.user_id, p.user_id])).keys()].map((id) => ({
+					id,
+					label: getOwnerLabel(id)
+				}))
+			: []
+	);
+
+	// 'me' = current user, 'all' = everyone, '<id>' = specific user id
+	let selectedFilter = $state('me');
+
+	const filteredProblemList = $derived(
+		selectedFilter === 'all'
+			? problemList
+			: selectedFilter === 'me'
+				? problemList.filter((p: ProblemInfo) => p.user_id === $auth.user?.id)
+				: problemList.filter((p: ProblemInfo) => p.user_id === Number(selectedFilter))
+	);
 	let selectedProblem = $state<ProblemInfo | undefined>(undefined);
 	let expandedObjectives = $state(new Set<number>());
 	let expandedConstraints = $state(new Set<number>());
@@ -263,12 +299,39 @@
 		of preferences you want to utilize.
 	</p>
 	{#if problemList.length === 0}
-		<p class="text-gray-600">You have not defined any problems yet.</p>
+		<p class="text-gray-600">
+			{isAnalystOrAdmin ? 'No problems have been defined yet.' : 'You have not defined any problems yet.'}
+		</p>
 	{:else}
+		{#if isAnalystOrAdmin && usersWithProblems.length > 1}
+			<div class="mt-4 flex items-center gap-3">
+				<Label for="user-filter" class="shrink-0 text-sm font-medium">Show problems for</Label>
+				<Select.Root
+					type="single"
+					value={selectedFilter}
+					onValueChange={(v) => {
+						selectedFilter = v || 'me';
+						selectedProblem = undefined;
+					}}
+				>
+					<Select.Trigger id="user-filter" class="w-56">
+						{selectedFilter === 'me' ? ($auth.user?.username ?? 'Myself') : selectedFilter === 'all' ? 'All users' : getOwnerLabel(Number(selectedFilter))}
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="me">{$auth.user?.username ?? 'Myself'}</Select.Item>
+						<Select.Item value="all">All users</Select.Item>
+						{#each usersWithProblems.filter((u) => u.id !== $auth.user?.id) as u}
+							<Select.Item value={String(u.id)}>{u.label}</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</div>
+		{/if}
+
 		<div class="mt-4 grid grid-cols-2 gap-8 sm:grid-cols-1 lg:grid-cols-2">
 			<div class="w-full">
 				<DataTable
-					data={problemList}
+					data={filteredProblemList}
 					onSelect={(e: ProblemInfo) => {
 						selectedProblem = e;
 						console.log('Selected problem:', selectedProblem.id);
@@ -337,6 +400,13 @@
 											{/if}
 										</div>
 									</div>
+									{#if isAnalystOrAdmin}
+										<div class="col-span-2 border-b border-gray-300"></div>
+										<div class="col-span-2 flex items-center">
+											<div class="w-40 font-semibold">Owner</div>
+											<div class="flex-1">{getOwnerLabel(selectedProblem.user_id)}</div>
+										</div>
+									{/if}
 									<div class="col-span-2 border-b border-gray-300"></div>
 								</div>
 							</div>

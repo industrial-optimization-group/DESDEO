@@ -33,9 +33,13 @@ export type ProblemResponse =
 	| { ok: true; data: ProblemInfo }
 	| { ok: false; error: string; status?: number };
 
-export async function createProblem(payload: ProblemPayload): Promise<ProblemResponse> {
+export async function createProblem(
+	payload: ProblemPayload,
+	targetUserId?: number | null
+): Promise<ProblemResponse> {
 	try {
-		const response = await addProblemProblemAddPost(payload as any);
+		const params = targetUserId != null ? { target_user_id: targetUserId } : undefined;
+		const response = await addProblemProblemAddPost(payload as any, params);
 
 		if (response.status !== 200) {
 			return { ok: false, error: 'Failed to create problem.', status: response.status };
@@ -49,10 +53,12 @@ export async function createProblem(payload: ProblemPayload): Promise<ProblemRes
 }
 
 export async function uploadProblemJson(
-	body: BodyAddProblemJsonProblemAddJsonPost
+	body: BodyAddProblemJsonProblemAddJsonPost,
+	targetUserId?: number | null
 ): Promise<ProblemResponse> {
 	try {
-		const response = await addProblemJsonProblemAddJsonPost(body);
+		const params = targetUserId != null ? { target_user_id: targetUserId } : undefined;
+		const response = await addProblemJsonProblemAddJsonPost(body, params);
 
 		if (response.status !== 200) {
 			return { ok: false, error: 'Failed to upload problem JSON.', status: response.status };

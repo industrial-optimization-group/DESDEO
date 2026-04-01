@@ -5,8 +5,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse
-from sqlmodel import Session
+from sqlmodel import Session, select
 
+from desdeo.api.db import get_session
 from desdeo.api.models import (
     ForestProblemMetaData,
     ProblemDB,
@@ -64,28 +65,40 @@ async def parse_problem_json(request: Request) -> Problem:
 
 
 @router.get("/all")
-def get_problems(user: Annotated[User, Depends(get_current_user)]) -> list[ProblemInfoSmall]:
-    """Get information on all the current user's problems.
+def get_problems(
+    user: Annotated[User, Depends(get_current_user)],
+    db_session: Annotated[Session, Depends(get_session)],
+) -> list[ProblemInfoSmall]:
+    """Get information on problems. Analysts and admins see all users' problems.
 
     Args:
         user (Annotated[User, Depends): the current user.
+        db_session (Annotated[Session, Depends]): the database session.
 
     Returns:
-        list[ProblemInfoSmall]: a list of information on all the problems.
+        list[ProblemInfoSmall]: a list of information on the problems.
     """
+    if user.role in (UserRole.analyst, UserRole.admin):
+        return list(db_session.exec(select(ProblemDB)).all())
     return user.problems
 
 
 @router.get("/all_info")
-def get_problems_info(user: Annotated[User, Depends(get_current_user)]) -> list[ProblemInfo]:
-    """Get detailed information on all the current user's problems.
+def get_problems_info(
+    user: Annotated[User, Depends(get_current_user)],
+    db_session: Annotated[Session, Depends(get_session)],
+) -> list[ProblemInfo]:
+    """Get detailed information on problems. Analysts and admins see all users' problems.
 
     Args:
         user (Annotated[User, Depends): the current user.
+        db_session (Annotated[Session, Depends]): the database session.
 
     Returns:
-        list[ProblemInfo]: a list of the detailed information on all the problems.
+        list[ProblemInfo]: a list of the detailed information on the problems.
     """
+    if user.role in (UserRole.analyst, UserRole.admin):
+        return list(db_session.exec(select(ProblemDB)).all())
     return user.problems
 
 
@@ -299,10 +312,10 @@ def select_solver(
         )
 
     # Auth the user
-    if user.id != problem_db.user_id:
+    if user.role not in (UserRole.analyst, UserRole.admin) and user.id != problem_db.user_id:
         raise HTTPException(
             detail="Unauthorized user!",
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_403_FORBIDDEN,
         )
 
     # All good, get on with it.
@@ -406,8 +419,8 @@ def get_all_representative_solution_sets(
         raise HTTPException(status_code=404, detail=f"Problem with ID {problem_id} not found.")
 
     # Check the user
-    if problem_db.user_id != user.id:
-        raise HTTPException(status_code=401, detail="Unauthorized user.")
+    if user.role not in (UserRole.analyst, UserRole.admin) and problem_db.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized user.")
 
     # Fetch metadata
     problem_metadata = problem_db.problem_metadata
@@ -442,8 +455,11 @@ def get_representative_solution_set(
         raise HTTPException(status_code=404, detail=f"Representative set with ID {set_id} not found.")
 
     # Check the user
-    if repr_set.metadata_instance.problem.user_id != context.user.id:
-        raise HTTPException(status_code=401, detail="Unauthorized user.")
+    if (
+        context.user.role not in (UserRole.analyst, UserRole.admin)
+        and repr_set.metadata_instance.problem.user_id != context.user.id
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized user.")
 
     # Return all fields as a dict
     return RepresentativeSolutionSetFull(
@@ -471,10 +487,10 @@ def delete_representative_solution_set(
     if repr_metadata is None:
         raise HTTPException(status_code=404, detail=f"Representative solution set with ID {set_id} not found.")
 
-    # Ensure the user owns the problem this set belongs to
+    # Ensure the user owns the problem this set belongs to (analysts/admins are exempt)
     problem_metadata = repr_metadata.metadata_instance
-    if problem_metadata.problem.user_id != user.id:
-        raise HTTPException(status_code=401, detail="Unauthorized user.")
+    if user.role not in (UserRole.analyst, UserRole.admin) and problem_metadata.problem.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized user.")
 
     # Delete the set
     db_session.delete(repr_metadata)
@@ -494,8 +510,8 @@ def delete_problem(
     if problem_db is None:
         raise HTTPException(status_code=404, detail=f"Problem with ID {problem_id} not found.")
 
-    if problem_db.user_id != user.id:
-        raise HTTPException(status_code=401, detail="Unauthorized user.")
+    if user.role not in (UserRole.analyst, UserRole.admin) and problem_db.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized user.")
 
     db_session.delete(problem_db)
     db_session.commit()
@@ -514,8 +530,8 @@ def get_problem_json(
     if problem_db is None:
         raise HTTPException(status_code=404, detail=f"Problem with ID {problem_id} not found.")
 
-    if problem_db.user_id != user.id:
-        raise HTTPException(status_code=401, detail="Unauthorized user.")
+    if user.role not in (UserRole.analyst, UserRole.admin) and problem_db.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized user.")
 
     problem = Problem.from_problemdb(problem_db)
     return JSONResponse(content=json.loads(problem.model_dump_json()), status_code=status.HTTP_200_OK)

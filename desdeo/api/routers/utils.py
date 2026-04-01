@@ -19,11 +19,33 @@ from desdeo.api.models import (
     RPMSolveRequest,
     StateDB,
     User,
+    UserRole,
 )
 from desdeo.api.models.session import CreateSessionRequest
 from desdeo.api.routers.user_authentication import get_current_user
 
 RequestType = RPMSolveRequest | ENautilusStepRequest | CreateSessionRequest
+
+
+def fetch_problem_with_role_check(user: User, problem_id: int, session: Session) -> ProblemDB | None:
+    """Fetch a ProblemDB by id, bypassing ownership for analysts and admins.
+
+    Args:
+        user (User): the requesting user.
+        problem_id (int): id of the problem to fetch.
+        session (Session): the database session.
+
+    Returns:
+        ProblemDB | None: the matching problem, or None if not found.
+    """
+    if user.role in (UserRole.analyst, UserRole.admin):
+        statement = select(ProblemDB).where(ProblemDB.id == problem_id)
+    else:
+        statement = select(ProblemDB).where(
+            ProblemDB.user_id == user.id,
+            ProblemDB.id == problem_id,
+        )
+    return session.exec(statement).first()
 
 
 def fetch_interactive_session(
@@ -218,18 +240,11 @@ class SessionContextGuard:
         parent_state = None
 
         if request is not None:
-            if hasattr(request, "problem_id"):
-                problem_db = fetch_user_problem(user, request, db_session)
+            if hasattr(request, "problem_id") and request.problem_id is not None:
+                problem_db = fetch_problem_with_role_check(user, request.problem_id, db_session)
 
             if problem_db is None and problem_id is not None:
-
-                class _ProblemOnly:
-                    def __init__(self, problem_id: int):
-                        self.problem_id = problem_id
-                        self.session_id = None
-                        self.parent_state_id = None
-
-                problem_db = fetch_user_problem(user, _ProblemOnly(problem_id), db_session)
+                problem_db = fetch_problem_with_role_check(user, problem_id, db_session)
 
             if hasattr(request, "interactive_session_id") or hasattr(request, "problem_id"):
                 interactive_session = fetch_interactive_session(user, db_session, request)
@@ -242,15 +257,7 @@ class SessionContextGuard:
                     interactive_session=interactive_session,
                 )
         elif problem_id is not None:
-
-            class _ProblemOnly:
-                def __init__(self, problem_id: int):
-                    self.problem_id = problem_id
-                    self.session_id = None
-                    self.parent_state_id = None
-
-            pseudo_request = _ProblemOnly(problem_id)
-            problem_db = fetch_user_problem(user, pseudo_request, db_session)
+            problem_db = fetch_problem_with_role_check(user, problem_id, db_session)
 
         context = SessionContext(
             user=user,
@@ -275,14 +282,7 @@ class SessionContextGuard:
         interactive_session = None
 
         if problem_id is not None:
-
-            class _ProblemOnly:
-                def __init__(self, problem_id: int):
-                    self.problem_id = problem_id
-                    self.session_id = None
-                    self.parent_state_id = None
-
-            problem_db = fetch_user_problem(user, _ProblemOnly(problem_id), db_session)
+            problem_db = fetch_problem_with_role_check(user, problem_id, db_session)
 
         if session_id is not None or (problem_id is not None):
             interactive_session = fetch_interactive_session(
