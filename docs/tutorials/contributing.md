@@ -274,14 +274,15 @@ to us now that DESDEO has been correctly installed, and our
 virtual environment is now setup correctly. Pytest and tests
 are discussed in more detail in the section [Testing](#testing).
 
-If `make` is not available on our system, we may also just run
+If `make` is not available on our system (e.g., on Windows), we can run the
+equivalent pytest command directly:
 
 ```shell
-$ pytest
+$ pytest -n auto -m "not fixme" --disable-warnings
 ```
 
-which runs all possible tests and will likely lead to a few test to not pass,
-which is normal.
+This runs all tests in parallel, skipping those marked as `fixme`, and
+suppresses warnings. Some tests may not pass, which is normal.
 
 To exit the virtual environment, simply run
 
@@ -958,6 +959,25 @@ For examples of existing tests in DESDEO, the reader is encouraged to
 check the directory `tests` at the root of the project and the tests therein.
 [The official documentation](https://docs.pytest.org/en/8.0.x/) for
 pytest is also a valuable resource to check out.
+
+#### Running tests with and without Make
+
+The project includes a `Makefile` with convenient targets for running tests.
+On systems where `make` is not available (e.g., Windows without WSL), the
+equivalent `pytest` commands can be run directly instead.
+
+| Make target | Pytest equivalent | Description |
+|---|---|---|
+| `make test` | `pytest -n auto -m "not fixme" --disable-warnings` | Run standard tests in parallel, skipping `fixme`-marked tests |
+| `make test-api` | `pytest -n auto -m "not fixme" --disable-warnings ./desdeo/api/tests` | Run only the web-API tests |
+| `make test-all` | `pytest` | Run all tests, including slow and skipped ones |
+| `make test-changes` | `pytest --testmon` | Run only tests affected by recent code changes (requires `pytest-testmon`) |
+| `make test-failures` | `pytest --lf -m "not fixme" --disable-warnings` | Re-run only the tests that failed in the last run |
+
+!!! tip
+    The `-n auto` flag runs tests in parallel using all available CPU cores
+    (requires `pytest-xdist`, which is included in the dev dependencies). This
+    significantly speeds up the test suite.
 
 ### Documenting
 
