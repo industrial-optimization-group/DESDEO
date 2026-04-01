@@ -192,3 +192,35 @@ def calculate_score_bands_from_objective_data(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error calculating SCORE bands parameters: {e!r}",
         ) from e
+
+
+@router.get("/debug/{httpcode}", tags=["debug"])
+async def trigger_error(httpcode: int):
+    """Debug endpoint to simulate HTTP errors.
+
+    This endpoint takes a 3-digit HTTP status code as a path parameter
+    and raises the corresponding HTTPException.
+
+    Example usage:
+        /method/generic/debug/404
+        /method/generic/debug/500
+
+    Args:
+        httpcode (int): A valid HTTP status code (100-599)
+
+    Raises:
+        HTTPException: Returns the HTTP error corresponding to `httpcode`.
+
+    Reference:
+        https://fastapi.tiangolo.com/tutorial/handling-errors/
+    """
+    if httpcode < 100 or httpcode > 599:  # noqa: PLR2004
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid HTTP code. Must be between 100 and 599.",
+        )
+
+    raise HTTPException(
+        status_code=httpcode,
+        detail=f"Debug triggered HTTP {httpcode} error",
+    )
