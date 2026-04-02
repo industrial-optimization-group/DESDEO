@@ -5,7 +5,17 @@ import { dev } from '$app/environment';
 // const API = process.env.API_BASE_URL ?? '/';
 
 export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
-  // TODO: check that the request originates from our app, instead of being a third party
+  // Forward access_token cookie to all API requests
+  const accessToken = event.cookies.get("access_token");
+  if (accessToken) {
+    request = new Request(request, {
+      headers: new Headers({
+        ...Object.fromEntries(request.headers.entries()),
+        cookie: `access_token=${accessToken}`,
+      }),
+    });
+  }
+
   const originalRequest = request.clone();
   let res = await fetch(request);
 

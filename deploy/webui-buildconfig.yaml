@@ -1,0 +1,64 @@
+# deploy/webui-buildconfig.yaml
+#
+# BuildConfig for the DESDEO web UI using Docker build strategy.
+#
+# The Dockerfile lives at webui/Dockerfile in the repository.
+# contextDir: webui  →  all COPY paths in the Dockerfile are relative to webui/.
+#
+# VITE_API_URL is baked into the client-side bundle at build time.
+# It is set to '/api' so that browser requests go to the SvelteKit
+# proxy route at /api/[...path], which forwards them to the API
+# over the internal cluster network. Do NOT set this to the API's
+# public Route URL, the proxy architecture means the browser never
+# talks directly to the API.
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: desdeo-webui
+  labels:
+    app: desdeo-webui
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/gialmisi/DESDEO.git
+      ref: rahti-deploy
+    # Only the webui/ subtree is needed as the Docker build context.
+    contextDir: webui
+
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+      buildArgs:
+        # '/api' routes browser requests through the SvelteKit server-side proxy.
+        # See webui/src/routes/api/[...path]/+server.ts.
+        - name: VITE_API_URL
+          value: "/api"
+      env:
+        - name: NODE_OPTIONS
+          value: "--max-old-space-size=3072"
+
+  output:
+    to:
+      kind: ImageStreamTag
+      name: desdeo-webui:latest
+
+  triggers:
+    - type: GitHub
+      github:
+        secretReference:
+          name: desdeo-webhook-webui
+    - type: ConfigChange
+
+  # npm install + vite build is memory-hungry; 4Gi is usually sufficient.
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "500m"
+    limits:
+      memory: "4Gi"
+      cpu: "1"
+
+  runPolicy: Serial

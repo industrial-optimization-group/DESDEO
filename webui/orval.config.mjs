@@ -36,6 +36,17 @@ export default defineConfig({
             target: 'src/lib/gen/endpoints',
 	    namingConvention: "PascalCase",
             fileExtension: 'zod.ts',
+            override: {
+                zod: {
+                    generate: {
+                        body: true,
+                        param: true,
+                        query: true,
+                        header: true,
+                        response: true,
+                    },
+                },
+            },
         },
         hooks: {
             afterAllFilesWrite: 'prettier --write',

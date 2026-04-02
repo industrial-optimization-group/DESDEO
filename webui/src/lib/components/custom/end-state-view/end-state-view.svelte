@@ -33,12 +33,17 @@
 			problem.objectives.map((obj) => solution.objective_values?.[obj.symbol] ?? '').join(',')
 		];
 
-		if (showVariables && problem.variables && problem.variables.length > 0) {
+		if (showVariables && solution.variable_values && Object.keys(solution.variable_values).length > 0) {
+			const varKeys = Object.keys(solution.variable_values);
+			const varLookup = new Map<string, string>();
+			for (const v of problem.variables ?? []) varLookup.set(v.symbol, v.name);
+			for (const tv of problem.tensor_variables ?? []) varLookup.set(tv.symbol, tv.name);
+
 			const separator = '';
 			const variableSection = [
 				'Variables',
-				problem.variables.map((v) => v.name).join(','),
-				problem.variables.map((v) => solution.variable_values?.[v.symbol] ?? '').join(',')
+				varKeys.map((k) => varLookup.get(k) ?? k).join(','),
+				varKeys.map((k) => solution.variable_values![k] ?? '').join(',')
 			];
 			return [...objectiveSection, separator, ...variableSection].join('\n');
 		}

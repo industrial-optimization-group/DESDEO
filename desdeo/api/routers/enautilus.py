@@ -15,6 +15,9 @@ from desdeo.api.models import (
     ENautilusFinalState,
     ENautilusRepresentativeSolutionsResponse,
     ENautilusSessionTreeResponse,
+    ENautilusSimulateRequest,
+    ENautilusSimulateResponse,
+    ENautilusSimulateStepResult,
     ENautilusState,
     ENautilusStateResponse,
     ENautilusStepRequest,
@@ -507,6 +510,169 @@ def get_session_tree(
         root_ids=root_ids,
         decision_events=decision_events,
     )
+
+
+@router.post("/simulate")
+def simulate(
+    request: ENautilusSimulateRequest,
+    db_session: Annotated[Session, Depends(get_session)],
+) -> ENautilusSimulateResponse:
+    """Run E-NAUTILUS greedily from a state to completion.
+
+    Given a starting state, this endpoint greedily selects the best intermediate
+    point for the preferred objective at each iteration until iterations_left == 0,
+    then projects to the Pareto front. No database writes are performed.
+    """
+    # Load starting state
+    state_db: StateDB | None = db_session.exec(select(StateDB).where(StateDB.id == request.state_id)).first()
+    if state_db is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"StateDB with id={request.state_id} not found."
+        )
+
+    if not isinstance(state_db.state, ENautilusState):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="The referenced state is not an ENautilusState."
+        )
+
+    enautilus_state: ENautilusState = state_db.state
+    result: ENautilusResult = enautilus_state.enautilus_results
+
+    # Load problem
+    problem_db = db_session.exec(select(ProblemDB).where(ProblemDB.id == state_db.problem_id)).first()
+    if problem_db is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"ProblemDB with id={state_db.problem_id} not found."
+        )
+
+    problem = Problem.from_problemdb(problem_db)
+
+    # Validate preferred_objective
+    obj_symbols = [obj.symbol for obj in problem.objectives]
+    if request.preferred_objective not in obj_symbols:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"'{request.preferred_objective}' is not a valid objective. Valid: {obj_symbols}",
+        )
+
+    # Determine if the preferred objective is maximized.
+    # When deprioritize is True, invert the selection logic (pick worst instead of best).
+    pref_obj = next(obj for obj in problem.objectives if obj.symbol == request.preferred_objective)
+    pref_maximize = pref_obj.maximize if not request.deprioritize else (not pref_obj.maximize)
+
+    # Load non-dominated solutions
+    non_dom_db = db_session.exec(
+        select(RepresentativeNonDominatedSolutions).where(
+            RepresentativeNonDominatedSolutions.id == enautilus_state.non_dominated_solutions_id
+        )
+    ).first()
+    if non_dom_db is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"RepresentativeNonDominatedSolutions with id={enautilus_state.non_dominated_solutions_id} not found.",
+        )
+
+    non_dom_solutions = non_dom_db.solution_data
+
+    # Start from the existing result's intermediate points
+    current_intermediate_points = result.intermediate_points
+    current_reachable_indices = result.reachable_point_indices
+    current_closeness = result.closeness_measures
+    current_iteration = result.current_iteration
+    iterations_left = result.iterations_left
+
+    steps: list[ENautilusSimulateStepResult] = []
+
+    while iterations_left > 0:
+        # Greedy selection: pick the intermediate point best for preferred_objective
+        best_idx = _pick_best_for_objective(current_intermediate_points, request.preferred_objective, pref_maximize)
+
+        selected_point = current_intermediate_points[best_idx]
+        reachable_for_selected = current_reachable_indices[best_idx]
+
+        steps.append(
+            ENautilusSimulateStepResult(
+                iteration=current_iteration,
+                iterations_left=iterations_left,
+                selected_point=selected_point,
+                selected_point_index=best_idx,
+                intermediate_points=current_intermediate_points,
+                closeness_measures=current_closeness,
+            )
+        )
+
+        if iterations_left == 0:
+            break
+
+        # Run E-NAUTILUS step (core computation, no DB writes)
+        next_result: ENautilusResult = enautilus_step(
+            problem=problem,
+            non_dominated_points=non_dom_solutions,
+            current_iteration=current_iteration,
+            iterations_left=iterations_left,
+            selected_point=selected_point,
+            number_of_intermediate_points=request.number_of_intermediate_points,
+            reachable_point_indices=reachable_for_selected,
+        )
+
+        current_intermediate_points = next_result.intermediate_points
+        current_reachable_indices = next_result.reachable_point_indices
+        current_closeness = next_result.closeness_measures
+        current_iteration = next_result.current_iteration
+        iterations_left = next_result.iterations_left
+
+    # Final selection at iterations_left == 0
+    final_best_idx = _pick_best_for_objective(current_intermediate_points, request.preferred_objective, pref_maximize)
+    final_intermediate_point = current_intermediate_points[final_best_idx]
+
+    steps.append(
+        ENautilusSimulateStepResult(
+            iteration=current_iteration,
+            iterations_left=iterations_left,
+            selected_point=final_intermediate_point,
+            selected_point_index=final_best_idx,
+            intermediate_points=current_intermediate_points,
+            closeness_measures=current_closeness,
+        )
+    )
+
+    # Build a result object for projection
+    final_result = ENautilusResult(
+        current_iteration=current_iteration,
+        iterations_left=iterations_left,
+        intermediate_points=current_intermediate_points,
+        reachable_best_bounds=[],  # not needed for projection
+        reachable_worst_bounds=[],
+        closeness_measures=current_closeness,
+        reachable_point_indices=current_reachable_indices,
+    )
+
+    non_dom_df = pl.DataFrame(non_dom_solutions)
+    representative_solutions = enautilus_get_representative_solutions(problem, final_result, non_dom_df)
+    final_solution = representative_solutions[final_best_idx]
+
+    return ENautilusSimulateResponse(
+        preferred_objective=request.preferred_objective,
+        steps=steps,
+        final_solution=final_solution,
+        final_intermediate_point=final_intermediate_point,
+    )
+
+
+def _pick_best_for_objective(
+    intermediate_points: list[dict[str, float]],
+    objective: str,
+    maximize: bool,
+) -> int:
+    """Pick the index of the intermediate point with the best value for an objective."""
+    best_idx = 0
+    best_val = intermediate_points[0][objective]
+    for i in range(1, len(intermediate_points)):
+        val = intermediate_points[i][objective]
+        if (maximize and val > best_val) or (not maximize and val < best_val):
+            best_val = val
+            best_idx = i
+    return best_idx
 
 
 def _match_chosen_point(
