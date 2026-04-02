@@ -6,8 +6,11 @@
 # contextDir: webui  →  all COPY paths in the Dockerfile are relative to webui/.
 #
 # VITE_API_URL is baked into the client-side bundle at build time.
-# It must be the *public* HTTPS URL of the API Route.
-# If you ever change the API hostname, you must trigger a new webui build.
+# It is set to '/api' so that browser requests go to the SvelteKit
+# proxy route at /api/[...path], which forwards them to the API
+# over the internal cluster network. Do NOT set this to the API's
+# public Route URL, the proxy architecture means the browser never
+# talks directly to the API.
 ---
 apiVersion: build.openshift.io/v1
 kind: BuildConfig
@@ -28,10 +31,11 @@ spec:
     type: Docker
     dockerStrategy:
       dockerfilePath: Dockerfile
-      # Build arguments — passed as ARG to the Dockerfile.
       buildArgs:
+        # '/api' routes browser requests through the SvelteKit server-side proxy.
+        # See webui/src/routes/api/[...path]/+server.ts.
         - name: VITE_API_URL
-          value: "https://gialmisi-desdeo-api.rahtiapp.fi"
+          value: "/api"
       env:
         - name: NODE_OPTIONS
           value: "--max-old-space-size=3072"
@@ -45,10 +49,10 @@ spec:
     - type: GitHub
       github:
         secretReference:
-          name: desdeo-secrets
+          name: desdeo-webhook-webui
     - type: ConfigChange
 
-  # npm install + vite build is memory-hungry; 2Gi is usually sufficient.
+  # npm install + vite build is memory-hungry; 4Gi is usually sufficient.
   resources:
     requests:
       memory: "2Gi"

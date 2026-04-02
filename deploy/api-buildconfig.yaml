@@ -28,6 +28,7 @@ spec:
   source:
     type: Git
     git:
+      # Github repo and deploy branch
       uri: https://github.com/gialmisi/DESDEO.git
       ref: rahti-deploy
 
@@ -60,7 +61,7 @@ spec:
     - type: GitHub
       github:
         secretReference:
-          name: desdeo-secrets
+          name: desdeo-webhook-api
     - type: ConfigChange
 
   runPolicy: Serial

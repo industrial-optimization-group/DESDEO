@@ -1,18 +1,23 @@
 # deploy/postgres.yaml
 #
-# In-cluster PostgreSQL using the Bitnami image, which is designed to run
-# as a non-root user and is therefore compatible with OpenShift / Rahti SCCs.
+# In-cluster PostgreSQL using the OpenShift built-in image.
 #
 # Apply with:
 #   oc apply -f deploy/postgres.yaml
 #
-# Bitnami env var names differ from the official postgres image:
-#   POSTGRESQL_USERNAME: creates a non-superuser (matches DATABASE_URL user)
-#   POSTGRESQL_PASSWORD: password for POSTGRESQL_USERNAME
-#   POSTGRESQL_DATABASE: database to create on first start
-#   POSTGRESQL_POSTGRES_PASSWORD: password for the postgres superuser
+# The OpenShift PostgreSQL image uses these env var names:
+#   POSTGRESQL_USER      — creates a non-superuser application account
+#   POSTGRESQL_PASSWORD  — password for POSTGRESQL_USER
+#   POSTGRESQL_DATABASE  — database to create on first start
 #
-# Data is persisted in the PVC mounted at /bitnami/postgresql.
+# These are sourced from desdeo-secrets (keys POSTGRES_USER and POSTGRES_PASSWORD).
+# The database name is hardcoded to 'desdeo' here; change it if needed and update
+# DB_NAME in the secret accordingly.
+#
+# Data is persisted in the PVC mounted at /var/lib/pgsql/data.
+#
+# To check available image tags on your cluster:
+#   oc get is postgresql -n openshift -o jsonpath='{.spec.tags[*].name}'
 ---
 apiVersion: v1
 kind: Service

@@ -78,10 +78,14 @@ spec:
                 secretKeyRef:
                   name: desdeo-secrets
                   key: DB_PASSWORD
+            # CORS: allow requests from the webui Route.
+            # Update this if the webui hostname changes.
             - name: CORS_ORIGINS
               value: '["https://gialmisi-desdeo-webui.rahtiapp.fi"]'
-            - name: COOKIE_DOMAIN
-              value: "rahtiapp.fi"
+            # COOKIE_DOMAIN is intentionally not set.
+            # With the SvelteKit proxy architecture, cookies are owned by the
+            # webui host and forwarded server-side. Setting a shared domain here
+            # is unnecessary and can cause authentication issues.
             - name: APP_MODULE
               value: "desdeo.api.app:app"
             - name: GUNICORN_CMD_ARGS
