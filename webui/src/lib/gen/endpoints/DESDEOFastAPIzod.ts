@@ -152,6 +152,8 @@ Returns:
  */
 export const getProblemsProblemAllGetResponseProblemMetadataOneForestMetadataOneItemMetadataTypeDefault = `forest_problem_metadata`;
 export const getProblemsProblemAllGetResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault = `representative_non_dominated_solutions`;
+export const getProblemsProblemAllGetResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault = `site_selection_metadata`;
+export const getProblemsProblemAllGetResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault = 15;
 
 export const GetProblemsProblemAllGetResponseItem = zod
 	.object({
@@ -226,6 +228,50 @@ export const GetProblemsProblemAllGetResponseItem = zod
 								)
 						),
 						zod.null()
+					]),
+					site_selection_metadata: zod.union([
+						zod.array(
+							zod
+								.object({
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											getProblemsProblemAllGetResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault
+										),
+									sites_json: zod
+										.string()
+										.describe('JSON array: [{name, node, lat, lon}, ...] one per site variable'),
+									nodes_json: zod
+										.string()
+										.describe('JSON array: [{name, lat, lon, size}, ...] one per map node'),
+									travel_time_matrix_json: zod
+										.string()
+										.describe('JSON: 2D list[list[float]], shape [n_nodes, n_nodes]'),
+									site_variable_symbols: zod
+										.array(zod.string())
+										.describe(
+											'Ordered list of site variable symbols matching sites_json positions'
+										),
+									coverage_variable_symbols: zod
+										.union([zod.array(zod.string()), zod.null()])
+										.optional()
+										.describe(
+											'Ordered list of coverage variable symbols matching nodes_json positions, or None'
+										),
+									coverage_threshold: zod
+										.number()
+										.default(
+											getProblemsProblemAllGetResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault
+										)
+										.describe('Threshold for coverage edges (e.g., minutes, km)')
+								})
+								.describe(
+									'A problem metadata class to hold site selection problem specific information.\n\nStores geographic data and variable mappings needed to visualize binary\nsite-selection solutions on a map (e.g., clinic placement, facility location).'
+								)
+						),
+						zod.null()
 					])
 				})
 				.describe('Response model for ProblemMetaData.'),
@@ -263,6 +309,8 @@ export const getProblemsInfoProblemAllInfoGetResponseExtraFuncsOneItemIsTwiceDif
 export const getProblemsInfoProblemAllInfoGetResponseDiscreteRepresentationOneNonDominatedDefault = false;
 export const getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneForestMetadataOneItemMetadataTypeDefault = `forest_problem_metadata`;
 export const getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault = `representative_non_dominated_solutions`;
+export const getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault = `site_selection_metadata`;
+export const getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault = 15;
 
 export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 	.object({
@@ -816,6 +864,50 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								)
 						),
 						zod.null()
+					]),
+					site_selection_metadata: zod.union([
+						zod.array(
+							zod
+								.object({
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault
+										),
+									sites_json: zod
+										.string()
+										.describe('JSON array: [{name, node, lat, lon}, ...] one per site variable'),
+									nodes_json: zod
+										.string()
+										.describe('JSON array: [{name, lat, lon, size}, ...] one per map node'),
+									travel_time_matrix_json: zod
+										.string()
+										.describe('JSON: 2D list[list[float]], shape [n_nodes, n_nodes]'),
+									site_variable_symbols: zod
+										.array(zod.string())
+										.describe(
+											'Ordered list of site variable symbols matching sites_json positions'
+										),
+									coverage_variable_symbols: zod
+										.union([zod.array(zod.string()), zod.null()])
+										.optional()
+										.describe(
+											'Ordered list of coverage variable symbols matching nodes_json positions, or None'
+										),
+									coverage_threshold: zod
+										.number()
+										.default(
+											getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault
+										)
+										.describe('Threshold for coverage edges (e.g., minutes, km)')
+								})
+								.describe(
+									'A problem metadata class to hold site selection problem specific information.\n\nStores geographic data and variable mappings needed to visualize binary\nsite-selection solutions on a map (e.g., clinic placement, facility location).'
+								)
+						),
+						zod.null()
 					])
 				})
 				.describe('Response model for ProblemMetaData.'),
@@ -866,6 +958,8 @@ export const getProblemProblemProblemIdGetResponseExtraFuncsOneItemIsTwiceDiffer
 export const getProblemProblemProblemIdGetResponseDiscreteRepresentationOneNonDominatedDefault = false;
 export const getProblemProblemProblemIdGetResponseProblemMetadataOneForestMetadataOneItemMetadataTypeDefault = `forest_problem_metadata`;
 export const getProblemProblemProblemIdGetResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault = `representative_non_dominated_solutions`;
+export const getProblemProblemProblemIdGetResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault = `site_selection_metadata`;
+export const getProblemProblemProblemIdGetResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault = 15;
 
 export const GetProblemProblemProblemIdGetResponse = zod
 	.object({
@@ -1419,6 +1513,50 @@ export const GetProblemProblemProblemIdGetResponse = zod
 								)
 						),
 						zod.null()
+					]),
+					site_selection_metadata: zod.union([
+						zod.array(
+							zod
+								.object({
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											getProblemProblemProblemIdGetResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault
+										),
+									sites_json: zod
+										.string()
+										.describe('JSON array: [{name, node, lat, lon}, ...] one per site variable'),
+									nodes_json: zod
+										.string()
+										.describe('JSON array: [{name, lat, lon, size}, ...] one per map node'),
+									travel_time_matrix_json: zod
+										.string()
+										.describe('JSON: 2D list[list[float]], shape [n_nodes, n_nodes]'),
+									site_variable_symbols: zod
+										.array(zod.string())
+										.describe(
+											'Ordered list of site variable symbols matching sites_json positions'
+										),
+									coverage_variable_symbols: zod
+										.union([zod.array(zod.string()), zod.null()])
+										.optional()
+										.describe(
+											'Ordered list of coverage variable symbols matching nodes_json positions, or None'
+										),
+									coverage_threshold: zod
+										.number()
+										.default(
+											getProblemProblemProblemIdGetResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault
+										)
+										.describe('Threshold for coverage edges (e.g., minutes, km)')
+								})
+								.describe(
+									'A problem metadata class to hold site selection problem specific information.\n\nStores geographic data and variable mappings needed to visualize binary\nsite-selection solutions on a map (e.g., clinic placement, facility location).'
+								)
+						),
+						zod.null()
 					])
 				})
 				.describe('Response model for ProblemMetaData.'),
@@ -1429,6 +1567,9 @@ export const GetProblemProblemProblemIdGetResponse = zod
 
 /**
  * Delete a problem by its ID.
+
+Temporary problems (is_temporary=True) can be deleted by their owner.
+Non-temporary problems can only be deleted by admin users.
  * @summary Delete Problem
  */
 export const DeleteProblemProblemProblemIdDeleteParams = zod.object({
@@ -1545,6 +1686,8 @@ export const addProblemProblemAddPostResponseExtraFuncsOneItemIsTwiceDifferentia
 export const addProblemProblemAddPostResponseDiscreteRepresentationOneNonDominatedDefault = false;
 export const addProblemProblemAddPostResponseProblemMetadataOneForestMetadataOneItemMetadataTypeDefault = `forest_problem_metadata`;
 export const addProblemProblemAddPostResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault = `representative_non_dominated_solutions`;
+export const addProblemProblemAddPostResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault = `site_selection_metadata`;
+export const addProblemProblemAddPostResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault = 15;
 
 export const AddProblemProblemAddPostResponse = zod
 	.object({
@@ -2090,6 +2233,50 @@ export const AddProblemProblemAddPostResponse = zod
 								)
 						),
 						zod.null()
+					]),
+					site_selection_metadata: zod.union([
+						zod.array(
+							zod
+								.object({
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											addProblemProblemAddPostResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault
+										),
+									sites_json: zod
+										.string()
+										.describe('JSON array: [{name, node, lat, lon}, ...] one per site variable'),
+									nodes_json: zod
+										.string()
+										.describe('JSON array: [{name, lat, lon, size}, ...] one per map node'),
+									travel_time_matrix_json: zod
+										.string()
+										.describe('JSON: 2D list[list[float]], shape [n_nodes, n_nodes]'),
+									site_variable_symbols: zod
+										.array(zod.string())
+										.describe(
+											'Ordered list of site variable symbols matching sites_json positions'
+										),
+									coverage_variable_symbols: zod
+										.union([zod.array(zod.string()), zod.null()])
+										.optional()
+										.describe(
+											'Ordered list of coverage variable symbols matching nodes_json positions, or None'
+										),
+									coverage_threshold: zod
+										.number()
+										.default(
+											addProblemProblemAddPostResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault
+										)
+										.describe('Threshold for coverage edges (e.g., minutes, km)')
+								})
+								.describe(
+									'A problem metadata class to hold site selection problem specific information.\n\nStores geographic data and variable mappings needed to visualize binary\nsite-selection solutions on a map (e.g., clinic placement, facility location).'
+								)
+						),
+						zod.null()
 					])
 				})
 				.describe('Response model for ProblemMetaData.'),
@@ -2209,6 +2396,8 @@ export const addProblemJsonProblemAddJsonPostResponseExtraFuncsOneItemIsTwiceDif
 export const addProblemJsonProblemAddJsonPostResponseDiscreteRepresentationOneNonDominatedDefault = false;
 export const addProblemJsonProblemAddJsonPostResponseProblemMetadataOneForestMetadataOneItemMetadataTypeDefault = `forest_problem_metadata`;
 export const addProblemJsonProblemAddJsonPostResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault = `representative_non_dominated_solutions`;
+export const addProblemJsonProblemAddJsonPostResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault = `site_selection_metadata`;
+export const addProblemJsonProblemAddJsonPostResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault = 15;
 
 export const AddProblemJsonProblemAddJsonPostResponse = zod
 	.object({
@@ -2762,6 +2951,50 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								)
 						),
 						zod.null()
+					]),
+					site_selection_metadata: zod.union([
+						zod.array(
+							zod
+								.object({
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											addProblemJsonProblemAddJsonPostResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault
+										),
+									sites_json: zod
+										.string()
+										.describe('JSON array: [{name, node, lat, lon}, ...] one per site variable'),
+									nodes_json: zod
+										.string()
+										.describe('JSON array: [{name, lat, lon, size}, ...] one per map node'),
+									travel_time_matrix_json: zod
+										.string()
+										.describe('JSON: 2D list[list[float]], shape [n_nodes, n_nodes]'),
+									site_variable_symbols: zod
+										.array(zod.string())
+										.describe(
+											'Ordered list of site variable symbols matching sites_json positions'
+										),
+									coverage_variable_symbols: zod
+										.union([zod.array(zod.string()), zod.null()])
+										.optional()
+										.describe(
+											'Ordered list of coverage variable symbols matching nodes_json positions, or None'
+										),
+									coverage_threshold: zod
+										.number()
+										.default(
+											addProblemJsonProblemAddJsonPostResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault
+										)
+										.describe('Threshold for coverage edges (e.g., minutes, km)')
+								})
+								.describe(
+									'A problem metadata class to hold site selection problem specific information.\n\nStores geographic data and variable mappings needed to visualize binary\nsite-selection solutions on a map (e.g., clinic placement, facility location).'
+								)
+						),
+						zod.null()
 					])
 				})
 				.describe('Response model for ProblemMetaData.'),
@@ -2801,6 +3034,8 @@ export const GetMetadataProblemGetMetadataPostBody = zod
 export const getMetadataProblemGetMetadataPostResponseOneMetadataTypeDefault = `forest_problem_metadata`;
 export const getMetadataProblemGetMetadataPostResponseTwoMetadataTypeDefault = `representative_non_dominated_solutions`;
 export const getMetadataProblemGetMetadataPostResponseThreeMetadataTypeDefault = `solver_selection_metadata`;
+export const getMetadataProblemGetMetadataPostResponseFourMetadataTypeDefault = `site_selection_metadata`;
+export const getMetadataProblemGetMetadataPostResponseFourCoverageThresholdDefault = 15;
 
 export const GetMetadataProblemGetMetadataPostResponseItem = zod.union([
 	zod
@@ -2855,6 +3090,39 @@ export const GetMetadataProblemGetMetadataPostResponseItem = zod.union([
 		})
 		.describe(
 			'A problem metadata class to store the preferred solver of a problem.\n\nA problem metadata class to store the preferred solver of a problem.\nSee desdeo\/tools\/utils.py -> available_solvers for available solvers.'
+		),
+	zod
+		.object({
+			id: zod.union([zod.number(), zod.null()]).optional(),
+			metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+			metadata_type: zod
+				.string()
+				.default(getMetadataProblemGetMetadataPostResponseFourMetadataTypeDefault),
+			sites_json: zod
+				.string()
+				.describe('JSON array: [{name, node, lat, lon}, ...] one per site variable'),
+			nodes_json: zod
+				.string()
+				.describe('JSON array: [{name, lat, lon, size}, ...] one per map node'),
+			travel_time_matrix_json: zod
+				.string()
+				.describe('JSON: 2D list[list[float]], shape [n_nodes, n_nodes]'),
+			site_variable_symbols: zod
+				.array(zod.string())
+				.describe('Ordered list of site variable symbols matching sites_json positions'),
+			coverage_variable_symbols: zod
+				.union([zod.array(zod.string()), zod.null()])
+				.optional()
+				.describe(
+					'Ordered list of coverage variable symbols matching nodes_json positions, or None'
+				),
+			coverage_threshold: zod
+				.number()
+				.default(getMetadataProblemGetMetadataPostResponseFourCoverageThresholdDefault)
+				.describe('Threshold for coverage edges (e.g., minutes, km)')
+		})
+		.describe(
+			'A problem metadata class to hold site selection problem specific information.\n\nStores geographic data and variable mappings needed to visualize binary\nsite-selection solutions on a map (e.g., clinic placement, facility location).'
 		)
 ]);
 export const GetMetadataProblemGetMetadataPostResponse = zod.array(
@@ -3000,6 +3268,47 @@ export const GetProblemJsonProblemProblemIdJsonGetQueryParams = zod.object({
 });
 
 export const GetProblemJsonProblemProblemIdJsonGetResponse = zod.unknown();
+
+/**
+ * Create a derived problem with additional EQ constraints fixing variables to specific values.
+
+The original problem is not modified. The variant is stored as a new ProblemDB row
+with parent_problem_id set to the original.
+ * @summary Create Constrained Variant
+ */
+export const CreateConstrainedVariantProblemProblemIdConstrainedVariantPostParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()])
+});
+
+export const createConstrainedVariantProblemProblemIdConstrainedVariantPostBodyIsTemporaryDefault = true;
+
+export const CreateConstrainedVariantProblemProblemIdConstrainedVariantPostBody = zod
+	.object({
+		variable_fixings: zod.array(
+			zod
+				.object({
+					variable_symbol: zod.string(),
+					fixed_value: zod.number(),
+					constraint_name: zod.union([zod.string(), zod.null()]).optional()
+				})
+				.describe('Fix a single variable to a specific value via an EQ constraint.')
+		),
+		name: zod.union([zod.string(), zod.null()]).optional(),
+		is_temporary: zod
+			.boolean()
+			.default(createConstrainedVariantProblemProblemIdConstrainedVariantPostBodyIsTemporaryDefault)
+	})
+	.describe('Request to create a derived problem with additional EQ constraints fixing variables.');
+
+export const CreateConstrainedVariantProblemProblemIdConstrainedVariantPostResponse = zod
+	.object({
+		problem_id: zod.number(),
+		parent_problem_id: zod.number(),
+		name: zod.string(),
+		is_temporary: zod.boolean(),
+		n_constraints_added: zod.number()
+	})
+	.describe('Response after creating a constrained variant.');
 
 /**
  * Creates a new interactive session.
@@ -7195,6 +7504,207 @@ export const GetSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse = zod
 			.describe('Pre-computed decision events for each parent-child transition.')
 	})
 	.describe('The complete E-NAUTILUS session tree.');
+
+/**
+ * Run E-NAUTILUS greedily from a state to completion.
+
+Given a starting state, this endpoint greedily selects the best intermediate
+point for the preferred objective at each iteration until iterations_left == 0,
+then projects to the Pareto front. No database writes are performed.
+ * @summary Simulate
+ */
+export const simulateMethodEnautilusSimulatePostBodyDeprioritizeDefault = false;
+export const simulateMethodEnautilusSimulatePostBodyNumberOfIntermediatePointsDefault = 3;
+
+export const SimulateMethodEnautilusSimulatePostBody = zod
+	.object({
+		state_id: zod.number().describe('Starting ENautilusState to branch from.'),
+		preferred_objective: zod.string().describe("Objective symbol to favor (e.g., 'f_1')."),
+		deprioritize: zod
+			.boolean()
+			.default(simulateMethodEnautilusSimulatePostBodyDeprioritizeDefault)
+			.describe('If True, always pick the WORST value for the objective instead of the best.'),
+		number_of_intermediate_points: zod
+			.number()
+			.default(simulateMethodEnautilusSimulatePostBodyNumberOfIntermediatePointsDefault)
+			.describe('Number of intermediate points per simulated step.')
+	})
+	.describe('Run E-NAUTILUS greedily from a state to completion.');
+
+export const SimulateMethodEnautilusSimulatePostResponse = zod
+	.object({
+		preferred_objective: zod.string(),
+		steps: zod.array(
+			zod
+				.object({
+					iteration: zod.number(),
+					iterations_left: zod.number(),
+					selected_point: zod
+						.record(zod.string(), zod.number())
+						.describe('The auto-picked intermediate point.'),
+					selected_point_index: zod.number(),
+					intermediate_points: zod.array(zod.record(zod.string(), zod.number())),
+					closeness_measures: zod.array(zod.number())
+				})
+				.describe('One step in the simulated path.')
+		),
+		final_solution: zod
+			.object({
+				optimal_variables: zod
+					.record(zod.string(), zod.union([zod.number(), zod.number(), zod.array(zod.unknown())]))
+					.describe('The optimal decision variables found.'),
+				optimal_objectives: zod
+					.record(zod.string(), zod.union([zod.number(), zod.array(zod.number())]))
+					.describe(
+						'The objective function values corresponding to the optimal decision variables found.'
+					),
+				constraint_values: zod
+					.union([
+						zod.record(
+							zod.string(),
+							zod.union([
+								zod.number(),
+								zod.number(),
+								zod.array(zod.number()),
+								zod.array(zod.unknown())
+							])
+						),
+						zod.unknown(),
+						zod.null()
+					])
+					.optional()
+					.describe(
+						'The constraint values of the problem. A negative value means the constraint is respected, a positive one means it has been breached.'
+					),
+				extra_func_values: zod
+					.union([
+						zod.record(zod.string(), zod.union([zod.number(), zod.array(zod.number())])),
+						zod.null()
+					])
+					.optional()
+					.describe('The extra function values of the problem.'),
+				scalarization_values: zod
+					.union([
+						zod.record(zod.string(), zod.union([zod.number(), zod.array(zod.number())])),
+						zod.null()
+					])
+					.optional()
+					.describe('The scalarization function values of the problem.'),
+				lagrange_multipliers: zod
+					.union([
+						zod.record(zod.string(), zod.union([zod.number(), zod.array(zod.number())])),
+						zod.null()
+					])
+					.optional()
+					.describe('The Lagrange multipliers of the problem.'),
+				success: zod
+					.boolean()
+					.describe('A boolean flag indicating whether the optimization was successful or not.'),
+				message: zod.string().describe('Description of the cause of termination.')
+			})
+			.describe('Projected Pareto-optimal solution.'),
+		final_intermediate_point: zod.record(zod.string(), zod.number())
+	})
+	.describe('Result of greedy E-NAUTILUS simulation.');
+
+/**
+ * Store site selection metadata for a problem.
+
+The authenticated user must own the problem.
+ * @summary Load Metadata
+ */
+export const loadMetadataSiteSelectionLoadMetadataPostBodyCoverageThresholdDefault = 15;
+
+export const LoadMetadataSiteSelectionLoadMetadataPostBody = zod
+	.object({
+		problem_id: zod.number(),
+		sites: zod.array(zod.record(zod.string(), zod.unknown())),
+		nodes: zod.array(zod.record(zod.string(), zod.unknown())),
+		travel_time_matrix: zod.array(zod.array(zod.number())),
+		site_variable_symbols: zod.array(zod.string()),
+		coverage_variable_symbols: zod.union([zod.array(zod.string()), zod.null()]).optional(),
+		coverage_threshold: zod
+			.number()
+			.default(loadMetadataSiteSelectionLoadMetadataPostBodyCoverageThresholdDefault)
+	})
+	.describe('Request body for loading site selection metadata.');
+
+export const loadMetadataSiteSelectionLoadMetadataPostResponseMetadataTypeDefault = `site_selection_metadata`;
+export const loadMetadataSiteSelectionLoadMetadataPostResponseCoverageThresholdDefault = 15;
+
+export const LoadMetadataSiteSelectionLoadMetadataPostResponse = zod
+	.object({
+		id: zod.union([zod.number(), zod.null()]).optional(),
+		metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+		metadata_type: zod
+			.string()
+			.default(loadMetadataSiteSelectionLoadMetadataPostResponseMetadataTypeDefault),
+		sites_json: zod
+			.string()
+			.describe('JSON array: [{name, node, lat, lon}, ...] one per site variable'),
+		nodes_json: zod.string().describe('JSON array: [{name, lat, lon, size}, ...] one per map node'),
+		travel_time_matrix_json: zod
+			.string()
+			.describe('JSON: 2D list[list[float]], shape [n_nodes, n_nodes]'),
+		site_variable_symbols: zod
+			.array(zod.string())
+			.describe('Ordered list of site variable symbols matching sites_json positions'),
+		coverage_variable_symbols: zod
+			.union([zod.array(zod.string()), zod.null()])
+			.optional()
+			.describe('Ordered list of coverage variable symbols matching nodes_json positions, or None'),
+		coverage_threshold: zod
+			.number()
+			.default(loadMetadataSiteSelectionLoadMetadataPostResponseCoverageThresholdDefault)
+			.describe('Threshold for coverage edges (e.g., minutes, km)')
+	})
+	.describe(
+		'A problem metadata class to hold site selection problem specific information.\n\nStores geographic data and variable mappings needed to visualize binary\nsite-selection solutions on a map (e.g., clinic placement, facility location).'
+	);
+
+/**
+ * Build Leaflet-compatible map data from a site selection solution.
+
+Reads site selection metadata from the DB and extracts variable values
+from the provided solution to determine node colors and coverage edges.
+ * @summary Build Map
+ */
+export const BuildMapSiteSelectionMapPostBody = zod
+	.object({
+		problem_id: zod.number(),
+		optimal_variables: zod.record(zod.string(), zod.unknown())
+	})
+	.describe('Request body for building the site selection map.');
+
+export const BuildMapSiteSelectionMapPostResponse = zod
+	.object({
+		nodes: zod.array(
+			zod
+				.object({
+					name: zod.string(),
+					lat: zod.number(),
+					lon: zod.number(),
+					size: zod.number(),
+					color: zod.string(),
+					tooltip: zod.string()
+				})
+				.describe('A node marker on the map.')
+		),
+		edges: zod.array(
+			zod
+				.object({
+					from_lat: zod.number(),
+					from_lon: zod.number(),
+					to_lat: zod.number(),
+					to_lon: zod.number()
+				})
+				.describe('A coverage connection edge between two nodes.')
+		),
+		center: zod.array(zod.number()),
+		site_variable_symbols: zod.array(zod.string()),
+		site_node_names: zod.array(zod.string())
+	})
+	.describe('Response body for the site selection map endpoint.');
 
 /**
  * Vote for a band using this endpoint.

@@ -115,6 +115,35 @@ export interface ConstantDB {
 }
 
 /**
+ * Fix a single variable to a specific value via an EQ constraint.
+ */
+export interface VariableFixing {
+	variable_symbol: string;
+	fixed_value: number;
+	constraint_name?: string | null;
+}
+
+/**
+ * Request to create a derived problem with additional EQ constraints fixing variables.
+ */
+export interface ConstrainedVariantRequest {
+	variable_fixings: VariableFixing[];
+	name?: string | null;
+	is_temporary?: boolean;
+}
+
+/**
+ * Response after creating a constrained variant.
+ */
+export interface ConstrainedVariantResponse {
+	problem_id: number;
+	parent_problem_id: number;
+	name: string;
+	is_temporary: boolean;
+	n_constraints_added: number;
+}
+
+/**
  * Model for a URL.
  */
 export interface Url {
@@ -430,6 +459,53 @@ export interface ENautilusSessionTreeResponse {
 	root_ids: number[];
 	/** Pre-computed decision events for each parent-child transition. */
 	decision_events: ENautilusDecisionEventResponse[];
+}
+
+/**
+ * Run E-NAUTILUS greedily from a state to completion.
+ */
+export interface ENautilusSimulateRequest {
+	/** Starting ENautilusState to branch from. */
+	state_id: number;
+	/** Objective symbol to favor (e.g., 'f_1'). */
+	preferred_objective: string;
+	/** If True, always pick the WORST value for the objective instead of the best. */
+	deprioritize?: boolean;
+	/** Number of intermediate points per simulated step. */
+	number_of_intermediate_points?: number;
+}
+
+export type ENautilusSimulateResponseFinalIntermediatePoint = { [key: string]: number };
+
+/**
+ * The auto-picked intermediate point.
+ */
+export type ENautilusSimulateStepResultSelectedPoint = { [key: string]: number };
+
+export type ENautilusSimulateStepResultIntermediatePointsItem = { [key: string]: number };
+
+/**
+ * One step in the simulated path.
+ */
+export interface ENautilusSimulateStepResult {
+	iteration: number;
+	iterations_left: number;
+	/** The auto-picked intermediate point. */
+	selected_point: ENautilusSimulateStepResultSelectedPoint;
+	selected_point_index: number;
+	intermediate_points: ENautilusSimulateStepResultIntermediatePointsItem[];
+	closeness_measures: number[];
+}
+
+/**
+ * Result of greedy E-NAUTILUS simulation.
+ */
+export interface ENautilusSimulateResponse {
+	preferred_objective: string;
+	steps: ENautilusSimulateStepResult[];
+	/** Projected Pareto-optimal solution. */
+	final_solution: SolverResults;
+	final_intermediate_point: ENautilusSimulateResponseFinalIntermediatePoint;
 }
 
 export type ENautilusStepResponseIntermediatePointsItem = { [key: string]: number };
@@ -1482,12 +1558,37 @@ export interface RepresentativeNonDominatedSolutions {
 }
 
 /**
+ * A problem metadata class to hold site selection problem specific information.
+
+Stores geographic data and variable mappings needed to visualize binary
+site-selection solutions on a map (e.g., clinic placement, facility location).
+ */
+export interface SiteSelectionMetaData {
+	id?: number | null;
+	metadata_id?: number | null;
+	metadata_type?: string;
+	/** JSON array: [{name, node, lat, lon}, ...] one per site variable */
+	sites_json: string;
+	/** JSON array: [{name, lat, lon, size}, ...] one per map node */
+	nodes_json: string;
+	/** JSON: 2D list[list[float]], shape [n_nodes, n_nodes] */
+	travel_time_matrix_json: string;
+	/** Ordered list of site variable symbols matching sites_json positions */
+	site_variable_symbols: string[];
+	/** Ordered list of coverage variable symbols matching nodes_json positions, or None */
+	coverage_variable_symbols?: string[] | null;
+	/** Threshold for coverage edges (e.g., minutes, km) */
+	coverage_threshold?: number;
+}
+
+/**
  * Response model for ProblemMetaData.
  */
 export interface ProblemMetaDataPublic {
 	problem_id: number;
 	forest_metadata: ForestProblemMetaData[] | null;
 	representative_nd_metadata: RepresentativeNonDominatedSolutions[] | null;
+	site_selection_metadata: SiteSelectionMetaData[] | null;
 }
 
 /**
@@ -1617,6 +1718,66 @@ export interface ScoreBandsResponse {
 	axis_signs: number[] | null;
 	/** Optimal order of objectives */
 	obj_order: number[];
+}
+
+/**
+ * A coverage connection edge between two nodes.
+ */
+export interface SiteSelectionMapEdge {
+	from_lat: number;
+	from_lon: number;
+	to_lat: number;
+	to_lon: number;
+}
+
+/**
+ * A node marker on the map.
+ */
+export interface SiteSelectionMapNode {
+	name: string;
+	lat: number;
+	lon: number;
+	size: number;
+	color: string;
+	tooltip: string;
+}
+
+export type SiteSelectionMapRequestOptimalVariables = { [key: string]: unknown };
+
+/**
+ * Request body for building the site selection map.
+ */
+export interface SiteSelectionMapRequest {
+	problem_id: number;
+	optimal_variables: SiteSelectionMapRequestOptimalVariables;
+}
+
+/**
+ * Response body for the site selection map endpoint.
+ */
+export interface SiteSelectionMapResponse {
+	nodes: SiteSelectionMapNode[];
+	edges: SiteSelectionMapEdge[];
+	center: number[];
+	site_variable_symbols: string[];
+	site_node_names: string[];
+}
+
+export type SiteSelectionMetaDataRequestSitesItem = { [key: string]: unknown };
+
+export type SiteSelectionMetaDataRequestNodesItem = { [key: string]: unknown };
+
+/**
+ * Request body for loading site selection metadata.
+ */
+export interface SiteSelectionMetaDataRequest {
+	problem_id: number;
+	sites: SiteSelectionMetaDataRequestSitesItem[];
+	nodes: SiteSelectionMetaDataRequestNodesItem[];
+	travel_time_matrix: number[][];
+	site_variable_symbols: string[];
+	coverage_variable_symbols?: string[] | null;
+	coverage_threshold?: number;
 }
 
 /**
@@ -2383,6 +2544,9 @@ export const getProblemProblemProblemIdGet = async (
 
 /**
  * Delete a problem by its ID.
+
+Temporary problems (is_temporary=True) can be deleted by their owner.
+Non-temporary problems can only be deleted by admin users.
  * @summary Delete Problem
  */
 export type deleteProblemProblemProblemIdDeleteResponse204 = {
@@ -2614,7 +2778,12 @@ Returns:
  * @summary Get Metadata
  */
 export type getMetadataProblemGetMetadataPostResponse200 = {
-	data: (ForestProblemMetaData | RepresentativeNonDominatedSolutions | SolverSelectionMetadata)[];
+	data: (
+		| ForestProblemMetaData
+		| RepresentativeNonDominatedSolutions
+		| SolverSelectionMetadata
+		| SiteSelectionMetaData
+	)[];
 	status: 200;
 };
 
@@ -3084,6 +3253,58 @@ export const getProblemJsonProblemProblemIdJsonGet = async (
 		{
 			...options,
 			method: 'GET'
+		}
+	);
+};
+
+/**
+ * Create a derived problem with additional EQ constraints fixing variables to specific values.
+
+The original problem is not modified. The variant is stored as a new ProblemDB row
+with parent_problem_id set to the original.
+ * @summary Create Constrained Variant
+ */
+export type createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse200 = {
+	data: ConstrainedVariantResponse;
+	status: 200;
+};
+
+export type createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type createConstrainedVariantProblemProblemIdConstrainedVariantPostResponseSuccess =
+	createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse200 & {
+		headers: Headers;
+	};
+export type createConstrainedVariantProblemProblemIdConstrainedVariantPostResponseError =
+	createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse422 & {
+		headers: Headers;
+	};
+
+export type createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse =
+	| createConstrainedVariantProblemProblemIdConstrainedVariantPostResponseSuccess
+	| createConstrainedVariantProblemProblemIdConstrainedVariantPostResponseError;
+
+export const getCreateConstrainedVariantProblemProblemIdConstrainedVariantPostUrl = (
+	problemId: number | null
+) => {
+	return `http://localhost:8000/problem/${problemId}/constrained_variant`;
+};
+
+export const createConstrainedVariantProblemProblemIdConstrainedVariantPost = async (
+	problemId: number | null,
+	constrainedVariantRequest: ConstrainedVariantRequest,
+	options?: RequestInit
+): Promise<createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse> => {
+	return customFetch<createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse>(
+		getCreateConstrainedVariantProblemProblemIdConstrainedVariantPostUrl(problemId),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(constrainedVariantRequest)
 		}
 	);
 };
@@ -5401,6 +5622,149 @@ export const getSessionTreeMethodEnautilusSessionTreeSessionIdGet = async (
 			method: 'GET'
 		}
 	);
+};
+
+/**
+ * Run E-NAUTILUS greedily from a state to completion.
+
+Given a starting state, this endpoint greedily selects the best intermediate
+point for the preferred objective at each iteration until iterations_left == 0,
+then projects to the Pareto front. No database writes are performed.
+ * @summary Simulate
+ */
+export type simulateMethodEnautilusSimulatePostResponse200 = {
+	data: ENautilusSimulateResponse;
+	status: 200;
+};
+
+export type simulateMethodEnautilusSimulatePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type simulateMethodEnautilusSimulatePostResponseSuccess =
+	simulateMethodEnautilusSimulatePostResponse200 & {
+		headers: Headers;
+	};
+export type simulateMethodEnautilusSimulatePostResponseError =
+	simulateMethodEnautilusSimulatePostResponse422 & {
+		headers: Headers;
+	};
+
+export type simulateMethodEnautilusSimulatePostResponse =
+	| simulateMethodEnautilusSimulatePostResponseSuccess
+	| simulateMethodEnautilusSimulatePostResponseError;
+
+export const getSimulateMethodEnautilusSimulatePostUrl = () => {
+	return `http://localhost:8000/method/enautilus/simulate`;
+};
+
+export const simulateMethodEnautilusSimulatePost = async (
+	eNautilusSimulateRequest: ENautilusSimulateRequest,
+	options?: RequestInit
+): Promise<simulateMethodEnautilusSimulatePostResponse> => {
+	return customFetch<simulateMethodEnautilusSimulatePostResponse>(
+		getSimulateMethodEnautilusSimulatePostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(eNautilusSimulateRequest)
+		}
+	);
+};
+
+/**
+ * Store site selection metadata for a problem.
+
+The authenticated user must own the problem.
+ * @summary Load Metadata
+ */
+export type loadMetadataSiteSelectionLoadMetadataPostResponse200 = {
+	data: SiteSelectionMetaData;
+	status: 200;
+};
+
+export type loadMetadataSiteSelectionLoadMetadataPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type loadMetadataSiteSelectionLoadMetadataPostResponseSuccess =
+	loadMetadataSiteSelectionLoadMetadataPostResponse200 & {
+		headers: Headers;
+	};
+export type loadMetadataSiteSelectionLoadMetadataPostResponseError =
+	loadMetadataSiteSelectionLoadMetadataPostResponse422 & {
+		headers: Headers;
+	};
+
+export type loadMetadataSiteSelectionLoadMetadataPostResponse =
+	| loadMetadataSiteSelectionLoadMetadataPostResponseSuccess
+	| loadMetadataSiteSelectionLoadMetadataPostResponseError;
+
+export const getLoadMetadataSiteSelectionLoadMetadataPostUrl = () => {
+	return `http://localhost:8000/site-selection/load_metadata`;
+};
+
+export const loadMetadataSiteSelectionLoadMetadataPost = async (
+	siteSelectionMetaDataRequest: SiteSelectionMetaDataRequest,
+	options?: RequestInit
+): Promise<loadMetadataSiteSelectionLoadMetadataPostResponse> => {
+	return customFetch<loadMetadataSiteSelectionLoadMetadataPostResponse>(
+		getLoadMetadataSiteSelectionLoadMetadataPostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(siteSelectionMetaDataRequest)
+		}
+	);
+};
+
+/**
+ * Build Leaflet-compatible map data from a site selection solution.
+
+Reads site selection metadata from the DB and extracts variable values
+from the provided solution to determine node colors and coverage edges.
+ * @summary Build Map
+ */
+export type buildMapSiteSelectionMapPostResponse200 = {
+	data: SiteSelectionMapResponse;
+	status: 200;
+};
+
+export type buildMapSiteSelectionMapPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type buildMapSiteSelectionMapPostResponseSuccess =
+	buildMapSiteSelectionMapPostResponse200 & {
+		headers: Headers;
+	};
+export type buildMapSiteSelectionMapPostResponseError = buildMapSiteSelectionMapPostResponse422 & {
+	headers: Headers;
+};
+
+export type buildMapSiteSelectionMapPostResponse =
+	| buildMapSiteSelectionMapPostResponseSuccess
+	| buildMapSiteSelectionMapPostResponseError;
+
+export const getBuildMapSiteSelectionMapPostUrl = () => {
+	return `http://localhost:8000/site-selection/map`;
+};
+
+export const buildMapSiteSelectionMapPost = async (
+	siteSelectionMapRequest: SiteSelectionMapRequest,
+	options?: RequestInit
+): Promise<buildMapSiteSelectionMapPostResponse> => {
+	return customFetch<buildMapSiteSelectionMapPostResponse>(getBuildMapSiteSelectionMapPostUrl(), {
+		...options,
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', ...options?.headers },
+		body: JSON.stringify(siteSelectionMapRequest)
+	});
 };
 
 /**

@@ -11,6 +11,7 @@ from desdeo.api.routers import (
     problem,
     reference_point_method,
     session,
+    site_selection,
     user_authentication,
     utopia,
     xnimbus,
@@ -38,6 +39,7 @@ app.include_router(gdm_base.router)
 app.include_router(gdm_aggregate.router)
 app.include_router(gnimbus_routers.router)
 app.include_router(enautilus.router)
+app.include_router(site_selection.router)
 app.include_router(gdm_score_bands_routers.router)
 
 
