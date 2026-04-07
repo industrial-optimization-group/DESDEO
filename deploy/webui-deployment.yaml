@@ -1,0 +1,98 @@
+# deploy/webui-deployment.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: desdeo-webui
+  labels:
+    app: desdeo-webui
+  annotations:
+    image.openshift.io/triggers: >
+      [{"from":{"kind":"ImageStreamTag","name":"desdeo-webui:latest"},
+        "fieldPath":"spec.template.spec.containers[0].image"}]
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: desdeo-webui
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: desdeo-webui
+    spec:
+      containers:
+      - name: webui
+        image: desdeo-webui:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+          name: http
+          protocol: TCP
+        env:
+        # adapter-node reads PORT to know which port to listen on.
+        - name: PORT
+          value: "3000"
+        # Server-side +server.ts proxy routes use this to reach the API
+        # over the internal cluster network (avoids the public ingress).
+        - name: API_BASE_URL
+          value: "http://desdeo-api:8080"
+        # ORIGIN is required by SvelteKit for CSRF protection when behind a proxy.
+        - name: ORIGIN
+          value: "https://gialmisi-desdeo-webui.rahtiapp.fi"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 20
+          periodSeconds: 20
+          failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: desdeo-webui
+  labels:
+    app: desdeo-webui
+spec:
+  selector:
+    app: desdeo-webui
+  ports:
+  - name: http
+    port: 3000
+    targetPort: 3000
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: desdeo-webui
+  labels:
+    app: desdeo-webui
+spec:
+  host: gialmisi-desdeo-webui.rahtiapp.fi
+  to:
+    kind: Service
+    name: desdeo-webui
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

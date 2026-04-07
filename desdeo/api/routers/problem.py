@@ -5,9 +5,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse
-from sqlmodel import Session
+from sqlmodel import Session, select
 
+from desdeo.api.db import get_session
 from desdeo.api.models import (
+    ConstrainedVariantRequest,
+    ConstrainedVariantResponse,
     ForestProblemMetaData,
     ProblemDB,
     ProblemInfo,
@@ -16,6 +19,7 @@ from desdeo.api.models import (
     ProblemMetaDataGetRequest,
     ProblemSelectSolverRequest,
     RepresentativeNonDominatedSolutions,
+    SiteSelectionMetaData,
     SolverSelectionMetadata,
     User,
     UserRole,
@@ -27,6 +31,7 @@ from desdeo.api.models.representative_solution import (
 )
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.problem import Problem
+from desdeo.problem.schema import Constraint, ConstraintTypeEnum, TensorVariable
 from desdeo.tools.utils import available_solvers
 
 from .utils import ContextField, SessionContext, SessionContextGuard
@@ -64,28 +69,40 @@ async def parse_problem_json(request: Request) -> Problem:
 
 
 @router.get("/all")
-def get_problems(user: Annotated[User, Depends(get_current_user)]) -> list[ProblemInfoSmall]:
-    """Get information on all the current user's problems.
+def get_problems(
+    user: Annotated[User, Depends(get_current_user)],
+    db_session: Annotated[Session, Depends(get_session)],
+) -> list[ProblemInfoSmall]:
+    """Get information on problems. Analysts and admins see all users' problems.
 
     Args:
         user (Annotated[User, Depends): the current user.
+        db_session (Annotated[Session, Depends]): the database session.
 
     Returns:
-        list[ProblemInfoSmall]: a list of information on all the problems.
+        list[ProblemInfoSmall]: a list of information on the problems.
     """
+    if user.role in (UserRole.analyst, UserRole.admin):
+        return list(db_session.exec(select(ProblemDB)).all())
     return user.problems
 
 
 @router.get("/all_info")
-def get_problems_info(user: Annotated[User, Depends(get_current_user)]) -> list[ProblemInfo]:
-    """Get detailed information on all the current user's problems.
+def get_problems_info(
+    user: Annotated[User, Depends(get_current_user)],
+    db_session: Annotated[Session, Depends(get_session)],
+) -> list[ProblemInfo]:
+    """Get detailed information on problems. Analysts and admins see all users' problems.
 
     Args:
         user (Annotated[User, Depends): the current user.
+        db_session (Annotated[Session, Depends]): the database session.
 
     Returns:
-        list[ProblemInfo]: a list of the detailed information on all the problems.
+        list[ProblemInfo]: a list of the detailed information on the problems.
     """
+    if user.role in (UserRole.analyst, UserRole.admin):
+        return list(db_session.exec(select(ProblemDB)).all())
     return user.problems
 
 
@@ -116,12 +133,15 @@ def get_problem(
 def add_problem(
     request: Annotated[Problem, Depends(parse_problem_json)],
     context: Annotated[SessionContext, Depends(SessionContextGuard().post)],
+    target_user_id: int | None = None,
 ) -> ProblemInfo:
     """Add a newly defined problem to the database.
 
     Args:
         request (Problem): the JSON representation of the problem.
         context (Annotated[SessionContext, Depends): the session context.
+        target_user_id (int | None): if provided, assign the problem to this user instead of
+            the caller. Only analysts and admins may use this parameter.
 
     Note:
         Users with the role 'guest' may not add new problems.
@@ -141,8 +161,22 @@ def add_problem(
             detail="Guest users are not allowed to add new problems.",
         )
 
+    effective_user = user
+    if target_user_id is not None:
+        if user.role not in (UserRole.analyst, UserRole.admin):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only analysts and admins can add problems on behalf of other users.",
+            )
+        effective_user = db_session.get(User, target_user_id)
+        if effective_user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with id={target_user_id} not found.",
+            )
+
     try:
-        problem_db = ProblemDB.from_problem(request, user=user)
+        problem_db = ProblemDB.from_problem(request, user=effective_user)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -160,12 +194,15 @@ def add_problem(
 def add_problem_json(
     json_file: UploadFile,
     context: Annotated[SessionContext, Depends(SessionContextGuard().post)],
+    target_user_id: int | None = None,
 ) -> ProblemInfo:
     """Adds a problem to the database based on its JSON definition.
 
     Args:
         json_file (UploadFile): a file in JSON format describing the problem.
         context (Annotated[SessionContext, Depends): the session context.
+        target_user_id (int | None): if provided, assign the problem to this user instead of
+            the caller. Only analysts and admins may use this parameter.
 
     Raises:
         HTTPException: if the provided `json_file` is empty.
@@ -176,6 +213,20 @@ def add_problem_json(
     """
     user = context.user
     db_session = context.db_session
+
+    effective_user = user
+    if target_user_id is not None:
+        if user.role not in (UserRole.analyst, UserRole.admin):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only analysts and admins can add problems on behalf of other users.",
+            )
+        effective_user = db_session.get(User, target_user_id)
+        if effective_user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with id={target_user_id} not found.",
+            )
 
     raw = json_file.file.read()
 
@@ -188,7 +239,7 @@ def add_problem_json(
         raise HTTPException(status_code=400, detail="Invalid JSON.") from e
 
     problem = Problem.model_validate_json(raw, by_name=True)
-    problem_db = ProblemDB.from_problem(problem, user=user)
+    problem_db = ProblemDB.from_problem(problem, user=effective_user)
 
     db_session.add(problem_db)
     db_session.commit()
@@ -201,7 +252,9 @@ def add_problem_json(
 def get_metadata(
     request: ProblemMetaDataGetRequest,
     context: Annotated[SessionContext, Depends(SessionContextGuard(require=[]).post)],
-) -> list[ForestProblemMetaData | RepresentativeNonDominatedSolutions | SolverSelectionMetadata]:
+) -> list[
+    ForestProblemMetaData | RepresentativeNonDominatedSolutions | SolverSelectionMetadata | SiteSelectionMetaData
+]:
     """Fetch specific metadata for a specific problem.
 
     Fetch specific metadata for a specific problem. See all the possible
@@ -265,10 +318,10 @@ def select_solver(
         )
 
     # Auth the user
-    if user.id != problem_db.user_id:
+    if user.role not in (UserRole.analyst, UserRole.admin) and user.id != problem_db.user_id:
         raise HTTPException(
             detail="Unauthorized user!",
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_403_FORBIDDEN,
         )
 
     # All good, get on with it.
@@ -372,8 +425,8 @@ def get_all_representative_solution_sets(
         raise HTTPException(status_code=404, detail=f"Problem with ID {problem_id} not found.")
 
     # Check the user
-    if problem_db.user_id != user.id:
-        raise HTTPException(status_code=401, detail="Unauthorized user.")
+    if user.role not in (UserRole.analyst, UserRole.admin) and problem_db.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized user.")
 
     # Fetch metadata
     problem_metadata = problem_db.problem_metadata
@@ -408,8 +461,11 @@ def get_representative_solution_set(
         raise HTTPException(status_code=404, detail=f"Representative set with ID {set_id} not found.")
 
     # Check the user
-    if repr_set.metadata_instance.problem.user_id != context.user.id:
-        raise HTTPException(status_code=401, detail="Unauthorized user.")
+    if (
+        context.user.role not in (UserRole.analyst, UserRole.admin)
+        and repr_set.metadata_instance.problem.user_id != context.user.id
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized user.")
 
     # Return all fields as a dict
     return RepresentativeSolutionSetFull(
@@ -437,10 +493,10 @@ def delete_representative_solution_set(
     if repr_metadata is None:
         raise HTTPException(status_code=404, detail=f"Representative solution set with ID {set_id} not found.")
 
-    # Ensure the user owns the problem this set belongs to
+    # Ensure the user owns the problem this set belongs to (analysts/admins are exempt)
     problem_metadata = repr_metadata.metadata_instance
-    if problem_metadata.problem.user_id != user.id:
-        raise HTTPException(status_code=401, detail="Unauthorized user.")
+    if user.role not in (UserRole.analyst, UserRole.admin) and problem_metadata.problem.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized user.")
 
     # Delete the set
     db_session.delete(repr_metadata)
@@ -452,7 +508,11 @@ def delete_problem(
     problem_id: int,
     context: Annotated[SessionContext, Depends(SessionContextGuard().delete)],
 ):
-    """Delete a problem by its ID."""
+    """Delete a problem by its ID.
+
+    Temporary problems (is_temporary=True) can be deleted by their owner.
+    Non-temporary problems can only be deleted by admin users.
+    """
     db_session: Session = context.db_session
     user = context.user
 
@@ -460,8 +520,13 @@ def delete_problem(
     if problem_db is None:
         raise HTTPException(status_code=404, detail=f"Problem with ID {problem_id} not found.")
 
-    if problem_db.user_id != user.id:
-        raise HTTPException(status_code=401, detail="Unauthorized user.")
+    # Role hierarchy for deletion: admin > analyst > dm > guest.
+    # Users can delete their own problems or problems owned by lower-role users.
+    _role_rank = {UserRole.guest: 0, UserRole.dm: 1, UserRole.analyst: 2, UserRole.admin: 3}
+    is_own = problem_db.user_id == user.id
+    outranks_owner = _role_rank.get(user.role, 0) > _role_rank.get(problem_db.user.role, 0)
+    if not (is_own or outranks_owner):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized user.")
 
     db_session.delete(problem_db)
     db_session.commit()
@@ -480,8 +545,110 @@ def get_problem_json(
     if problem_db is None:
         raise HTTPException(status_code=404, detail=f"Problem with ID {problem_id} not found.")
 
-    if problem_db.user_id != user.id:
-        raise HTTPException(status_code=401, detail="Unauthorized user.")
+    if user.role not in (UserRole.analyst, UserRole.admin) and problem_db.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized user.")
 
     problem = Problem.from_problemdb(problem_db)
     return JSONResponse(content=json.loads(problem.model_dump_json()), status_code=status.HTTP_200_OK)
+
+
+@router.post("/{problem_id}/constrained_variant")
+def create_constrained_variant(
+    problem_id: int,
+    request: ConstrainedVariantRequest,
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[]).post)],
+) -> ConstrainedVariantResponse:
+    """Create a derived problem with additional EQ constraints fixing variables to specific values.
+
+    The original problem is not modified. The variant is stored as a new ProblemDB row
+    with parent_problem_id set to the original.
+    """
+    db_session: Session = context.db_session
+    user = context.user
+    problem_db = context.problem_db
+
+    if problem_db is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with ID {problem_id} not found.")
+
+    if problem_db.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized user.")
+
+    # Reconstruct in-memory Problem
+    problem = Problem.from_problemdb(problem_db)
+
+    # Build a mapping from valid variable symbols to their MathJSON reference expression.
+    # Scalar variables: "x" → "x" (plain symbol in MathJSON).
+    # Tensor variables: unrolled names like "sv_5" → ["At", "sv", 5, 1] (indexed access).
+    # Pyomo creates tensor variables with index sets for each dimension of the shape,
+    # so shape [60, 1] needs a 2D index (i, 1). Shape [3, 4] would enumerate all 12
+    # elements as sv_1..sv_12 in row-major order with 1-based Pyomo indices.
+    import itertools
+
+    var_symbol_to_expr: dict[str, str | list] = {}
+    for v in problem.variables:
+        if isinstance(v, TensorVariable):
+            # Enumerate all elements in row-major order (matching solver unrolling convention)
+            ranges = [range(1, dim + 1) for dim in v.shape]
+            for flat_idx, indices in enumerate(itertools.product(*ranges), start=1):
+                var_symbol_to_expr[f"{v.symbol}_{flat_idx}"] = ["At", v.symbol, *indices]
+        else:
+            var_symbol_to_expr[v.symbol] = v.symbol
+
+    new_constraints = []
+    for i, fixing in enumerate(request.variable_fixings):
+        if fixing.variable_symbol not in var_symbol_to_expr:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Variable symbol '{fixing.variable_symbol}' not found in problem. "
+                f"Available: {sorted(var_symbol_to_expr.keys())}",
+            )
+        var_expr = var_symbol_to_expr[fixing.variable_symbol]
+        new_constraints.append(
+            Constraint(
+                name=fixing.constraint_name or f"fix_{fixing.variable_symbol}_to_{fixing.fixed_value}",
+                symbol=f"_fix_{i}",
+                cons_type=ConstraintTypeEnum.EQ,
+                func=["Add", var_expr, -fixing.fixed_value],
+                is_linear=True,
+            )
+        )
+
+    # Create the variant (immutable copy with added constraints)
+    variant = problem.add_constraints(new_constraints)
+    variant_name = request.name or f"{problem_db.name} [variant]"
+    # Update the name on the frozen model
+    variant = variant.model_copy(update={"name": variant_name})
+
+    # Persist
+    variant_db = ProblemDB.from_problem(variant, user=user)
+    variant_db.is_temporary = request.is_temporary
+    variant_db.parent_problem_id = problem_id
+    db_session.add(variant_db)
+    db_session.commit()
+    db_session.refresh(variant_db)
+
+    # Copy solver selection metadata from parent so the variant uses the same solver
+    if problem_db.problem_metadata is not None:
+        parent_solver_meta = [
+            m for m in problem_db.problem_metadata.all_metadata if m.metadata_type == "solver_selection_metadata"
+        ]
+        if parent_solver_meta:
+            variant_metadata = ProblemMetaDataDB(problem_id=variant_db.id)
+            db_session.add(variant_metadata)
+            db_session.commit()
+            db_session.refresh(variant_metadata)
+
+            variant_solver = SolverSelectionMetadata(
+                metadata_id=variant_metadata.id,
+                solver_string_representation=parent_solver_meta[-1].solver_string_representation,
+            )
+            db_session.add(variant_solver)
+            db_session.commit()
+
+    return ConstrainedVariantResponse(
+        problem_id=variant_db.id,
+        parent_problem_id=problem_id,
+        name=variant_name,
+        is_temporary=variant_db.is_temporary,
+        n_constraints_added=len(new_constraints),
+    )

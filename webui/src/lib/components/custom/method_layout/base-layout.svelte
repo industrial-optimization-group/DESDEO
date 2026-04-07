@@ -54,7 +54,7 @@
 	<!-- Main Content Area -->
 	<div class="flex min-w-0 flex-1 flex-col">
 		<Resizable.PaneGroup direction="vertical" class="flex-1">
-			<Resizable.Pane class="flex min-h-0 flex-col">
+			<Resizable.Pane defaultSize={65} class="flex min-h-0 flex-col">
 				<!-- Top Panel: Explorer Title and Controls -->
 				<div class="flex-shrink-0 p-2">
 					<div class="flex flex-row items-center justify-between gap-4 pb-2">
@@ -89,7 +89,7 @@
 
 			<ResizableHandle />
 			<!-- Bottom Panel: Numerical Values and Tables -->
-			<Resizable.Pane class="flex min-h-0 flex-col p-2">
+			<Resizable.Pane defaultSize={35} class="flex min-h-0 flex-col p-2">
 					<Tabs.Root value="numerical-values" class="flex flex-col min-h-0 h-full">
 						<Tabs.List class="flex-shrink-0">
 						{#if tabsList}

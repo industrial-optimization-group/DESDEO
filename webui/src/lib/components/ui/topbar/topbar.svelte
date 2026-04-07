@@ -21,11 +21,15 @@
 	import Problem from '@lucide/svelte/icons/puzzle';
 	import Archive from '@lucide/svelte/icons/archive';
 	import HelpCircle from '@lucide/svelte/icons/circle-help';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import UserPlus from '@lucide/svelte/icons/user-plus';
+
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import { auth } from '../../../../stores/auth';
 	import { derived } from 'svelte/store';
+	import { getCurrentUserInfoUserInfoGet } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import desdeo_logo from '$lib/assets/desdeo_logo.svg';
 
 	async function logout() {
@@ -43,12 +47,25 @@
 		goto('/home');
 	}
 
+	onMount(async () => {
+		if (!get(auth).user) {
+			const response = await getCurrentUserInfoUserInfoGet();
+			if (response.status === 200) {
+				auth.setAuth('authenticated', response.data);
+			}
+		}
+	});
+
 	const userDisplay = derived(auth, ($auth) => {
 		if ($auth.user) {
 			return `${$auth.user.username} (${$auth.user.role})`;
 		}
 		return '';
 	});
+
+	const canManageUsers = derived(auth, ($auth) =>
+		$auth.user?.role === 'analyst' || $auth.user?.role === 'admin'
+	);
 </script>
 
 <header class="bg-primary sticky top-0 flex h-12 items-center gap-4 border-b px-4 md:px-6">
@@ -90,6 +107,16 @@
 				</DropdownMenu.Item>
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
+
+		{#if $canManageUsers}
+			<a
+				href="/manage-users"
+				class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
+			>
+				<UserPlus class="h-4 w-4" />
+				Users
+			</a>
+		{/if}
 
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>

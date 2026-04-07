@@ -67,6 +67,32 @@ class ProblemAddFromJSONRequest(SQLModel):
     json_file: UploadFile
 
 
+class VariableFixing(BaseModel):
+    """Fix a single variable to a specific value via an EQ constraint."""
+
+    variable_symbol: str
+    fixed_value: float
+    constraint_name: str | None = None
+
+
+class ConstrainedVariantRequest(BaseModel):
+    """Request to create a derived problem with additional EQ constraints fixing variables."""
+
+    variable_fixings: list[VariableFixing]
+    name: str | None = None
+    is_temporary: bool = True
+
+
+class ConstrainedVariantResponse(BaseModel):
+    """Response after creating a constrained variant."""
+
+    problem_id: int
+    parent_problem_id: int
+    name: str
+    is_temporary: bool
+    n_constraints_added: int
+
+
 class ProblemInfo(ProblemBase):
     """Problem info request return data."""
 
@@ -129,6 +155,10 @@ class ProblemDB(ProblemBase, table=True):
     is_twice_differentiable: bool | None = Field(nullable=True, default=None)
     scenario_keys: list[str] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
     variable_domain: VariableDomainTypeEnum = Field()
+
+    # Variant tracking
+    is_temporary: bool = Field(default=False)
+    parent_problem_id: int | None = Field(default=None, foreign_key="problemdb.id")
 
     # Back populates
     user: "User" = Relationship(back_populates="problems")
@@ -283,6 +313,39 @@ class SolverSelectionMetadata(SQLModel, table=True):
     metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="solver_selection_metadata")
 
 
+class SiteSelectionMetaData(SQLModel, table=True):
+    """A problem metadata class to hold site selection problem specific information.
+
+    Stores geographic data and variable mappings needed to visualize binary
+    site-selection solutions on a map (e.g., clinic placement, facility location).
+    """
+
+    id: int | None = Field(primary_key=True, default=None)
+    metadata_id: int | None = Field(foreign_key="problemmetadatadb.id", default=None)
+
+    metadata_type: str = "site_selection_metadata"
+
+    # Geographic data (embedded JSON, not file paths)
+    sites_json: str = Field(description="JSON array: [{name, node, lat, lon}, ...] one per site variable")
+    nodes_json: str = Field(description="JSON array: [{name, lat, lon, size}, ...] one per map node")
+    travel_time_matrix_json: str = Field(description="JSON: 2D list[list[float]], shape [n_nodes, n_nodes]")
+
+    # Variable mapping
+    site_variable_symbols: list[str] = Field(
+        sa_column=Column(JSON), description="Ordered list of site variable symbols matching sites_json positions"
+    )
+    coverage_variable_symbols: list[str] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description="Ordered list of coverage variable symbols matching nodes_json positions, or None",
+    )
+
+    # Display config
+    coverage_threshold: float = Field(default=15.0, description="Threshold for coverage edges (e.g., minutes, km)")
+
+    metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="site_selection_metadata")
+
+
 class ProblemMetaDataDB(SQLModel, table=True):
     """Store Problem MetaData to DB with this class."""
 
@@ -296,17 +359,23 @@ class ProblemMetaDataDB(SQLModel, table=True):
     solver_selection_metadata: list[SolverSelectionMetadata] = Relationship(
         back_populates="metadata_instance", cascade_delete=True
     )
+    site_selection_metadata: list[SiteSelectionMetaData] = Relationship(
+        back_populates="metadata_instance", cascade_delete=True
+    )
     problem: ProblemDB = Relationship(back_populates="problem_metadata")
 
     @property
     def all_metadata(
         self,
-    ) -> list[ForestProblemMetaData | RepresentativeNonDominatedSolutions | SolverSelectionMetadata]:
+    ) -> list[
+        ForestProblemMetaData | RepresentativeNonDominatedSolutions | SolverSelectionMetadata | SiteSelectionMetaData
+    ]:
         """Return all metadata in one list."""
         return (
             (self.forest_metadata or [])
             + (self.representative_nd_metadata or [])
             + (self.solver_selection_metadata or [])
+            + (self.site_selection_metadata or [])
         )
 
 
@@ -317,6 +386,7 @@ class ProblemMetaDataPublic(SQLModel):
 
     forest_metadata: list[ForestProblemMetaData] | None
     representative_nd_metadata: list[RepresentativeNonDominatedSolutions] | None
+    site_selection_metadata: list[SiteSelectionMetaData] | None
 
 
 class ProblemMetaDataGetRequest(SQLModel):

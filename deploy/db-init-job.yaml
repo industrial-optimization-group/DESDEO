@@ -1,0 +1,60 @@
+# deploy/db-init-job.yaml
+#
+# One-shot Kubernetes Job that runs desdeo/api/db_init_prod.py using the API
+# image. Run this:
+#   - After the very first deployment (creates tables + seeds admin user).
+#   - After a deliberate database wipe (the script is idempotent on re-run).
+#
+# The Job is NOT re-triggered automatically on each new image build.
+# If you add new tables in a later release, use a proper migration tool
+# (Alembic) instead of re-running this Job.
+#
+# Usage:
+#   # Replace <PROJECT> with your Rahti project name before applying.
+#   oc apply -f deploy/db-init-job.yaml
+#   oc logs -f job/desdeo-db-init
+#   oc delete job desdeo-db-init
+#
+# To re-run after a database wipe, delete the old Job first:
+#   oc delete job desdeo-db-init
+#   oc apply -f deploy/db-init-job.yaml
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: desdeo-db-init
+  labels:
+    app: desdeo-api
+    component: db-init
+spec:
+  backoffLimit: 3
+  # Auto-clean completed Job pods after 1 hour.
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: desdeo-api
+        component: db-init
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: db-init
+        # Replace <PROJECT> with your Rahti project name.
+        image: image-registry.openshift-image-registry.svc:5000/<PROJECT>/desdeo-api:latest
+        command: ["python", "desdeo/api/db_init_prod.py"]
+        env:
+        - name: DESDEO_PRODUCTION
+          value: "true"
+        envFrom:
+        # Injects DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD,
+        # AUTHJWT_SECRET, DESDEO_ADMIN_USERNAME, DESDEO_ADMIN_PASSWORD
+        # from the shared Secret.
+        - secretRef:
+            name: desdeo-secrets
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"

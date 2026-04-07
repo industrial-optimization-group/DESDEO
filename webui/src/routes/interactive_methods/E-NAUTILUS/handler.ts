@@ -1,6 +1,6 @@
-import type { ENautilusRepresentativeSolutionsResponse, ENautilusSessionTreeResponse, ENautilusStateResponse, ENautilusStepRequest, ENautilusStepResponse, ProblemGetRequest, ProblemInfo } from "$lib/gen/endpoints/DESDEOFastAPI";
-import type { getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse, getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse, getStateMethodEnautilusGetStateStateIdGetResponse, stepMethodEnautilusStepPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
-import { stepMethodEnautilusStepPost, getProblemProblemProblemIdGet, getStateMethodEnautilusGetStateStateIdGet, getRepresentativeMethodEnautilusGetRepresentativeStateIdGet, getSessionTreeMethodEnautilusSessionTreeSessionIdGet } from "$lib/gen/endpoints/DESDEOFastAPI";
+import type { ENautilusRepresentativeSolutionsResponse, ENautilusSessionTreeResponse, ENautilusSimulateResponse, ENautilusStateResponse, ENautilusStepRequest, ENautilusStepResponse, ProblemInfo, VariableFixing, RPMState } from "$lib/gen/models";
+import type { getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse, getSessionTreeMethodEnautilusSessionTreeSessionIdGetResponse, getStateMethodEnautilusGetStateStateIdGetResponse, simulateMethodEnautilusSimulatePostResponse, stepMethodEnautilusStepPostResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
+import { stepMethodEnautilusStepPost, getProblemProblemProblemIdGet, getStateMethodEnautilusGetStateStateIdGet, getRepresentativeMethodEnautilusGetRepresentativeStateIdGet, getSessionTreeMethodEnautilusSessionTreeSessionIdGet, simulateMethodEnautilusSimulatePost, createConstrainedVariantProblemProblemIdConstrainedVariantPost, solveSolutionsMethodRpmSolvePost, deleteProblemProblemProblemIdDelete } from "$lib/gen/endpoints/DESDEOFastAPI";
 import type { getProblemProblemProblemIdGetResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
 import { fetch_sessions, create_session } from '../../methods/sessions/handler';
 export { fetch_sessions, create_session };
@@ -61,8 +61,8 @@ export async function step_enautilus(
     return {request: request, response: response.data};
 }
 
-export async function fetch_problem_info(request: ProblemGetRequest): Promise<ProblemInfo | null> {
-    const response: getProblemProblemProblemIdGetResponse = await getProblemProblemProblemIdGet(request.problem_id, undefined);
+export async function fetch_problem_info(problem_id: number): Promise<ProblemInfo | null> {
+    const response: getProblemProblemProblemIdGetResponse = await getProblemProblemProblemIdGet(problem_id);
 
     if (response.status != 200) {
         console.log("Could not fetch problem info.", response.status);
@@ -115,3 +115,112 @@ export async function fetch_session_tree(
 
     return response.data;
 }
+
+export async function simulate_enautilus(
+    state_id: number,
+    preferred_objective: string,
+    number_of_intermediate_points?: number,
+): Promise<ENautilusSimulateResponse | null> {
+    const response: simulateMethodEnautilusSimulatePostResponse = await simulateMethodEnautilusSimulatePost({
+        state_id,
+        preferred_objective,
+        ...(number_of_intermediate_points != null ? { number_of_intermediate_points } : {}),
+    });
+
+    if (response.status !== 200) {
+        console.error("E-NAUTILUS simulation failed:", response.status);
+        return null;
+    }
+
+    return response.data;
+}
+
+export async function resolveWithSiteConstraints(
+    problem_id: number,
+    fixings: VariableFixing[],
+    reference_point: Record<string, number>,
+    solver?: string,
+): Promise<{ constrained_problem_id: number; rpm_result: RPMState } | null> {
+    // Step 1: Create constrained variant
+    const variantResp = await createConstrainedVariantProblemProblemIdConstrainedVariantPost(
+        problem_id,
+        { variable_fixings: fixings }
+    );
+
+    if (variantResp.status !== 200) {
+        console.error("Failed to create constrained variant:", variantResp.status);
+        return null;
+    }
+
+    const constrained_problem_id = variantResp.data.problem_id;
+
+    // Step 2: Solve with RPM using E-NAUTILUS final objectives as reference point
+    try {
+        const rpmResp = await solveSolutionsMethodRpmSolvePost({
+            problem_id: constrained_problem_id,
+            preference: {
+                preference_type: "reference_point",
+                aspiration_levels: reference_point,
+            },
+            solver: solver ?? undefined,
+        });
+
+        if (rpmResp.status !== 200) {
+            console.error("RPM solve failed:", rpmResp.status);
+            // Cleanup on failure
+            await cleanupConstrainedVariant(constrained_problem_id);
+            return null;
+        }
+
+        return {
+            constrained_problem_id,
+            rpm_result: rpmResp.data,
+        };
+    } catch (e) {
+        // Cleanup on error
+        await cleanupConstrainedVariant(constrained_problem_id);
+        throw e;
+    }
+}
+
+/**
+ * Unroll tensor variables in a SolverResults object.
+ * RPM returns tensor variables as e.g. {"sv": [[v1], [v2], ...]} for shape [N, 1].
+ * The map and other components expect unrolled names: {"sv_1": v1, "sv_2": v2, ...}.
+ * Scalar values and already-unrolled variables are passed through unchanged.
+ */
+export function unrollTensorVariables(
+    variables: Record<string, unknown>
+): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(variables)) {
+        if (Array.isArray(value) && value.length > 0 && Array.isArray(value[0])) {
+            // Nested list (tensor variable) — flatten with 1-based indexing
+            let flatIdx = 1;
+            const flatten = (arr: unknown[]): void => {
+                for (const el of arr) {
+                    if (Array.isArray(el)) {
+                        flatten(el);
+                    } else {
+                        result[`${key}_${flatIdx}`] = el;
+                        flatIdx++;
+                    }
+                }
+            };
+            flatten(value);
+        } else {
+            result[key] = value;
+        }
+    }
+    return result;
+}
+
+export async function cleanupConstrainedVariant(constrained_problem_id: number): Promise<void> {
+    try {
+        await deleteProblemProblemProblemIdDelete(constrained_problem_id);
+    } catch (e) {
+        console.warn("Failed to clean up constrained variant:", e);
+    }
+}
+
+export type { VariableFixing };

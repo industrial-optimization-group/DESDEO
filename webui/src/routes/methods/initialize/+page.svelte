@@ -80,8 +80,8 @@
 		{
 			name: 'E-NAUTILUS',
 			path: '/interactive_methods/E-NAUTILUS',
-			description: 'Evolutionary NAUTILUS method for MOO.',
-			preferencesType: ['reference point']
+			description: 'E-NAUTILUS method for MOO.',
+			preferencesType: ['preferred solutions']
 		},
 		{
 			name: 'Evolutionary method',

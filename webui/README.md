@@ -2,37 +2,34 @@
 
 ## Environment variables
 
-For the frontend to work correctly, there are some environmental variables
-that should be set in an`.env` file at the root level. These variables are:
+For the frontend to work correctly, there are some environment variables that
+should be set in a `.env` file at the root of the `webui/` directory. These
+variables are:
 
-- `VITE_API_URL` which should be defined to be '/api' for the proxy to work correctly. I.e.:
+- `VITE_API_URL` — set to `"/api"` so that client-side code routes requests
+  through the SvelteKit catch-all proxy at `src/routes/api/[...path]/+server.ts`:
 
 ```bash
 VITE_API_URL="/api"
 ```
 
-- `API_URL` which should be defined to be 'http://localhost:8000 or the path of the server'
+- `API_BASE_URL` — the URL of the running DESDEO web-API, used by server-side
+  route handlers and by `orval.config.mjs` when generating the OpenAPI client:
 
 ```bash
-API_URL=http://localhost:8000
+API_BASE_URL=http://localhost:8000
 ```
 
-Check also the file `vite.config.ts`, where in the server setting
+A minimal `.env` for local development therefore looks like:
 
-```toml
-	server: {
-		proxy: {
-			'/api': {
-				target: 'http://127.0.0.1:8000',
-				changeOrigin: true,
-				secure: false,
-				rewrite: (path) => path.replace(/^\/api/, '')
-			}
-		}
-	}
+```bash
+API_BASE_URL="http://localhost:8000"
+VITE_API_URL="/api"
 ```
 
-the `target` should point to the local URL that can be used to access the DESDEO web-API.
+> **Note:** `VITE_API_URL` is baked into the client bundle at build time by
+> Vite, so changing it after a build has no effect. `API_BASE_URL` is read at
+> runtime by the Node.js server process.
 
 ## Installing
 
@@ -92,8 +89,10 @@ npm run dev -- --open
 
 When the web-API is updated, it is important to update the OpenAPI clients,
 which automatically use the schemas defined in the web-API on the GUI side. To
-generate them, make sure the web-API is running on the URL defined in `OPENAPI_URL` in the file
-`orval.config.mjs`, and issue the command:
+generate them, make sure the web-API is running at the URL defined in
+`OPENAPI_URL` inside `orval.config.mjs` (defaults to
+`http://localhost:8000/openapi.json`), and that `API_BASE_URL` is set in your
+`.env` file, then run:
 
 ```bash
 npm run generate:client

@@ -1,0 +1,19 @@
+# deploy/builder-imagestream.yaml
+#
+# ImageStream for the custom DESDEO S2I builder image.
+# This image extends the base Python 3.12 UBI8 image with:
+#   - COIN-OR solvers (bonmin, ipopt, cbc) from a GitHub release
+#   - ca-certificates for managing Gurobi licences
+#
+# The API BuildConfig references this stream as its S2I builder,
+# so whenever this image is updated the API is automatically rebuilt.
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: desdeo-builder
+  labels:
+    app: desdeo-api
+spec:
+  lookupPolicy:
+    local: true

@@ -17,6 +17,9 @@
 		VariableTypeEnum
 	} from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { createProblem, fetchProblem, type ProblemPayload, uploadProblemJson } from './handler';
+	import { getDmUsersUsersDmsGet } from '$lib/gen/endpoints/DESDEOFastAPI';
+	import type { UserPublic } from '$lib/gen/endpoints/DESDEOFastAPI';
+	import { auth } from '../../../stores/auth';
 
 	type VariableForm = {
 		name: string;
@@ -134,6 +137,13 @@
 	let constants = $state<ConstantForm[]>([]);
 
 	let jsonFile = $state<File | null>(null);
+
+	let dms = $state<UserPublic[]>([]);
+	let selectedDmId = $state<string>('');
+	const isAnalystOrAdmin = $derived(
+		$auth.user?.role === 'analyst' || $auth.user?.role === 'admin'
+	);
+	const targetUserId = $derived(selectedDmId ? Number(selectedDmId) : null);
 
 	const parseNumber = (value: string): number | null => {
 		if (value.trim() === '') return null;
@@ -354,7 +364,7 @@
 		}
 
 		isSubmitting = true;
-		const response = await createProblem(buildPayload());
+		const response = await createProblem(buildPayload(), targetUserId);
 		isSubmitting = false;
 
 		if (!response.ok) {
@@ -378,7 +388,7 @@
 		}
 
 		isSubmitting = true;
-		const response = await uploadProblemJson({ json_file: jsonFile });
+		const response = await uploadProblemJson({ json_file: jsonFile }, targetUserId);
 		isSubmitting = false;
 
 		if (!response.ok) {
@@ -513,6 +523,13 @@
 	};
 
 	onMount(async () => {
+		if ($auth.user?.role === 'analyst' || $auth.user?.role === 'admin') {
+			const dmResponse = await getDmUsersUsersDmsGet();
+			if (dmResponse.status === 200) {
+				dms = dmResponse.data;
+			}
+		}
+
 		const editId = page.url.searchParams.get('edit');
 		if (!editId) return;
 
@@ -537,6 +554,25 @@
 <section class="mx-10">
 	<div class="m-6 mx-auto max-w-6xl">
 		<h1 class="mt-10 text-center text-2xl font-semibold">Problem Definition</h1>
+
+		{#if isAnalystOrAdmin && dms.length > 0}
+			<div class="mt-6 grid max-w-sm gap-2">
+				<Label for="assign-to-user">Assign to user</Label>
+				<Select.Root type="single" bind:value={selectedDmId}>
+					<Select.Trigger id="assign-to-user">
+						{selectedDmId
+							? (dms.find((dm) => String(dm.id) === selectedDmId)?.username ?? 'Unknown')
+							: 'Myself (default)'}
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="">Myself (default)</Select.Item>
+						{#each dms as dm}
+							<Select.Item value={String(dm.id)}>{dm.username}</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</div>
+		{/if}
 
 		<Tabs.Root value={mode} class="mt-6 w-full" onValueChange={(value) => (mode = value)}>
 			<Tabs.List class="w-full">
