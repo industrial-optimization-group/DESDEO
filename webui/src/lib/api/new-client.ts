@@ -21,16 +21,20 @@ const getBody = async <T>(c: Response | Request): Promise<T> => {
   return (c as Response).text() as Promise<T>;
 };
 
-// NOTE: Update just base url
 const getUrl = (contextUrl: string): string => {
   const url = new URL(contextUrl);
-  const origin = url.origin;
   const pathname = url.pathname;
   const search = url.search;
 
-  const requestUrl = new URL(`${origin}${pathname}${search}`);
+  // Server-side (Node.js): call API directly. Falls back to localhost if
+  // API_BASE_URL is not in process.env (Vite dev doesn't populate it automatically).
+  if (typeof window === 'undefined') {
+    const base = process.env.API_BASE_URL ?? 'http://localhost:8000';
+    return new URL(`${base}${pathname}${search}`).toString();
+  }
 
-  return requestUrl.toString();
+  // Browser-side: route through the SvelteKit proxy so cookies stay on one domain
+  return `/api${pathname}${search}`;
 };
 
 const getHeaders = (headers?: HeadersInit): HeadersInit => {
@@ -56,22 +60,8 @@ export const customFetch = async <T>(
   };
 
   const request = new Request(requestUrl, requestInit);
-  const retryRequest = request.clone();
 
-  let response = await f(request);
-
-  if (response.status === 401) {
-    const refreshUrl = new URL("/refresh", requestUrl).toString();
-    const refreshResponse = await f(refreshUrl, {
-      method: "POST",
-      credentials: "include",
-    });
-
-    if (refreshResponse.ok) {
-      response = await f(retryRequest);
-    }
-  }
-
+  const response = await f(request);
   const data = await getBody<T>(response);
 
   return { status: response.status, data, headers: response.headers } as T;

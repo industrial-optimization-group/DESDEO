@@ -131,6 +131,40 @@ class ENautilusTreeNodeResponse(SQLModel):
     )
 
 
+class ENautilusSimulateRequest(SQLModel):
+    """Run E-NAUTILUS greedily from a state to completion."""
+
+    state_id: int = Field(description="Starting ENautilusState to branch from.")
+    preferred_objective: str = Field(description="Objective symbol to favor (e.g., 'f_1').")
+    deprioritize: bool = Field(
+        default=False,
+        description="If True, always pick the WORST value for the objective instead of the best.",
+    )
+    number_of_intermediate_points: int = Field(
+        default=3, description="Number of intermediate points per simulated step."
+    )
+
+
+class ENautilusSimulateStepResult(SQLModel):
+    """One step in the simulated path."""
+
+    iteration: int
+    iterations_left: int
+    selected_point: dict[str, float] = Field(sa_column=Column(JSON), description="The auto-picked intermediate point.")
+    selected_point_index: int
+    intermediate_points: list[dict[str, float]] = Field(sa_column=Column(JSON))
+    closeness_measures: list[float]
+
+
+class ENautilusSimulateResponse(SQLModel):
+    """Result of greedy E-NAUTILUS simulation."""
+
+    preferred_objective: str
+    steps: list[ENautilusSimulateStepResult]
+    final_solution: SolverResults = Field(description="Projected Pareto-optimal solution.")
+    final_intermediate_point: dict[str, float] = Field(sa_column=Column(JSON))
+
+
 class ENautilusDecisionEventResponse(SQLModel):
     """A decision event capturing a transition from parent to child node."""
 

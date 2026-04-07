@@ -20,9 +20,12 @@ def dmitry_forest_problem_disc() -> Problem:
     Returns:
         Problem: A problem instance representing the forest problem.
     """
-    # Navigate from this file (desdeo/problem/testproblems/) up to the repo root
-    path = Path(__file__).resolve().parent.parent.parent.parent
-    path = path / "tests/data/dmitry_discrete_repr/dmitry_forest_problem_non_dom_solns.csv"
+    # __file__ is desdeo/problem/testproblems/dmitry_forest_problem_discrete.py
+    # CSV is at <repo_root>/tests/data/dmitry_discrete_repr/...
+    path = (
+        Path(__file__).resolve().parent.parent.parent.parent
+        / "tests/data/dmitry_discrete_repr/dmitry_forest_problem_non_dom_solns.csv"
+    )
 
     obj_names = ["Rev", "HA", "Carb", "DW"]
 
@@ -65,10 +68,7 @@ def dmitry_forest_problem_disc() -> Problem:
 
     return Problem(
         name="Dmitry Forest Problem (Discrete)",
-        description=(
-            "Defines a forest problem with four objectives: "
-            "revenue, habitat availability, carbon storage, and deadwood."
-        ),
+        description="Defines a forest problem with four objectives: revenue, habitat availability, carbon storage, and deadwood.",
         variables=variables,
         objectives=objectives,
         discrete_representation=discrete_def,
