@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import type { MethodSelectionState } from '../../../stores/methodSelection';
-	import { type ENautilusRepresentativeSolutionsResponse, type InteractiveSessionBase } from '$lib/gen/models';
+	import { type ENautilusRepresentativeSolutionsResponse, type InteractiveSessionBase, type SolverResults } from '$lib/gen/models';
+	import type { VariableFixing, RPMState } from '$lib/gen/models';
 	import { isLoading, errorMessage } from '../../../stores/uiState';
 
 	import BaseLayout from '$lib/components/custom/method_layout/base-layout.svelte';
@@ -14,12 +15,12 @@
 	import Combobox from '$lib/components/ui/combobox/combobox.svelte';
 	import { EndStateView } from '$lib/components/custom/end-state-view';
 	import { DecisionJourney } from '$lib/components/custom/decision-journey';
+	import SiteSelectionMap from '$lib/components/custom/site-selection-map/site-selection-map.svelte';
 	import type { ENautilusSessionTreeResponse } from '$lib/gen/models';
 
 	import type {
 		ENautilusStepRequest,
 		ENautilusStepResponse,
-		ProblemGetRequest,
 		ProblemInfo
 	} from '$lib/gen/models';
 	import {
@@ -31,7 +32,10 @@
 		fetch_representative_solutions,
 		fetch_session_tree,
 		fetch_sessions,
-		create_session
+		create_session,
+		resolveWithSiteConstraints,
+		cleanupConstrainedVariant,
+		unrollTensorVariables,
 	} from './handler';
 
 	import {
@@ -57,8 +61,11 @@
 	type FinalView = "visualization" | "journey" | "map";
 	let mode = $state<ENautilusMode>("iterate");
 	let finalView = $state<FinalView>("visualization");
+	type ComparisonTab = "chart" | "table";
+	let comparisonTab = $state<ComparisonTab>("chart");
 	let representative = $state<ENautilusRepresentativeSolutionsResponse | null>(null);
 	let final_selected_index = $state<number>(0);
+	let adoptedSolution = $state<SolverResults | null>(null);
 
 	let selection = $state<MethodSelectionState>({ selectedProblemId: null, selectedMethod: null, selectedSessionId: null, selectedSessionInfo: null
 	});
@@ -78,6 +85,13 @@
 	let newSessionInfo = $state<string>('');
 	let initSessionTree = $state<ENautilusSessionTreeResponse | null>(null);
 	let selectedRepSetId = $state<number | null>(null);
+
+	// Map re-solve state
+	let siteFixings = $state<VariableFixing[]>([]);
+	let constrainedProblemId = $state<number | null>(null);
+	let rpmResult = $state<RPMState | null>(null);
+	let resolving = $state(false);
+	let resolveError = $state<string | null>(null);
 
 	let repSolutionSets = $derived(
 		problem_info?.problem_metadata?.representative_nd_metadata?.filter(s => s.id != null) ?? []
@@ -174,9 +188,14 @@
 		return representative.solutions.map((sol) => objective_keys.map((k) => (sol.optimal_objectives as any)[k] as number));
 	});
 
-	let finalSolution = $derived.by(() => {
+	let originalFinalSolution = $derived.by(() => {
 		if (!representative) return null;
 		return representative.solutions[final_selected_index] ?? null;
+	});
+
+	let finalSolution = $derived.by(() => {
+		if (adoptedSolution) return adoptedSolution;
+		return originalFinalSolution;
 	})
 
 	// SolverResults values may be number | number[]; unwrap arrays to plain numbers.
@@ -188,15 +207,107 @@
 		return out;
 	}
 
+	function handleAdoptSolution(solution: SolverResults) {
+		adoptedSolution = solution;
+		finalView = 'visualization';
+	}
+
+	let constraintSummary = $derived.by(() => {
+		const restricted = siteFixings.filter(f => f.fixed_value === 0).length;
+		const forced = siteFixings.filter(f => f.fixed_value === 1).length;
+		if (restricted === 0 && forced === 0) return null;
+		const parts: string[] = [];
+		if (restricted > 0) parts.push(`${restricted} restricted`);
+		if (forced > 0) parts.push(`${forced} forced`);
+		return parts.join(', ');
+	});
+
+	function handleConstraintsChanged(fixings: VariableFixing[]) {
+		siteFixings = fixings;
+		resolveError = null;
+	}
+
+	async function handleResolve() {
+		if (!finalSolution || !selection.selectedProblemId || siteFixings.length === 0) return;
+
+		resolving = true;
+		resolveError = null;
+
+		// Cleanup previous variant if any
+		if (constrainedProblemId != null) {
+			cleanupConstrainedVariant(constrainedProblemId);
+			constrainedProblemId = null;
+		}
+
+		// Build reference point from final solution objectives
+		const refPoint: Record<string, number> = {};
+		for (const [k, v] of Object.entries(finalSolution.optimal_objectives)) {
+			refPoint[k] = Array.isArray(v) ? v[0] : (v as number);
+		}
+
+		try {
+			const result = await resolveWithSiteConstraints(
+				selection.selectedProblemId,
+				siteFixings,
+				refPoint,
+			);
+
+			if (result && result.rpm_result.solver_results.length > 0) {
+				constrainedProblemId = result.constrained_problem_id;
+				rpmResult = result.rpm_result;
+				const rawSol = result.rpm_result.solver_results[0];
+				adoptedSolution = {
+					...rawSol,
+					optimal_variables: unrollTensorVariables(rawSol.optimal_variables as Record<string, unknown>),
+				};
+				// Clear constraint markers so the map shows the new solution's natural colors
+				siteFixings = [];
+				mapRef?.clearConstraints();
+			} else {
+				resolveError = 'No feasible solution exists with the current site constraints.';
+			}
+		} catch (e) {
+			resolveError = e instanceof Error ? e.message : String(e);
+		} finally {
+			resolving = false;
+		}
+	}
+
+	let mapRef = $state<{ clearConstraints: () => void } | undefined>();
+
+	function handleUseSolution() {
+		// Keep the adopted solution, clear constraints and comparison UI
+		rpmResult = null;
+		resolveError = null;
+		siteFixings = [];
+		if (constrainedProblemId != null) {
+			cleanupConstrainedVariant(constrainedProblemId);
+			constrainedProblemId = null;
+		}
+		mapRef?.clearConstraints();
+	}
+
+	function handleReset() {
+		// Revert to original E-NAUTILUS solution and clear everything
+		adoptedSolution = null;
+		rpmResult = null;
+		resolveError = null;
+		siteFixings = [];
+		if (constrainedProblemId != null) {
+			cleanupConstrainedVariant(constrainedProblemId);
+			constrainedProblemId = null;
+		}
+		mapRef?.clearConstraints();
+	}
+
 	let finalTableData = $derived.by(() => {
-		if (!representative) return [];
-		const sol = representative.solutions[final_selected_index];
+		const sol = finalSolution;
 		if (!sol) return [];
 		return [{
 			objective_values: unwrapSolverRecord(sol.optimal_objectives),
 			variable_values: unwrapSolverRecord(sol.optimal_variables),
-			name: null,
-			solution_index: final_selected_index
+			name: adoptedSolution ? 'What-if solution' : null,
+			solution_index: adoptedSolution ? -1 : final_selected_index
 		}];
 	});
 
@@ -285,8 +396,7 @@
 				isLoading.set(true);
 
 				// fetch problem info
-				const request: ProblemGetRequest = { problem_id: selection.selectedProblemId };
-				const response = await fetch_problem_info(request);
+				const response = await fetch_problem_info(selection.selectedProblemId);
 
 				if (response === null) {
 					console.log('Could not fetch problem.');
@@ -574,7 +684,7 @@
 			// If the loaded state belongs to a different problem, sync it
 			const stateProblemId = state_resp.request.problem_id;
 			if (stateProblemId != null && stateProblemId !== selection.selectedProblemId) {
-				const info = await fetch_problem_info({ problem_id: stateProblemId });
+				const info = await fetch_problem_info(stateProblemId);
 				if (!info) {
 					errorMessage.set("Failed to load problem info for the resumed state.");
 					return;
@@ -603,12 +713,13 @@
 			refreshTree();
 		}
 	});
-</script>
 
-<svelte:head>
-	<title>E-NAUTILUS | DESDEO</title>
-	<meta name="description" content="This page implements the E-NAUTILUS interactive multiobjective optimization method in DESDEO" />
-</svelte:head>
+	onDestroy(() => {
+		if (constrainedProblemId != null) {
+			cleanupConstrainedVariant(constrainedProblemId);
+		}
+	});
+</script>
 
 {#snippet ColumnHeader({ column, title, colorIdx }: { column: Column<IntermediatePoint>; title: string; colorIdx?: number })}
 	<div
@@ -697,10 +808,63 @@
 		{#snippet visualizationArea()}
 			{#if problem_info && representative && representativeObjectiveValues.length > 0}
 				<div class="relative h-full">
+					{#if adoptedSolution}
+						<div class="absolute top-2 left-1/2 z-10 -translate-x-1/2 flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs text-blue-700 shadow-sm">
+							<span>Viewing what-if solution</span>
+							<button
+								class="font-semibold hover:text-blue-900"
+								onclick={() => (adoptedSolution = null)}
+							>&times; Revert</button>
+						</div>
+					{/if}
 					{#if finalView === 'map'}
-					<div class="flex h-full items-center justify-center text-sm text-gray-400">
-						Map visualization coming soon.
-					</div>
+						{#if finalSolution}
+							<div class="flex h-full flex-col">
+								<div class="flex-1 min-h-0">
+									<SiteSelectionMap
+										bind:this={mapRef}
+										problem_id={selection.selectedProblemId}
+										solution={finalSolution}
+										on_constraints_changed={handleConstraintsChanged}
+									/>
+								</div>
+								{#if constraintSummary || rpmResult || resolveError}
+									<div class="border-t bg-white p-3 space-y-2">
+										<div class="flex items-center gap-3 flex-wrap">
+											{#if constraintSummary}
+												<span class="text-sm text-gray-600">Site constraints: <span class="font-semibold">{constraintSummary}</span></span>
+											{/if}
+											{#if siteFixings.length > 0}
+												<button
+													class="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700 disabled:opacity-50"
+													disabled={resolving}
+													onclick={handleResolve}
+												>{resolving ? 'Solving...' : 'Re-solve with site constraints'}</button>
+											{/if}
+											{#if rpmResult}
+												<button
+													class="rounded bg-green-600 px-3 py-1 text-xs text-white hover:bg-green-700"
+													onclick={handleUseSolution}
+												>Use this solution</button>
+											{/if}
+											{#if rpmResult || siteFixings.length > 0}
+												<button
+													class="text-xs text-red-600 hover:text-red-800 underline"
+													onclick={handleReset}
+												>Reset</button>
+											{/if}
+										</div>
+										{#if resolveError}
+											<div class="text-sm text-red-600">{resolveError}</div>
+										{/if}
+									</div>
+								{/if}
+							</div>
+						{:else}
+							<div class="flex h-full items-center justify-center text-sm text-gray-400">
+								No solution available for map.
+							</div>
+						{/if}
 				{:else if finalView === 'journey'}
 						{#if sessionTree && previous_response?.state_id != null}
 							<DecisionJourney
@@ -708,6 +872,7 @@
 								leafNodeId={previous_response.state_id}
 								problem={problem_info}
 								finalSolutionPoint={finalSolution ? unwrapSolverRecord(finalSolution.optimal_objectives) : null}
+								onAdoptSolution={handleAdoptSolution}
 							/>
 						{:else}
 							<div class="flex h-full items-center justify-center text-gray-500">
@@ -721,8 +886,8 @@
 							currentPreferenceValues={[]}
 							previousPreferenceType={''}
 							currentPreferenceType={''}
-							solutionsObjectiveValues={representativeObjectiveValues.length > 0 ? [representativeObjectiveValues[final_selected_index]] : []}
-							previousObjectiveValues={[]}
+							solutionsObjectiveValues={finalSolution ? [objective_keys.map(k => { const v = finalSolution.optimal_objectives[k]; return Array.isArray(v) ? v[0] : v as number; })] : []}
+							previousObjectiveValues={adoptedSolution && originalFinalSolution ? [objective_keys.map(k => { const v = originalFinalSolution.optimal_objectives[k]; return Array.isArray(v) ? v[0] : v as number; })] : []}
 							externalSelectedIndexes={[0]}
 						/>
 					{/if}
@@ -742,6 +907,67 @@
 					showVariables={true}
 					title="Representative solution"
 				/>
+			{:else if finalView === 'map' && rpmResult && rpmResult.solver_results.length > 0 && problem_info && originalFinalSolution}
+				<div class="h-full flex flex-col">
+					<div class="flex gap-1 border-b px-2 pt-1">
+						<button
+							class="px-3 py-1 text-xs rounded-t {comparisonTab === 'chart' ? 'bg-white border border-b-white font-semibold -mb-px' : 'text-gray-500 hover:text-gray-700'}"
+							onclick={() => comparisonTab = 'chart'}
+						>Parallel Coordinates</button>
+						<button
+							class="px-3 py-1 text-xs rounded-t {comparisonTab === 'table' ? 'bg-white border border-b-white font-semibold -mb-px' : 'text-gray-500 hover:text-gray-700'}"
+							onclick={() => comparisonTab = 'table'}
+						>Comparison Table</button>
+					</div>
+					<div class="flex-1 min-h-0 p-2">
+						{#if comparisonTab === 'chart'}
+							<div class="h-full">
+								<VisualizationsPanel
+									problem={problem_info}
+									previousPreferenceValues={[]}
+									currentPreferenceValues={[]}
+									previousPreferenceType={''}
+									currentPreferenceType={''}
+									solutionsObjectiveValues={[objective_keys.map(k => { const v = rpmResult.solver_results[0].optimal_objectives[k]; return Array.isArray(v) ? v[0] : v as number; })]}
+									previousObjectiveValues={[objective_keys.map(k => { const v = originalFinalSolution.optimal_objectives[k]; return Array.isArray(v) ? v[0] : v as number; })]}
+									externalSelectedIndexes={[0]}
+									referenceDataLabels={{ previousSolutionLabels: ['Original E-NAUTILUS'] }}
+									lineLabels={{ '0': 'Constrained' }}
+								/>
+							</div>
+						{:else}
+							<div class="overflow-y-auto">
+								<table class="w-full text-sm">
+									<thead>
+										<tr class="border-b">
+											<th class="py-1 pr-4 text-left font-semibold">Objective</th>
+											<th class="py-1 pr-4 text-right font-semibold">Original</th>
+											<th class="py-1 pr-4 text-right font-semibold">Constrained</th>
+											<th class="py-1 text-right font-semibold">Δ</th>
+										</tr>
+									</thead>
+									<tbody>
+										{#each problem_info.objectives as obj, i}
+											{@const origVal = Array.isArray(originalFinalSolution.optimal_objectives[obj.symbol]) ? originalFinalSolution.optimal_objectives[obj.symbol][0] : originalFinalSolution.optimal_objectives[obj.symbol]}
+											{@const newVal = Array.isArray(rpmResult.solver_results[0].optimal_objectives[obj.symbol]) ? rpmResult.solver_results[0].optimal_objectives[obj.symbol][0] : rpmResult.solver_results[0].optimal_objectives[obj.symbol]}
+											{@const delta = (newVal as number) - (origVal as number)}
+											{@const improved = obj.maximize ? delta > 0 : delta < 0}
+											<tr class="border-b border-gray-100">
+												<td class="py-1 pr-4" style="color: {COLOR_PALETTE[i % COLOR_PALETTE.length]}">{obj.name}</td>
+												<td class="py-1 pr-4 text-right font-mono">{formatNumber(origVal as number, 2)}</td>
+												<td class="py-1 pr-4 text-right font-mono">{formatNumber(newVal as number, 2)}</td>
+												<td class="py-1 text-right font-mono {improved ? 'text-green-600' : delta === 0 ? 'text-gray-400' : 'text-red-600'}">
+													{delta > 0 ? '+' : ''}{formatNumber(delta, 2)}
+													{improved ? '↑' : delta === 0 ? '' : '↓'}
+												</td>
+											</tr>
+										{/each}
+									</tbody>
+								</table>
+							</div>
+						{/if}
+					</div>
+				</div>
 			{/if}
 		{/snippet}
 	</BaseLayout>

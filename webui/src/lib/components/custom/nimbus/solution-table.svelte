@@ -85,7 +85,7 @@
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { renderSnippet } from '$lib/components/ui/data-table/render-helpers.js';
 	import { Button } from '$lib/components/ui/button';
-	import type { ProblemInfo, SolutionReferenceResponse } from '$lib/gen/models';
+	import type { ProblemInfo, SolutionReferenceResponse } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { getDisplayAccuracy, formatNumber } from '$lib/helpers';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors.js';
 	import PenIcon from '@lucide/svelte/icons/pen';

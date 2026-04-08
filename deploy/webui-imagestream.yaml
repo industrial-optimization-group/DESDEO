@@ -1,0 +1,11 @@
+# deploy/webui-imagestream.yaml
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: desdeo-webui
+  labels:
+    app: desdeo-webui
+spec:
+  lookupPolicy:
+    local: true

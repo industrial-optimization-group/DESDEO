@@ -33,6 +33,107 @@ This project follows **Keep a Changelog** and **Semantic Versioning**:
 #### Fixed
 #### Security
 
+---
+
+## [2.3.0] - 31.3.2026
+
+### Core logic
+#### Added
+- Added `lagrange_multipliers` field to `SolverResults`; extract duals from
+  Ipopt, Bonmin, and Gurobi solvers.
+- Added `desdeo/explanations/lagrange.py` with filter, tradeoff, and
+  active-objective utilities for Lagrange multiplier analysis.
+- Added unit tests for Lagrange utilities and solver integration tests.
+
+#### Fixed
+- Fixed a bug where `ScipyMinimizeSolver` and `ScipyDeSolver` returned incorrect
+  solutions for problems with `maximize=True` objectives.
+- Fixed infinite loop in the Dmitry forest problem (use
+  `Path(__file__).resolve()` instead of searching for `"DESDEO"` folder name).
+
+---
+
+### Web API
+#### Added
+- Added `get-multipliers-info` endpoint to the NIMBUS router.
+- Added XNIMBUS (Explainable NIMBUS) `StateKinds`, state fields, and API
+  models (`NIMBUSMultiplierRequest`/`Response`).
+- Added XNIMBUS router with explainability endpoints; registered in `app.py`.
+- Added XNIMBUS API endpoint tests.
+
+#### Changed
+- Removed singleton request model classes (`ProblemGetRequest`,
+  `GetSessionRequest`, `RepresentativeSolutionSetRequest`) and refactored
+  endpoints to use query parameters instead.
+- Refactored `SessionContextGuard`: replaced `__call__` with
+  `.post`/`.get`/`.delete` methods to eliminate spurious `requestBody` on
+  GET/DELETE endpoints in the OpenAPI schema.
+- Fixed `SessionContextGuard` swapped-arguments bug (`fetch_interactive_session`
+  called with request/session reversed).
+
+#### Fixed
+- Fixed cookies being set to `Secure` in dev mode, which broke the UI over HTTP
+  connections (e.g., WSL). The `Secure` flag is now derived from the SvelteKit
+  `dev` environment setting.
+
+---
+
+### Web GUI
+#### Added
+- Added XNIMBUS (Explainable NIMBUS) frontend route with explainable layout,
+  advanced sidebar, explanation bar charts, and help dialog.
+- Added Explainable NIMBUS to the method selection/initialize view.
+- Added custom 404 error page.
+- Added registration and forgot-password placeholder pages; fixed links
+  on the login page.
+- Added visual indicators on the login form.
+- Added page titles and meta descriptions to all frontend routes.
+
+#### Changed
+- Fully migrated to Orval-generated endpoints: replaced all `api.GET`/`api.POST`
+  calls with Orval-generated endpoint functions across 19 files (problems, groups,
+  NIMBUS, XNIMBUS, SCORE-bands, GDM-SCORE-bands, GNIMBUS, EMO routes).
+- Consolidated Orval-generated models and clients into a single file instead of
+  splitting across `src/lib/gen/models`.
+- Migrated all `components['schemas']` references to direct `$lib/gen/models`
+  imports.
+- Refactored NIMBUS frontend to Orval handler pattern (removed `+server.ts`
+  proxy, `callNimbusAPI`).
+- Refactored GNIMBUS `+server.ts` from generic dispatch to individual Orval
+  calls.
+- Removed unused client files: `client.ts`, `client-types.ts`, `zod-schemas.ts`,
+  `zod-types.ts`.
+- Removed `openapi-fetch` and `openapi-typescript-fetch` dependencies.
+- Renamed "Worsen until" to "Impair until" in NIMBUS constants.
+
+#### Fixed
+- Fixed Orval GET-with-body error (pass `undefined` instead of `null` for
+  optional body params).
+- Fixed stale Orval imports in E-NAUTILUS, problems/handler, and
+  problems/define/handler.
+- Fixed explanation bar chart / ranking bar chart label overflow (rotate,
+  truncate, cap margins).
+
+---
+
+### Documentation
+#### Added
+- Added guide on how to implement method interfaces in the GUI.
+
+#### Changed
+- Updated contributing guide to include instructions for running tests without
+  `make`.
+- Updated installation documentation for DESDEO on JYU Windows.
+- Fixed improperly formatted MkDocs settings for Read the Docs builds.
+- Fixed broken cross-references in notebook markdown cells (autorefs to standard
+  links).
+- Completed sympy evaluator, Pyomo solvers, Nevergrad solver, and Summary of
+  Solvers documentation sections.
+- Made all documentation code cells executable with real test problems.
+- Suppressed sklearn and COBYLA warnings in documentation notebooks.
+
+---
+
 ## [2.2.2] - 17.2.2026
 
 ### Core logic

@@ -1,4 +1,4 @@
-import type { ProblemInfo } from '$lib/gen/models';
+import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
 import { CLASSIFICATION_TYPES, PREFERENCE_TYPES, SIGNIFICANT_DIGITS } from '$lib/constants';
 
 type ObjectiveInfo = ProblemInfo['objectives'][0];

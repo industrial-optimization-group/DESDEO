@@ -1,6 +1,9 @@
+// TODO: Replace with orval-generated endpoint once /method/emo/save is added to the OpenAPI spec and orval is re-run
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
-import { api } from '$lib/api/client';
+import { customFetch } from '$lib/api/new-client';
+
+const BASE_URL = import.meta.env.VITE_API_URL as string;
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
   const refreshToken = cookies.get('refresh_token');
@@ -21,14 +24,19 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
       name
     };
 
-    const response = await api.POST('/method/emo/save', {
-      body: saveRequest
+    const response = await customFetch<{ status: number; data: any }>(`${BASE_URL}/method/emo/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${refreshToken}`
+      },
+      body: JSON.stringify(saveRequest)
     });
 
-    if (!response.data) {
+    if (response.status !== 200) {
       return json(
-        { error: 'Failed to save solutions' }, 
-        { status: response.response?.status || 500 }
+        { error: 'Failed to save solutions' },
+        { status: response.status || 500 }
       );
     }
 

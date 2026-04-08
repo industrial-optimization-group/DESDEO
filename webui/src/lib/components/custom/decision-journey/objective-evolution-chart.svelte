@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import * as d3 from 'd3';
-	import type { JourneyStep } from './journey-utils';
+	import type { JourneyStep, WhatIfSimulation } from './journey-utils';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors';
 	import { formatNumber } from '$lib/helpers';
 
@@ -12,9 +12,11 @@
 		objectiveMaximize: boolean[];
 		tooltipEl?: HTMLDivElement;
 		onStepClick?: (step: JourneyStep) => void;
+		whatIfSimulation?: WhatIfSimulation | null;
+		selectedIteration?: number | null;
 	}
 
-	let { steps, objectiveKeys, objectiveLabels, objectiveMaximize, tooltipEl = $bindable(), onStepClick }: Props = $props();
+	let { steps, objectiveKeys, objectiveLabels, objectiveMaximize, tooltipEl = $bindable(), onStepClick, whatIfSimulation = null, selectedIteration = null }: Props = $props();
 
 	let container: HTMLDivElement;
 	let svg: SVGSVGElement;
@@ -49,8 +51,11 @@
 		if (!tooltipEl) return;
 		const tooltip = d3.select(tooltipEl);
 
-		// X scale: iteration number
+		// X scale: iteration number (extend domain for what-if steps if needed)
 		const iterations = steps.map((s) => s.iteration);
+		if (whatIfSimulation?.steps) {
+			for (const s of whatIfSimulation.steps) iterations.push(s.iteration);
+		}
 		const xMin = d3.min(iterations)!;
 		const xMax = d3.max(iterations)!;
 		const xScale = d3.scaleLinear().domain([xMin, xMax]).range([0, innerWidth]);
@@ -69,6 +74,29 @@
 			.attr('y2', (d) => yScale(d))
 			.attr('stroke', '#e5e7eb')
 			.attr('stroke-dasharray', '3,3');
+
+		// Selected iteration highlight band
+		if (selectedIteration != null) {
+			const bandHalf = innerWidth / Math.max(xMax - xMin, 1) * 0.35;
+			const cx = xScale(selectedIteration);
+			g.append('rect')
+				.attr('x', cx - bandHalf)
+				.attr('y', 0)
+				.attr('width', bandHalf * 2)
+				.attr('height', innerHeight)
+				.attr('fill', '#3b82f6')
+				.attr('opacity', 0.08)
+				.attr('rx', 4);
+			g.append('line')
+				.attr('x1', cx)
+				.attr('x2', cx)
+				.attr('y1', 0)
+				.attr('y2', innerHeight)
+				.attr('stroke', '#3b82f6')
+				.attr('stroke-width', 1.5)
+				.attr('stroke-dasharray', '4,3')
+				.attr('opacity', 0.35);
+		}
 
 		// Axes
 		const tickCount = Math.min(steps.length, 10);
@@ -225,6 +253,71 @@
 				});
 		}
 
+		// What-if simulation overlay (dashed lines + hollow circles)
+		if (whatIfSimulation?.steps && whatIfSimulation.steps.length > 0) {
+			const branchIdx = whatIfSimulation.branchStepIdx;
+			const branchStep = branchIdx >= 0 && branchIdx < steps.length ? steps[branchIdx] : null;
+
+			for (let k = 0; k < objectiveKeys.length; k++) {
+				const key = objectiveKeys[k];
+				const color = COLOR_PALETTE[k % COLOR_PALETTE.length];
+
+				// Build combined path: branch point + simulated steps
+				const simData: JourneyStep[] = [];
+				if (branchStep && branchStep.normalizedValues[key] != null) {
+					simData.push(branchStep);
+				}
+				for (const s of whatIfSimulation.steps) {
+					if (s.normalizedValues[key] != null) simData.push(s);
+				}
+
+				if (simData.length < 2) continue;
+
+				// Dashed line
+				const simLine = d3
+					.line<JourneyStep>()
+					.x((d) => xScale(d.iteration))
+					.y((d) => yScale(d.normalizedValues[key]))
+					.curve(d3.curveLinear);
+
+				g.append('path')
+					.datum(simData)
+					.attr('fill', 'none')
+					.attr('stroke', color)
+					.attr('stroke-width', 2.5)
+					.attr('stroke-dasharray', '6,4')
+					.attr('opacity', 0.7)
+					.attr('d', simLine);
+
+				// Hollow circle dots (skip branch point — it's already rendered)
+				const simOnly = whatIfSimulation.steps.filter((s) => s.normalizedValues[key] != null);
+				g.selectAll(`.sim-dot-${k}`)
+					.data(simOnly)
+					.join('circle')
+					.attr('cx', (d) => xScale(d.iteration))
+					.attr('cy', (d) => yScale(d.normalizedValues[key]))
+					.attr('r', 5)
+					.attr('fill', '#fff')
+					.attr('stroke', color)
+					.attr('stroke-width', 2)
+					.attr('opacity', 0.85);
+			}
+
+			// "what-if" label at the end of the branch
+			const lastSim = whatIfSimulation.steps[whatIfSimulation.steps.length - 1];
+			const firstKey = objectiveKeys[0];
+			if (lastSim.normalizedValues[firstKey] != null) {
+				g.append('text')
+					.attr('x', xScale(lastSim.iteration) + 8)
+					.attr('y', yScale(lastSim.normalizedValues[firstKey]))
+					.attr('fill', '#9ca3af')
+					.attr('font-size', '10px')
+					.attr('font-style', 'italic')
+					.attr('dominant-baseline', 'middle')
+					.text('what-if');
+			}
+		}
+
 		// Legend: horizontal row(s) below the plot
 		const legendY = innerHeight + 50;
 		const colWidth = Math.floor(innerWidth / Math.min(objectiveKeys.length, 3));
@@ -278,6 +371,8 @@
 		objectiveLabels;
 		objectiveMaximize;
 		tooltipEl;
+		whatIfSimulation;
+		selectedIteration;
 		width;
 		height;
 		drawChart();

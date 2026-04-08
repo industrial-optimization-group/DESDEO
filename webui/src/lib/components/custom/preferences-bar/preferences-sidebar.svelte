@@ -2,7 +2,7 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import PreferenceSwitcher from './preference-switcher.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import type { ProblemInfo } from '$lib/gen/models';
+	import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import {
 		HorizontalBar,
 		HorizontalBarRanges

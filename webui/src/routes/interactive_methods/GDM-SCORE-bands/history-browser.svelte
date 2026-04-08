@@ -33,7 +33,7 @@
 	 * - Svelte 5 runes for reactive state management
 	 */
 	import { Button } from '$lib/components/ui/button';
-	import type { GDMSCOREBandsResponse, GDMSCOREBandsDecisionResponse } from '$lib/gen/models';
+	import type { GDMSCOREBandsResponse, GDMSCOREBandsDecisionResponse } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 	// Component props
 	const {

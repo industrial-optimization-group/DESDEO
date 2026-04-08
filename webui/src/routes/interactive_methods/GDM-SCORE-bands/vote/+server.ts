@@ -1,13 +1,7 @@
 /**
  * Server-side API endpoint for GDM SCORE Bands voting.
- * This endpoint acts as a proxy between the frontend and the backend DESDEO API.
  *
  * Route: POST /interactive_methods/GDM-SCORE-bands/vote
- *
- * Purpose:
- * - Calls vote endpoint to cast user's vote for a specific cluster or solution
- * - Allows users to vote for their preferred option in group decision making
- * - Returns voting confirmation from the backend, but websocket handles all the neccessary updates instead of this response
  *
  * Author: Stina Palomäki
  * Created: December 2025
@@ -15,55 +9,33 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
-import { api } from '$lib/api/client';
+import { voteForABandGdmScoreBandsVotePost } from '$lib/gen/endpoints/DESDEOFastAPI';
 
-/**
- * POST handler for GDM SCORE Bands voting requests
- *
- * Expected request body: { group_id: number, vote: number }
- *
- * Returns: JSON response with voting confirmation and updated status
- */
 export const POST: RequestHandler = async ({ request, cookies }) => {
-	// Authentication check: Verify that the user has a valid refresh token
 	const refreshToken = cookies.get('refresh_token');
 	if (!refreshToken) {
 		return json({ error: 'Not authenticated' }, { status: 401 });
 	}
 
 	try {
-		// Parse the incoming request from the frontend
 		const { group_id, vote } = await request.json();
-		const requestData = {
-			group_id,
-			vote
+
+		const options: RequestInit = {
+			headers: { Authorization: `Bearer ${refreshToken}` }
 		};
 
-		/**
-		 * Forward the request to the backend DESDEO API
-		 */
-		const response = await api.POST('/gdm-score-bands/vote', {
-			body: requestData,
-			headers: {
-				Authorization: `Bearer ${refreshToken}`, // Authenticate with refresh token
-				'Content-Type': 'application/json'
-			}
-		});
+		const response = await voteForABandGdmScoreBandsVotePost({ group_id, vote }, options);
 
-		if (!response.data) {
-			console.error('No data in response:', {
-				status: response.response?.status,
-				statusText: response.response?.statusText,
-				error: response.error
-			});
+		if (response.status !== 200) {
+			console.error('Vote error:', { status: response.status, data: response.data });
 
 			return json(
 				{
 					error: 'Failed to vote',
-					details: response.error || 'No data returned from API',
-					status: response.response?.status
+					details: (response.data as any)?.detail || 'No data returned from API',
+					status: response.status
 				},
-				{ status: response.response?.status || 500 }
+				{ status: response.status }
 			);
 		}
 
@@ -77,20 +49,11 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
 		const errorName = error instanceof Error ? error.name : 'Error';
-		const errorStack = error instanceof Error ? error.stack : undefined;
 
-		console.error('voting error details:', {
-			message: errorMessage,
-			stack: errorStack,
-			name: errorName
-		});
+		console.error('voting error details:', { message: errorMessage, name: errorName });
 
 		return json(
-			{
-				error: 'Server error',
-				details: errorMessage,
-				type: errorName
-			},
+			{ error: 'Server error', details: errorMessage, type: errorName },
 			{ status: 500 }
 		);
 	}

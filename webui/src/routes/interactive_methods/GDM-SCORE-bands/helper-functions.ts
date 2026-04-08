@@ -21,7 +21,7 @@
  * - $lib/api/client-types for OpenAPI-generated TypeScript types
  * - Native SVG DOM manipulation (no external charting libraries)
  */
-import type { ProblemInfo, SCOREBandsResult } from '$lib/gen/models';
+import type { ProblemInfo, SCOREBandsResult } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 /**
  * Calculate agreement level for each axis based on voting data

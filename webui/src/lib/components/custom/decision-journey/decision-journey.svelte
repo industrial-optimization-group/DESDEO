@@ -1,8 +1,9 @@
 <script lang="ts">
-	import type { ENautilusSessionTreeResponse, ProblemInfo } from '$lib/gen/models';
-	import { extractPathToLeaf, computeJourneyData, type JourneyStep } from './journey-utils';
+	import type { ENautilusSessionTreeResponse, ENautilusSimulateResponse, ProblemInfo, SolverResults } from '$lib/gen/models';
+	import { extractPathToLeaf, computeJourneyData, buildNormalizationMaps, computeSimulatedJourneySteps, type JourneyStep, type WhatIfSimulation } from './journey-utils';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors';
 	import { formatNumber } from '$lib/helpers';
+	import { simulateMethodEnautilusSimulatePost } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import ObjectiveEvolutionChart from './objective-evolution-chart.svelte';
 	import PreferenceProfileChart from './preference-profile-chart.svelte';
 	import TradeoffSummary from './tradeoff-summary.svelte';
@@ -15,12 +16,17 @@
 		/** Projected final solution values (from representative solutions).
 		 *  Overrides the last step's raw values so the chart matches the final view. */
 		finalSolutionPoint?: Record<string, number> | null;
+		/** Called when the user wants to adopt the what-if simulation's final solution. */
+		onAdoptSolution?: (solution: SolverResults) => void;
 	}
 
-	let { sessionTree, leafNodeId, problem, finalSolutionPoint = null }: Props = $props();
+	let { sessionTree, leafNodeId, problem, finalSolutionPoint = null, onAdoptSolution }: Props = $props();
 
 	let tooltipEl = $state<HTMLDivElement>();
 	let selectedStep = $state<JourneyStep | null>(null);
+	let whatIfSimulation = $state<WhatIfSimulation | null>(null);
+	let whatIfLoading = $state(false);
+	let whatIfSectionEl = $state<HTMLDivElement>();
 
 	let journeyData = $derived.by(() => {
 		try {
@@ -41,6 +47,66 @@
 
 	function handleStepClick(step: JourneyStep) {
 		selectedStep = step;
+		whatIfSimulation = null;
+	}
+
+	async function handleWhatIf(objectiveSymbol: string, deprioritize = false) {
+		if (!selectedStep || selectedStep.nodeId < 0) return;
+
+		whatIfLoading = true;
+		try {
+			const result = await simulateMethodEnautilusSimulatePost({
+				state_id: selectedStep.nodeId,
+				preferred_objective: objectiveSymbol,
+				deprioritize,
+			});
+			if (result.status !== 200) {
+				console.error('[DecisionJourney] Simulation failed:', result.status);
+				whatIfLoading = false;
+				return;
+			}
+			const response: ENautilusSimulateResponse = result.data;
+
+			// Build normalization maps
+			const path = extractPathToLeaf(sessionTree, leafNodeId);
+			const rootPoint = path.length > 0 ? (path[0].selected_point as Record<string, number> | null) : null;
+			const { idealMap, nadirMap } = buildNormalizationMaps(problem, rootPoint);
+
+			// Convert simulation steps to JourneyStep[]
+			const simSteps = computeSimulatedJourneySteps(
+				response.steps,
+				journeyData.objectiveKeys,
+				idealMap,
+				nadirMap,
+			);
+
+			// Find branch step index
+			const branchIdx = journeyData.steps.findIndex((s) => s.nodeId === selectedStep!.nodeId);
+
+			// Extract final solution values, handling both scalar and array forms
+			const rawObjectives = response.final_solution.optimal_objectives ?? {};
+			const finalSolution: Record<string, number> = {};
+			for (const [k, v] of Object.entries(rawObjectives)) {
+				finalSolution[k] = Array.isArray(v) ? v[0] : (v as number);
+			}
+
+			whatIfSimulation = {
+				branchStepIdx: branchIdx >= 0 ? branchIdx : 0,
+				preferredObjective: response.preferred_objective,
+				deprioritize,
+				steps: simSteps,
+				finalSolution,
+				fullSolverResults: response.final_solution,
+			};
+
+			// Scroll the what-if section into view after render
+			requestAnimationFrame(() => {
+				whatIfSectionEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+			});
+		} catch (err) {
+			console.error('[DecisionJourney] What-if simulation failed:', err);
+		}
+		whatIfLoading = false;
 	}
 
 	function fmtPct(val: number): string {
@@ -71,6 +137,8 @@
 							objectiveMaximize={journeyData.objectiveMaximize}
 							bind:tooltipEl={tooltipEl}
 							onStepClick={handleStepClick}
+							{whatIfSimulation}
+							selectedIteration={selectedStep?.iteration ?? null}
 						/>
 					</div>
 				</div>
@@ -102,7 +170,7 @@
 				</h3>
 				<button
 					class="text-lg leading-none text-gray-400 hover:text-gray-700"
-					onclick={() => (selectedStep = null)}
+					onclick={() => { selectedStep = null; whatIfSimulation = null; }}
 				>&times;</button>
 			</div>
 
@@ -201,6 +269,99 @@
 				<p class="mt-2 text-[10px] text-gray-400">
 					% relative to ideal–nadir range. Green = better than alternative, red = worse.
 				</p>
+
+				<!-- What-if simulation section -->
+				<div bind:this={whatIfSectionEl} class="mt-4 border-t border-gray-200 pt-3">
+					<div class="mb-2 text-xs font-medium text-gray-500">What if you had always picked the best...</div>
+					<div class="flex flex-wrap gap-1.5">
+						{#each journeyData.objectiveKeys as oKey, j}
+							{@const oLabel = journeyData.objectiveLabels[j] ?? oKey}
+							{@const dir = journeyData.objectiveMaximize[j] ? '↑' : '↓'}
+							{@const isActive = whatIfSimulation?.preferredObjective === oKey && !whatIfSimulation?.deprioritize}
+							<button
+								class="rounded border px-2 py-1 text-xs transition-colors {isActive ? 'border-blue-400 bg-blue-50 text-blue-700 font-semibold' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'}"
+								disabled={whatIfLoading}
+								onclick={() => handleWhatIf(oKey)}
+							>
+								{oLabel} {dir}
+							</button>
+						{/each}
+					</div>
+
+					<div class="mt-2 mb-2 text-xs font-medium text-gray-500">...or always picked the worst?</div>
+					<div class="flex flex-wrap gap-1.5">
+						{#each journeyData.objectiveKeys as oKey, j}
+							{@const oLabel = journeyData.objectiveLabels[j] ?? oKey}
+							{@const dir = journeyData.objectiveMaximize[j] ? '↓' : '↑'}
+							{@const isActive = whatIfSimulation?.preferredObjective === oKey && whatIfSimulation?.deprioritize}
+							<button
+								class="rounded border px-2 py-1 text-xs transition-colors {isActive ? 'border-red-400 bg-red-50 text-red-700 font-semibold' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'}"
+								disabled={whatIfLoading}
+								onclick={() => handleWhatIf(oKey, true)}
+							>
+								{oLabel} {dir}
+							</button>
+						{/each}
+					</div>
+
+					{#if whatIfLoading}
+						<div class="mt-2 text-xs text-gray-400 italic">Simulating...</div>
+					{/if}
+
+					{#if whatIfSimulation}
+						<div class="mt-3">
+							<div class="mb-1 text-xs font-medium text-gray-500">Actual vs What-if final</div>
+							<table class="w-full text-xs">
+								<thead>
+									<tr class="border-b border-gray-200 text-left text-gray-500">
+										<th class="pb-1 pr-2 font-medium">Objective</th>
+										<th class="pb-1 px-1.5 font-medium text-center">Actual</th>
+										<th class="pb-1 px-1.5 font-medium text-center">What-if</th>
+										<th class="pb-1 px-1.5 font-medium text-center">Δ</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each journeyData.objectiveKeys as oKey, j}
+										{@const actualRaw = journeyData.steps[journeyData.steps.length - 1]?.rawValues[oKey]}
+										{@const whatIfRaw = whatIfSimulation.finalSolution[oKey]}
+										{@const delta = actualRaw != null && whatIfRaw != null ? whatIfRaw - actualRaw : null}
+										{@const isMax = journeyData.objectiveMaximize[j]}
+										{@const isGood = delta != null && ((isMax && delta > 0) || (!isMax && delta < 0))}
+										{@const isBad = delta != null && ((isMax && delta < 0) || (!isMax && delta > 0))}
+										<tr class="border-b border-gray-100">
+											<td class="py-1 pr-2 text-gray-600">
+												<span class="inline-block h-1.5 w-1.5 rounded-full mr-1" style="background:{COLOR_PALETTE[j % COLOR_PALETTE.length]}"></span>
+												{journeyData.objectiveLabels[j] ?? oKey}
+											</td>
+											<td class="py-1 px-1.5 text-center">{actualRaw != null ? formatNumber(actualRaw, 4) : '—'}</td>
+											<td class="py-1 px-1.5 text-center">{whatIfRaw != null ? formatNumber(whatIfRaw, 4) : '—'}</td>
+											<td class="py-1 px-1.5 text-center font-semibold" style="color: {isGood ? '#059669' : isBad ? '#dc2626' : '#666'}">
+												{delta != null ? (delta > 0 ? '+' : '') + formatNumber(delta, 4) : '—'}
+											</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+
+							<div class="mt-2 flex gap-2">
+							{#if onAdoptSolution}
+								<button
+									class="rounded border border-blue-300 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+									onclick={() => onAdoptSolution?.(whatIfSimulation!.fullSolverResults)}
+								>
+									Use this solution
+								</button>
+							{/if}
+							<button
+								class="rounded border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-gray-50"
+								onclick={() => (whatIfSimulation = null)}
+							>
+								Clear what-if
+							</button>
+						</div>
+						</div>
+					{/if}
+				</div>
 			</div>
 		</div>
 	{:else}

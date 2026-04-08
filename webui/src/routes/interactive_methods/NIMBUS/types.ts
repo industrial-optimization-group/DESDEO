@@ -1,6 +1,6 @@
 /*Types specific for NIMBUS */
 
-import type { ReferencePoint, NIMBUSFinalizeResponse } from "$lib/gen/models";
+import type { ReferencePoint, NIMBUSFinalizeResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
 import type { BaseMethodResponse, PeriodKey, Solution } from "$lib/types";
 
 // Type for objective values in reference points and solutions

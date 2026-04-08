@@ -1,14 +1,21 @@
 import type { PageLoad } from './$types';
-import { api } from '$lib/api/client';
+import { getDmUsersUsersDmsGet, getProblemsInfoProblemAllInfoGet } from '$lib/gen/endpoints/DESDEOFastAPI';
+import type { UserPublic } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 export const load: PageLoad = async () => {
-	const res = await api.GET('/problem/all_info');
+	const [problemsRes, dmsRes] = await Promise.all([
+		getProblemsInfoProblemAllInfoGet(),
+		getDmUsersUsersDmsGet().catch(() => null)
+	]);
 
-	if (!res.data) {
+	if (problemsRes.status !== 200) {
 		throw new Error('Failed to fetch problems');
 	}
 
+	const dmUsers: UserPublic[] = dmsRes?.status === 200 ? (dmsRes.data as UserPublic[]) : [];
+
 	return {
-		problemList: res.data
+		problemList: problemsRes.data,
+		dmUsers
 	};
 };

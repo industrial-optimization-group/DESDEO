@@ -5,6 +5,7 @@ import type {
 	ENautilusTreeNodeResponse,
 	ENautilusDecisionEventResponse,
 	ProblemInfo,
+	SolverResults,
 } from "$lib/gen/models";
 import { analyzeTradeoffs, type ObjectiveTradeoff } from "$lib/components/custom/decision-tree/tree-utils";
 
@@ -61,6 +62,21 @@ export interface JourneyData {
 	objectiveMaximize: boolean[];
 	preferenceProfile: PreferenceProfileEntry[];
 	pairwiseTradeoffs: PairwiseTradeoffEntry[];
+}
+
+export interface WhatIfSimulation {
+	/** Which step in the journey this branches from */
+	branchStepIdx: number;
+	/** Which objective was favored */
+	preferredObjective: string;
+	/** Whether this simulation deprioritized (picked worst) the objective */
+	deprioritize: boolean;
+	/** Normalized steps for the simulated path (same shape as JourneyStep[]) */
+	steps: JourneyStep[];
+	/** The projected final solution objective values */
+	finalSolution: Record<string, number>;
+	/** The full SolverResults from the simulation (for adopting the solution) */
+	fullSolverResults: SolverResults;
 }
 
 /**
@@ -330,4 +346,84 @@ export function computeJourneyData(
 	pairwiseTradeoffs.sort((a, b) => b.count - a.count || b.avgSacrifice - a.avgSacrifice);
 
 	return { steps, objectiveKeys, objectiveLabels, objectiveMaximize, preferenceProfile, pairwiseTradeoffs };
+}
+
+/**
+ * Normalize a single point given ideal/nadir maps.
+ * lo = min(ideal, nadir), hi = max(ideal, nadir).
+ */
+export function normalizePoint(
+	rawValues: Record<string, number>,
+	objectiveKeys: string[],
+	idealMap: Record<string, number>,
+	nadirMap: Record<string, number>,
+): Record<string, number> {
+	const normalized: Record<string, number> = {};
+	for (const key of objectiveKeys) {
+		const value = rawValues[key];
+		if (value == null) continue;
+		const ideal = idealMap[key];
+		const nadir = nadirMap[key];
+		if (ideal != null && nadir != null && ideal !== nadir) {
+			const lo = Math.min(ideal, nadir);
+			const hi = Math.max(ideal, nadir);
+			normalized[key] = (value - lo) / (hi - lo);
+		} else {
+			normalized[key] = 0.5;
+		}
+	}
+	return normalized;
+}
+
+/**
+ * Build ideal and nadir normalization maps from problem info and root node.
+ */
+export function buildNormalizationMaps(
+	problem: ProblemInfo,
+	rootSelectedPoint: Record<string, number> | null,
+): { idealMap: Record<string, number>; nadirMap: Record<string, number> } {
+	const idealMap: Record<string, number> = {};
+	for (const obj of problem.objectives) {
+		if (obj.ideal != null) idealMap[obj.symbol] = obj.ideal;
+	}
+
+	const nadirMap: Record<string, number> = {};
+	if (rootSelectedPoint) {
+		for (const obj of problem.objectives) {
+			if (rootSelectedPoint[obj.symbol] != null) {
+				nadirMap[obj.symbol] = rootSelectedPoint[obj.symbol];
+			}
+		}
+	}
+	for (const obj of problem.objectives) {
+		if (nadirMap[obj.symbol] == null && obj.nadir != null) {
+			nadirMap[obj.symbol] = obj.nadir;
+		}
+	}
+
+	return { idealMap, nadirMap };
+}
+
+/**
+ * Convert a simulation response into normalized JourneyStep[] for chart overlay.
+ */
+export function computeSimulatedJourneySteps(
+	simulationSteps: Array<{
+		iteration: number;
+		selected_point: Record<string, number>;
+	}>,
+	objectiveKeys: string[],
+	idealMap: Record<string, number>,
+	nadirMap: Record<string, number>,
+): JourneyStep[] {
+	return simulationSteps.map((step) => ({
+		iteration: step.iteration,
+		nodeId: -1, // simulated, not a real node
+		normalizedValues: normalizePoint(step.selected_point, objectiveKeys, idealMap, nadirMap),
+		rawValues: { ...step.selected_point },
+		tradeoffs: null,
+		alternativeDeltas: null,
+		intermediatePoints: null,
+		chosenOptionIdx: null,
+	}));
 }

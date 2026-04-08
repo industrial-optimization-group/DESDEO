@@ -13,7 +13,7 @@ import type {
 	GNIMBUSAllIterationsResponse,
 	GroupPublic,
 	FullIteration
-} from '$lib/gen/models';
+} from '$lib/gen/endpoints/DESDEOFastAPI';
 
 export type { ProblemInfo };
 export type Solution = {

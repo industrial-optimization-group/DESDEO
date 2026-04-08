@@ -1,0 +1,108 @@
+# deploy/postgres.yaml
+#
+# In-cluster PostgreSQL using the OpenShift built-in image.
+#
+# Apply with:
+#   oc apply -f deploy/postgres.yaml
+#
+# The OpenShift PostgreSQL image uses these env var names:
+#   POSTGRESQL_USER      — creates a non-superuser application account
+#   POSTGRESQL_PASSWORD  — password for POSTGRESQL_USER
+#   POSTGRESQL_DATABASE  — database to create on first start
+#
+# These are sourced from desdeo-secrets (keys POSTGRES_USER and POSTGRES_PASSWORD).
+# The database name is hardcoded to 'desdeo' here; change it if needed and update
+# DB_NAME in the secret accordingly.
+#
+# Data is persisted in the PVC mounted at /var/lib/pgsql/data.
+#
+# To check available image tags on your cluster:
+#   oc get is postgresql -n openshift -o jsonpath='{.spec.tags[*].name}'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: desdeo-postgres
+  labels:
+    app: desdeo-postgres
+spec:
+  clusterIP: None
+  selector:
+    app: desdeo-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: desdeo-postgres
+  labels:
+    app: desdeo-postgres
+spec:
+  selector:
+    matchLabels:
+      app: desdeo-postgres
+  serviceName: desdeo-postgres
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: desdeo-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql:16-el10
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRESQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: desdeo-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: desdeo-secrets
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRESQL_DATABASE
+              value: desdeo
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/pgsql/data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - psql -U $POSTGRESQL_USER -d desdeo -c "SELECT 1"
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - psql -U $POSTGRESQL_USER -d desdeo -c "SELECT 1"
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 3
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi

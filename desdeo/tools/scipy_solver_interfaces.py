@@ -333,10 +333,12 @@ class ScipyMinimizeSolver(BaseSolver):
         Returns:
             SolverResults: results of the optimization.
         """
-        # add constraints if there are any
+        # If the target is an objective symbol, use its _min form
+        objective_symbols = {obj.symbol for obj in self.problem.objectives}
+        eval_target = f"{target}_min" if target in objective_symbols else target
 
         optimization_result: _ScipyOptimizeResult = _scipy_minimize(
-            get_scipy_eval(self.problem, self.evaluator, target, EvalTargetEnum.objective),
+            get_scipy_eval(self.problem, self.evaluator, eval_target, EvalTargetEnum.objective),
             self.initial_guess,
             method=self.method,
             bounds=self.bounds,
@@ -422,10 +424,12 @@ class ScipyDeSolver(BaseSolver):
         Returns:
             SolverResults: results of the optimization.
         """
-        # add constraints if there are any
+        # If the target is an objective symbol, use its _min form
+        objective_symbols = {obj.symbol for obj in self.problem.objectives}
+        eval_target = f"{target}_min" if target in objective_symbols else target
 
         optimization_result: _ScipyOptimizeResult = _scipy_de(
-            get_scipy_eval(self.problem, self.evaluator, target, EvalTargetEnum.objective),
+            get_scipy_eval(self.problem, self.evaluator, eval_target, EvalTargetEnum.objective),
             bounds=self.bounds,
             x0=self.initial_guess,
             constraints=self.constraints,

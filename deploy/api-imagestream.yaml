@@ -1,0 +1,18 @@
+# deploy/api-imagestream.yaml
+#
+# ImageStream for the DESDEO API container image.
+# The BuildConfig writes new image revisions here; the Deployment reads from here.
+# Separating build output from deployment allows rolling updates to trigger
+# automatically when a new image is pushed.
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: desdeo-api
+  labels:
+    app: desdeo-api
+spec:
+  lookupPolicy:
+    # Allow Deployments in this namespace to reference the image by its
+    # ImageStreamTag name without needing the full registry URL.
+    local: true

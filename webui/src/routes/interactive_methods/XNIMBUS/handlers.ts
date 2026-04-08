@@ -22,7 +22,7 @@ import type {
 	IntermediateSolutionRequest,
 	NIMBUSMultiplierRequest,
 	SolutionInfo
-} from '$lib/gen/models';
+} from '$lib/gen/endpoints/DESDEOFastAPI';
 import type { ProblemInfo, Solution } from '$lib/types';
 import type { Response, ReferencePoint, FinishResponse } from './types';
 import { errorMessage, isLoading } from '../../../stores/uiState';

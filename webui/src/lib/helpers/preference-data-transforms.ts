@@ -1,4 +1,4 @@
-import type { ProblemInfo } from '$lib/gen/models';
+import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 export type Solution = {
     values: { [key: string]: number };

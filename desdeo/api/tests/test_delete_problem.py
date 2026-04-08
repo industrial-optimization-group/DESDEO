@@ -100,11 +100,11 @@ def test_delete_problem_unauthorized(client: TestClient, session_and_user: dict)
     session: Session = session_and_user["session"]
     user: User = session_and_user["user"]
 
-    # Create a second user
+    # Create a second user (DM — cannot delete other users' problems)
     other_user = User(
         username="other",
         password_hash=get_password_hash("other"),
-        role=UserRole.analyst,
+        role=UserRole.dm,
         group="test",
     )
     session.add(other_user)
@@ -126,7 +126,7 @@ def test_delete_problem_unauthorized(client: TestClient, session_and_user: dict)
         headers={"Authorization": f"Bearer {other_token}"},
     )
 
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.status_code == status.HTTP_403_FORBIDDEN
 
     # Problem should still exist
     assert session.get(ProblemDB, problem_id) is not None

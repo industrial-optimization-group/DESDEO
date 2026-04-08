@@ -69,7 +69,7 @@
 	import HistoryBrowser from './history-browser.svelte';
 	import ConfigPanel from './config-panel.svelte';
 	import { onMount, onDestroy } from 'svelte';
-	import type { GroupPublic, ProblemInfo, GDMSCOREBandsResponse, GDMSCOREBandsDecisionResponse, SCOREBandsResult, SCOREBandsConfig, GDMSCOREBandFinalSelection, SCOREBandsGDMConfig } from '$lib/gen/models';
+	import type { GroupPublic, ProblemInfo, GDMSCOREBandsResponse, GDMSCOREBandsDecisionResponse, SCOREBandsResult, SCOREBandsConfig, GDMSCOREBandFinalSelection, SCOREBandsGDMConfig } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { auth } from '../../../stores/auth';
 	import { errorMessage } from '../../../stores/uiState';
 	import Alert from '$lib/components/custom/notifications/alert.svelte';

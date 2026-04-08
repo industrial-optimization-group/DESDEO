@@ -1,4 +1,4 @@
-import type { CreateSessionRequest, InteractiveSessionBase } from '$lib/gen/models';
+import type { CreateSessionRequest, InteractiveSessionBase } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type {
 	createNewSessionSessionNewPostResponse,
 	deleteSessionSessionSessionIdDeleteResponse,
@@ -22,9 +22,15 @@ export async function fetch_sessions(): Promise<InteractiveSessionBase[] | null>
 	return response.data;
 }
 
-export async function create_session(info: string | null): Promise<InteractiveSessionBase | null> {
+export async function create_session(
+	info: string | null,
+	targetUserId?: number | null
+): Promise<InteractiveSessionBase | null> {
 	const payload: CreateSessionRequest = { info: info ?? null };
-	const response: createNewSessionSessionNewPostResponse = await createNewSessionSessionNewPost(payload);
+	const response: createNewSessionSessionNewPostResponse = await createNewSessionSessionNewPost(
+		payload,
+		targetUserId != null ? { target_user_id: targetUserId } : undefined
+	);
 
 	if (response.status !== 200) {
 		console.error('create_session failed.', response.status);
@@ -43,4 +49,3 @@ export async function delete_session(session_id: number): Promise<boolean> {
   }
   return true;
 }
-

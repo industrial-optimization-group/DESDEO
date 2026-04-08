@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import type { SolutionReferenceResponse } from '$lib/gen/models';
+	import type { SolutionReferenceResponse } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { Input } from '$lib/components/ui/input/index.js';
 	type Solution = SolutionReferenceResponse;
 

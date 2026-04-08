@@ -5,7 +5,7 @@ import { defineConfig } from 'orval';
 const BASE_URL = process.env.API_BASE_URL;
 const VITE_API_URL = process.env.VITE_API_URL;
 // TODO: load from env like above
-const OPENAPI_URL = 'http://localhost:8000/openapi.json' 
+const OPENAPI_URL = 'http://localhost:8000/openapi.json'
 
 export default defineConfig({
     desdeo: {
@@ -13,7 +13,6 @@ export default defineConfig({
         output: {
             mode: 'single',
             target: 'src/lib/gen/endpoints',
-            schemas: 'src/lib/gen/models',
             client: 'fetch',
             baseUrl: `${BASE_URL}`,
             mock: false,
@@ -37,6 +36,17 @@ export default defineConfig({
             target: 'src/lib/gen/endpoints',
 	    namingConvention: "PascalCase",
             fileExtension: 'zod.ts',
+            override: {
+                zod: {
+                    generate: {
+                        body: true,
+                        param: true,
+                        query: true,
+                        header: true,
+                        response: true,
+                    },
+                },
+            },
         },
         hooks: {
             afterAllFilesWrite: 'prettier --write',

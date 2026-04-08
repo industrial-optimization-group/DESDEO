@@ -57,7 +57,7 @@
 	 * - Handles container resize events for optimal display
 	 */
 
-	import type { ProblemInfo } from '$lib/gen/models';
+	import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import ParallelCoordinates from '$lib/components/visualizations/parallel-coordinates/parallel-coordinates.svelte';
 	import { createReferenceData } from '$lib/helpers/preference-data-transforms';
 	import {

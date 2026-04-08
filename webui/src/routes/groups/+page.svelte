@@ -31,7 +31,7 @@
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import { buttonVariants } from '$lib/components/ui/button';
-	import type { ProblemInfo } from '$lib/gen/models';
+	import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { methodSelection } from '../../stores/methodSelection';
 	import { auth } from '../../stores/auth';
 	import { goto } from '$app/navigation';

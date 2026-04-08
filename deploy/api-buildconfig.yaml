@@ -1,0 +1,75 @@
+# deploy/api-buildconfig.yaml
+#
+# BuildConfig for the DESDEO API using OpenShift S2I strategy.
+#
+# Builder image: desdeo-builder ImageStream (custom image built from
+# desdeo-s2i-buildimage.Dockerfile). This includes Python 3.12 on UBI8
+# plus COIN-OR solvers (bonmin, ipopt, cbc) and ca-certificates.
+#
+# To use the base Python image without solvers instead,
+# replace the sourceStrategy.from block with:
+#   from:
+#     kind: ImageStreamTag
+#     name: python:3.12-ubi9
+#     namespace: openshift
+#
+# Triggers:
+#   - ImageChange on desdeo-builder -> rebuilds API when builder is updated
+#   - GitHub webhook (push to DEPLOY_BRANCH) <- main CI/CD trigger
+#   - ConfigChange
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: desdeo-api
+  labels:
+    app: desdeo-api
+spec:
+  source:
+    type: Git
+    git:
+      # Github repo and deploy branch
+      uri: https://github.com/gialmisi/DESDEO.git
+      ref: rahti-deploy
+
+  strategy:
+    type: Source
+    sourceStrategy:
+      # Reference the custom builder ImageStream produced by builder-buildconfig.yaml.
+      # This image has Python 3.12 + COIN-OR solvers pre-installed.
+      from:
+        kind: ImageStreamTag
+        name: desdeo-builder:latest
+      env:
+        - name: UPGRADE_PIP_TO_LATEST
+          value: "1"
+        - name: DESDEO_INSTALL
+          value: "--group web --group server"
+        - name: DEBUG
+          value: "false"
+
+  output:
+    to:
+      kind: ImageStreamTag
+      name: desdeo-api:latest
+
+  triggers:
+    # Rebuild API when the builder image is updated (solver or base OS updates).
+    - type: ImageChange
+      imageChange: {}
+    # GitHub webhook, push to DEPLOY_BRANCH triggers a new API build.
+    - type: GitHub
+      github:
+        secretReference:
+          name: desdeo-webhook-api
+    - type: ConfigChange
+
+  runPolicy: Serial
+
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1"

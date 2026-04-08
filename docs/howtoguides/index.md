@@ -32,4 +32,6 @@ Guides are goal-oriented and are meant to direct users towards specific goals wh
 ## Web-API and Web-GUI
 
 - **[Running the web-API and web-GUI](api_and_gui.md):** How to run the web-API and web-GUI
-- **[Hosting on Kubernetes](kubernetes.md):** How to host a DESDEO web application on Kubernetes
+- **[Hosting on Kubernetes (old)](kubernetes.md):** How to host a DESDEO web application on Kubernetes
+- **[Deploying on OpenShift](deploying_on_openshift.md):** How to deploy DESDEO on OpenShift/Kubernetes (Rahti example)
+- **[Implementing method interfaces](implementing_method_interfaces.md):** How to implement new interactive method interfaces in the Web-GUI
