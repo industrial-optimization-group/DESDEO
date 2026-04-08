@@ -6,7 +6,6 @@ import time
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from desdeo.api.db_models import Problem as ProblemInDB
 from desdeo.api.models import (
     CreateSessionRequest,
     EMOFetchRequest,
@@ -43,13 +42,11 @@ from desdeo.api.models import (
     User,
     UserPublic,
 )
-from desdeo.api.models.generic_states import State
 from desdeo.api.models.nimbus import (
     NIMBUSInitializationResponse,
     NIMBUSMultiplierRequest,
     NIMBUSMultiplierResponse,
 )
-
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.emo.options.algorithms import rvea_options
 from desdeo.emo.options.templates import ReferencePointOptions
@@ -62,7 +59,6 @@ from desdeo.tools.utils import available_solvers
 from .conftest import get_json, login, post_file_multipart, post_json
 from .test_models import compare_models
 
-# --- NAUTILUS Navigator endpoint tests ---
 
 def test_initialize_navigator(client: TestClient, session_and_user: dict):
     """Test /nautilus/initialize using the existing test user."""
@@ -70,22 +66,8 @@ def test_initialize_navigator(client: TestClient, session_and_user: dict):
     user = session_and_user["user"]
     session = session_and_user["session"]
 
-    ProblemInDB.metadata.create_all(bind=session.bind, tables=[ProblemInDB.__table__])
-
-    # Create a test problem
-    problem = dtlz2(3, 2).model_dump()  # raw dict
-    # Remove fields not allowed by Problem model
-    problem.pop("is_convex_", None)
-    problem.pop("is_linear_", None)
-    problem.pop("is_twice_differentiable_", None)
-
-    problem_db = ProblemInDB(
-        owner=user.id,
-        name="test_problem",
-        kind="continuous",
-        obj_kind="analytical",
-        value=problem
-    )
+    # Create a test problem using ProblemDB (the SQLModel table used by SessionContextGuard)
+    problem_db = ProblemDB.from_problem(dtlz2(3, 2), user=user)
     session.add(problem_db)
     session.commit()
     session.refresh(problem_db)
@@ -105,9 +87,6 @@ def test_initialize_navigator(client: TestClient, session_and_user: dict):
     assert "lower_bounds" in data
     assert "upper_bounds" in data
 
-    # Clean up
-    session.delete(problem_db)
-    session.commit()
 
 def test_navigate_navigator(client: TestClient, session_and_user: dict):
     """Test performing a NAUTILUS navigation step using the updated StateDB-based endpoint."""
@@ -115,31 +94,13 @@ def test_navigate_navigator(client: TestClient, session_and_user: dict):
     user = session_and_user["user"]
     session = session_and_user["session"]
 
-    ProblemInDB.metadata.create_all(bind=session.bind, tables=[ProblemInDB.__table__])
-
-
-    # --- Create a REAL problem ---
+    # Create a test problem using ProblemDB (the SQLModel table used by SessionContextGuard)
     problem_obj = dtlz2(3, 2)  # 3 variables, 2 objectives
-    problem_dict = problem_obj.model_dump()
-
-    # Remove forbidden fields for Problem model
-    problem_dict.pop("is_convex_", None)
-    problem_dict.pop("is_linear_", None)
-    problem_dict.pop("is_twice_differentiable_", None)
-
-    problem_db = ProblemInDB(
-        owner=user.id,
-        name="test_problem",
-        kind="continuous",
-        obj_kind="analytical",
-        value=problem_dict
-    )
-
+    problem_db = ProblemDB.from_problem(problem_obj, user=user)
     session.add(problem_db)
     session.commit()
     session.refresh(problem_db)
 
-    # --- Initialize first ---
     init_response = client.post(
         "/nautilus/initialize",
         json={"problem_id": problem_db.id},
@@ -150,21 +111,18 @@ def test_navigate_navigator(client: TestClient, session_and_user: dict):
     init_data = init_response.json()
     assert "state_id" in init_data
 
-    # --- Prepare reference point and bounds for all objectives ---
-    # Use the actual objective names from the problem
-    validated_problem = Problem.model_validate(problem_dict)
-    objective_names = [obj.name for obj in validated_problem.objectives]
+    objective_symbols = [obj.symbol for obj in problem_obj.objectives]
 
-    ref_point = {name: 0.5 for name in objective_names}
-    bounds = {name: 1.0 for name in objective_names}  # upper limit for each objective
+    ref_point = dict.fromkeys(objective_symbols, 0.5)
+    bounds = dict.fromkeys(objective_symbols, 1.0)
 
     # --- Navigate ---
     navigate_payload = {
         "problem_id": problem_db.id,
+        "parent_state_id": init_data["state_id"],
         "steps_remaining": 1,
         "reference_point": ref_point,
         "bounds": bounds,
-        "go_back_step": 0,
     }
 
     response = client.post(
@@ -187,10 +145,6 @@ def test_navigate_navigator(client: TestClient, session_and_user: dict):
         assert "reachable_solution" in step
         assert "lower_bounds" in step
         assert "upper_bounds" in step
-
-    # --- Clean up ---
-    session.delete(problem_db)
-    session.commit()
 
 
 def test_user_login(client: TestClient):
@@ -249,6 +203,7 @@ def test_refresh(client: TestClient):
     assert "access_token" in response_refresh.cookies
 
     assert response_good.json()["access_token"] != response_refresh.json()["access_token"]
+
 
 def test_debug_endpoint_valid_codes(client):
     """Test that debug endpoint returns the requested HTTP error codes."""
