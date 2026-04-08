@@ -1,4 +1,6 @@
-from sqlalchemy import JSON, Column, ForeignKey, Integer
+"""Models specific to the NAUTILUS Navigator method."""
+
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
 
@@ -20,15 +22,12 @@ class NautilusNavigatorInitializationState(SQLModel, table=True):
 
     __tablename__ = "nautilus_navigator_initialization_states"
 
-    # Primary key referencing the base State entry.
-    # state_id: int | None = Field(
-    #     sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True)
-    # )
     id: int | None = Field(
         default=None,
         primary_key=True,
         foreign_key="states.id",
     )
+
 
 class NautilusNavigatorNavigationState(SQLModel, table=True):
     """State representing one execution of the NAUTILUS Navigator navigation step.
@@ -73,20 +72,71 @@ class NautilusNavigatorNavigationState(SQLModel, table=True):
 
     __tablename__ = "nautilus_navigator_navigation_states"
 
-    # Primary key referencing the base State entry
     id: int | None = Field(
         default=None,
         primary_key=True,
         foreign_key="states.id",
     )
 
-    # Foreign key referencing base State entry
-    # state_id: int | None = Field(
-    #     sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True)
-    # )
     steps_remaining: int
     reference_point: dict[str, float] = Field(sa_column=Column(JSON))
     bounds: dict[str, float] | None = Field(default=None, sa_column=Column(JSON))
     previous_responses: list[dict] = Field(sa_column=Column(JSON))
     navigator_results: list[dict] = Field(sa_column=Column(JSON))
+
+
+class NautilusNavigatorInitRequest(SQLModel):
+    """Request to initialize a NAUTILUS Navigator session."""
+
+    problem_id: int
+    session_id: int | None = Field(default=None)
     parent_state_id: int | None = Field(default=None)
+
+
+class NautilusNavigatorNavigateRequest(SQLModel):
+    """Request to perform NAUTILUS Navigator navigation steps."""
+
+    problem_id: int
+    session_id: int | None = Field(default=None)
+    parent_state_id: int | None = Field(default=None)
+    reference_point: dict[str, float] = Field(
+        sa_column=Column(JSON),
+        description="Reference point provided by the decision maker.",
+    )
+    bounds: dict[str, float] | None = Field(
+        default=None,
+        sa_column=Column(JSON),
+        description="The bounds preference of the DM for each objective.",
+    )
+    steps_remaining: int = Field(description="The number of steps remaining in the navigation process.")
+
+
+class NautilusNavigatorStep(SQLModel):
+    """A single NAUTILUS Navigator step result."""
+
+    step_number: int
+    navigation_point: dict[str, float] = Field(sa_column=Column(JSON))
+    lower_bounds: dict[str, float] = Field(sa_column=Column(JSON))
+    upper_bounds: dict[str, float] = Field(sa_column=Column(JSON))
+    reachable_solution: dict[str, float] | None = Field(default=None, sa_column=Column(JSON))
+    reference_point: dict[str, float] | None = Field(default=None, sa_column=Column(JSON))
+    bounds: dict[str, float] | None = Field(default=None, sa_column=Column(JSON))
+    distance_to_front: float
+
+
+class NautilusNavigatorInitResponse(SQLModel):
+    """Response from NAUTILUS Navigator initialization."""
+
+    state_id: int | None = Field(description="The id of the state created by this initialization.")
+    navigation_point: dict[str, float] = Field(sa_column=Column(JSON), description="Initial navigation point.")
+    lower_bounds: dict[str, float] = Field(sa_column=Column(JSON), description="Lower bounds of reachable region.")
+    upper_bounds: dict[str, float] = Field(sa_column=Column(JSON), description="Upper bounds of reachable region.")
+    step_number: int = Field(description="Step number (always 0 at initialization).")
+    distance_to_front: float = Field(description="Distance to Pareto front.")
+
+
+class NautilusNavigatorNavigateResponse(SQLModel):
+    """Response from NAUTILUS Navigator navigation."""
+
+    state_id: int | None = Field(description="The id of the state created by this navigation step.")
+    steps: list[NautilusNavigatorStep] = Field(description="The computed navigation steps.")

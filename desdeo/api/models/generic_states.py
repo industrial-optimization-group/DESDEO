@@ -74,7 +74,6 @@ class StateKind(str, Enum):
     XNIMBUS_FINAL = "xnimbus.final"
 
 
-
 class State(SQLModel, table=True):
     """The 'polymorphic' state to store method information."""
 
@@ -204,12 +203,11 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.ENAUTILUS_STEP: ENautilusState,
     StateKind.ENAUTILUS_FINAL: ENautilusFinalState,
     StateKind.NAUTILUS_NAVIGATE: NautilusNavigatorNavigationState,
-    StateKind.NAUTILUS_INITIALIZE: NautilusNavigatorInitializationState
+    StateKind.NAUTILUS_INITIALIZE: NautilusNavigatorInitializationState,
     StateKind.XNIMBUS_SOLVE: NIMBUSClassificationState,
     StateKind.XNIMBUS_SAVE: NIMBUSSaveState,
     StateKind.XNIMBUS_INIT: NIMBUSInitializationState,
     StateKind.XNIMBUS_FINAL: NIMBUSFinalState,
-
 }
 
 SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
@@ -229,7 +227,7 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
     ENautilusState: StateKind.ENAUTILUS_STEP,
     ENautilusFinalState: StateKind.ENAUTILUS_FINAL,
     NautilusNavigatorNavigationState: StateKind.NAUTILUS_NAVIGATE,
-    NautilusNavigatorInitializationState: StateKind.NAUTILUS_INITIALIZE
+    NautilusNavigatorInitializationState: StateKind.NAUTILUS_INITIALIZE,
 }
 
 

@@ -1,41 +1,38 @@
-"""New NAUTILUS Navigator endpoints (state-based design)."""
+"""Defines end-points to access functionalities related to the NAUTILUS Navigator method."""
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import ValidationError
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from desdeo.api.db import get_session
-from desdeo.api.db_models import Problem as ProblemInDB
-from desdeo.api.models import StateDB
+from desdeo.api.models import (
+    NautilusNavigatorInitRequest,
+    NautilusNavigatorInitResponse,
+    NautilusNavigatorNavigateRequest,
+    NautilusNavigatorNavigateResponse,
+    NautilusNavigatorStep,
+    StateDB,
+)
 from desdeo.api.models.nautilus_navigator import (
     NautilusNavigatorInitializationState,
     NautilusNavigatorNavigationState,
-)
-from desdeo.api.routers.user_authentication import get_current_user
-from desdeo.api.schema import User
-from desdeo.api.schemas.nautilus import (
-    NautilusInitialResponse,
-    NautilusInitRequest,
-    NautilusNavigateRequest,
-    NautilusNavigateResponse,
-    NautilusStep,
 )
 from desdeo.mcdm.nautilus_navigator import (
     NAUTILUS_Response,
     navigator_all_steps,
     navigator_init,
 )
-from desdeo.problem.schema import Problem
+from desdeo.problem import Problem
+
+from .utils import ContextField, SessionContext, SessionContextGuard
 
 router = APIRouter(prefix="/nautilus", tags=["NAUTILUS Navigator"])
 
-def map_response_to_step(response: NAUTILUS_Response) -> NautilusStep:
-    """Helper function to map response to a specific step."""
+
+def _map_response_to_step(response: NAUTILUS_Response) -> NautilusNavigatorStep:
+    """Map a NAUTILUS_Response to a NautilusNavigatorStep."""
     reachable_bounds = response.reachable_bounds or {}
 
-    return NautilusStep(
+    return NautilusNavigatorStep(
         step_number=response.step_number,
         navigation_point=response.navigation_point,
         lower_bounds=reachable_bounds.get("lower_bounds", {}),
@@ -46,54 +43,39 @@ def map_response_to_step(response: NAUTILUS_Response) -> NautilusStep:
         distance_to_front=response.distance_to_front,
     )
 
-@router.post("/initialize", response_model=NautilusInitialResponse)
+
+@router.post("/initialize")
 def initialize_navigator(
-    request: NautilusInitRequest,
-    user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_session)],
-) -> NautilusInitialResponse:
+    request: NautilusNavigatorInitRequest,
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
+) -> NautilusNavigatorInitResponse:
     """Initialize NAUTILUS Navigator."""
-    # --- Validate problem ---
-    problem_db = db.query(ProblemInDB).filter(ProblemInDB.id == request.problem_id).first()
+    db_session = context.db_session
+    problem_db = context.problem_db
+    problem = Problem.from_problemdb(problem_db)
+    interactive_session = context.interactive_session
+    parent_state = context.parent_state
 
-    if problem_db is None:
-        raise HTTPException(status_code=404, detail="Problem not found.")
-    if problem_db.owner != user.id and problem_db.owner is not None:
-        raise HTTPException(status_code=403, detail="Unauthorized.")
-
-    # Remove forbidden fields manually for validation
-    raw_value = problem_db.value.copy()
-    raw_value.pop("is_convex_", None)
-    raw_value.pop("is_linear_", None)
-    raw_value.pop("is_twice_differentiable_", None)
-
-    try:
-        problem = Problem.model_validate(raw_value)
-        # problem = Problem.model_validate(problem.value)
-    except ValidationError:
-        raise HTTPException(status_code=500, detail="Invalid problem format.")  # noqa: B904
-
-    # --- Run algorithm ---
     response = navigator_init(problem)
 
-    # --- Create state properly via StateDB ---
     substate = NautilusNavigatorInitializationState()
 
-    state_row = StateDB.create(
-        database_session=db,
+    state_db = StateDB.create(
+        database_session=db_session,
         problem_id=problem_db.id,
+        session_id=interactive_session.id if interactive_session is not None else None,
+        parent_id=parent_state.id if parent_state is not None else None,
         state=substate,
-        session_id=user.active_session_id,  # or None if not used
     )
-    db.commit()
-    db.refresh(state_row)
 
-    # --- Map bounds ---
+    db_session.add(state_db)
+    db_session.commit()
+    db_session.refresh(state_db)
+
     reachable_bounds = response.reachable_bounds or {}
 
-    return NautilusInitialResponse(
-        state_id=state_row.base_state.id,
-        parent_state_id=None,
+    return NautilusNavigatorInitResponse(
+        state_id=state_db.id,
         navigation_point=response.navigation_point,
         lower_bounds=reachable_bounds.get("lower_bounds", {}),
         upper_bounds=reachable_bounds.get("upper_bounds", {}),
@@ -101,49 +83,29 @@ def initialize_navigator(
         distance_to_front=response.distance_to_front,
     )
 
-@router.post("/navigate", response_model=NautilusNavigateResponse)
+
+@router.post("/navigate")
 def navigate_navigator(
-    request: NautilusNavigateRequest,
-    user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_session)],
-) -> NautilusNavigateResponse:
+    request: NautilusNavigatorNavigateRequest,
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
+) -> NautilusNavigatorNavigateResponse:
     """Perform NAUTILUS navigation steps."""
-    problem_db = db.query(ProblemInDB).filter(ProblemInDB.id == request.problem_id).first()
+    db_session = context.db_session
+    problem_db = context.problem_db
+    problem = Problem.from_problemdb(problem_db)
+    interactive_session = context.interactive_session
+    parent_state = context.parent_state
 
-    if problem_db is None:
-        raise HTTPException(status_code=404, detail="Problem not found.")
-    if problem_db.owner != user.id and problem_db.owner is not None:
-        raise HTTPException(status_code=403, detail="Unauthorized.")
-
-    raw_value = problem_db.value.copy()
-    raw_value.pop("is_convex_", None)
-    raw_value.pop("is_linear_", None)
-    raw_value.pop("is_twice_differentiable_", None)
-
-    try:
-        problem = Problem.model_validate(raw_value)
-    except ValidationError:
-        raise HTTPException(status_code=500, detail="Invalid problem format.")  # noqa: B904
-
-    last_nav_state = (
-        db.query(NautilusNavigatorNavigationState)
-        .order_by(NautilusNavigatorNavigationState.id.desc())
-        .first()
-    )
-    parent_state_id = last_nav_state.id if last_nav_state else None
-
+    # Reconstruct previous responses by walking the StateDB parent chain.
     previous_responses: list[NAUTILUS_Response] = []
-    current = last_nav_state
-    while current:
-        previous_responses = [
-            NAUTILUS_Response.model_validate(r) for r in current.navigator_results
-        ] + previous_responses
-        if getattr(current, "parent_state_id", None):
-            current = db.query(NautilusNavigatorNavigationState).filter(
-                NautilusNavigatorNavigationState.id == current.parent_state_id
-            ).first()
-        else:
-            current = None
+    current_state_db = parent_state
+    while current_state_db is not None:
+        sub = current_state_db.state
+        if isinstance(sub, NautilusNavigatorNavigationState):
+            previous_responses = [
+                NAUTILUS_Response.model_validate(r) for r in sub.navigator_results
+            ] + previous_responses
+        current_state_db = current_state_db.parent
 
     if not previous_responses:
         previous_responses = [
@@ -167,9 +129,7 @@ def navigate_navigator(
             bounds=request.bounds,
         )
     except IndexError as e:
-        raise HTTPException(status_code=400, detail="Bounds are too restrictive.") from e
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))  # noqa: B904
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bounds are too restrictive.") from e
 
     substate = NautilusNavigatorNavigationState(
         steps_remaining=request.steps_remaining,
@@ -177,25 +137,23 @@ def navigate_navigator(
         bounds=request.bounds,
         previous_responses=[r.model_dump(mode="json") for r in previous_responses],
         navigator_results=[r.model_dump(mode="json") for r in new_responses],
-        parent_state_id=parent_state_id,
     )
 
-    state_row = StateDB.create(
-        database_session=db,
+    state_db = StateDB.create(
+        database_session=db_session,
         problem_id=problem_db.id,
         state=substate,
-        session_id=user.active_session_id,
-        parent_id=parent_state_id,
+        session_id=interactive_session.id if interactive_session is not None else None,
+        parent_id=parent_state.id if parent_state is not None else None,
     )
 
-    db.commit()
-    db.refresh(state_row)
+    db_session.add(state_db)
+    db_session.commit()
+    db_session.refresh(state_db)
 
+    steps = [_map_response_to_step(r) for r in new_responses]
 
-    steps = [map_response_to_step(r) for r in new_responses]
-
-    return NautilusNavigateResponse(
-        state_id=state_row.base_state.id,
-        parent_state_id=parent_state_id,
+    return NautilusNavigatorNavigateResponse(
+        state_id=state_db.id,
         steps=steps,
     )
