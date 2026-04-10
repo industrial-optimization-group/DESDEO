@@ -1,6 +1,7 @@
 """Imports available from the desdeo-problem package."""
 
 __all__ = [
+    "CVXPYEvaluator",
     "Constant",
     "Constraint",
     "ConstraintTypeEnum",
@@ -40,6 +41,7 @@ __all__ = [
 ]
 
 
+from .cvxpy_evaluator import CVXPYEvaluator
 from .evaluator import (
     PolarsEvaluator,
     PolarsEvaluatorModesEnum,

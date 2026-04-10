@@ -3,6 +3,8 @@
 __all__ = [
     "BaseSolver",
     "BonminOptions",
+    "CVXPYSolver",
+    "CVXPYSolverOptions",
     "GurobipySolver",
     "IpoptOptions",
     "NevergradGenericOptions",
@@ -74,6 +76,10 @@ from desdeo.tools.group_scalarization import (
     add_group_stom_agg,
     add_group_stom_agg_diff,
     add_group_stom_diff,
+)
+from desdeo.tools.cvxpy_solver_interfaces import (
+    CVXPYSolver,
+    CVXPYSolverOptions,
 )
 from desdeo.tools.gurobipy_solver_interfaces import (
     GurobipySolver,
