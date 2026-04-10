@@ -29,6 +29,7 @@ __all__ = [  # noqa: RUF022
     "river_pollution_problem_discrete",
     "river_pollution_scenario",
     "rocket_injector_design",
+    "simple_constrained_quadratic_tensor_test_problem",
     "simple_data_problem",
     "simple_integer_test_problem",
     "simple_knapsack",
@@ -74,6 +75,7 @@ from .river_pollution_problems import (
 )
 from .rocket_injector_design_problem import rocket_injector_design
 from .simple_problem import (
+    simple_constrained_quadratic_tensor_test_problem,
     simple_data_problem,
     simple_integer_test_problem,
     simple_linear_test_problem,
