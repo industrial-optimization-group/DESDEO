@@ -476,7 +476,7 @@ class GurobipyEvaluator:
         self, name: str
     ) -> (
         gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr | int | float | np.ndarray
-    ):  # noqa: E501
+    ):
         """Returns a gurobipy expression corresponding to the name.
 
         Only looks for variables, objective functions, scalarizations, extra functions, and constants.
@@ -567,11 +567,11 @@ class GurobipyEvaluator:
         self.variables.pop(symbol)
         self.model.update()
 
-    def set_optimization_target(self, target: str, maximize: bool = False):  # noqa: FBT001, FBT002
+    def set_optimization_target(self, target: str, maximize: bool = False):
         """Sets a minimization objective to match the target objective or scalarization of the gurobipy model.
 
         Args:
-            target (str): an str representing a symbol. Needs to match an objective function or scaralization
+            target (str): an str representing a symbol. Needs to match an objective function or scalarization
             function already found in the model.
             maximize (bool): If true, the target function is maximized instead of minimized
 
