@@ -1,3 +1,5 @@
+"""Defines simple test problems for testing purposes."""
+
 from desdeo.problem.schema import (
     Constant,
     Constraint,
@@ -134,8 +136,8 @@ def simple_data_problem() -> Problem:
             func=None,
             objective_type=ObjectiveTypeEnum.data_based,
             maximize=i == 1,
-            ideal=3000 if i == 1 else -60.0 if i == 3 else 0,
-            nadir=0 if i == 1 else 15 - 2.0 if i == 3 else 15,
+            ideal=3000 if i == 1 else -60.0 if i == 3 else 0,  # noqa: PLR2004
+            nadir=0 if i == 1 else 15 - 2.0 if i == 3 else 15,  # noqa: PLR2004
         )
         for i in range(1, n_objectives + 1)
     ]
