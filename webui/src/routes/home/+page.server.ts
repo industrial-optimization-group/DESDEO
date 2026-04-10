@@ -29,15 +29,13 @@ export const actions: Actions = {
         }
 
         const response = await loginLoginPost(body);
-        const status = response.status as number;
+        console.log("RESPONSE: ", response);
 
         if (response.status != 200){
-            if (status === 401) {
+            if (response.status === 401) {
                 form.message = "Invalid username or password";
-            } else if (status >= 500) {
+            } else if (response.status >= 500) {
                 form.message = "Server unavailable";
-            } else if (status === 0) {
-                form.message = "Network error. Please try again.";
             } else {
                 form.message = "Login failed. Please try again.";
             }
