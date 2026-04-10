@@ -103,6 +103,10 @@ class GurobipySolver(BaseSolver):
         if options is not None:
             for key, value in options.items():
                 self.evaluator.model.setParam(key, value)
+        else:
+            # Set some default parameters that are good for most problems.
+            self.evaluator.model.setParam("OutputFlag", 0)  # Suppress Gurobi output
+            self.evaluator.model.setParam("LogToConsole", 0)  # Suppress Gurobi logging to console
 
     def solve(self, target: str) -> SolverResults:
         """Solve the problem for the given target.

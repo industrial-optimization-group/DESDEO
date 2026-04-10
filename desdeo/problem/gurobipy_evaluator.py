@@ -33,7 +33,8 @@ class GurobipyEvaluatorWarning(UserWarning):
 class GurobipyEvaluator:
     """Defines as evaluator that transforms an instance of Problem into a GurobipyModel."""
 
-    # gp.Model does not support these, so the evaluator will handle them
+    variables: dict[str, gp.Var | gp.MVar]
+    constraints: dict[str, gp.Constr]
     objective_functions: dict[str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr]
     scalarizations: dict[str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr]
     extra_functions: dict[
@@ -54,13 +55,14 @@ class GurobipyEvaluator:
         self.scalarizations = {}
         self.extra_functions = {}
         self.constants = {}
-        self.mvars = {}
+        self.variables = {}
+        self.constraints = {}
 
         # set the parser
         self.parse = MathParser(to_format=FormatEnum.gurobipy).parse
 
         # Add variables
-        self.model = self.init_variables(problem)
+        self.variables = self.init_variables(problem)
 
         # Add constants, if any
         if problem.constants is not None:
@@ -75,7 +77,7 @@ class GurobipyEvaluator:
 
         # Add constraints, if any
         if problem.constraints is not None:
-            self.model = self.init_constraints(problem)
+            self.constraints = self.init_constraints(problem)
 
         # Add scalarization functions, if any
         if problem.scalarization_funcs is not None:
@@ -83,7 +85,7 @@ class GurobipyEvaluator:
 
         self.problem = problem
 
-    def init_variables(self, problem: Problem) -> gp.Model:
+    def init_variables(self, problem: Problem) -> dict[str, gp.Var | gp.MVar]:
         """Add variables to the GurobipyModel.
 
         Args:
@@ -94,8 +96,9 @@ class GurobipyEvaluator:
                 I.e., the variables are of a non supported type.
 
         Returns:
-            GurobipyModel: the GurobipyModel with the variables added as attributes.
+            dict[str, gp.Var | gp.MVar]: the variables added to the model.
         """
+        variables = {}
         for var in problem.variables:
             if isinstance(var, Variable):
                 # handle regular variables
@@ -121,6 +124,7 @@ class GurobipyEvaluator:
                 # set the initial value, if one has been defined
                 if var.initial_value is not None:
                     gvar.setAttr("Start", var.initial_value)
+                variables[var.symbol] = gvar
 
             elif isinstance(var, TensorVariable):
                 # handle tensor variables, i.e., vectors etc..
@@ -160,12 +164,12 @@ class GurobipyEvaluator:
                 # set the initial value, if one has been defined
                 if var.initial_values is not None:
                     gvar.setAttr("Start", np.array(var.get_initial_values()))
-                self.mvars[var.symbol] = gvar
+                variables[var.symbol] = gvar
 
         # update the model before returning, so that other expressions can reference the variables
         self.model.update()
 
-        return self.model
+        return variables
 
     def init_constants(self, problem: Problem) -> dict[str, int | float | list[int] | list[float]]:
         """Add constants to a GurobipyEvaluator.
@@ -276,6 +280,7 @@ class GurobipyEvaluator:
         Returns:
             GurobipyModel: the GurobipyModel with the constraint expressions added.
         """
+        constraints = {}
         for cons in problem.constraints:
             gp_expr = self.parse(cons.func, callback=self.get_expression_by_name)
 
@@ -289,10 +294,10 @@ class GurobipyEvaluator:
                     msg = f"Constraint type of {con_type} not supported. Must be one of {ConstraintTypeEnum}."
                     raise GurobipyEvaluatorError(msg)
 
-            self.model.addConstr(gp_expr, name=cons.symbol)
+            constraints[cons.symbol] = self.model.addConstr(gp_expr, name=cons.symbol)
 
         self.model.update()
-        return self.model
+        return constraints
 
     def init_scalarizations(
         self, problem: Problem
@@ -345,6 +350,7 @@ class GurobipyEvaluator:
 
         return_cons = self.model.addConstr(gp_expr, name=constraint.symbol)
         self.model.update()
+        self.constraints[constraint.symbol] = return_cons
         return return_cons
 
     def add_objective(self, obj: Objective):
@@ -461,14 +467,16 @@ class GurobipyEvaluator:
             # set the initial value, if one has been defined
             if var.initial_values is not None:
                 gvar.setAttr("Start", np.array(var.get_initial_values()))
-            self.mvars[var.symbol] = gvar
 
         self.model.update()
+        self.variables[var.symbol] = gvar
         return gvar
 
     def get_expression_by_name(
         self, name: str
-    ) -> gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr | int | float:
+    ) -> (
+        gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr | int | float | np.ndarray
+    ):
         """Returns a gurobipy expression corresponding to the name.
 
         Only looks for variables, objective functions, scalarizations, extra functions, and constants.
@@ -480,20 +488,22 @@ class GurobipyEvaluator:
         Returns:
             gurobipy expression: A mathematical expression that gp.Model can use either as a constraint or an objective
         """
-        expression = self.model.getVarByName(name)
-        if expression is None:
-            # check if an MVar by checking gurobi.MVars stored in the evaluator directly,
-            # which results in terms multiplied by zero being removed from the equations:
-            if name in self.mvars:
-                expression = self.mvars[name]
-            elif name in self.objective_functions:
-                expression = self.objective_functions[name]
-            elif name in self.scalarizations:
-                expression = self.scalarizations[name]
-            elif name in self.extra_functions:
-                expression = self.extra_functions[name]
-            elif name in self.constants:
+        if name in self.variables:
+            expression = self.variables[name]
+        elif name in self.objective_functions:
+            expression = self.objective_functions[name]
+        elif name in self.scalarizations:
+            expression = self.scalarizations[name]
+        elif name in self.extra_functions:
+            expression = self.extra_functions[name]
+        elif name in self.constants:
+            if isinstance(self.constants[name], list):
+                expression = np.array(self.constants[name])
+            else:
                 expression = self.constants[name]
+        else:
+            msg = f"No expression with name {name} found in the gurobipy model."
+            raise GurobipyEvaluatorError(msg)
         return expression
 
     def get_values(self) -> dict[str, float | int | bool | list[float] | list[int]]:
@@ -507,12 +517,7 @@ class GurobipyEvaluator:
         result_dict = {}
 
         for var in self.problem.variables:
-            # if var is type MVar, get the values of MVar
-            if var.symbol in self.mvars:
-                result_dict[var.symbol] = self.mvars[var.symbol].getAttr(gp.GRB.Attr.X)
-            else:
-                result_dict[var.symbol] = self.model.getVarByName(var.symbol).getAttr(gp.GRB.Attr.X)
-
+            result_dict[var.symbol] = self.variables[var.symbol].getAttr(gp.GRB.Attr.X)
         for obj in self.problem.objectives:
             result_dict[obj.symbol] = self.objective_functions[obj.symbol].getValue()
 
@@ -526,7 +531,7 @@ class GurobipyEvaluator:
 
         if self.problem.constraints is not None:
             for const in self.problem.constraints:
-                result_dict[const.symbol] = -self.model.getConstrByName(const.symbol).getAttr("Slack")
+                result_dict[const.symbol] = -self.constraints[const.symbol].getAttr("Slack")
 
         if self.problem.scalarization_funcs is not None:
             for scal in self.problem.scalarization_funcs:
@@ -544,7 +549,8 @@ class GurobipyEvaluator:
         Args:
             symbol (str): a str representing the symbol of the constraint to be removed.
         """
-        self.model.remove(self.model.getConstrByName(symbol))
+        self.model.remove(self.constraints[symbol])
+        self.constraints.pop(symbol)
         self.model.update()
 
     def remove_variable(self, symbol: str):
@@ -557,18 +563,15 @@ class GurobipyEvaluator:
         Args:
             symbol (str): a str representing the symbol of the variable to be removed.
         """
-        if symbol in self.mvars:
-            self.model.remove(self.mvars[symbol])
-            self.mvars.pop(symbol)
-        else:
-            self.model.remove(self.model.getVarByName(symbol))
+        self.model.remove(self.variables[symbol])
+        self.variables.pop(symbol)
         self.model.update()
 
-    def set_optimization_target(self, target: str, maximize: bool = False):  # noqa: FBT001, FBT002
+    def set_optimization_target(self, target: str, maximize: bool = False):
         """Sets a minimization objective to match the target objective or scalarization of the gurobipy model.
 
         Args:
-            target (str): an str representing a symbol. Needs to match an objective function or scaralization
+            target (str): an str representing a symbol. Needs to match an objective function or scalarization
             function already found in the model.
             maximize (bool): If true, the target function is maximized instead of minimized
 

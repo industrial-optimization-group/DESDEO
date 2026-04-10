@@ -1,3 +1,5 @@
+"""Defines simple test problems for testing purposes."""
+
 from desdeo.problem.schema import (
     Constant,
     Constraint,
@@ -7,9 +9,12 @@ from desdeo.problem.schema import (
     Objective,
     ObjectiveTypeEnum,
     Problem,
+    TensorConstant,
+    TensorVariable,
     Variable,
     VariableTypeEnum,
 )
+
 
 def simple_test_problem() -> Problem:
     """Defines a simple problem suitable for testing purposes."""
@@ -131,8 +136,8 @@ def simple_data_problem() -> Problem:
             func=None,
             objective_type=ObjectiveTypeEnum.data_based,
             maximize=i == 1,
-            ideal=3000 if i == 1 else -60.0 if i == 3 else 0,
-            nadir=0 if i == 1 else 15 - 2.0 if i == 3 else 15,
+            ideal=3000 if i == 1 else -60.0 if i == 3 else 0,  # noqa: PLR2004
+            nadir=0 if i == 1 else 15 - 2.0 if i == 3 else 15,  # noqa: PLR2004
         )
         for i in range(1, n_objectives + 1)
     ]
@@ -185,6 +190,66 @@ def simple_linear_test_problem() -> Problem:
         variables=variables,
         constraints=[con_1, con_2],
         objectives=objectives,
+    )
+
+
+def simple_constrained_quadratic_tensor_test_problem() -> Problem:
+    """Defines a simple constrained quadratic problem with tensor variables, suitable for testing purposes."""
+    xvar = TensorVariable(
+        name="X",
+        symbol="X",
+        variable_type=VariableTypeEnum.real,
+        shape=[
+            2,
+        ],
+        initial_values=[1, 1],
+        lowerbounds=[-10, -10],
+        upperbounds=[10, 10],
+    )
+
+    mmult = TensorConstant(
+        name="Mmult",
+        symbol="A",
+        shape=[2, 2],
+        values=[[1, 0.5], [0.5, 1]],
+    )
+
+    bvector = TensorConstant(
+        name="mcon",
+        symbol="b",
+        shape=[
+            2,
+        ],
+        values=[1, 1],
+    )
+
+    cons = Constraint(
+        name="cons",
+        symbol="cons",
+        cons_type=ConstraintTypeEnum.LTE,
+        func="b-A@X",
+        is_linear=True,
+        is_convex=True,
+        is_twice_differentiable=True,
+    )
+
+    obj = Objective(
+        name="f_1",
+        symbol="f_1",
+        func="-0.5*X@X",  # this is equivalent to 0.5*X.T@X, since X is a 1D tensor variable
+        maximize=True,
+        is_linear=False,
+        is_convex=True,
+        is_twice_differentiable=True,
+    )
+
+    return Problem(
+        name="Simple constrained quadratic tensor test problem.",
+        description="A simple problem for testing purposes.",
+        variables=[xvar],
+        constants=[mmult, bvector],
+        constraints=[cons],
+        objectives=[obj],
     )
 
 
