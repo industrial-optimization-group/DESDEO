@@ -567,7 +567,7 @@ class GurobipyEvaluator:
         self.variables.pop(symbol)
         self.model.update()
 
-    def set_optimization_target(self, target: str):
+    def set_optimization_target(self, target: str, maximize: bool = False):
         """Sets a minimization objective to match the target objective or scalarization of the gurobipy model.
 
         Args:
