@@ -250,6 +250,8 @@ def simple_constrained_quadratic_tensor_test_problem(dqp=False) -> Problem:
         constants=[mmult, bvector],
         constraints=[cons],
         objectives=[obj],
+        is_twice_differentiable=True,
+        is_convex=True,
     )
 
 

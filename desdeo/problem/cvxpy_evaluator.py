@@ -34,6 +34,7 @@ class CVXPYEvaluator:
     variables: dict[str, cp.Variable]
     parameters: dict[str, cp.Parameter]
     constraints: dict[str, cp.Constraint]
+    constraint_expressions: dict[str, cp.Expression]
     objective_functions: dict[str, cp.Expression]
     scalarizations: dict[str, cp.Expression]
     extra_functions: dict[str, cp.Expression]
@@ -55,6 +56,7 @@ class CVXPYEvaluator:
         self.variables = {}
         self.parameters = {}
         self.constraints = {}
+        self.constraint_expressions = {}
         self.objective_expr = None
         self.problem_model = None
 
@@ -98,65 +100,9 @@ class CVXPYEvaluator:
         Returns:
             dict[str, cp.Variable]: the variables for the problem.
         """
-        variables = {}
         for var in problem.variables:
-            if isinstance(var, Variable):
-                # handle regular variables
-                lowerbound = var.lowerbound
-                upperbound = var.upperbound
-
-                # Set bounds
-                bounds = None
-                if lowerbound is not None or upperbound is not None:
-                    lb = lowerbound if lowerbound is not None else -np.inf
-                    ub = upperbound if upperbound is not None else np.inf
-                    bounds = [lb, ub]
-
-                # figure out the variable type
-                match var.variable_type:
-                    case VariableTypeEnum.integer:
-                        # variable is integer
-                        cv_var = cp.Variable(integer=True, bounds=bounds, name=var.symbol)
-                    case VariableTypeEnum.real:
-                        # variable is real
-                        cv_var = cp.Variable(bounds=bounds, name=var.symbol)
-                    case VariableTypeEnum.binary:
-                        cv_var = cp.Variable(boolean=True, bounds=bounds, name=var.symbol)
-                    case _:
-                        msg = f"Could not figure out the type for variable {var}."
-                        raise CVXPYEvaluatorError(msg)
-
-                variables[var.symbol] = cv_var
-
-            elif isinstance(var, TensorVariable):
-                # handle tensor variables, i.e., vectors etc..
-                lowerbounds = var.get_lowerbound_values() if var.lowerbounds is not None else None
-                upperbounds = var.get_upperbound_values() if var.upperbounds is not None else None
-
-                # Set bounds
-                bounds = None
-                if lowerbounds is not None or upperbounds is not None:
-                    lb = np.array(lowerbounds) if lowerbounds is not None else -np.inf
-                    ub = np.array(upperbounds) if upperbounds is not None else np.inf
-                    bounds = [lb, ub]
-
-                # figure out the variable type
-                match var.variable_type:
-                    case VariableTypeEnum.integer:
-                        # variable is integer
-                        cv_var = cp.Variable(shape=tuple(var.shape), integer=True, bounds=bounds, name=var.symbol)
-                    case VariableTypeEnum.real:
-                        # variable is real
-                        cv_var = cp.Variable(shape=tuple(var.shape), bounds=bounds, name=var.symbol)
-                    case VariableTypeEnum.binary:
-                        cv_var = cp.Variable(shape=tuple(var.shape), boolean=True, bounds=bounds, name=var.symbol)
-                    case _:
-                        msg = f"Could not figure out the type for variable {var}."
-                        raise CVXPYEvaluatorError(msg)
-
-                variables[var.symbol] = cv_var
-
-        return variables
+            self.add_variable(var)
+        return self.variables
 
     def init_parameters(
         self, problem: Problem
@@ -221,22 +167,9 @@ class CVXPYEvaluator:
         Returns:
             dict[str, cp.Expression]: dict containing the objective functions.
         """
-        objective_functions: dict[str, cp.Expression] = {}
         for obj in problem.objectives:
-            expr = self.parse(obj.func, callback=self.get_expression_by_name)
-            if isinstance(expr, (int, float)):
-                warnings.warn(
-                    "One or more of the problem objectives seems to be a constant.",
-                    CVXPYEvaluatorWarning,
-                    stacklevel=2,
-                )
-
-            objective_functions[obj.symbol] = expr
-
-            # the obj.symbol_min objectives are used when optimizing and building scalarizations etc...
-            objective_functions[f"{obj.symbol}_min"] = -expr if obj.maximize else expr
-
-        return objective_functions
+            self.add_objective(obj)
+        return self.objective_functions
 
     def init_constraints(self, problem: Problem) -> dict[str, cp.Constraint]:
         """Add constraint expressions to a CVXPY problem.
@@ -250,23 +183,9 @@ class CVXPYEvaluator:
         Returns:
             dict[str, cp.Constraint]: dict of constraints keyed by symbol.
         """
-        constraints = {}
         for cons in problem.constraints:
-            expr = self.parse(cons.func, callback=self.get_expression_by_name)
-
-            match con_type := cons.cons_type:
-                case ConstraintTypeEnum.LTE:
-                    # constraints in DESDEO are defined such that they must be less than zero
-                    constraint = expr <= 0
-                case ConstraintTypeEnum.EQ:
-                    constraint = expr == 0
-                case _:
-                    msg = f"Constraint type of {con_type} not supported. Must be one of {ConstraintTypeEnum}."
-                    raise CVXPYEvaluatorError(msg)
-
-            constraints[cons.symbol] = constraint
-
-        return constraints
+            self.add_constraint(cons)
+        return self.constraints
 
     def init_scalarizations(self, problem: Problem) -> dict[str, cp.Expression]:
         """Add scalarization expressions to a CVXPY evaluator.
@@ -300,15 +219,15 @@ class CVXPYEvaluator:
             cp.Constraint: The CVXPY constraint that was added.
         """
         expr = self.parse(constraint.func, self.get_expression_by_name)
+        self.constraint_expressions[constraint.symbol] = expr
 
-        match con_type := constraint.cons_type:
+        match constraint.cons_type:
             case ConstraintTypeEnum.LTE:
-                # constraints in DESDEO are defined such that they must be less than zero
                 cvxpy_constraint = expr <= 0
             case ConstraintTypeEnum.EQ:
                 cvxpy_constraint = expr == 0
             case _:
-                msg = f"Constraint type of {con_type} not supported. Must be one of {ConstraintTypeEnum}."
+                msg = f"Constraint type of {constraint.cons_type} not supported. Must be one of {ConstraintTypeEnum}."
                 raise CVXPYEvaluatorError(msg)
 
         self.constraints[constraint.symbol] = cvxpy_constraint
@@ -369,7 +288,7 @@ class CVXPYEvaluator:
             if lowerbound is not None or upperbound is not None:
                 lb = lowerbound if lowerbound is not None else -cp.inf
                 ub = upperbound if upperbound is not None else cp.inf
-                bounds = (lb, ub)
+                bounds = [lb, ub]
 
             # figure out the variable type
             match var.variable_type:
@@ -395,7 +314,7 @@ class CVXPYEvaluator:
             if lowerbounds is not None or upperbounds is not None:
                 lb = np.array(lowerbounds) if lowerbounds is not None else -np.inf
                 ub = np.array(upperbounds) if upperbounds is not None else np.inf
-                bounds = (lb, ub)
+                bounds = [lb, ub]
 
             # figure out the variable type
             match var.variable_type:
@@ -457,7 +376,7 @@ class CVXPYEvaluator:
         Raises:
             CVXPYEvaluatorError: if the problem has not been solved yet.
         """
-        if self.problem_model is None or self.problem_model.status not in ["optimal", "optimal_inaccurate"]:
+        if self.problem_model is None or self.problem_model.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
             msg = "Problem has not been solved yet or did not achieve optimal status."
             raise CVXPYEvaluatorError(msg)
 
@@ -487,8 +406,7 @@ class CVXPYEvaluator:
 
         if self.problem.constraints is not None:
             for con in self.problem.constraints:
-                constraint_expr = self.parse(con.func, callback=self.get_expression_by_name)
-                result_dict[con.symbol] = constraint_expr.value
+                result_dict[con.symbol] = self.constraint_expressions[con.symbol].value
 
         return result_dict
 
@@ -497,8 +415,6 @@ class CVXPYEvaluator:
 
         Args:
             target (str): a str representing a symbol. Needs to match an objective function or scalarization
-                function already found in the evaluator.
-            maximize (bool): If true, the target function is maximized instead of minimized.
 
         Raises:
             CVXPYEvaluatorError: the given target was not found in the evaluator.
@@ -509,7 +425,7 @@ class CVXPYEvaluator:
         elif target in self.scalarizations:
             maximize = False
         else:
-            msg = f"The gurobipy model has no objective or scalarization named {target}."
+            msg = f"The CVXPY model has no objective or scalarization named {target}."
             raise CVXPYEvaluatorError(msg)
 
         obj_expr = self.get_expression_by_name(target)
@@ -532,7 +448,8 @@ class CVXPYEvaluator:
         if self.problem_model.is_dcp():
             self.problem_model.solve(**kwargs)
         elif self.problem_model.is_dgp():
-            self.problem_model.solve(gp=True, **kwargs)
+            kwargs["gp"] = True
+            self.problem_model.solve(**kwargs)
         else:
             warnings.warn(
                 "The problem does not appear to be DCP or DGP. CVXPY may not be able to solve it.",
