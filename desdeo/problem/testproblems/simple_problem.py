@@ -193,7 +193,7 @@ def simple_linear_test_problem() -> Problem:
     )
 
 
-def simple_constrained_quadratic_tensor_test_problem() -> Problem:
+def simple_constrained_quadratic_tensor_test_problem(dqp=False) -> Problem:
     """Defines a simple constrained quadratic problem with tensor variables, suitable for testing purposes."""
     xvar = TensorVariable(
         name="X",
@@ -236,7 +236,7 @@ def simple_constrained_quadratic_tensor_test_problem() -> Problem:
     obj = Objective(
         name="f_1",
         symbol="f_1",
-        func="-0.5*X@X",  # this is equivalent to 0.5*X.T@X, since X is a 1D tensor variable
+        func="Sum(-0.5*(X**2))" if dqp else "-0.5*X@X",
         maximize=True,
         is_linear=False,
         is_convex=True,

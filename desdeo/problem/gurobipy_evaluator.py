@@ -578,7 +578,12 @@ class GurobipyEvaluator:
         Raises:
             GurobipyEvaluatorError: the given target was not an attribute of the gurobipy model.
         """
-        if not ((target in self.objective_functions) or (target in self.scalarizations)):
+        if target in self.objective_functions:
+            objective = self.problem.get_objective(symbol=target, copy=False)
+            maximize = False if objective is None else bool(objective.maximize)
+        elif target in self.scalarizations:
+            maximize = False
+        else:
             msg = f"The gurobipy model has no objective or scalarization named {target}."
             raise GurobipyEvaluatorError(msg)
 

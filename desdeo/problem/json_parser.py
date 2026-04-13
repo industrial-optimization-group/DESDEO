@@ -4,6 +4,7 @@ from collections.abc import Callable
 from enum import Enum
 from functools import reduce
 
+import cvxpy as cp
 import gurobipy as gp
 import numpy as np
 import polars as pl
@@ -14,6 +15,8 @@ from pyomo.core.expr.numeric_expr import MinExpression as _PyomoMin
 
 # Mathematical objects in gurobipy can take many types
 gpexpression = gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr
+# Mathematical objects in cvxpy can take many types
+cvxpyexpression = cp.Variable | cp.Expression | cp.Constant | int | float
 
 
 class FormatEnum(str, Enum):
@@ -23,6 +26,7 @@ class FormatEnum(str, Enum):
     pyomo = "pyomo"
     sympy = "sympy"
     gurobipy = "gurobipy"
+    cvxpy = "cvxpy"
 
 
 class ParserError(Exception):
@@ -683,6 +687,86 @@ class MathParser:
             self.MIN: lambda *args: gp.min_(args),
         }
 
+        def _cvxpy_error():
+            msg = "The cvxpy model format only supports linear and quadratic expressions."
+            return lambda x: (_ for _ in ()).throw(ParserError(msg))
+
+        def _cvxpy_matmul(*args):
+            """CVXPY matrix multiplication."""
+
+            def _matmul(a, b):
+                if isinstance(a, list):
+                    a = np.array(a)
+                if isinstance(b, list):
+                    b = np.array(b)
+                if len(np.shape(a @ b)) == 1:
+                    return a @ b
+                return (a @ b).sum()
+
+            return reduce(_matmul, args)
+
+        def _cvxpy_summation(summand):
+            """CVXPY matrix summation."""
+
+            def _sum(summand):
+                if isinstance(summand, list):
+                    summand = np.array(summand)
+                return cp.sum(summand)
+
+            return _sum(summand)
+
+        def _cvxpy_random_access(*args):
+            msg = (
+                "Tensor random access with 'At' has not been implemented for the CVXPY parser yet. "
+                "Feel free to contribute!"
+            )
+            raise NotImplementedError(msg)
+
+        cvxpy_env = {
+            # Define the operations for the different operators.
+            # Basic arithmetic operations
+            self.NEGATE: lambda x: -x,
+            self.ADD: lambda *args: reduce(lambda x, y: x + y, args),
+            self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
+            self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
+            self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
+            # Vector and matrix operations
+            self.MATMUL: _cvxpy_matmul,
+            self.SUM: _cvxpy_summation,
+            self.RANDOM_ACCESS: _cvxpy_random_access,
+            # Exponentiation and logarithms
+            # CVXPY supports some of these via special functions, but with restrictions
+            self.EXP: lambda x: cp.exp(x),
+            self.LN: lambda x: cp.log(x),
+            self.LB: lambda x: cp.log(x) / np.log(2),
+            self.LG: lambda x: cp.log(x) / np.log(10),
+            self.LOP: lambda x: cp.log1p(x),
+            self.SQRT: lambda x: cp.sqrt(x),
+            self.SQUARE: lambda x: cp.square(x),
+            self.POW: lambda x, y: x**y,  # may cause errors for non-integer powers
+            # Trigonometric operations - CVXPY supports these
+            self.ARCCOS: lambda x: cp.arccos(x),
+            self.ARCCOSH: lambda x: cp.arccosh(x),
+            self.ARCSIN: lambda x: cp.arcsin(x),
+            self.ARCSINH: lambda x: cp.arcsinh(x),
+            self.ARCTAN: lambda x: cp.arctan(x),
+            self.ARCTANH: lambda x: cp.arctanh(x),
+            self.COS: lambda x: cp.cos(x),
+            self.COSH: lambda x: cp.cosh(x),
+            self.SIN: lambda x: cp.sin(x),
+            self.SINH: lambda x: cp.sinh(x),
+            self.TAN: lambda x: cp.tan(x),
+            self.TANH: lambda x: cp.tanh(x),
+            # Rounding operations
+            self.ABS: lambda x: cp.abs(x),
+            self.CEIL: lambda x: cp.ceil(x),
+            self.FLOOR: lambda x: cp.floor(x),
+            # Other operations
+            self.RATIONAL: lambda lst: reduce(lambda x, y: x / y, lst),
+            self.MAX: lambda *args: cp.max(cp.stack(args, axis=0), axis=0),
+            self.MIN: lambda *args: cp.min(cp.stack(args, axis=0), axis=0),
+        }
+
         match to_format:
             case FormatEnum.polars:
                 self.env = polars_env
@@ -696,6 +780,9 @@ class MathParser:
             case FormatEnum.gurobipy:
                 self.env = gurobipy_env
                 self.parse = self._parse_to_gurobipy
+            case FormatEnum.cvxpy:
+                self.env = cvxpy_env
+                self.parse = self._parse_to_cvxpy
             case _:
                 msg = f"Given target format {to_format} not supported. Must be one of {FormatEnum}."
                 raise ParserError(msg)
@@ -909,6 +996,56 @@ class MathParser:
 
             # else, assume the list contents are parseable expressions
             return [self._parse_to_gurobipy(e, callback) for e in expr]
+
+        msg = f"Encountered unsupported type '{type(expr)}' during parsing."
+        raise ParserError(msg)
+
+    def _parse_to_cvxpy(
+        self, expr: list | str | int | float, callback: Callable[[str], cvxpyexpression]
+    ) -> cvxpyexpression:
+        """Parses the MathJSON format recursively into a CVXPY expression.
+
+        CVXPY supports a much broader range of expressions compared to gurobipy, including
+        exponentials, logarithms, and trigonometric functions. However, some operations still have
+        restrictions due to DCP (Disciplined Convex Programming) rules.
+
+        Args:
+            expr (list | str | int | float): a list with a Polish notation expression that describes a, e.g.,
+                ["Multiply", ["Sqrt", 2], "x2"]
+            callback (Callable): A function that can return a CVXPY expression associated with the
+                correct model when called with symbol str.
+
+        Returns:
+            Returns a CVXPY expression equivalent to the original expression.
+        """
+        if isinstance(expr, (cp.Variable, cp.Parameter, cp.Expression)):
+            # Terminal case: cvxpy expression
+            return expr
+        if isinstance(expr, str):
+            # Terminal case: str expression, represent a variable or expression
+            return callback(expr)
+        if isinstance(expr, self.literals):
+            # Terminal case: numeric literal
+            return expr
+
+        if isinstance(expr, list):
+            # Extract the operation name
+            if isinstance(expr[0], str) and expr[0] in self.env:
+                op_name = expr[0]
+                # Parse the operands
+                operands = [self._parse_to_cvxpy(e, callback) for e in expr[1:]]
+
+                while isinstance(operands, list) and len(operands) == 1:
+                    # if the operands have redundant brackets, remove them
+                    operands = operands[0]
+
+                if isinstance(operands, list):
+                    return self.env[op_name](*operands)
+
+                return self.env[op_name](operands)
+
+            # else, assume the list contents are parseable expressions
+            return [self._parse_to_cvxpy(e, callback) for e in expr]
 
         msg = f"Encountered unsupported type '{type(expr)}' during parsing."
         raise ParserError(msg)
