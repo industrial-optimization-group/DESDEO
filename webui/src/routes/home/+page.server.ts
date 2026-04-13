@@ -29,7 +29,6 @@ export const actions: Actions = {
         }
 
         const response = await loginLoginPost(body);
-        console.log("RESPONSE: ", response);
 
         if (response.status != 200){
             if (response.status === 401) {

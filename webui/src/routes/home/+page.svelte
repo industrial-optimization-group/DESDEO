@@ -19,21 +19,13 @@
 
 	let loginError: string | null = $state(null);
 
-	$effect(() => {loginError = $message ?? null;})
-
-	//prevUsername, prevPassword and effect are used to clear error message when user starts typing again after login error
-	let prevUsername = '';
-	let prevPassword = '';
+	// lastMessage and effect are used to clear error message when user starts typing again after login error
+	let lastMessage: string | null = null;
 
 	$effect(() => {
-		if (
-		$form.username !== prevUsername ||
-		$form.password !== prevPassword
-		) {
-			loginError = null;
-			prevUsername = $form.username;
-			prevPassword = $form.password;
-		}
+		$form.username; $form.password;
+		loginError = $message !== lastMessage ? ($message ?? null) : null;
+		lastMessage = $message;
 	})
 </script>
 
