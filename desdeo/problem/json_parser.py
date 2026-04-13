@@ -687,6 +687,10 @@ class MathParser:
             self.MIN: lambda *args: gp.min_(args),
         }
 
+        def _cvxpy_error():
+            msg = "The cvxpy model format only supports linear and quadratic expressions."
+            return lambda x: (_ for _ in ()).throw(ParserError(msg))
+
         def _cvxpy_matmul(*args):
             """CVXPY matrix multiplication."""
 
