@@ -1,5 +1,6 @@
 """Defines solver interfaces for cvxpy."""
 
+import cvxpy as cp
 from pydantic import BaseModel, Field
 
 from desdeo.problem import (
@@ -79,18 +80,18 @@ def parse_cvxpy_optimizer_results(problem: Problem, evaluator: CVXPYEvaluator) -
     )
     lagrange_multipliers = None
 
-    success = evaluator.problem_model.status in {"optimal", "optimal_inaccurate"}
-    if evaluator.problem_model.status == "optimal":
+    success = evaluator.problem_model.status in {cp.OPTIMAL, cp.OPTIMAL_INACCURATE}
+    if evaluator.problem_model.status == cp.OPTIMAL:
         status = "Optimal solution found."
-    elif evaluator.problem_model.status == "optimal_inaccurate":
+    elif evaluator.problem_model.status == cp.OPTIMAL_INACCURATE:
         status = "Optimal solution found (inaccurate)."
-    elif evaluator.problem_model.status == "infeasible":
+    elif evaluator.problem_model.status == cp.INFEASIBLE:
         status = "Problem is infeasible."
-    elif evaluator.problem_model.status == "unbounded":
+    elif evaluator.problem_model.status == cp.UNBOUNDED:
         status = "Problem is unbounded."
-    elif evaluator.problem_model.status == "infeasible_inaccurate":
+    elif evaluator.problem_model.status == cp.INFEASIBLE_INACCURATE:
         status = "Problem is infeasible (inaccurate)."
-    elif evaluator.problem_model.status == "unbounded_inaccurate":
+    elif evaluator.problem_model.status == cp.UNBOUNDED_INACCURATE:
         status = "Problem is unbounded (inaccurate)."
     else:
         status = f"Optimization ended with status: {evaluator.problem_model.status}"
