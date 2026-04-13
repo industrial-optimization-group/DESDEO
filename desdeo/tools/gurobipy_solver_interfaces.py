@@ -1,5 +1,8 @@
 """Defines solver interfaces for gurobipy."""
 
+import io
+import sys
+
 import gurobipy as gp
 
 from desdeo.problem import (
@@ -276,3 +279,28 @@ class PersistentGurobipySolver(PersistentSolver):
         self.evaluator.set_optimization_target(target)
         self.evaluator.model.optimize()
         return parse_gurobipy_optimizer_results(self.problem, self.evaluator)
+
+
+def check_gurobi_license():
+    """Check if Gurobi is using a full license (not trial).
+
+    Returns:
+        True if using full academic/commercial license
+        False if using trial license or no license found
+    """
+    captured_output = io.StringIO()
+    original_stdout = sys.stdout
+
+    try:
+        sys.stdout = captured_output
+        with gp.Env(empty=True) as env:
+            env.setParam("OutputFlag", 1)
+            env.start()
+        sys.stdout = original_stdout
+
+        output = captured_output.getvalue()
+        return "Restricted license - for non-production use only" not in output  # noqa: TRY300
+
+    except Exception:
+        sys.stdout = original_stdout
+        return False

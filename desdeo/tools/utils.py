@@ -14,8 +14,9 @@ from desdeo.problem import (
     numpy_array_to_objective_dict,
     variable_dimension_enumerate,
 )
+from desdeo.tools.cvxpy_solver_interfaces import CVXPYSolver, CVXPYSolverOptions, check_cvxpy_suitability
 from desdeo.tools.generics import BaseSolver
-from desdeo.tools.gurobipy_solver_interfaces import GurobipySolver, PersistentGurobipySolver
+from desdeo.tools.gurobipy_solver_interfaces import GurobipySolver, PersistentGurobipySolver, check_gurobi_license
 from desdeo.tools.ng_solver_interfaces import NevergradGenericOptions, NevergradGenericSolver
 from desdeo.tools.proximal_solver import ProximalSolver
 from desdeo.tools.pyomo_solver_interfaces import (
@@ -68,6 +69,10 @@ available_solvers = {
     "gurobipy_persistent": {
         "constructor": PersistentGurobipySolver,
         "options": None,
+    },
+    "cvxpy": {
+        "constructor": CVXPYSolver,
+        "options": CVXPYSolverOptions,
     },
 }
 
@@ -122,8 +127,12 @@ def find_compatible_solvers(problem: Problem) -> list[BaseSolver]:
     ):
         solvers.append(available_solvers["pyomo_ipopt"]["constructor"])  # ipopt has to be installed
 
+    # check if the problem is convex or log-log convex
+    if check_cvxpy_suitability(problem):
+        solvers.append(available_solvers["cvxpy"]["constructor"])
+
     # check if the problem is linear
-    if problem.is_linear:
+    if problem.is_linear and check_gurobi_license():
         solvers.append(available_solvers["gurobipy"]["constructor"])
     if problem.is_linear and shutil.which("gurobi"):
         solvers.append(available_solvers["pyomo_gurobi"]["constructor"])  # gurobi has to be installed
@@ -197,8 +206,12 @@ def guess_best_solver(problem: Problem) -> BaseSolver:
         return available_solvers["proximal"]["constructor"]
 
     # check if the problem is linear
-    if problem.is_linear:
+    if problem.is_linear and check_gurobi_license():
         return available_solvers["gurobipy"]["constructor"]
+
+    # check if the problem is convex or log-log convex
+    if check_cvxpy_suitability(problem):
+        return available_solvers["cvxpy"]["constructor"]
 
     # check if the problem is differentiable and if it is mixed integer
     if (

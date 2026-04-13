@@ -5,7 +5,12 @@ import shutil
 import pytest
 from fixtures import dtlz2_5x_3f_data_based  # noqa: F401
 
-from desdeo.problem.testproblems import dtlz2, re21, river_pollution_problem
+from desdeo.problem.testproblems import (
+    dtlz2,
+    re21,
+    river_pollution_problem,
+    simple_constrained_quadratic_tensor_test_problem,
+)
 from desdeo.tools.utils import (
     available_solvers,
     find_compatible_solvers,
@@ -52,10 +57,28 @@ def test_find_compatible_solvers():
     else:
         assert len(solvers) == 3
 
+    problem = simple_constrained_quadratic_tensor_test_problem(dqp=True)
+
+    solvers = find_compatible_solvers(problem)
+
+    correct_solvers = [
+        available_solvers["pyomo_ipopt"]["constructor"],
+        available_solvers["cvxpy"]["constructor"],
+    ]
+
+    # check that the solvers found are the correct ones
+    if shutil.which("ipopt"):
+        assert len(solvers) == 2
+        assert all(solver in correct_solvers for solver in solvers) and all(
+            solver in solvers for solver in correct_solvers
+        )
+    else:
+        assert len(solvers) == 1
+
 
 @pytest.mark.utils
 def test_payoff_dtlz2():
     """Tests the payoff-table method with the dtlz2 problem."""
     problem = dtlz2(6, 4)
 
-    ideal, nadir = payoff_table_method(problem)
+    ideal, nadir = payoff_table_method(problem)  # noqa: RUF059

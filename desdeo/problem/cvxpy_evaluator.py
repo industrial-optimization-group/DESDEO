@@ -448,7 +448,8 @@ class CVXPYEvaluator:
         if self.problem_model.is_dcp():
             self.problem_model.solve(**kwargs)
         elif self.problem_model.is_dgp():
-            self.problem_model.solve(gp=True, **kwargs)
+            kwargs["gp"] = True
+            self.problem_model.solve(**kwargs)
         else:
             warnings.warn(
                 "The problem does not appear to be DCP or DGP. CVXPY may not be able to solve it.",

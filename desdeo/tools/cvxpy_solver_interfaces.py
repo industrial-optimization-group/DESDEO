@@ -145,3 +145,18 @@ class CVXPYSolver(BaseSolver):
         self.evaluator.set_optimization_target(target)
         self.evaluator.solve(**self.solve_options)
         return parse_cvxpy_optimizer_results(self.problem, self.evaluator)
+
+
+def check_cvxpy_suitability(problem: Problem) -> bool:
+    """Checks whether a problem is suitable for being solved with CVXPY."""
+    try:
+        evaluator = CVXPYEvaluator(problem)
+        for obj in problem.objectives:
+            evaluator.set_optimization_target(obj.symbol)
+            if not (evaluator.problem_model.is_dcp() or evaluator.problem_model.is_dgp()):
+                return False
+                break
+        else:
+            return True
+    except Exception:
+        return False
