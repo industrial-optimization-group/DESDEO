@@ -19,14 +19,13 @@
 
 	let loginError: string | null = $state(null);
 
-	// lastMessage and effect are used to clear error message when user starts typing again after login error
-	let lastMessage: string | null = null;
-
 	$effect(() => {
-		$form.username; $form.password;
-		loginError = $message !== lastMessage ? ($message ?? null) : null;
-		lastMessage = $message;
-	})
+		loginError = $message ?? null;
+	});
+
+	function clearError() {
+		loginError = null;
+	}
 </script>
 
 <svelte:head>
@@ -58,13 +57,14 @@
 					<div class="grid gap-6">
 						<div class="grid gap-3">
 							<Label for="username">Username<span class="text-red-500">*</span></Label>
-							<Input 
-								id="username" 
-								name="username" 
-								placeholder="Enter your username" 
-								bind:value={$form.username} 
+							<Input
+								id="username"
+								name="username"
+								placeholder="Enter your username"
+								bind:value={$form.username}
+								oninput={clearError}
 								class={$errors.username || loginError ? 'border-red-500' : ''}
-								required 
+								required
 							/>
 							{#if $errors.username}
 								<small class="text-red-500">{$errors.username}</small>
@@ -83,6 +83,7 @@
 								name="password"
 								placeholder="Enter your password"
 								bind:value={$form.password}
+								oninput={clearError}
 								class={$errors.password || loginError ? 'border-red-500' : ''}
 								required
 							/>

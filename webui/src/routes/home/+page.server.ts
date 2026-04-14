@@ -38,7 +38,6 @@ export const actions: Actions = {
             } else {
                 form.message = "Login failed. Please try again.";
             }
-            console.log("RESPONSE ", response.status)
             return fail(response.status, {form});
         }
 
