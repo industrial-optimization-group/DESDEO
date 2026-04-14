@@ -64,7 +64,7 @@ export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
 			.map(({ name, value }) => `${name}=${value}`)
 			.join('; ');
 
-		// Retry with the new access token — reuses the buffered body.
+		// Retry with the new access token, reuses the buffered body.
 		res = await fetch(makeRequest(cookieHeader));
 
 		return res;
