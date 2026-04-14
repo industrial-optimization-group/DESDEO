@@ -17,7 +17,9 @@ dependencies to be installed. Below, instructions for setting up and running bot
 the web-API and web-GUI are provided.
 
 ## Web-API
+
 ### Web-API prerequisites
+
 Install the `web` dependencies with the following command if you have not already done so:
 
 === "Poetry"
@@ -38,6 +40,7 @@ files for the web-API are located in the `desdeo/api`
 directory.
 
 ### Setting up the database
+
 The api needs a database to run, and the database connection is
 configured in the `desdeo/api/db.py` file. The default database connection is to
 a SQLite database (but can be changed to a more robust solution for
@@ -56,9 +59,10 @@ uvicorn --app-dir=./desdeo/api/ app:app --reload
 ```
 
 ## Web-GUI
+
 ### Web-GUI prerequisites
 
-The source files for the web-GUI are located in the `webui` folder at the __root-level__
+The source files for the web-GUI are located in the `webui` folder at the **root-level**
 of the project. Unlike the core-logic and the web-API, the web-GUI is developed in
 TypeScript. It is assumed that the node package manager `npm` ([link](https://www.npmjs.com/))
 is available on the system. Use `npm` to install the web-GUI's dependencies
@@ -99,13 +103,13 @@ After a successful setup, the web-API and web-GUI can be readily executed with
 one command:
 
 ```bash
-./run_fullstack.sh
+python run_fullstack.py
 ```
 
-There is also an equivalent make-rule:
+There is also an equivalent `just` recipe:
 
 ```bash
-make fullstack
+just fullstack
 ```
 
 If everything works as expected, we should now see debug output in our terminal

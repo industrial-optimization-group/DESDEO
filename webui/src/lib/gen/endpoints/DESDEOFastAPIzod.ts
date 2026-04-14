@@ -1666,6 +1666,30 @@ export const AddProblemProblemAddPostBody = zod.union([
 			info: zod.union([zod.string(), zod.null()]).optional()
 		})
 		.describe('Model of the request to create a new session.'),
+	zod
+		.object({
+			problem_id: zod.number(),
+			session_id: zod.union([zod.number(), zod.null()]).optional(),
+			parent_state_id: zod.union([zod.number(), zod.null()]).optional()
+		})
+		.describe('Request to initialize a NAUTILUS Navigator session.'),
+	zod
+		.object({
+			problem_id: zod.number(),
+			session_id: zod.union([zod.number(), zod.null()]).optional(),
+			parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+			reference_point: zod
+				.record(zod.string(), zod.number())
+				.describe('Reference point provided by the decision maker.'),
+			bounds: zod
+				.union([zod.record(zod.string(), zod.number()), zod.null()])
+				.optional()
+				.describe('The bounds preference of the DM for each objective.'),
+			steps_remaining: zod
+				.number()
+				.describe('The number of steps remaining in the navigation process.')
+		})
+		.describe('Request to perform NAUTILUS Navigator navigation steps.'),
 	zod.null()
 ]);
 
@@ -2374,6 +2398,30 @@ export const AddProblemJsonProblemAddJsonPostBody = zod.object({
 					info: zod.union([zod.string(), zod.null()]).optional()
 				})
 				.describe('Model of the request to create a new session.'),
+			zod
+				.object({
+					problem_id: zod.number(),
+					session_id: zod.union([zod.number(), zod.null()]).optional(),
+					parent_state_id: zod.union([zod.number(), zod.null()]).optional()
+				})
+				.describe('Request to initialize a NAUTILUS Navigator session.'),
+			zod
+				.object({
+					problem_id: zod.number(),
+					session_id: zod.union([zod.number(), zod.null()]).optional(),
+					parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+					reference_point: zod
+						.record(zod.string(), zod.number())
+						.describe('Reference point provided by the decision maker.'),
+					bounds: zod
+						.union([zod.record(zod.string(), zod.number()), zod.null()])
+						.optional()
+						.describe('The bounds preference of the DM for each objective.'),
+					steps_remaining: zod
+						.number()
+						.describe('The number of steps remaining in the navigation process.')
+				})
+				.describe('Request to perform NAUTILUS Navigator navigation steps.'),
 			zod.null()
 		])
 		.optional()
@@ -6326,6 +6374,32 @@ export const CalculateScoreBandsFromObjectiveDataMethodGenericScoreBandsObjDataP
 	.describe('Model of the response containing SCORE bands parameters.');
 
 /**
+ * Debug endpoint to simulate HTTP errors.
+
+This endpoint takes a 3-digit HTTP status code as a path parameter
+and raises the corresponding HTTPException.
+
+Example usage:
+    /method/generic/debug/404
+    /method/generic/debug/500
+
+Args:
+    httpcode (int): A valid HTTP status code (100-599)
+
+Raises:
+    HTTPException: Returns the HTTP error corresponding to `httpcode`.
+
+Reference:
+    https://fastapi.tiangolo.com/tutorial/handling-errors/
+ * @summary Trigger Error
+ */
+export const TriggerErrorMethodGenericDebugHttpcodeGetParams = zod.object({
+	httpcode: zod.number()
+});
+
+export const TriggerErrorMethodGenericDebugHttpcodeGetResponse = zod.unknown();
+
+/**
  * Request and receive the Utopia map corresponding to the decision variables sent.
 
 Args:
@@ -8554,6 +8628,93 @@ export const ConfigureGdmGdmScoreBandsConfigurePostBody = zod
 	.describe('Configuration for the SCORE bands based GDM.');
 
 export const ConfigureGdmGdmScoreBandsConfigurePostResponse = zod.unknown();
+
+/**
+ * Initialize NAUTILUS Navigator.
+ * @summary Initialize Navigator
+ */
+export const InitializeNavigatorNautilusInitializePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const InitializeNavigatorNautilusInitializePostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional()
+	})
+	.describe('Request to initialize a NAUTILUS Navigator session.');
+
+export const InitializeNavigatorNautilusInitializePostResponse = zod
+	.object({
+		state_id: zod
+			.union([zod.number(), zod.null()])
+			.describe('The id of the state created by this initialization.'),
+		navigation_point: zod.record(zod.string(), zod.number()).describe('Initial navigation point.'),
+		lower_bounds: zod
+			.record(zod.string(), zod.number())
+			.describe('Lower bounds of reachable region.'),
+		upper_bounds: zod
+			.record(zod.string(), zod.number())
+			.describe('Upper bounds of reachable region.'),
+		step_number: zod.number().describe('Step number (always 0 at initialization).'),
+		distance_to_front: zod.number().describe('Distance to Pareto front.')
+	})
+	.describe('Response from NAUTILUS Navigator initialization.');
+
+/**
+ * Perform NAUTILUS navigation steps.
+ * @summary Navigate Navigator
+ */
+export const NavigateNavigatorNautilusNavigatePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const NavigateNavigatorNautilusNavigatePostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+		reference_point: zod
+			.record(zod.string(), zod.number())
+			.describe('Reference point provided by the decision maker.'),
+		bounds: zod
+			.union([zod.record(zod.string(), zod.number()), zod.null()])
+			.optional()
+			.describe('The bounds preference of the DM for each objective.'),
+		steps_remaining: zod
+			.number()
+			.describe('The number of steps remaining in the navigation process.')
+	})
+	.describe('Request to perform NAUTILUS Navigator navigation steps.');
+
+export const NavigateNavigatorNautilusNavigatePostResponse = zod
+	.object({
+		state_id: zod
+			.union([zod.number(), zod.null()])
+			.describe('The id of the state created by this navigation step.'),
+		steps: zod
+			.array(
+				zod
+					.object({
+						step_number: zod.number(),
+						navigation_point: zod.record(zod.string(), zod.number()),
+						lower_bounds: zod.record(zod.string(), zod.number()),
+						upper_bounds: zod.record(zod.string(), zod.number()),
+						reachable_solution: zod
+							.union([zod.record(zod.string(), zod.number()), zod.null()])
+							.optional(),
+						reference_point: zod
+							.union([zod.record(zod.string(), zod.number()), zod.null()])
+							.optional(),
+						bounds: zod.union([zod.record(zod.string(), zod.number()), zod.null()]).optional(),
+						distance_to_front: zod.number()
+					})
+					.describe('A single NAUTILUS Navigator step result.')
+			)
+			.describe('The computed navigation steps.')
+	})
+	.describe('Response from NAUTILUS Navigator navigation.');
 
 /**
  * @summary Health

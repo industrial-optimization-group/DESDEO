@@ -86,9 +86,49 @@ export interface CreateSessionRequest {
 	info?: string | null;
 }
 
+/**
+ * Request to initialize a NAUTILUS Navigator session.
+ */
+export interface NautilusNavigatorInitRequest {
+	problem_id: number;
+	session_id?: number | null;
+	parent_state_id?: number | null;
+}
+
+/**
+ * Reference point provided by the decision maker.
+ */
+export type NautilusNavigatorNavigateRequestReferencePoint = { [key: string]: number };
+
+/**
+ * The bounds preference of the DM for each objective.
+ */
+export type NautilusNavigatorNavigateRequestBounds = { [key: string]: number } | null;
+
+/**
+ * Request to perform NAUTILUS Navigator navigation steps.
+ */
+export interface NautilusNavigatorNavigateRequest {
+	problem_id: number;
+	session_id?: number | null;
+	parent_state_id?: number | null;
+	/** Reference point provided by the decision maker. */
+	reference_point: NautilusNavigatorNavigateRequestReferencePoint;
+	/** The bounds preference of the DM for each objective. */
+	bounds?: NautilusNavigatorNavigateRequestBounds;
+	/** The number of steps remaining in the navigation process. */
+	steps_remaining: number;
+}
+
 export interface BodyAddProblemJsonProblemAddJsonPost {
 	json_file: Blob;
-	request?: RPMSolveRequest | ENautilusStepRequest | CreateSessionRequest | null;
+	request?:
+		| RPMSolveRequest
+		| ENautilusStepRequest
+		| CreateSessionRequest
+		| NautilusNavigatorInitRequest
+		| NautilusNavigatorNavigateRequest
+		| null;
 }
 
 export interface BodyLoginLoginPost {
@@ -1089,10 +1129,14 @@ export interface GroupRevertRequest {
 	state_id: number;
 }
 
+export type ValidationErrorCtx = { [key: string]: unknown };
+
 export interface ValidationError {
 	loc: (string | number)[];
 	msg: string;
 	type: string;
+	input?: unknown;
+	ctx?: ValidationErrorCtx;
 }
 
 export interface HTTPValidationError {
@@ -1358,6 +1402,75 @@ export interface NIMBUSSaveResponse {
 	response_type?: 'nimbus.save';
 	/** The id of the newest state */
 	state_id: number | null;
+}
+
+/**
+ * Initial navigation point.
+ */
+export type NautilusNavigatorInitResponseNavigationPoint = { [key: string]: number };
+
+/**
+ * Lower bounds of reachable region.
+ */
+export type NautilusNavigatorInitResponseLowerBounds = { [key: string]: number };
+
+/**
+ * Upper bounds of reachable region.
+ */
+export type NautilusNavigatorInitResponseUpperBounds = { [key: string]: number };
+
+/**
+ * Response from NAUTILUS Navigator initialization.
+ */
+export interface NautilusNavigatorInitResponse {
+	/** The id of the state created by this initialization. */
+	state_id: number | null;
+	/** Initial navigation point. */
+	navigation_point: NautilusNavigatorInitResponseNavigationPoint;
+	/** Lower bounds of reachable region. */
+	lower_bounds: NautilusNavigatorInitResponseLowerBounds;
+	/** Upper bounds of reachable region. */
+	upper_bounds: NautilusNavigatorInitResponseUpperBounds;
+	/** Step number (always 0 at initialization). */
+	step_number: number;
+	/** Distance to Pareto front. */
+	distance_to_front: number;
+}
+
+export type NautilusNavigatorStepNavigationPoint = { [key: string]: number };
+
+export type NautilusNavigatorStepLowerBounds = { [key: string]: number };
+
+export type NautilusNavigatorStepUpperBounds = { [key: string]: number };
+
+export type NautilusNavigatorStepReachableSolution = { [key: string]: number } | null;
+
+export type NautilusNavigatorStepReferencePoint = { [key: string]: number } | null;
+
+export type NautilusNavigatorStepBounds = { [key: string]: number } | null;
+
+/**
+ * A single NAUTILUS Navigator step result.
+ */
+export interface NautilusNavigatorStep {
+	step_number: number;
+	navigation_point: NautilusNavigatorStepNavigationPoint;
+	lower_bounds: NautilusNavigatorStepLowerBounds;
+	upper_bounds: NautilusNavigatorStepUpperBounds;
+	reachable_solution?: NautilusNavigatorStepReachableSolution;
+	reference_point?: NautilusNavigatorStepReferencePoint;
+	bounds?: NautilusNavigatorStepBounds;
+	distance_to_front: number;
+}
+
+/**
+ * Response from NAUTILUS Navigator navigation.
+ */
+export interface NautilusNavigatorNavigateResponse {
+	/** The id of the state created by this navigation step. */
+	state_id: number | null;
+	/** The computed navigation steps. */
+	steps: NautilusNavigatorStep[];
 }
 
 /**
@@ -2009,6 +2122,14 @@ export type ConfigureGdmGdmScoreBandsConfigurePostParams = {
 	group_id: number;
 };
 
+export type InitializeNavigatorNautilusInitializePostParams = {
+	problem_id?: number | null;
+};
+
+export type NavigateNavigatorNautilusNavigatePostParams = {
+	problem_id?: number | null;
+};
+
 /**
  * Return all users with the decision maker role. Requires analyst or admin.
 
@@ -2097,15 +2218,29 @@ export type loginLoginPostResponse200 = {
 	status: 200;
 };
 
+export type loginLoginPostResponse401 = {
+	data: void;
+	status: 401;
+};
+
 export type loginLoginPostResponse422 = {
 	data: HTTPValidationError;
 	status: 422;
 };
 
+export type loginLoginPostResponse500 = {
+	data: void;
+	status: 500;
+};
+
 export type loginLoginPostResponseSuccess = loginLoginPostResponse200 & {
 	headers: Headers;
 };
-export type loginLoginPostResponseError = loginLoginPostResponse422 & {
+export type loginLoginPostResponseError = (
+	| loginLoginPostResponse401
+	| loginLoginPostResponse422
+	| loginLoginPostResponse500
+) & {
 	headers: Headers;
 };
 
@@ -2662,10 +2797,12 @@ export const getAddProblemProblemAddPostUrl = (params?: AddProblemProblemAddPost
 };
 
 export const addProblemProblemAddPost = async (
-	rPMSolveRequestENautilusStepRequestCreateSessionRequestNull:
+	rPMSolveRequestENautilusStepRequestCreateSessionRequestNautilusNavigatorInitRequestNautilusNavigatorNavigateRequestNull:
 		| RPMSolveRequest
 		| ENautilusStepRequest
 		| CreateSessionRequest
+		| NautilusNavigatorInitRequest
+		| NautilusNavigatorNavigateRequest
 		| null,
 	params?: AddProblemProblemAddPostParams,
 	options?: RequestInit
@@ -2674,7 +2811,9 @@ export const addProblemProblemAddPost = async (
 		...options,
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json', ...options?.headers },
-		body: JSON.stringify(rPMSolveRequestENautilusStepRequestCreateSessionRequestNull)
+		body: JSON.stringify(
+			rPMSolveRequestENautilusStepRequestCreateSessionRequestNautilusNavigatorInitRequestNautilusNavigatorNavigateRequestNull
+		)
 	});
 };
 
@@ -4665,6 +4804,66 @@ export const calculateScoreBandsFromObjectiveDataMethodGenericScoreBandsObjDataP
 };
 
 /**
+ * Debug endpoint to simulate HTTP errors.
+
+This endpoint takes a 3-digit HTTP status code as a path parameter
+and raises the corresponding HTTPException.
+
+Example usage:
+    /method/generic/debug/404
+    /method/generic/debug/500
+
+Args:
+    httpcode (int): A valid HTTP status code (100-599)
+
+Raises:
+    HTTPException: Returns the HTTP error corresponding to `httpcode`.
+
+Reference:
+    https://fastapi.tiangolo.com/tutorial/handling-errors/
+ * @summary Trigger Error
+ */
+export type triggerErrorMethodGenericDebugHttpcodeGetResponse200 = {
+	data: unknown;
+	status: 200;
+};
+
+export type triggerErrorMethodGenericDebugHttpcodeGetResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type triggerErrorMethodGenericDebugHttpcodeGetResponseSuccess =
+	triggerErrorMethodGenericDebugHttpcodeGetResponse200 & {
+		headers: Headers;
+	};
+export type triggerErrorMethodGenericDebugHttpcodeGetResponseError =
+	triggerErrorMethodGenericDebugHttpcodeGetResponse422 & {
+		headers: Headers;
+	};
+
+export type triggerErrorMethodGenericDebugHttpcodeGetResponse =
+	| triggerErrorMethodGenericDebugHttpcodeGetResponseSuccess
+	| triggerErrorMethodGenericDebugHttpcodeGetResponseError;
+
+export const getTriggerErrorMethodGenericDebugHttpcodeGetUrl = (httpcode: number) => {
+	return `http://localhost:8000/method/generic/debug/${httpcode}`;
+};
+
+export const triggerErrorMethodGenericDebugHttpcodeGet = async (
+	httpcode: number,
+	options?: RequestInit
+): Promise<triggerErrorMethodGenericDebugHttpcodeGetResponse> => {
+	return customFetch<triggerErrorMethodGenericDebugHttpcodeGetResponse>(
+		getTriggerErrorMethodGenericDebugHttpcodeGetUrl(httpcode),
+		{
+			...options,
+			method: 'GET'
+		}
+	);
+};
+
+/**
  * Request and receive the Utopia map corresponding to the decision variables sent.
 
 Args:
@@ -6117,6 +6316,128 @@ export const configureGdmGdmScoreBandsConfigurePost = async (
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
 			body: JSON.stringify(sCOREBandsGDMConfig)
+		}
+	);
+};
+
+/**
+ * Initialize NAUTILUS Navigator.
+ * @summary Initialize Navigator
+ */
+export type initializeNavigatorNautilusInitializePostResponse200 = {
+	data: NautilusNavigatorInitResponse;
+	status: 200;
+};
+
+export type initializeNavigatorNautilusInitializePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type initializeNavigatorNautilusInitializePostResponseSuccess =
+	initializeNavigatorNautilusInitializePostResponse200 & {
+		headers: Headers;
+	};
+export type initializeNavigatorNautilusInitializePostResponseError =
+	initializeNavigatorNautilusInitializePostResponse422 & {
+		headers: Headers;
+	};
+
+export type initializeNavigatorNautilusInitializePostResponse =
+	| initializeNavigatorNautilusInitializePostResponseSuccess
+	| initializeNavigatorNautilusInitializePostResponseError;
+
+export const getInitializeNavigatorNautilusInitializePostUrl = (
+	params?: InitializeNavigatorNautilusInitializePostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/nautilus/initialize?${stringifiedParams}`
+		: `http://localhost:8000/nautilus/initialize`;
+};
+
+export const initializeNavigatorNautilusInitializePost = async (
+	nautilusNavigatorInitRequest: NautilusNavigatorInitRequest,
+	params?: InitializeNavigatorNautilusInitializePostParams,
+	options?: RequestInit
+): Promise<initializeNavigatorNautilusInitializePostResponse> => {
+	return customFetch<initializeNavigatorNautilusInitializePostResponse>(
+		getInitializeNavigatorNautilusInitializePostUrl(params),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(nautilusNavigatorInitRequest)
+		}
+	);
+};
+
+/**
+ * Perform NAUTILUS navigation steps.
+ * @summary Navigate Navigator
+ */
+export type navigateNavigatorNautilusNavigatePostResponse200 = {
+	data: NautilusNavigatorNavigateResponse;
+	status: 200;
+};
+
+export type navigateNavigatorNautilusNavigatePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type navigateNavigatorNautilusNavigatePostResponseSuccess =
+	navigateNavigatorNautilusNavigatePostResponse200 & {
+		headers: Headers;
+	};
+export type navigateNavigatorNautilusNavigatePostResponseError =
+	navigateNavigatorNautilusNavigatePostResponse422 & {
+		headers: Headers;
+	};
+
+export type navigateNavigatorNautilusNavigatePostResponse =
+	| navigateNavigatorNautilusNavigatePostResponseSuccess
+	| navigateNavigatorNautilusNavigatePostResponseError;
+
+export const getNavigateNavigatorNautilusNavigatePostUrl = (
+	params?: NavigateNavigatorNautilusNavigatePostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/nautilus/navigate?${stringifiedParams}`
+		: `http://localhost:8000/nautilus/navigate`;
+};
+
+export const navigateNavigatorNautilusNavigatePost = async (
+	nautilusNavigatorNavigateRequest: NautilusNavigatorNavigateRequest,
+	params?: NavigateNavigatorNautilusNavigatePostParams,
+	options?: RequestInit
+): Promise<navigateNavigatorNautilusNavigatePostResponse> => {
+	return customFetch<navigateNavigatorNautilusNavigatePostResponse>(
+		getNavigateNavigatorNautilusNavigatePostUrl(params),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(nautilusNavigatorNavigateRequest)
 		}
 	);
 };

@@ -18,6 +18,7 @@ from sqlmodel import (
 
 from desdeo.problem import Tensor, VariableType
 
+from .nautilus_navigator import NautilusNavigatorInitializationState, NautilusNavigatorNavigationState
 from .state import (
     EMOFetchState,
     EMOIterateState,
@@ -65,6 +66,8 @@ class StateKind(str, Enum):
     GENERIC_INTERMEDIATE = "generic.solve_intermediate"
     ENAUTILUS_STEP = "e-nautilus.stepping"
     ENAUTILUS_FINAL = "e-nautilus.final"
+    NAUTILUS_NAVIGATE = "nautilus.navigate"
+    NAUTILUS_INITIALIZE = "nautilus.initialize"
     XNIMBUS_SOLVE = "xnimbus.solve_candidates"
     XNIMBUS_SAVE = "xnimbus.save_solutions"
     XNIMBUS_INIT = "xnimbus.initialize"
@@ -199,6 +202,8 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.GENERIC_INTERMEDIATE: IntermediateSolutionState,
     StateKind.ENAUTILUS_STEP: ENautilusState,
     StateKind.ENAUTILUS_FINAL: ENautilusFinalState,
+    StateKind.NAUTILUS_NAVIGATE: NautilusNavigatorNavigationState,
+    StateKind.NAUTILUS_INITIALIZE: NautilusNavigatorInitializationState,
     StateKind.XNIMBUS_SOLVE: NIMBUSClassificationState,
     StateKind.XNIMBUS_SAVE: NIMBUSSaveState,
     StateKind.XNIMBUS_INIT: NIMBUSInitializationState,
@@ -221,6 +226,8 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
     IntermediateSolutionState: StateKind.GENERIC_INTERMEDIATE,
     ENautilusState: StateKind.ENAUTILUS_STEP,
     ENautilusFinalState: StateKind.ENAUTILUS_FINAL,
+    NautilusNavigatorNavigationState: StateKind.NAUTILUS_NAVIGATE,
+    NautilusNavigatorInitializationState: StateKind.NAUTILUS_INITIALIZE,
 }
 
 

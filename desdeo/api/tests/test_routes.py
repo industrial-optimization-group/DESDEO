@@ -60,6 +60,93 @@ from .conftest import get_json, login, post_file_multipart, post_json
 from .test_models import compare_models
 
 
+def test_initialize_navigator(client: TestClient, session_and_user: dict):
+    """Test /nautilus/initialize using the existing test user."""
+    access_token = login(client)
+    user = session_and_user["user"]
+    session = session_and_user["session"]
+
+    # Create a test problem using ProblemDB (the SQLModel table used by SessionContextGuard)
+    problem_db = ProblemDB.from_problem(dtlz2(3, 2), user=user)
+    session.add(problem_db)
+    session.commit()
+    session.refresh(problem_db)
+
+    response = client.post(
+        "/nautilus/initialize",
+        json={"problem_id": problem_db.id},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    # Assertions
+    assert response.status_code == 200
+    data = response.json()
+    assert "state_id" in data
+    assert "navigation_point" in data
+    assert "step_number" in data
+    assert "lower_bounds" in data
+    assert "upper_bounds" in data
+
+
+def test_navigate_navigator(client: TestClient, session_and_user: dict):
+    """Test performing a NAUTILUS navigation step using the updated StateDB-based endpoint."""
+    access_token = login(client)
+    user = session_and_user["user"]
+    session = session_and_user["session"]
+
+    # Create a test problem using ProblemDB (the SQLModel table used by SessionContextGuard)
+    problem_obj = dtlz2(3, 2)  # 3 variables, 2 objectives
+    problem_db = ProblemDB.from_problem(problem_obj, user=user)
+    session.add(problem_db)
+    session.commit()
+    session.refresh(problem_db)
+
+    init_response = client.post(
+        "/nautilus/initialize",
+        json={"problem_id": problem_db.id},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert init_response.status_code == 200
+    init_data = init_response.json()
+    assert "state_id" in init_data
+
+    objective_symbols = [obj.symbol for obj in problem_obj.objectives]
+
+    ref_point = dict.fromkeys(objective_symbols, 0.5)
+    bounds = dict.fromkeys(objective_symbols, 1.0)
+
+    # --- Navigate ---
+    navigate_payload = {
+        "problem_id": problem_db.id,
+        "parent_state_id": init_data["state_id"],
+        "steps_remaining": 1,
+        "reference_point": ref_point,
+        "bounds": bounds,
+    }
+
+    response = client.post(
+        "/nautilus/navigate",
+        json=navigate_payload,
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert "state_id" in data
+    assert "steps" in data
+    assert isinstance(data["steps"], list)
+
+    if data["steps"]:
+        step = data["steps"][0]
+        assert "step_number" in step
+        assert "navigation_point" in step
+        assert "reachable_solution" in step
+        assert "lower_bounds" in step
+        assert "upper_bounds" in step
+
+
 def test_user_login(client: TestClient):
     """Test that login works."""
     response = client.post(
@@ -116,6 +203,26 @@ def test_refresh(client: TestClient):
     assert "access_token" in response_refresh.cookies
 
     assert response_good.json()["access_token"] != response_refresh.json()["access_token"]
+
+
+def test_debug_endpoint_valid_codes(client):
+    """Test that debug endpoint returns the requested HTTP error codes."""
+    # Test 404
+    response = client.get("/method/generic/debug/404")
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["detail"] == "Debug triggered HTTP 404 error"
+
+    # Test 500
+    response = client.get("/method/generic/debug/500")
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert response.json()["detail"] == "Debug triggered HTTP 500 error"
+
+
+def test_debug_endpoint_invalid_code(client):
+    """Test that invalid HTTP codes return 400."""
+    response = client.get("/method/generic/debug/999")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Invalid HTTP code" in response.json()["detail"]
 
 
 def test_get_problem(client: TestClient):

@@ -15,6 +15,8 @@ from desdeo.api.db import get_session
 from desdeo.api.models import (
     ENautilusStepRequest,
     InteractiveSessionDB,
+    NautilusNavigatorInitRequest,
+    NautilusNavigatorNavigateRequest,
     ProblemDB,
     RPMSolveRequest,
     StateDB,
@@ -24,7 +26,13 @@ from desdeo.api.models import (
 from desdeo.api.models.session import CreateSessionRequest
 from desdeo.api.routers.user_authentication import get_current_user
 
-RequestType = RPMSolveRequest | ENautilusStepRequest | CreateSessionRequest
+RequestType = (
+    RPMSolveRequest
+    | ENautilusStepRequest
+    | CreateSessionRequest
+    | NautilusNavigatorInitRequest
+    | NautilusNavigatorNavigateRequest
+)
 
 
 def fetch_problem_with_role_check(user: User, problem_id: int, session: Session) -> ProblemDB | None:
