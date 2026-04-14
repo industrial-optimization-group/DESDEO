@@ -59,6 +59,7 @@ dev = [
     "pytest-asyncio>=0.26.0",
     "snakeviz>=2.2.0",
     "pre-commit>=0.14.14",
+    "rust-just>=1.49.0",
 ]
 
 docs = [

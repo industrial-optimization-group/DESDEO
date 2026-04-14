@@ -1,0 +1,36 @@
+name: "WebUI tests"
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - "webui/**"
+  push:
+    branches: [master]
+    paths:
+      - "webui/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: webui
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "npm"
+          cache-dependency-path: webui/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run unit tests
+        run: npx vitest run --config vitest.config.ts
