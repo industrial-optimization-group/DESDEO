@@ -30,6 +30,9 @@
 		'/problems/define': 'Define New',
 	};
 
+	// Paths that are layout-only (no +page.svelte) — rendered as plain text, not links
+	const nonLinkablePaths = new Set(['/methods', '/interactive_methods']);
+
     let allCurrentPagePaths = $derived(
         page.url.pathname
         .split('/')
@@ -38,9 +41,10 @@
 			const path = '/' + arr.slice(0, i + 1).join('/');
 			return {
 				path,
-				label: breadcrumbMap[path] ?? 'Undefined'
+				label: breadcrumbMap[path]
 			};
 		})
+		.filter((crumb): crumb is { path: string; label: string } => crumb.label != null)
     );
 
     // This part controls breadcrumb ellipsis when the path is too long
@@ -79,9 +83,13 @@
                 <BreadcrumbSeparator />
             {:else if i < visibleBreadcrumbs.length - 1}
                 <BreadcrumbItem>
-                    <BreadcrumbLink href={crumb.path} class="hover:text-primary-foreground">
-                        {crumb.label}
-                    </BreadcrumbLink>
+                    {#if nonLinkablePaths.has(crumb.path)}
+                        <span class="text-primary-foreground/60">{crumb.label}</span>
+                    {:else}
+                        <BreadcrumbLink href={crumb.path} class="hover:text-primary-foreground">
+                            {crumb.label}
+                        </BreadcrumbLink>
+                    {/if}
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
             {:else}
@@ -91,6 +99,6 @@
                     </BreadcrumbPage>
                 </BreadcrumbItem>
             {/if}
-        {/each}    
+        {/each}
     </BreadcrumbList>
 </Breadcrumb>
