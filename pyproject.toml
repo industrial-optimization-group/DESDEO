@@ -98,6 +98,12 @@ server = [ # production!
     "psycopg2>=2.9.10",
 ]
 
+stochastic = [
+    "sortedcollections",
+    "mpi4py>=3.0.3",
+    "mpi-sppy",
+]
+
 all-dev = [
     { include-group = "dev" },
     { include-group = "docs" },
@@ -105,6 +111,7 @@ all-dev = [
     { include-group = "web" },
     { include-group = "viz" },
     { include-group = "tools" },
+    { include-group = "stochastic" },
 ]
 
 [tool.poetry.group.server]
@@ -112,7 +119,10 @@ optional = true
 
 
 [tool.uv]
-default-groups = ["dev", "docs", "jupyter", "web", "viz", "tools"]
+default-groups = ["dev", "docs", "jupyter", "web", "viz", "tools", "stochastic"]
+
+[tool.uv.sources]
+mpi-sppy = { path = "../mpi-sppy" }
 
 [tool.ruff]
 # Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.
