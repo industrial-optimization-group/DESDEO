@@ -28,7 +28,6 @@ from desdeo.problem.testproblems import (
     river_pollution_problem,
     simple_data_problem,
     simple_knapsack,
-    simple_scenario_test_problem,
     spanish_sustainability_problem,
 )
 
@@ -558,71 +557,6 @@ def test_is_twice_diff():
     problem_nondiff = river_pollution_problem()
 
     assert not problem_nondiff.is_twice_differentiable
-
-
-@pytest.mark.schema
-def test_scenario_problem():
-    """Tests that scenario problems are handled correctly."""
-    problem = simple_scenario_test_problem()
-
-    assert len(problem.scenario_keys) == 2
-
-    # get scenario 1
-    problem_s1 = problem.get_scenario_problem("s_1")
-
-    assert len(problem_s1.objectives) == 3
-    assert len(problem_s1.constraints) == 3
-    assert len(problem_s1.extra_funcs) == 0
-
-    symbols_s1 = problem_s1.get_all_symbols()
-
-    assert "f_1" in symbols_s1
-    assert "f_2" in symbols_s1
-    assert "f_3" in symbols_s1
-    assert "f_4" not in symbols_s1
-
-    assert "con_1" in symbols_s1
-    assert "con_2" not in symbols_s1
-    assert "con_3" in symbols_s1
-    assert "con_4" in symbols_s1
-
-    assert "extra_1" not in symbols_s1
-
-    assert "x_1" in symbols_s1
-    assert "x_2" in symbols_s1
-    assert "c_1" in symbols_s1
-
-    # get scenario 2
-    problem_s2 = problem.get_scenario_problem("s_2")
-
-    assert len(problem_s2.objectives) == 4
-    assert len(problem_s2.constraints) == 3
-    assert len(problem_s2.extra_funcs) == 1
-
-    symbols_s2 = problem_s2.get_all_symbols()
-
-    assert "f_1" not in symbols_s2
-    assert "f_2" in symbols_s2
-    assert "f_3" in symbols_s2
-    assert "f_4" in symbols_s2
-
-    assert "con_1" not in symbols_s2
-    assert "con_2" in symbols_s2
-    assert "con_3" in symbols_s2
-    assert "con_4" in symbols_s2
-
-    assert "extra_1" in symbols_s2
-
-    assert "x_1" in symbols_s2
-    assert "x_2" in symbols_s2
-    assert "c_1" in symbols_s2
-
-    # get all scenarios
-    problem_all = problem.get_scenario_problem(["s_1", "s_2"])
-
-    assert len(problem_all.objectives) == 5
-    assert len(problem_all.constraints) == 4
-    assert len(problem_all.extra_funcs) == 1
 
 
 @pytest.mark.schema
