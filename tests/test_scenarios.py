@@ -178,6 +178,42 @@ def test_pool_element_reused_across_scenarios(base_problem):
 
 
 @pytest.mark.schema
+def test_anticipation_stop_valid(base_problem):
+    """anticipation_stop accepts valid tree nodes and base_problem variable symbols."""
+    model = ScenarioModel(
+        scenario_tree=["s_1", "s_2"],
+        base_problem=base_problem,
+        scenarios={"s_1": Scenario(), "s_2": Scenario()},
+        anticipation_stop={"ROOT": ["x_1", "x_2"]},
+    )
+    assert model.anticipation_stop == {"ROOT": ["x_1", "x_2"]}
+
+
+@pytest.mark.schema
+def test_anticipation_stop_invalid_node(base_problem):
+    """anticipation_stop key not in scenario_tree raises a validation error."""
+    with pytest.raises(ValidationError):
+        ScenarioModel(
+            scenario_tree=["s_1"],
+            base_problem=base_problem,
+            scenarios={"s_1": Scenario()},
+            anticipation_stop={"nonexistent": ["x_1"]},
+        )
+
+
+@pytest.mark.schema
+def test_anticipation_stop_invalid_variable(base_problem):
+    """anticipation_stop referencing an unknown variable symbol raises a validation error."""
+    with pytest.raises(ValidationError):
+        ScenarioModel(
+            scenario_tree=["s_1"],
+            base_problem=base_problem,
+            scenarios={"s_1": Scenario()},
+            anticipation_stop={"ROOT": ["x_does_not_exist"]},
+        )
+
+
+@pytest.mark.schema
 def test_scenario_tree_list_coercion(base_problem):
     """Providing a list for scenario_tree is coerced to {'ROOT': [...], 's_1': [], 's_2': []}."""
     model = ScenarioModel(

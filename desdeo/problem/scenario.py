@@ -78,6 +78,35 @@ class ScenarioModel(BaseModel):
         "which define which elements from the pools apply to each scenario.",
     )
 
+    anticipation_stop: dict[str, list[str]] = Field(
+        default={},
+        description="Maps a scenario tree node name to a list of variable symbols that enforce "
+        "non-anticipativity at that node: the listed variables must take the same value across "
+        "all descendant scenarios of that node.",
+    )
+
+    @field_validator("anticipation_stop", mode="after")
+    @classmethod
+    def validate_anticipation_stop(cls, v, info):
+        """Validate that anticipation_stop keys exist in scenario_tree and values are valid variable symbols."""
+        data = info.data
+        valid_nodes = set(data.get("scenario_tree", {}).keys())
+        base_problem = data.get("base_problem")
+        valid_variables = (
+            {var.symbol for var in base_problem.variables} if base_problem and base_problem.variables else set()
+        )
+
+        for node, symbols in v.items():
+            if node not in valid_nodes:
+                raise ValueError(f"anticipation_stop key '{node}' not found in scenario_tree.")
+            for symbol in symbols:
+                if symbol not in valid_variables:
+                    raise ValueError(
+                        f"Variable symbol '{symbol}' in anticipation_stop['{node}'] "
+                        "not found in base_problem variables."
+                    )
+        return v
+
     def get_scenario_problem(self, scenario_name: str) -> "Problem":
         """Return a modified copy of base_problem with the elements defined in the named scenario applied."""
         if scenario_name not in self.scenarios:
