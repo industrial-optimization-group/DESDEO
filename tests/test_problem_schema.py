@@ -28,6 +28,7 @@ from desdeo.problem.testproblems import (
     river_pollution_problem,
     simple_data_problem,
     simple_knapsack,
+    simple_scenario_test_problem,
     spanish_sustainability_problem,
 )
 

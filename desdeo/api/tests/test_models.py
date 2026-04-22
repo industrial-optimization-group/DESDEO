@@ -104,7 +104,6 @@ def compare_models(
             "constraints",
             "extra_funcs",
             "simulators",
-            "scenario_keys",
         ]
 
     dict_1 = model_1.model_dump()
@@ -256,7 +255,6 @@ def test_objective(session_and_user: dict[str, Session | list[User]]):
         ideal=10.5,
         nadir=20.0,
         maximize=False,
-        scenario_keys=["s_1", "s_2"],
         unit="m",
         is_convex=False,
         is_linear=True,
@@ -296,7 +294,6 @@ def test_constraint(session_and_user: dict[str, Session | list[User]]):
         is_convex=True,
         is_linear=False,
         is_twice_differentiable=False,
-        scenario_keys=["Abloy", "MasterLock", "MasterLockToOpenMasterLock"],
         simulator_path="/dev/null/aaaaaaaaaa",
         surrogates=["/var/log", "/dev/sda/sda1/no"],
     )
@@ -331,7 +328,6 @@ def test_scalarization_function(session_and_user: dict[str, Session | list[User]
         is_convex=True,
         is_linear=True,
         is_twice_differentiable=False,
-        scenario_keys=["Abloy", "MasterLock", "MasterLockToOpenMasterLock", "MyHandsHurt"],
     )
 
     scalarization_dump = scalarization.model_dump()
@@ -364,7 +360,6 @@ def test_extra_function(session_and_user: dict[str, Session | list[User]]):
         is_convex=False,
         is_linear=False,
         is_twice_differentiable=True,
-        scenario_keys=["Abloy", "MasterLock", "MasterLockToOpenMasterLock", "MyHandsHurt", "RunningOutOfIdeas"],
     )
 
     extra_dump = extra.model_dump()

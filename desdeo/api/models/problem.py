@@ -48,7 +48,6 @@ class ProblemBase(SQLModel):
     is_convex: bool | None = Field(nullable=True, default=None)
     is_linear: bool | None = Field(nullable=True, default=None)
     is_twice_differentiable: bool | None = Field(nullable=True, default=None)
-    scenario_keys: list[str] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
     variable_domain: VariableDomainTypeEnum | None = Field()
 
 
@@ -104,7 +103,6 @@ class ProblemInfo(ProblemBase):
     is_convex: bool | None
     is_linear: bool | None
     is_twice_differentiable: bool | None
-    scenario_keys: list[str] | None
     variable_domain: VariableDomainTypeEnum
 
     constants: list["ConstantDB"] | None
@@ -132,7 +130,6 @@ class ProblemInfoSmall(ProblemBase):
     is_convex: bool | None
     is_linear: bool | None
     is_twice_differentiable: bool | None
-    scenario_keys: list[str] | None
     variable_domain: VariableDomainTypeEnum
 
     problem_metadata: "ProblemMetaDataPublic | None"
@@ -153,7 +150,6 @@ class ProblemDB(ProblemBase, table=True):
     is_convex: bool | None = Field(nullable=True, default=None)
     is_linear: bool | None = Field(nullable=True, default=None)
     is_twice_differentiable: bool | None = Field(nullable=True, default=None)
-    scenario_keys: list[str] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
     variable_domain: VariableDomainTypeEnum = Field()
 
     # Variant tracking
@@ -211,7 +207,6 @@ class ProblemDB(ProblemBase, table=True):
             is_linear=problem_instance.is_linear_,
             is_twice_differentiable=problem_instance.is_twice_differentiable_,
             variable_domain=problem_instance.variable_domain,
-            scenario_keys=problem_instance.scenario_keys,
             constants=[ConstantDB.model_validate(const) for const in scalar_constants],
             tensor_constants=[TensorConstantDB.model_validate(const) for const in tensor_constants],
             variables=[VariableDB.model_validate(var) for var in scalar_variables],
@@ -610,7 +605,6 @@ class _Objective(SQLModel):
     """Helper class to override the fields of nested and list types, and Paths."""
 
     func: list | None = Field(sa_column=Column(JSON, nullable=True))
-    scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
     surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
     simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
 
@@ -641,7 +635,6 @@ class _Constraint(SQLModel):
     """Helper class to override the fields of nested and list types, and Paths."""
 
     func: list = Field(sa_column=Column(JSON))
-    scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
     surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
     simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
 
@@ -672,7 +665,6 @@ class _ScalarizationFunction(SQLModel):
     """Helper class to override the fields of nested and list types, and Paths."""
 
     func: list = Field(sa_column=Column(JSON))
-    scenario_keys: list[str] = Field(sa_column=Column(JSON))
 
 
 _ScalarizationFunctionDB = from_pydantic(
@@ -697,7 +689,6 @@ class _ExtraFunction(SQLModel):
     """Helper class to override the fields of nested and list types, and Paths."""
 
     func: list = Field(sa_column=Column(JSON))
-    scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
     surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
     simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
 
