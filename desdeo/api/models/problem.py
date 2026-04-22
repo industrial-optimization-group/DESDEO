@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from .archive import UserSavedSolutionDB
     from .generic_states import StateDB
     from .preference import PreferenceDB
+    from .scenario import ScenarioModelDB
     from .user import User
 
 
@@ -174,6 +175,7 @@ class ProblemDB(ProblemBase, table=True):
     discrete_representation: "DiscreteRepresentationDB" = Relationship(back_populates="problem", cascade_delete=True)
     simulators: list["SimulatorDB"] = Relationship(back_populates="problem", cascade_delete=True)
     problem_metadata: "ProblemMetaDataDB" = Relationship(back_populates="problem", cascade_delete=True)
+    scenario_models: list["ScenarioModelDB"] = Relationship(back_populates="base_problem")
 
     @classmethod
     def from_problem(cls, problem_instance: Problem, user: "User") -> "ProblemDB":

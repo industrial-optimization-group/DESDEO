@@ -1,3 +1,5 @@
+"""Scenario model for representing and constructing scenario-based optimization problems."""
+
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, field_validator
