@@ -1,6 +1,7 @@
 """Scenario model for representing and constructing scenario-based optimization problems."""
 
 import math
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -120,10 +121,7 @@ class ScenarioModel(BaseModel):
                 raise ValueError(f"Probabilities missing for children of '{parent}': {missing}.")
             child_sum = sum(v[c] for c in children)
             if not math.isclose(child_sum, parent_prob, rel_tol=1e-9):
-                raise ValueError(
-                    f"Probabilities of children of '{parent}' sum to {child_sum}, "
-                    f"expected {parent_prob}."
-                )
+                raise ValueError(f"Probabilities of children of '{parent}' sum to {child_sum}, expected {parent_prob}.")
         return v
 
     base_problem: "Problem" = Field(description="The base Problem instance that is modified for different scenarios.")
@@ -187,6 +185,43 @@ class ScenarioModel(BaseModel):
                         "not found in base_problem variables."
                     )
         return v
+
+    def with_base_problem(self, problem: "Problem | None" = None, **updates) -> "ScenarioModel":
+        """Return a new ScenarioModel with the base_problem updated.
+
+        Uses model_copy internally, so validators are NOT re-run. Avoid updates
+        that could invalidate cross-field constraints already established on this
+        ScenarioModel (e.g. removing variables referenced in anticipation_stop).
+
+        Args:
+            problem: if provided, replaces the base_problem entirely.
+            **updates: keyword arguments forwarded to Problem.model_copy(update=...)
+                to partially update the existing base_problem. Ignored when
+                ``problem`` is given.
+
+        Returns:
+            A new ScenarioModel with the modified base_problem.
+        """
+        new_base = problem if problem is not None else self.base_problem.model_copy(update=updates)
+        return self.model_copy(update={"base_problem": new_base})
+
+    @cached_property
+    def leaf_scenarios(self) -> dict[str, float]:
+        """Return a dict mapping each leaf scenario name to its probability.
+
+        Leaf scenarios are nodes in the scenario tree with no children that also
+        appear in the scenarios dict.  If scenario_probabilities is empty, equal
+        weights (1/n) are assigned to each leaf.
+        """
+        leaves = [
+            n
+            for n, children in self.scenario_tree.items()
+            if n != "ROOT" and not children and n in self.scenarios
+        ]
+        if self.scenario_probabilities:
+            return {leaf: self.scenario_probabilities[leaf] for leaf in leaves}
+        equal = 1.0 / len(leaves) if leaves else 0.0
+        return dict.fromkeys(leaves, equal)
 
     def get_scenario_problem(self, scenario_name: str) -> "Problem":
         """Return a modified copy of base_problem with the elements defined in the named scenario applied."""

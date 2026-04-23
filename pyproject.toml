@@ -111,7 +111,6 @@ all-dev = [
     { include-group = "web" },
     { include-group = "viz" },
     { include-group = "tools" },
-    { include-group = "stochastic" },
 ]
 
 [tool.poetry.group.server]
@@ -119,7 +118,7 @@ optional = true
 
 
 [tool.uv]
-default-groups = ["dev", "docs", "jupyter", "web", "viz", "tools", "stochastic"]
+default-groups = ["dev", "docs", "jupyter", "web", "viz", "tools"]
 
 [tool.uv.sources]
 mpi-sppy = { path = "../mpi-sppy" }
@@ -262,6 +261,7 @@ markers = [
     "gdmtools: tests related to group decision making.",
     "gnimbus: tests related to group nimbus method.",
     "external: tests related to providers interfacing to external problems.",
+    "scenario: tests related to scenario-based optimization.",
     "fixme: tests that are not passing, but maybe should, yet are ignored.",
     "githubskip: skip these tests on GitHub workflows.",
 ]

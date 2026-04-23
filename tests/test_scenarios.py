@@ -72,6 +72,7 @@ def scenario_model(base_problem):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_scenario_model_construction(scenario_model):
     """ScenarioModel with valid pools and scenarios constructs without error."""
     assert "s_1" in scenario_model.scenarios
@@ -79,6 +80,7 @@ def test_scenario_model_construction(scenario_model):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_scenario_invalid_scenario_name(base_problem):
     """Referencing a scenario name not in scenario_tree raises a validation error."""
     with pytest.raises(ValidationError):
@@ -91,6 +93,7 @@ def test_scenario_invalid_scenario_name(base_problem):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_scenario_invalid_pool_index(base_problem):
     """Referencing an out-of-bounds pool index raises a validation error."""
     with pytest.raises(ValidationError):
@@ -103,6 +106,7 @@ def test_scenario_invalid_pool_index(base_problem):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_get_scenario_problem_replaces_constant(scenario_model):
     """Constants referenced in a scenario are replaced in the returned problem."""
     problem = scenario_model.get_scenario_problem("s_1")
@@ -111,6 +115,7 @@ def test_get_scenario_problem_replaces_constant(scenario_model):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_get_scenario_problem_replaces_variable(scenario_model):
     """Variables referenced in a scenario are replaced in the returned problem."""
     problem = scenario_model.get_scenario_problem("s_1")
@@ -120,6 +125,7 @@ def test_get_scenario_problem_replaces_variable(scenario_model):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_get_scenario_problem_replaces_objective(scenario_model):
     """Objectives referenced in a scenario are replaced in the returned problem."""
     base_f1_func = next(o.func for o in scenario_model.base_problem.objectives if o.symbol == "f_1")
@@ -129,6 +135,7 @@ def test_get_scenario_problem_replaces_objective(scenario_model):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_get_scenario_problem_replaces_constraint(scenario_model):
     """Constraints already in the base problem are replaced when referenced in a scenario."""
     problem = scenario_model.get_scenario_problem("s_1")
@@ -138,6 +145,7 @@ def test_get_scenario_problem_replaces_constraint(scenario_model):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_get_scenario_problem_adds_new_constraint(scenario_model):
     """Constraints not present in the base problem are added when referenced in a scenario."""
     base_symbols = {c.symbol for c in scenario_model.base_problem.constraints}
@@ -149,6 +157,7 @@ def test_get_scenario_problem_adds_new_constraint(scenario_model):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_get_scenario_problem_empty_scenario_unchanged(base_problem):
     """A scenario with no element references returns a problem identical to the base."""
     model = ScenarioModel(
@@ -161,6 +170,7 @@ def test_get_scenario_problem_empty_scenario_unchanged(base_problem):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_get_scenario_problem_unknown_name(scenario_model):
     """Requesting a scenario that does not exist raises a ValueError."""
     with pytest.raises(ValueError, match="not found"):
@@ -168,6 +178,7 @@ def test_get_scenario_problem_unknown_name(scenario_model):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_pool_element_reused_across_scenarios(base_problem):
     """The same pool element can be referenced in multiple scenarios without duplication."""
     shared_constraint = Constraint(name="shared", symbol="con_1", cons_type=ConstraintTypeEnum.LTE, func="x_1 - 1")
@@ -188,6 +199,7 @@ def test_pool_element_reused_across_scenarios(base_problem):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_scenario_probabilities_auto_root(base_problem):
     """ROOT is automatically added with probability 1.0 when not provided."""
     model = ScenarioModel(
@@ -200,6 +212,7 @@ def test_scenario_probabilities_auto_root(base_problem):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_scenario_probabilities_children_sum_to_parent(base_problem):
     """Children probabilities must sum to the parent's probability."""
     model = ScenarioModel(
@@ -212,6 +225,7 @@ def test_scenario_probabilities_children_sum_to_parent(base_problem):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_scenario_probabilities_bad_sum(base_problem):
     """Children probabilities that don't sum to the parent's probability raise a validation error."""
     with pytest.raises(ValidationError):
@@ -224,6 +238,7 @@ def test_scenario_probabilities_bad_sum(base_problem):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_scenario_probabilities_missing_child(base_problem):
     """Omitting a child's probability raises a validation error."""
     with pytest.raises(ValidationError):
@@ -236,6 +251,7 @@ def test_scenario_probabilities_missing_child(base_problem):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_scenario_probabilities_unknown_key(base_problem):
     """A key not present in scenario_tree raises a validation error."""
     with pytest.raises(ValidationError):
@@ -248,6 +264,7 @@ def test_scenario_probabilities_unknown_key(base_problem):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_anticipation_stop_valid(base_problem):
     """anticipation_stop accepts valid tree nodes and base_problem variable symbols."""
     model = ScenarioModel(
@@ -260,6 +277,7 @@ def test_anticipation_stop_valid(base_problem):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_anticipation_stop_invalid_node(base_problem):
     """anticipation_stop key not in scenario_tree raises a validation error."""
     with pytest.raises(ValidationError):
@@ -272,6 +290,7 @@ def test_anticipation_stop_invalid_node(base_problem):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_anticipation_stop_invalid_variable(base_problem):
     """anticipation_stop referencing an unknown variable symbol raises a validation error."""
     with pytest.raises(ValidationError):
@@ -284,6 +303,7 @@ def test_anticipation_stop_invalid_variable(base_problem):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_scenario_tree_list_coercion(base_problem):
     """Providing a list for scenario_tree is coerced to {'ROOT': [...], 's_1': [], 's_2': []}."""
     model = ScenarioModel(
@@ -295,6 +315,7 @@ def test_scenario_tree_list_coercion(base_problem):
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_simple_scenario_model_s1():
     """Scenario s_1 has 3 objectives (f_1, f_2, f_3), 3 constraints, and no extra functions."""
     model = simple_scenario_model()
@@ -322,6 +343,7 @@ def test_simple_scenario_model_s1():
 
 
 @pytest.mark.schema
+@pytest.mark.scenario
 def test_simple_scenario_model_s2():
     """Scenario s_2 has 3 objectives (f_1, f_2, f_3), 3 constraints, and 1 extra function."""
     model = simple_scenario_model()

@@ -56,6 +56,11 @@ __all__ = [
     "get_corrected_ideal_and_nadir",
     "guess_best_solver",
     "payoff_table_method",
+    "build_combined_scenario_problem",
+    "build_scenario_problem",
+    "solve_all_scenarios",
+    "solve_scenario",
+    "expected_asf",
 ]
 
 from desdeo.tools.generics import BaseSolver, SolverOptions, SolverResults
@@ -115,6 +120,13 @@ from desdeo.tools.scalarization import (
     add_stom_sf_nondiff,
     add_weighted_sums,
 )
+from desdeo.tools.scenarios import (
+    build_combined_scenario_problem,
+    build_scenario_problem,
+    solve_all_scenarios,
+    solve_scenario,
+)
+from desdeo.tools.stochastic import expected_asf
 from desdeo.tools.scipy_solver_interfaces import ScipyDeSolver, ScipyMinimizeSolver
 from desdeo.tools.utils import (
     available_solvers,
