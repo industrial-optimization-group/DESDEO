@@ -418,8 +418,11 @@ def river_pollution_scenario() -> Problem:
             is_twice_differentiable=True,
         )
 
+        base_idx = i * 3
         pool_objectives.extend([f1, f2, f3])
-        scenarios[scenario_key] = Scenario(objectives=[f1.symbol, f2.symbol, f3.symbol])
+        scenarios[scenario_key] = Scenario(
+            objectives={f1.symbol: base_idx, f2.symbol: base_idx + 1, f3.symbol: base_idx + 2}
+        )
 
     return ScenarioModel(
         scenario_tree=[f"{scenario_key_stub}_{i + 1}" for i in range(num_scenarios)],

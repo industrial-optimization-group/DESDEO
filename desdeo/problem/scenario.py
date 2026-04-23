@@ -1,35 +1,68 @@
 """Scenario model for representing and constructing scenario-based optimization problems."""
 
+import math
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 if TYPE_CHECKING:
-    from desdeo.problem import Constant, Constraint, ExtraFunction, Objective, Problem, ScalarizationFunction, Variable
+    from desdeo.problem import (
+        Constant,
+        Constraint,
+        ExtraFunction,
+        Objective,
+        Problem,
+        ScalarizationFunction,
+        TensorConstant,
+        TensorVariable,
+        Variable,
+    )
 
 
 class Scenario(BaseModel):
-    """References elements from the ScenarioModel pools that apply to a specific scenario."""
+    """References elements from the ScenarioModel pools that apply to a specific scenario.
 
-    constants: list[str] = Field(default=[], description="Symbols of constants from the pool to apply.")
-    variables: list[str] = Field(default=[], description="Symbols of variables from the pool to apply.")
-    objectives: list[str] = Field(default=[], description="Symbols of objectives from the pool to apply.")
-    constraints: list[str] = Field(
-        default=[],
-        description="Symbols of constraints from the pool to apply.",
+    Each field maps a target symbol to a pool index.  The symbol identifies which element in
+    the base problem to replace (for existing symbols) or the label of a new element to add
+    (for symbols not present in the base problem).  The index is the position of the replacement
+    or addition in the corresponding ScenarioModel pool list.
+
+    Using an index rather than a symbol allows multiple pool entries to share the same symbol
+    (e.g. the same constant at different values across scenarios) without ambiguity.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    constants: dict[str, int] = Field(
+        default={},
+        description="Maps target symbol to pool index for constants (scalar or tensor).",
     )
-    extra_funcs: list[str] = Field(
-        default=[],
-        description="Symbols of extra functions from the pool to apply.",
+    variables: dict[str, int] = Field(
+        default={},
+        description="Maps target symbol to pool index for variables (scalar or tensor).",
     )
-    scalarization_funcs: list[str] = Field(
-        default=[],
-        description="Symbols of scalarization functions from the pool to apply.",
+    objectives: dict[str, int] = Field(
+        default={},
+        description="Maps target symbol to pool index for objectives.",
+    )
+    constraints: dict[str, int] = Field(
+        default={},
+        description="Maps target symbol to pool index for constraints.",
+    )
+    extra_funcs: dict[str, int] = Field(
+        default={},
+        description="Maps target symbol to pool index for extra functions.",
+    )
+    scalarization_funcs: dict[str, int] = Field(
+        default={},
+        description="Maps target symbol to pool index for scalarization functions.",
     )
 
 
 class ScenarioModel(BaseModel):
     """Base class for scenario models using Pydantic."""
+
+    model_config = ConfigDict(frozen=True)
 
     scenario_tree: dict[str, list[str]] = Field(
         description="A dictionary describing the scenario structure for the problem. "
@@ -47,36 +80,82 @@ class ScenarioModel(BaseModel):
             return {"ROOT": v, **{name: [] for name in v}}
         return v
 
+    scenario_probabilities: dict[str, float] = Field(
+        default={},
+        description="Maps each scenario tree node to its probability. ROOT is always included with probability 1.0. "
+        "For every node, the probabilities of its children must sum to the node's own probability.",
+    )
+
+    @field_validator("scenario_probabilities", mode="before")
+    @classmethod
+    def coerce_none_probabilities(cls, v):
+        """Coerce None to an empty dict so probability validation can be skipped."""
+        return v if v is not None else {}
+
+    @field_validator("scenario_probabilities", mode="after")
+    @classmethod
+    def validate_scenario_probabilities(cls, v, info):
+        """Auto-inject ROOT=1.0 and verify child probabilities sum to their parent's probability."""
+        if not v:
+            return v
+
+        tree: dict[str, list[str]] = info.data.get("scenario_tree", {})
+
+        v.setdefault("ROOT", 1.0)
+
+        for key in v:
+            if key not in tree:
+                raise ValueError(f"scenario_probabilities key '{key}' not found in scenario_tree.")
+
+        for parent, children in tree.items():
+            if not children:
+                continue
+            if not any(c in v for c in children):
+                continue
+            parent_prob = v.get(parent)
+            if parent_prob is None:
+                raise ValueError(f"Probability for node '{parent}' is missing.")
+            missing = [c for c in children if c not in v]
+            if missing:
+                raise ValueError(f"Probabilities missing for children of '{parent}': {missing}.")
+            child_sum = sum(v[c] for c in children)
+            if not math.isclose(child_sum, parent_prob, rel_tol=1e-9):
+                raise ValueError(
+                    f"Probabilities of children of '{parent}' sum to {child_sum}, "
+                    f"expected {parent_prob}."
+                )
+        return v
+
     base_problem: "Problem" = Field(description="The base Problem instance that is modified for different scenarios.")
 
-    constants: list["Constant"] = Field(
-        default=[],
-        description="Pool of Constant replacements available to scenarios.",
+    constants: tuple["Constant | TensorConstant", ...] = Field(
+        default=(),
+        description="Pool of Constant and TensorConstant replacements available to scenarios.",
     )
-    variables: list["Variable"] = Field(
-        default=[],
-        description="Pool of Variable replacements available to scenarios.",
+    variables: tuple["Variable | TensorVariable", ...] = Field(
+        default=(),
+        description="Pool of Variable and TensorVariable replacements available to scenarios.",
     )
-    objectives: list["Objective"] = Field(
-        default=[],
+    objectives: tuple["Objective", ...] = Field(
+        default=(),
         description="Pool of Objective replacements available to scenarios.",
     )
-    constraints: list["Constraint"] = Field(
-        default=[],
+    constraints: tuple["Constraint", ...] = Field(
+        default=(),
         description="Pool of Constraint replacements available to scenarios.",
     )
-    extra_funcs: list["ExtraFunction"] = Field(
-        default=[],
+    extra_funcs: tuple["ExtraFunction", ...] = Field(
+        default=(),
         description="Pool of ExtraFunction replacements available to scenarios.",
     )
-    scalarization_funcs: list["ScalarizationFunction"] = Field(
-        default=[],
+    scalarization_funcs: tuple["ScalarizationFunction", ...] = Field(
+        default=(),
         description="Pool of ScalarizationFunction replacements available to scenarios.",
     )
 
     scenarios: dict[str, "Scenario"] = Field(
         default={},
-        description="A dictionary mapping scenario names to ScenarioDelta instances, "
+        description="A dictionary mapping scenario names to Scenario instances, "
         "which define which elements from the pools apply to each scenario.",
     )
 
@@ -116,38 +195,29 @@ class ScenarioModel(BaseModel):
 
         scenario = self.scenarios[scenario_name]
 
-        def apply(base_list, pool, updated_symbols):
-            if not updated_symbols:
+        def apply(base_list, pool_list, symbol_to_idx):
+            if not symbol_to_idx:
                 return base_list
-            replacements = {s: pool[s] for s in updated_symbols}
-            if base_list is None:
-                return list(replacements.values())
-            result = [replacements.get(e.symbol, e) for e in base_list]
-            existing = {e.symbol for e in base_list}
-            result += [replacements[s] for s in updated_symbols if s not in existing]
+            base_list = base_list or []
+            base_symbols = {e.symbol for e in base_list}
+            result = [pool_list[symbol_to_idx[e.symbol]] if e.symbol in symbol_to_idx else e for e in base_list]
+            result += [pool_list[idx] for sym, idx in symbol_to_idx.items() if sym not in base_symbols]
             return result
-
-        constant_pool = {c.symbol: c for c in self.constants}
-        variable_pool = {v.symbol: v for v in self.variables}
-        objective_pool = {o.symbol: o for o in self.objectives}
-        constraint_pool = {c.symbol: c for c in self.constraints}
-        extra_func_pool = {e.symbol: e for e in self.extra_funcs}
-        scalarization_pool = {s.symbol: s for s in self.scalarization_funcs}
 
         updates = {}
         if scenario.constants:
-            updates["constants"] = apply(self.base_problem.constants, constant_pool, scenario.constants)
+            updates["constants"] = apply(self.base_problem.constants, self.constants, scenario.constants)
         if scenario.variables:
-            updates["variables"] = apply(self.base_problem.variables, variable_pool, scenario.variables)
+            updates["variables"] = apply(self.base_problem.variables, self.variables, scenario.variables)
         if scenario.objectives:
-            updates["objectives"] = apply(self.base_problem.objectives, objective_pool, scenario.objectives)
+            updates["objectives"] = apply(self.base_problem.objectives, self.objectives, scenario.objectives)
         if scenario.constraints:
-            updates["constraints"] = apply(self.base_problem.constraints, constraint_pool, scenario.constraints)
+            updates["constraints"] = apply(self.base_problem.constraints, self.constraints, scenario.constraints)
         if scenario.extra_funcs:
-            updates["extra_funcs"] = apply(self.base_problem.extra_funcs, extra_func_pool, scenario.extra_funcs)
+            updates["extra_funcs"] = apply(self.base_problem.extra_funcs, self.extra_funcs, scenario.extra_funcs)
         if scenario.scalarization_funcs:
             updates["scalarization_funcs"] = apply(
-                self.base_problem.scalarization_funcs, scalarization_pool, scenario.scalarization_funcs
+                self.base_problem.scalarization_funcs, self.scalarization_funcs, scenario.scalarization_funcs
             )
 
         return self.base_problem.model_copy(update=updates)
@@ -155,26 +225,27 @@ class ScenarioModel(BaseModel):
     @field_validator("scenarios", mode="after")
     @classmethod
     def validate_scenarios(cls, v, info):
-        """Validate that scenario names exist in scenario_tree and that all referenced symbols exist in the pools."""
+        """Validate that scenario names exist in scenario_tree and that all indices are in bounds."""
         data = info.data
         valid_scenarios = set(data.get("scenario_tree", {}).keys())
 
-        pool_symbols = {
-            "constants": {c.symbol for c in data.get("constants", [])},
-            "constraints": {c.symbol for c in data.get("constraints", [])},
-            "variables": {var.symbol for var in data.get("variables", [])},
-            "objectives": {o.symbol for o in data.get("objectives", [])},
-            "extra_funcs": {e.symbol for e in data.get("extra_funcs", [])},
-            "scalarization_funcs": {s.symbol for s in data.get("scalarization_funcs", [])},
+        pool_lengths = {
+            "constants": len(data.get("constants", [])),
+            "variables": len(data.get("variables", [])),
+            "objectives": len(data.get("objectives", [])),
+            "constraints": len(data.get("constraints", [])),
+            "extra_funcs": len(data.get("extra_funcs", [])),
+            "scalarization_funcs": len(data.get("scalarization_funcs", [])),
         }
 
-        for scenario_name, delta in v.items():
+        for scenario_name, scenario in v.items():
             if scenario_name not in valid_scenarios:
                 raise ValueError(f"Scenario '{scenario_name}' not found in scenario_tree.")
-            for field, symbols in pool_symbols.items():
-                for symbol in getattr(delta, field):
-                    if symbol not in symbols:
+            for field, length in pool_lengths.items():
+                for symbol, idx in getattr(scenario, field).items():
+                    if idx < 0 or idx >= length:
                         raise ValueError(
-                            f"Symbol '{symbol}' in scenario '{scenario_name}.{field}' not found in {field} pool."
+                            f"Index {idx} for symbol '{symbol}' in scenario '{scenario_name}.{field}' "
+                            f"is out of bounds (pool length {length})."
                         )
         return v

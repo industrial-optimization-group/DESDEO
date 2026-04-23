@@ -40,7 +40,14 @@ def base_problem():
 
 @pytest.fixture
 def scenario_model(base_problem):
-    """Scenario model for testing."""
+    """Scenario model for testing.
+
+    Pool indices:
+      constants:   0 → c_1 alt (symbol c_1)
+      variables:   0 → x_1 alt (symbol x_1)
+      objectives:  0 → f_1 alt (symbol f_1)
+      constraints: 0 → con_1 alt (symbol con_1), 1 → con_2 (symbol con_2)
+    """
     return ScenarioModel(
         scenario_tree={"ROOT": ["s_1", "s_2"], "s_1": [], "s_2": []},
         base_problem=base_problem,
@@ -56,8 +63,10 @@ def scenario_model(base_problem):
             Constraint(name="con_2", symbol="con_2", cons_type=ConstraintTypeEnum.LTE, func="x_1 - x_2 - 3"),
         ],
         scenarios={
-            "s_1": Scenario(constants=["c_1"], variables=["x_1"], objectives=["f_1"], constraints=["con_1"]),
-            "s_2": Scenario(constraints=["con_2"]),
+            "s_1": Scenario(
+                constants={"c_1": 0}, variables={"x_1": 0}, objectives={"f_1": 0}, constraints={"con_1": 0}
+            ),
+            "s_2": Scenario(constraints={"con_2": 1}),
         },
     )
 
@@ -77,18 +86,19 @@ def test_scenario_invalid_scenario_name(base_problem):
             scenario_tree={"ROOT": ["s_1"], "s_1": []},
             base_problem=base_problem,
             constants=[Constant(name="c_1 alt", symbol="c_1", value=10.0)],
-            scenarios={"nonexistent": Scenario(constants=["c_1"])},
+            scenarios={"nonexistent": Scenario(constants={"c_1": 0})},
         )
 
 
 @pytest.mark.schema
-def test_scenario_invalid_pool_symbol(base_problem):
-    """Referencing a symbol not present in the pool raises a validation error."""
+def test_scenario_invalid_pool_index(base_problem):
+    """Referencing an out-of-bounds pool index raises a validation error."""
     with pytest.raises(ValidationError):
         ScenarioModel(
             scenario_tree={"ROOT": ["s_1"], "s_1": []},
             base_problem=base_problem,
-            scenarios={"s_1": Scenario(constants=["c_does_not_exist"])},
+            constants=[Constant(name="c_1 alt", symbol="c_1", value=10.0)],
+            scenarios={"s_1": Scenario(constants={"c_1": 999})},
         )
 
 
@@ -166,8 +176,8 @@ def test_pool_element_reused_across_scenarios(base_problem):
         base_problem=base_problem,
         constraints=[shared_constraint],
         scenarios={
-            "s_1": Scenario(constraints=["con_1"]),
-            "s_2": Scenario(constraints=["con_1"]),
+            "s_1": Scenario(constraints={"con_1": 0}),
+            "s_2": Scenario(constraints={"con_1": 0}),
         },
     )
     p1 = model.get_scenario_problem("s_1")
@@ -175,6 +185,66 @@ def test_pool_element_reused_across_scenarios(base_problem):
     c1 = next(c for c in p1.constraints if c.symbol == "con_1")
     c2 = next(c for c in p2.constraints if c.symbol == "con_1")
     assert c1.func == c2.func == shared_constraint.func
+
+
+@pytest.mark.schema
+def test_scenario_probabilities_auto_root(base_problem):
+    """ROOT is automatically added with probability 1.0 when not provided."""
+    model = ScenarioModel(
+        scenario_tree=["s_1", "s_2"],
+        base_problem=base_problem,
+        scenario_probabilities={"s_1": 0.3, "s_2": 0.7},
+        scenarios={"s_1": Scenario(), "s_2": Scenario()},
+    )
+    assert model.scenario_probabilities["ROOT"] == 1.0
+
+
+@pytest.mark.schema
+def test_scenario_probabilities_children_sum_to_parent(base_problem):
+    """Children probabilities must sum to the parent's probability."""
+    model = ScenarioModel(
+        scenario_tree={"ROOT": ["s_1", "s_2"], "s_1": ["s_1a", "s_1b"], "s_1a": [], "s_1b": [], "s_2": []},
+        base_problem=base_problem,
+        scenario_probabilities={"s_1": 0.6, "s_2": 0.4, "s_1a": 0.4, "s_1b": 0.2},
+        scenarios={},
+    )
+    assert model.scenario_probabilities["ROOT"] == 1.0
+
+
+@pytest.mark.schema
+def test_scenario_probabilities_bad_sum(base_problem):
+    """Children probabilities that don't sum to the parent's probability raise a validation error."""
+    with pytest.raises(ValidationError):
+        ScenarioModel(
+            scenario_tree=["s_1", "s_2"],
+            base_problem=base_problem,
+            scenario_probabilities={"s_1": 0.3, "s_2": 0.3},
+            scenarios={},
+        )
+
+
+@pytest.mark.schema
+def test_scenario_probabilities_missing_child(base_problem):
+    """Omitting a child's probability raises a validation error."""
+    with pytest.raises(ValidationError):
+        ScenarioModel(
+            scenario_tree=["s_1", "s_2"],
+            base_problem=base_problem,
+            scenario_probabilities={"s_1": 1.0},
+            scenarios={},
+        )
+
+
+@pytest.mark.schema
+def test_scenario_probabilities_unknown_key(base_problem):
+    """A key not present in scenario_tree raises a validation error."""
+    with pytest.raises(ValidationError):
+        ScenarioModel(
+            scenario_tree=["s_1"],
+            base_problem=base_problem,
+            scenario_probabilities={"s_1": 1.0, "nonexistent": 0.5},
+            scenarios={},
+        )
 
 
 @pytest.mark.schema
@@ -226,7 +296,7 @@ def test_scenario_tree_list_coercion(base_problem):
 
 @pytest.mark.schema
 def test_simple_scenario_model_s1():
-    """Scenario s_1 contains the correct objectives, constraints, and no extra functions."""
+    """Scenario s_1 has 3 objectives (f_1, f_2, f_3), 3 constraints, and no extra functions."""
     model = simple_scenario_model()
     problem = model.get_scenario_problem("s_1")
 
@@ -234,20 +304,18 @@ def test_simple_scenario_model_s1():
 
     assert len(problem.objectives) == 3
     assert len(problem.constraints) == 3
-    assert problem.extra_funcs is None or len(problem.extra_funcs) == 0
+    assert len(problem.extra_funcs) == 1
 
     assert "f_1" in symbols
     assert "f_2" in symbols
     assert "f_3" in symbols
-    assert "f_4" not in symbols
-    assert "f_5" not in symbols
 
     assert "con_1" in symbols
     assert "con_2" not in symbols
     assert "con_3" in symbols
     assert "con_4" in symbols
 
-    assert "extra_1" not in symbols
+    assert "extra_1" in symbols
     assert "x_1" in symbols
     assert "x_2" in symbols
     assert "c_1" in symbols
@@ -255,21 +323,19 @@ def test_simple_scenario_model_s1():
 
 @pytest.mark.schema
 def test_simple_scenario_model_s2():
-    """Scenario s_2 contains the correct objectives, constraints, and extra function."""
+    """Scenario s_2 has 3 objectives (f_1, f_2, f_3), 3 constraints, and 1 extra function."""
     model = simple_scenario_model()
     problem = model.get_scenario_problem("s_2")
 
     symbols = problem.get_all_symbols()
 
-    assert len(problem.objectives) == 4
+    assert len(problem.objectives) == 3
     assert len(problem.constraints) == 3
     assert len(problem.extra_funcs) == 1
 
-    assert "f_1" not in symbols
+    assert "f_1" in symbols
     assert "f_2" in symbols
     assert "f_3" in symbols
-    assert "f_4" in symbols
-    assert "f_5" in symbols
 
     assert "con_1" not in symbols
     assert "con_2" in symbols

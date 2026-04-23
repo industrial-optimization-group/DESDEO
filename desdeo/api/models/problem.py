@@ -541,9 +541,11 @@ class TensorConstantDB(_BaseTensorConstantDB, table=True):
 
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(default=None, foreign_key="problemdb.id")
+    scenario_model_id: int | None = Field(default=None, foreign_key="scenariomodeldb.id")
 
     # Back populates
     problem: ProblemDB | None = Relationship(back_populates="tensor_constants")
+    scenario_model: "ScenarioModelDB" = Relationship(back_populates="tensor_constants")
 
 
 _ConstantDB = from_pydantic(Constant, "_ConstantDB", union_type_conversions={VariableType: float})
@@ -554,9 +556,11 @@ class ConstantDB(_ConstantDB, table=True):
 
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+    scenario_model_id: int | None = Field(foreign_key="scenariomodeldb.id", default=None)
 
     # Back populates
     problem: ProblemDB | None = Relationship(back_populates="constants")
+    scenario_model: "ScenarioModelDB" = Relationship(back_populates="constants")
 
 
 _VariableDB = from_pydantic(
@@ -571,9 +575,11 @@ class VariableDB(_VariableDB, table=True):
 
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+    scenario_model_id: int | None = Field(foreign_key="scenariomodeldb.id", default=None)
 
     # Back populates
     problem: ProblemDB | None = Relationship(back_populates="variables")
+    scenario_model: "ScenarioModelDB" = Relationship(back_populates="variables")
 
 
 class _TensorVariable(SQLModel):
@@ -598,9 +604,11 @@ class TensorVariableDB(_TensorVariableDB, table=True):
 
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+    scenario_model_id: int | None = Field(foreign_key="scenariomodeldb.id", default=None)
 
     # Back populates
     problem: ProblemDB | None = Relationship(back_populates="tensor_variables")
+    scenario_model: "ScenarioModelDB" = Relationship(back_populates="tensor_variables")
 
 
 class _Objective(SQLModel):
@@ -628,9 +636,11 @@ class ObjectiveDB(_ObjectiveDB, table=True):
 
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+    scenario_model_id: int | None = Field(foreign_key="scenariomodeldb.id", default=None)
 
     # Back populates
     problem: ProblemDB | None = Relationship(back_populates="objectives")
+    scenario_model: "ScenarioModelDB" = Relationship(back_populates="objectives")
 
 
 class _Constraint(SQLModel):
@@ -658,9 +668,11 @@ class ConstraintDB(_ConstraintDB, table=True):
 
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+    scenario_model_id: int | None = Field(foreign_key="scenariomodeldb.id", default=None)
 
     # Back populates
     problem: ProblemDB | None = Relationship(back_populates="constraints")
+    scenario_model: "ScenarioModelDB" = Relationship(back_populates="constraints")
 
 
 class _ScalarizationFunction(SQLModel):
@@ -682,9 +694,11 @@ class ScalarizationFunctionDB(_ScalarizationFunctionDB, table=True):
 
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+    scenario_model_id: int | None = Field(foreign_key="scenariomodeldb.id", default=None)
 
     # Back populates
     problem: ProblemDB | None = Relationship(back_populates="scalarization_funcs")
+    scenario_model: "ScenarioModelDB" = Relationship(back_populates="scalarization_funcs")
 
 
 class _ExtraFunction(SQLModel):
@@ -711,9 +725,11 @@ class ExtraFunctionDB(_ExtraFunctionDB, table=True):
 
     id: int | None = Field(primary_key=True, default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
+    scenario_model_id: int | None = Field(foreign_key="scenariomodeldb.id", default=None)
 
     # Back populates
     problem: ProblemDB | None = Relationship(back_populates="extra_funcs")
+    scenario_model: "ScenarioModelDB" = Relationship(back_populates="extra_funcs")
 
 
 class _DiscreteRepresentation(SQLModel):

@@ -472,11 +472,14 @@ def simple_scenario_model() -> ScenarioModel:
     )
 
     return ScenarioModel(
-        scenario_tree={"ROOT": ["s_1", "s_2"], "s_1": [], "s_2": []},
+        scenario_tree={"ROOT": ["s_1", "s_2", "s_3"], "s_1": [], "s_2": [], "s_3": []},
+        scenario_probabilities={"s_1": 0.2, "s_2": 0.3, "s_3": 0.5},
+        anticipation_stop={"ROOT": ["x_1"]},
         base_problem=base_problem,
         objectives=[
+            # index 0: f_1 used by s_1
             Objective(
-                name="f_1",
+                name="f_1 (s_1)",
                 symbol="f_1",
                 func="x_1 + x_2",
                 maximize=False,
@@ -487,8 +490,9 @@ def simple_scenario_model() -> ScenarioModel:
                 is_convex=True,
                 is_twice_differentiable=True,
             ),
+            # index 1: f_2 used by s_1 and s_3
             Objective(
-                name="f_2",
+                name="f_2 (s_1/s_3)",
                 symbol="f_2",
                 func="x_1 - x_2",
                 maximize=False,
@@ -499,21 +503,23 @@ def simple_scenario_model() -> ScenarioModel:
                 is_convex=True,
                 is_twice_differentiable=True,
             ),
+            # index 2: f_1 used by s_2 and s_3
             Objective(
-                name="f_4",
-                symbol="f_4",
+                name="f_1 (s_2/s_3)",
+                symbol="f_1",
                 func="c_1 + x_2**2 - x_1",
                 maximize=False,
                 ideal=-100,
                 nadir=100,
                 objective_type=ObjectiveTypeEnum.analytical,
-                is_linear=True,
+                is_linear=False,
                 is_convex=True,
                 is_twice_differentiable=True,
             ),
+            # index 3: f_2 used by s_2
             Objective(
-                name="f_5",
-                symbol="f_5",
+                name="f_2 (s_2)",
+                symbol="f_2",
                 func="-x_1 - x_2",
                 maximize=False,
                 ideal=-100,
@@ -547,24 +553,57 @@ def simple_scenario_model() -> ScenarioModel:
                 name="con_4",
                 symbol="con_4",
                 cons_type=ConstraintTypeEnum.LTE,
-                func="x_1 - 5",
+                func="extra_1 - 5",
                 is_linear=True,
                 is_convex=True,
                 is_twice_differentiable=True,
             ),
         ],
         extra_funcs=[
+            # index 0: used by s_2
             ExtraFunction(
-                name="extra_1",
+                name="extra_1 (s_2)",
                 symbol="extra_1",
                 func="5*x_1",
                 is_linear=True,
                 is_convex=True,
                 is_twice_differentiable=True,
             ),
+            # index 1: used by s_1
+            ExtraFunction(
+                name="extra_1 (s_1)",
+                symbol="extra_1",
+                func="2*x_1",
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            ),
+        ],
+        constants=[
+            Constant(name="c_1 (s_1)", symbol="c_1", value=1.0),  # index 0
+            Constant(name="c_1 (s_2)", symbol="c_1", value=5.0),  # index 1
+            Constant(name="c_1 (s_3)", symbol="c_1", value=10.0),  # index 2
         ],
         scenarios={
-            "s_1": Scenario(objectives=["f_1", "f_2"], constraints=["con_1", "con_4"]),
-            "s_2": Scenario(objectives=["f_2", "f_4", "f_5"], constraints=["con_2", "con_4"], extra_funcs=["extra_1"]),
+            # constants: c_1→0/1/2 per scenario
+            # objectives: f_1→0(s_1),2(s_2/s_3) | f_2→1(s_1/s_3),3(s_2)
+            # constraints: con_1=0, con_2=1, con_4=2 | extra_funcs: extra_1→1(s_1),0(s_2)
+            "s_1": Scenario(
+                constants={"c_1": 0},
+                objectives={"f_1": 0, "f_2": 1},
+                constraints={"con_1": 0, "con_4": 2},
+                extra_funcs={"extra_1": 1},
+            ),
+            "s_2": Scenario(
+                constants={"c_1": 1},
+                objectives={"f_1": 2, "f_2": 3},
+                constraints={"con_2": 1, "con_4": 2},
+                extra_funcs={"extra_1": 0},
+            ),
+            "s_3": Scenario(
+                constants={"c_1": 2},
+                objectives={"f_1": 2, "f_2": 1},
+                constraints={"con_1": 0, "con_2": 1},
+            ),
         },
     )
