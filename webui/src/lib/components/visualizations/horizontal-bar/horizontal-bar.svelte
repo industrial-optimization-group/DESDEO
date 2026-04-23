@@ -48,6 +48,7 @@
 	export let previousValue: number | undefined = undefined;
 	export let barColor: string = '#4f8cff';
 	export let direction: 'max' | 'min' = 'min';
+	export let objectiveName: string | undefined = 'Objective';
 
 	export let options: {
 		decimalPrecision: number;
@@ -72,6 +73,26 @@
 	let dragLine: d3.Selection<SVGLineElement, unknown, null, undefined>;
 	let dragCircle: d3.Selection<SVGCircleElement, unknown, null, undefined>;
 	let resizeObserver: ResizeObserver;
+	let tooltip: d3.Selection<HTMLDivElement, unknown, null, undefined>; // Single tooltip for all uses
+
+	// Helper functions to show and hide tooltip
+	function showTooltip(event: any, value: number | undefined) {
+		if (value === undefined) return;
+		tooltip
+			.style('opacity', 0.9)
+			.html(`
+				<strong>${objectiveName}</strong><br/>
+				${direction === 'min' ? 'Minimize' : 'Maximize'}<br/>
+				Value: ${value}<br/>
+				Range: ${axisRanges[0]} – ${axisRanges[1]}
+			`)
+			.style('left', event.pageX + 10 + 'px')
+			.style('top', event.pageY - 20 + 'px');
+	}
+
+	function hideTooltip() {
+		tooltip.style('opacity', 0);
+	}
 
 	/**
 	 * Draws the horizontal bar chart using D3.
@@ -99,6 +120,21 @@
 			.attr('transform', `translate(0,${height - margin.bottom})`)
 			.call(xAxis);
 
+		const isSolutionOutOfBounds =
+			solutionValue !== undefined &&
+			(solutionValue < axisRanges[0] || solutionValue > axisRanges[1]);
+
+		// --- VALIDATION: axisRanges ---
+		if (
+			!axisRanges ||
+			axisRanges.length !== 2 ||
+			isNaN(axisRanges[0]) ||
+			isNaN(axisRanges[1])
+		) {
+			console.warn('Invalid axisRanges:', axisRanges);
+			return; // STOP rendering
+		}
+
 		// Select all text elements within the axis and apply rotation
 		axisGroup.selectAll('text')  
 			.style('text-anchor', 'end')
@@ -125,7 +161,7 @@
 				.attr('y', margin.top)
 				.attr('width', Math.max(0, solWidth))
 				.attr('height', innerHeight)
-				.attr('fill', direction === 'min' ? barColor : '#eee')
+				.attr('fill', isSolutionOutOfBounds ? '#ff4d4f' : (direction === 'min' ? barColor : '#eee'))
 				.attr('rx', 1);
 		}
 
@@ -153,7 +189,14 @@
 				
 				selectedValue = roundedValue;
 				if (onSelect) onSelect(roundedValue);
-			});
+			})
+			.on('mousemove', function(event) {
+				const [mouseX] = d3.pointer(event, this);
+				const value = roundToDecimal(x.invert(mouseX), options.decimalPrecision);
+				showTooltip(event, value);
+			})
+			.on('mouseout', hideTooltip)
+			;
 
 		// --- Draw a marker for the solution value ---
 		if (solutionValue !== undefined) {
@@ -174,7 +217,11 @@
 			.on('click', () => {
 				selectedValue = solutionValue;
 				if (onSelect) onSelect(solutionValue);
-			});
+			})
+			.on('mousemove', function(event) {
+				showTooltip(event, solutionValue);
+			})
+			.on('mouseout', hideTooltip);
 		}
 
 		// --- Draw lower bound triangle, pointing left ---
@@ -190,7 +237,7 @@
 					.map((p) => p.join(','))
 					.join(' ')
 			)
-			.attr('fill', '#fff')
+			.attr('fill', isSolutionOutOfBounds ? '#ff4d4f' : '#444')
 			.attr('stroke', '#888')
 			.attr('stroke-width', 2)
 			.attr('cursor', 'pointer')
@@ -212,7 +259,7 @@
 					.map((p) => p.join(','))
 					.join(' ')
 			)
-			.attr('fill', '#fff')
+			.attr('fill', isSolutionOutOfBounds ? '#ff4d4f' : '#444')
 			.attr('stroke', '#888')
 			.attr('stroke-width', 2)
 			.attr('cursor', 'pointer')
@@ -267,21 +314,49 @@
 					d3.drag<SVGCircleElement, unknown>().on('drag', function (event) {
 						let px = Math.max(x(axisRanges[0]), Math.min(x(axisRanges[1]), event.x));
 						const newValue = roundToDecimal(x.invert(px), options.decimalPrecision);
+
 						selectedValue = newValue;
+
 						dragCircle.attr('cx', px);
 						dragLine.attr('x1', px).attr('x2', px);
+
+						showTooltip(event.sourceEvent, newValue); // 👈 ADD THIS
+
 						if (onSelect) onSelect(newValue);
 					})
-				);
+					.on('end', hideTooltip)
+				)
+				.on('mousemove', function(event) {
+					showTooltip(event, selectedValue);
+				})
+				.on('mouseout', hideTooltip);
 		}
 
 		// --- Draw selected value label ---
 		if (options.showSelectedValueLabel && selectedValue !== undefined) {
+			const labelX = x(selectedValue);
+			const padding = 40;
+
+			let safeX = labelX;
+			let anchor = 'middle';
+
+			// LEFT EDGE
+			if (labelX < padding) {
+				safeX = padding;
+				anchor = 'start';
+			}
+
+			// RIGHT EDGE
+			if (labelX > width - padding) {
+				safeX = width - padding;
+				anchor = 'end';
+			}
+
 			d3.select(svg)
 				.append('text')
-				.attr('x', x(selectedValue))
+				.attr('x', safeX)
 				.attr('y', margin.bottom + 52)
-				.attr('text-anchor', 'middle')
+				.attr('text-anchor', anchor)
 				.attr('fill', '#222')
 				.attr('font-size', 13)
 				.text(`Selected: ${roundToDecimal(selectedValue, options.decimalPrecision)}`);
@@ -307,6 +382,9 @@
 
 	// --- Lifecycle: Responsive redraw ---
 	onMount(() => {
+		// Create single tooltip for the component
+		tooltip = d3.select(container).append('div').attr('class', 'tooltip').style('opacity', 0);
+
 		resizeObserver = new ResizeObserver((entries) => {
 			for (const entry of entries) {
 				const rect = entry.contentRect;
