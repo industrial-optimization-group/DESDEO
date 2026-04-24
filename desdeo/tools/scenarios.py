@@ -107,13 +107,13 @@ def _new_variable_symbol(
 
     - ROOT  -> all scenarios share one copy; original symbol is kept.
     - Other -> all leaves under that node share one copy; symbol gets that
-               node name as suffix.
-    - None  -> fully independent per leaf; symbol gets the leaf name as suffix.
+               node name as prefix.
+    - None  -> fully independent per leaf; symbol gets the leaf name as prefix.
     """
     for node in _path_from_root(leaf, parent_map):
         if var_sym in anticipation_stop.get(node, []):
-            return var_sym if node == "ROOT" else f"{var_sym}_{node}"
-    return f"{var_sym}_{leaf}"
+            return var_sym if node == "ROOT" else f"{node}_{var_sym}"
+    return f"{leaf}_{var_sym}"
 
 
 def _build_variable_maps(
@@ -190,7 +190,7 @@ def _build_constant_maps(
         else:
             for leaf in leaf_scenarios:
                 if sym in const_per_leaf[leaf]:
-                    new_sym = f"{sym}_{leaf}"
+                    new_sym = f"{leaf}_{sym}"
                     const_maps[leaf][sym] = new_sym
                     combined_constants[new_sym] = const_per_leaf[leaf][sym].model_copy(
                         update={"symbol": new_sym}
@@ -206,12 +206,13 @@ def _combine_elements(
     const_maps: dict[str, dict[str, str]],
     get_list,
     make_update,
-) -> list | None:
+    extra_leaf_maps: "dict[str, dict[str, str]] | None" = None,
+) -> tuple[list | None, dict[str, dict[str, str]]]:
     """Build a combined list for one element type across all leaf scenarios.
 
     Elements whose renamed func string is identical across every leaf that
     carries them are kept as a single shared element (original symbol).
-    All others get a per-leaf suffix ``symbol_leaf``.
+    All others get a per-leaf prefix ``leaf_symbol``.
 
     Args:
         leaf_scenarios: ordered list of leaf scenario names.
@@ -220,12 +221,19 @@ def _combine_elements(
         const_maps: per-leaf constant rename maps {leaf -> {orig_sym -> new_sym}}.
         get_list: callable(Problem) -> list | None of elements.
         make_update: callable(elem, new_sym, new_func) -> dict for model_copy.
+        extra_leaf_maps: optional additional per-leaf rename maps merged into
+            the leaf_map before renaming expressions.  Useful for passing
+            objective-symbol renames (including ``_min`` versions) when
+            processing scalarization functions and constraints.
 
     Returns:
-        Combined list, or None if empty.
+        A tuple of (combined list or None, symbol map).  The symbol map has the
+        original symbol as key and a {leaf -> new_symbol} dict as value.  Leaves
+        that do not carry an element keep the original symbol as their value.
     """
     combined: list = []
     seen: set[str] = set()
+    symbol_map: dict[str, dict[str, str]] = {}
 
     all_syms: set[str] = {
         elem.symbol
@@ -242,8 +250,12 @@ def _combine_elements(
             )
             if match is None:
                 continue
-            symbol_map = {**var_maps[leaf], **const_maps[leaf]}
-            renamed[leaf] = _rename_symbols(match.func, symbol_map)
+            leaf_map = {
+                **var_maps[leaf],
+                **const_maps[leaf],
+                **(extra_leaf_maps[leaf] if extra_leaf_maps else {}),
+            }
+            renamed[leaf] = _rename_symbols(match.func, leaf_map)
 
         is_shared = (
             len({str(v) for v in renamed.values()}) == 1 and len(renamed) == len(leaf_scenarios)
@@ -251,20 +263,24 @@ def _combine_elements(
 
         if is_shared:
             new_sym = sym
+            symbol_map[sym] = dict.fromkeys(leaf_scenarios, sym)
             if new_sym not in seen:
                 seen.add(new_sym)
                 first_leaf = next(iter(renamed))
                 elem = next(e for e in (get_list(scenario_problems[first_leaf]) or []) if e.symbol == sym)
                 combined.append(elem.model_copy(update=make_update(elem, new_sym, renamed[first_leaf])))
         else:
+            symbol_map[sym] = {
+                leaf: f"{leaf}_{sym}" if leaf in renamed else sym for leaf in leaf_scenarios
+            }
             for leaf, new_func in renamed.items():
-                new_sym = f"{sym}_{leaf}"
+                new_sym = f"{leaf}_{sym}"
                 if new_sym not in seen:
                     seen.add(new_sym)
                     elem = next(e for e in (get_list(scenario_problems[leaf]) or []) if e.symbol == sym)
                     combined.append(elem.model_copy(update=make_update(elem, new_sym, new_func)))
 
-    return combined or None
+    return combined or None, symbol_map
 
 
 # ---------------------------------------------------------------------------
@@ -340,7 +356,9 @@ def solve_all_scenarios(
     }
 
 
-def build_combined_scenario_problem(scenario_model: "ScenarioModel") -> Problem:
+def build_combined_scenario_problem(
+    scenario_model: "ScenarioModel",
+) -> tuple[Problem, dict[str, dict[str, dict[str, str]]]]:
     """Build a single Problem that encodes all leaf scenarios simultaneously.
 
     Decision variables are duplicated once per leaf scenario unless a variable
@@ -350,16 +368,18 @@ def build_combined_scenario_problem(scenario_model: "ScenarioModel") -> Problem:
     scenario-specific constant references rewritten to their renamed counterparts.
 
     Elements whose renamed func string is identical across all leaves that carry
-    them are kept as a single shared element (no per-leaf suffix).
-
-    Uses the infix parser to extract symbol references from func strings, and
-    word-boundary regex substitution to perform renaming.
+    them are kept as a single shared element (no per-leaf prefix).
 
     Args:
         scenario_model: the model to expand into a combined Problem.
 
     Returns:
-        A single Problem suitable for passing directly to a solver.
+        A tuple of:
+        - A single Problem suitable for passing directly to a solver.
+        - A symbol map ``{element_type: {original_symbol: {leaf: new_symbol}}}``.
+          Element types are ``"variables"``, ``"constants"``, ``"objectives"``,
+          ``"constraints"``, ``"extra_funcs"``, and ``"scalarization_funcs"``.
+          Leaves that do not carry a given element retain the original symbol.
 
     Raises:
         ValueError: if the model contains no leaf scenarios.
@@ -383,10 +403,56 @@ def build_combined_scenario_problem(scenario_model: "ScenarioModel") -> Problem:
     def _name_update(elem, new_sym, new_func):
         return {"symbol": new_sym, "name": f"{elem.name} ({new_sym})", "func": new_func}
 
-    def _combine(get_list):
-        return _combine_elements(leaf_scenarios, scenario_problems, var_maps, const_maps, get_list, _name_update)
+    def _combine(get_list, extra_maps=None):
+        return _combine_elements(
+            leaf_scenarios, scenario_problems, var_maps, const_maps, get_list, _name_update, extra_maps
+        )
 
-    return Problem(
+    objectives_list, objectives_map = _combine(lambda p: p.objectives)
+
+    # Build per-leaf maps for renamed objective symbols (including _min versions).
+    # These are passed to _combine_elements for scalarization functions and constraints
+    # so that expressions like f_1_min get correctly renamed to leaf_f_1_min.
+    obj_extra_maps: dict[str, dict[str, str]] = {
+        leaf: {
+            name: new_sym
+            for orig, per_leaf in objectives_map.items()
+            for name, new_sym in (
+                [(orig, per_leaf[leaf]), (f"{orig}_min", f"{per_leaf[leaf]}_min")]
+                if per_leaf[leaf] != orig
+                else []
+            )
+        }
+        for leaf in leaf_scenarios
+    }
+
+    constraints_list, constraints_map = _combine(lambda p: p.constraints, obj_extra_maps)
+    extra_funcs_list, extra_funcs_map = _combine(lambda p: p.extra_funcs, obj_extra_maps)
+    scalarization_funcs_list, scalarization_funcs_map = _combine(lambda p: p.scalarization_funcs, obj_extra_maps)
+
+    # Variable symbol map: original_sym -> {leaf -> new_sym}
+    variables_map: dict[str, dict[str, str]] = {
+        sym: {leaf: var_maps[leaf][sym] for leaf in leaf_scenarios}
+        for sym in {v.symbol for v in scenario_model.base_problem.variables}
+    }
+
+    # Constant symbol map: original_sym -> {leaf -> new_sym}, defaulting to original
+    all_const_syms: set[str] = {sym for lm in const_maps.values() for sym in lm}
+    constants_map: dict[str, dict[str, str]] = {
+        sym: {leaf: const_maps[leaf].get(sym, sym) for leaf in leaf_scenarios}
+        for sym in all_const_syms
+    }
+
+    symbol_maps: dict[str, dict[str, dict[str, str]]] = {
+        "variables": variables_map,
+        "constants": constants_map,
+        "objectives": objectives_map,
+        "constraints": constraints_map,
+        "extra_funcs": extra_funcs_map,
+        "scalarization_funcs": scalarization_funcs_map,
+    }
+
+    problem = Problem(
         name=f"{scenario_model.base_problem.name} (combined)",
         description=(
             f"Combined scenario problem from {len(leaf_scenarios)} leaf scenarios: "
@@ -394,8 +460,10 @@ def build_combined_scenario_problem(scenario_model: "ScenarioModel") -> Problem:
         ),
         constants=list(combined_constants.values()) or None,
         variables=list(combined_variables.values()),
-        objectives=_combine(lambda p: p.objectives),
-        constraints=_combine(lambda p: p.constraints),
-        extra_funcs=_combine(lambda p: p.extra_funcs),
-        scalarization_funcs=_combine(lambda p: p.scalarization_funcs),
+        objectives=objectives_list,
+        constraints=constraints_list,
+        extra_funcs=extra_funcs_list,
+        scalarization_funcs=scalarization_funcs_list,
     )
+
+    return problem, symbol_maps

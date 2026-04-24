@@ -5,7 +5,7 @@ import pytest
 from desdeo.problem.schema import Problem
 from desdeo.problem.testproblems import simple_scenario_model
 from desdeo.tools.scenarios import build_combined_scenario_problem, build_scenario_problem
-from desdeo.tools.stochastic import expected_asf
+from desdeo.tools.stochastic import add_expected_asf
 
 
 @pytest.fixture(name="model")
@@ -17,7 +17,15 @@ def simple_model_fixture():
 @pytest.fixture(name="combined")
 def combined_problem_fixture(model):
     """Return the combined Problem built from the simple_scenario_model."""
-    return build_combined_scenario_problem(model)
+    problem, _ = build_combined_scenario_problem(model)
+    return problem
+
+
+@pytest.fixture(name="symbol_maps")
+def symbol_maps_fixture(model):
+    """Return the symbol_maps from build_combined_scenario_problem."""
+    _, maps = build_combined_scenario_problem(model)
+    return maps
 
 
 # ---------------------------------------------------------------------------
@@ -56,18 +64,18 @@ def test_shared_variable_keeps_original_name(combined):
     """x_1 is in anticipation_stop at ROOT so it keeps its original symbol."""
     symbols = {v.symbol for v in combined.variables}
     assert "x_1" in symbols
-    assert "x_1_s_1" not in symbols
-    assert "x_1_s_2" not in symbols
-    assert "x_1_s_3" not in symbols
+    assert "s_1_x_1" not in symbols
+    assert "s_2_x_1" not in symbols
+    assert "s_3_x_1" not in symbols
 
 
 @pytest.mark.scenario
 def test_scenario_specific_variable_gets_leaf_suffix(combined):
     """x_2 is not non-anticipative so it is copied once per leaf scenario."""
     symbols = {v.symbol for v in combined.variables}
-    assert "x_2_s_1" in symbols
-    assert "x_2_s_2" in symbols
-    assert "x_2_s_3" in symbols
+    assert "s_1_x_2" in symbols
+    assert "s_2_x_2" in symbols
+    assert "s_3_x_2" in symbols
     assert "x_2" not in symbols
 
 
@@ -80,9 +88,9 @@ def test_scenario_specific_variable_gets_leaf_suffix(combined):
 def test_scenario_specific_constants_renamed(combined):
     """c_1 has different values per scenario so each gets a per-leaf name."""
     symbols = {c.symbol for c in (combined.constants or [])}
-    assert "c_1_s_1" in symbols
-    assert "c_1_s_2" in symbols
-    assert "c_1_s_3" in symbols
+    assert "s_1_c_1" in symbols
+    assert "s_2_c_1" in symbols
+    assert "s_3_c_1" in symbols
     assert "c_1" not in symbols
 
 
@@ -90,9 +98,9 @@ def test_scenario_specific_constants_renamed(combined):
 def test_scenario_specific_constant_values(combined):
     """Per-scenario c_1 constants carry the correct values from the pool."""
     const_map = {c.symbol: c.value for c in (combined.constants or [])}
-    assert const_map["c_1_s_1"] == pytest.approx(1.0)
-    assert const_map["c_1_s_2"] == pytest.approx(5.0)
-    assert const_map["c_1_s_3"] == pytest.approx(10.0)
+    assert const_map["s_1_c_1"] == pytest.approx(1.0)
+    assert const_map["s_2_c_1"] == pytest.approx(5.0)
+    assert const_map["s_3_c_1"] == pytest.approx(10.0)
 
 
 # ---------------------------------------------------------------------------
@@ -108,28 +116,28 @@ def test_combined_objective_count(combined):
 
 @pytest.mark.scenario
 def test_all_objectives_have_leaf_suffix(combined):
-    """Every objective symbol ends with a leaf suffix since none are shared."""
-    suffixes = {"_s_1", "_s_2", "_s_3"}
+    """Every objective symbol starts with a leaf prefix since none are shared."""
+    prefixes = {"s_1_", "s_2_", "s_3_"}
     for obj in combined.objectives:
-        assert any(obj.symbol.endswith(s) for s in suffixes), f"Objective '{obj.symbol}' has no leaf suffix"
+        assert any(obj.symbol.startswith(s) for s in prefixes), f"Objective '{obj.symbol}' has no leaf prefix"
 
 
 @pytest.mark.scenario
 def test_objective_variable_references_renamed(combined):
     """Scenario-specific objectives reference the renamed x_2_<leaf> symbol."""
     obj_map = {o.symbol: str(o.func) for o in combined.objectives}
-    assert "x_2_s_1" in obj_map["f_3_s_1"]
-    assert "x_2_s_2" in obj_map["f_3_s_2"]
-    assert "x_2_s_3" in obj_map["f_3_s_3"]
+    assert "s_1_x_2" in obj_map["s_1_f_3"]
+    assert "s_2_x_2" in obj_map["s_2_f_3"]
+    assert "s_3_x_2" in obj_map["s_3_f_3"]
 
 
 @pytest.mark.scenario
 def test_objective_constant_references_renamed(combined):
     """Objectives that use c_1 reference the per-scenario constant name."""
     obj_map = {o.symbol: str(o.func) for o in combined.objectives}
-    assert "c_1_s_2" in obj_map["f_1_s_2"]
-    assert "c_1_s_3" in obj_map["f_1_s_3"]
-    assert "c_1" not in obj_map["f_1_s_1"]
+    assert "s_2_c_1" in obj_map["s_2_f_1"]
+    assert "s_3_c_1" in obj_map["s_3_f_1"]
+    assert "s_1_c_1" not in obj_map["s_1_f_1"]
 
 
 @pytest.mark.scenario
@@ -138,7 +146,7 @@ def test_shared_x1_not_renamed_in_objectives(combined):
     for obj in combined.objectives:
         func_str = str(obj.func)
         assert "x_1" in func_str, f"x_1 missing in {obj.symbol}: {func_str}"
-        assert "x_1_s" not in func_str, f"x_1 incorrectly suffixed in {obj.symbol}: {func_str}"
+        assert "_x_1" not in func_str, f"x_1 incorrectly suffixed in {obj.symbol}: {func_str}"
 
 
 # ---------------------------------------------------------------------------
@@ -156,18 +164,18 @@ def test_combined_constraint_count(combined):
 def test_con3_duplicated_per_leaf(combined):
     """con_3 uses x_2 which differs per leaf, so it gets three copies."""
     syms = {c.symbol for c in combined.constraints}
-    assert "con_3_s_1" in syms
-    assert "con_3_s_2" in syms
-    assert "con_3_s_3" in syms
+    assert "s_1_con_3" in syms
+    assert "s_2_con_3" in syms
+    assert "s_3_con_3" in syms
 
 
 @pytest.mark.scenario
 def test_con1_only_for_leaves_that_have_it(combined):
     """con_1 is only in s_1 and s_3; s_2 should not get a copy."""
     syms = {c.symbol for c in combined.constraints}
-    assert "con_1_s_1" in syms
-    assert "con_1_s_3" in syms
-    assert "con_1_s_2" not in syms
+    assert "s_1_con_1" in syms
+    assert "s_3_con_1" in syms
+    assert "s_2_con_1" not in syms
 
 
 # ---------------------------------------------------------------------------
@@ -177,19 +185,19 @@ def test_con1_only_for_leaves_that_have_it(combined):
 
 @pytest.mark.scenario
 def test_extra_funcs_renamed_per_leaf(combined):
-    """extra_1 has different funcs in s_1 and s_2, so both get a leaf suffix."""
+    """extra_1 has different funcs in s_1 and s_2, so both get a leaf prefix."""
     syms = {e.symbol for e in (combined.extra_funcs or [])}
-    assert "extra_1_s_1" in syms
-    assert "extra_1_s_2" in syms
+    assert "s_1_extra_1" in syms
+    assert "s_2_extra_1" in syms
     assert "extra_1" not in syms
 
 
 @pytest.mark.scenario
 def test_extra_func_values_correct(combined):
-    """extra_1_s_1 uses '2*x_1' and extra_1_s_2 uses '5*x_1' (stored as MathJSON)."""
+    """s_1_extra_1 uses '2*x_1' and s_2_extra_1 uses '5*x_1' (stored as MathJSON)."""
     ef_map = {e.symbol: e.func for e in (combined.extra_funcs or [])}
-    assert ef_map["extra_1_s_1"] == ["Multiply", 2, "x_1"]
-    assert ef_map["extra_1_s_2"] == ["Multiply", 5, "x_1"]
+    assert ef_map["s_1_extra_1"] == ["Multiply", 2, "x_1"]
+    assert ef_map["s_2_extra_1"] == ["Multiply", 5, "x_1"]
 
 
 # ---------------------------------------------------------------------------
@@ -205,6 +213,116 @@ def test_all_symbols_unique(combined):
 
 
 # ---------------------------------------------------------------------------
+# Symbol maps — variables
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_symbol_map_shared_variable_keeps_original(symbol_maps):
+    """x_1 is non-anticipative at ROOT so every leaf maps to the original symbol."""
+    vm = symbol_maps["variables"]["x_1"]
+    assert vm == {"s_1": "x_1", "s_2": "x_1", "s_3": "x_1"}
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_symbol_map_scenario_variable_renamed_per_leaf(symbol_maps):
+    """x_2 is scenario-specific so each leaf gets its own symbol."""
+    vm = symbol_maps["variables"]["x_2"]
+    assert vm == {"s_1": "s_1_x_2", "s_2": "s_2_x_2", "s_3": "s_3_x_2"}
+
+
+# ---------------------------------------------------------------------------
+# Symbol maps — constants
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_symbol_map_constant_renamed_per_leaf(symbol_maps):
+    """c_1 has a different value in every scenario so each leaf gets its own symbol."""
+    cm = symbol_maps["constants"]["c_1"]
+    assert cm == {"s_1": "s_1_c_1", "s_2": "s_2_c_1", "s_3": "s_3_c_1"}
+
+
+# ---------------------------------------------------------------------------
+# Symbol maps — objectives
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_symbol_map_objectives_all_per_leaf(symbol_maps):
+    """All three objectives differ across leaves so every leaf gets its own symbol."""
+    for obj_sym in ("f_1", "f_2", "f_3"):
+        om = symbol_maps["objectives"][obj_sym]
+        assert om == {
+            "s_1": f"s_1_{obj_sym}",
+            "s_2": f"s_2_{obj_sym}",
+            "s_3": f"s_3_{obj_sym}",
+        }, f"Unexpected map for {obj_sym}: {om}"
+
+
+# ---------------------------------------------------------------------------
+# Symbol maps — constraints
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_symbol_map_con3_per_leaf(symbol_maps):
+    """con_3 uses x_2 which is renamed per leaf, so every leaf gets its own symbol."""
+    cm = symbol_maps["constraints"]["con_3"]
+    assert cm == {"s_1": "s_1_con_3", "s_2": "s_2_con_3", "s_3": "s_3_con_3"}
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_symbol_map_con1_missing_leaf_keeps_original(symbol_maps):
+    """con_1 is absent from s_2, so s_2 retains the original symbol."""
+    cm = symbol_maps["constraints"]["con_1"]
+    assert cm["s_1"] == "s_1_con_1"
+    assert cm["s_2"] == "con_1"
+    assert cm["s_3"] == "s_3_con_1"
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_symbol_map_con2_missing_leaf_keeps_original(symbol_maps):
+    """con_2 is absent from s_1, so s_1 retains the original symbol."""
+    cm = symbol_maps["constraints"]["con_2"]
+    assert cm["s_1"] == "con_2"
+    assert cm["s_2"] == "s_2_con_2"
+    assert cm["s_3"] == "s_3_con_2"
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_symbol_map_con4_missing_leaf_keeps_original(symbol_maps):
+    """con_4 is absent from s_3, so s_3 retains the original symbol."""
+    cm = symbol_maps["constraints"]["con_4"]
+    assert cm["s_1"] == "s_1_con_4"
+    assert cm["s_2"] == "s_2_con_4"
+    assert cm["s_3"] == "con_4"
+
+
+# ---------------------------------------------------------------------------
+# Symbol maps — extra functions
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_symbol_map_extra_func_missing_leaf_keeps_original(symbol_maps):
+    """extra_1 is absent from s_3, so s_3 retains the original symbol."""
+    em = symbol_maps["extra_funcs"]["extra_1"]
+    assert em["s_1"] == "s_1_extra_1"
+    assert em["s_2"] == "s_2_extra_1"
+    assert em["s_3"] == "extra_1"
+
+
+# ---------------------------------------------------------------------------
 # expected_asf
 # ---------------------------------------------------------------------------
 
@@ -215,8 +333,8 @@ _NADIR = {"f_1": 100.0, "f_2": 100.0, "f_3": 100.0}
 
 @pytest.fixture(name="asf_result")
 def expected_asf_result_fixture(model):
-    """Return (problem, symbol) from expected_asf on the simple_scenario_model."""
-    return expected_asf(model, "asf", _REF, ideal=_IDEAL, nadir=_NADIR)
+    """Return (problem, symbol) from add_expected_asf on the simple_scenario_model."""
+    return add_expected_asf(model, "asf", _REF, ideal=_IDEAL, nadir=_NADIR)
 
 
 @pytest.mark.schema
@@ -242,9 +360,9 @@ def test_expected_asf_per_leaf_scalarizations_present(asf_result):
     """The combined problem contains one ASF scalarization per leaf scenario."""
     problem, _ = asf_result
     scal_syms = {s.symbol for s in (problem.scalarization_funcs or [])}
-    assert "asf_s_1" in scal_syms
-    assert "asf_s_2" in scal_syms
-    assert "asf_s_3" in scal_syms
+    assert "s_1_asf" in scal_syms
+    assert "s_2_asf" in scal_syms
+    assert "s_3_asf" in scal_syms
 
 
 @pytest.mark.schema
@@ -265,6 +383,6 @@ def test_expected_asf_uses_scenario_probabilities(asf_result):
     func = ef.func
     assert func[0] == "Add"
     terms = {term[2]: term[1] for term in func[1:]}
-    assert terms["asf_s_1"] == pytest.approx(0.2)
-    assert terms["asf_s_2"] == pytest.approx(0.3)
-    assert terms["asf_s_3"] == pytest.approx(0.5)
+    assert terms["s_1_asf"] == pytest.approx(0.2)
+    assert terms["s_2_asf"] == pytest.approx(0.3)
+    assert terms["s_3_asf"] == pytest.approx(0.5)
