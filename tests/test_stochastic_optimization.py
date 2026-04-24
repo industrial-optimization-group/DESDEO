@@ -1,5 +1,7 @@
 """Tests that scenario-based stochastic problems can actually be solved."""
 
+import math
+
 import pytest
 
 from desdeo.problem.testproblems import simple_scenario_model
@@ -53,18 +55,30 @@ def test_expected_asf_result_has_shared_variable(solve_result):
 def test_expected_asf_result_has_leaf_variables(solve_result):
     """The result contains per-leaf copies of x_2 for all three scenarios."""
     result, _ = solve_result
-    assert "x_2_s_1" in result.optimal_variables
-    assert "x_2_s_2" in result.optimal_variables
-    assert "x_2_s_3" in result.optimal_variables
+    assert "s_1_x_2" in result.optimal_variables
+    assert "s_2_x_2" in result.optimal_variables
+    assert "s_3_x_2" in result.optimal_variables
+
+
+@pytest.mark.scenario
+@pytest.mark.slow
+def test_expected_asf_has_per_leaf_objective_values(solve_result):
+    """The result contains a finite objective value for every per-leaf objective."""
+    result, _ = solve_result
+    objectives = result.optimal_objectives or {}
+    leaf_obj_syms = [f"s_{i}_{f}" for i in (1, 2, 3) for f in ("f_1", "f_2", "f_3")]
+    for sym in leaf_obj_syms:
+        assert sym in objectives, f"Missing objective value for {sym}"
+        assert math.isfinite(objectives[sym]), f"Non-finite value for {sym}: {objectives[sym]}"
 
 
 @pytest.mark.scenario
 @pytest.mark.slow
 def test_expected_asf_optimal_scalarization_is_finite(solve_result):
     """The optimal value of the expected ASF scalarization is a finite number."""
-    import math
-
     result, expected_symbol = solve_result
-    value = result.optimal_objectives.get(expected_symbol) or result.optimal_extras.get(expected_symbol)
+    value = (result.optimal_objectives or {}).get(expected_symbol) or (result.scalarization_values or {}).get(
+        expected_symbol
+    )
     assert value is not None
     assert math.isfinite(value)

@@ -410,9 +410,7 @@ def build_combined_scenario_problem(
 
     objectives_list, objectives_map = _combine(lambda p: p.objectives)
 
-    # Build per-leaf maps for renamed objective symbols (including _min versions).
-    # These are passed to _combine_elements for scalarization functions and constraints
-    # so that expressions like f_1_min get correctly renamed to leaf_f_1_min.
+    # Build per-leaf rename maps for objective symbols (and their _min versions).
     obj_extra_maps: dict[str, dict[str, str]] = {
         leaf: {
             name: new_sym
@@ -426,9 +424,30 @@ def build_combined_scenario_problem(
         for leaf in leaf_scenarios
     }
 
-    constraints_list, constraints_map = _combine(lambda p: p.constraints, obj_extra_maps)
+    # Extra functions reference only variables/constants (and possibly objectives).
     extra_funcs_list, extra_funcs_map = _combine(lambda p: p.extra_funcs, obj_extra_maps)
-    scalarization_funcs_list, scalarization_funcs_map = _combine(lambda p: p.scalarization_funcs, obj_extra_maps)
+
+    # Build per-leaf rename maps for extra function symbols.
+    # Constraints and scalarization functions may reference extra functions by symbol.
+    ef_extra_maps: dict[str, dict[str, str]] = {
+        leaf: {
+            orig: per_leaf[leaf]
+            for orig, per_leaf in extra_funcs_map.items()
+            if per_leaf[leaf] != orig
+        }
+        for leaf in leaf_scenarios
+    }
+
+    # Combined extra maps: objective + extra_func renames for constraints and scal funcs.
+    combined_extra_maps: dict[str, dict[str, str]] = {
+        leaf: {**obj_extra_maps[leaf], **ef_extra_maps[leaf]}
+        for leaf in leaf_scenarios
+    }
+
+    constraints_list, constraints_map = _combine(lambda p: p.constraints, combined_extra_maps)
+    scalarization_funcs_list, scalarization_funcs_map = _combine(
+        lambda p: p.scalarization_funcs, combined_extra_maps
+    )
 
     # Variable symbol map: original_sym -> {leaf -> new_sym}
     variables_map: dict[str, dict[str, str]] = {
