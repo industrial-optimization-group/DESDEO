@@ -60,8 +60,10 @@ __all__ = [
     "build_scenario_problem",
     "solve_all_scenarios",
     "solve_scenario",
+    "add_conditional_value_at_risk",
     "add_expected_asf",
     "add_expected_value",
+    "add_min_max_robust",
 ]
 
 from desdeo.tools.generics import BaseSolver, SolverOptions, SolverResults
@@ -127,7 +129,8 @@ from desdeo.tools.scenarios import (
     solve_all_scenarios,
     solve_scenario,
 )
-from desdeo.tools.stochastic import add_expected_asf, add_expected_value
+from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_asf, add_expected_value
+from desdeo.tools.robust import add_min_max_robust
 from desdeo.tools.scipy_solver_interfaces import ScipyDeSolver, ScipyMinimizeSolver
 from desdeo.tools.utils import (
     available_solvers,

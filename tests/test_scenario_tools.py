@@ -2,10 +2,11 @@
 
 import pytest
 
-from desdeo.problem.schema import Problem
+from desdeo.problem.schema import ConstraintTypeEnum, Problem
 from desdeo.problem.testproblems import simple_scenario_model
+from desdeo.tools.robust import add_min_max_robust
 from desdeo.tools.scenarios import build_combined_scenario_problem, build_scenario_problem
-from desdeo.tools.stochastic import add_expected_asf
+from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_asf
 
 
 @pytest.fixture(name="model")
@@ -386,3 +387,277 @@ def test_expected_asf_uses_scenario_probabilities(asf_result):
     assert terms["s_1_asf"] == pytest.approx(0.2)
     assert terms["s_2_asf"] == pytest.approx(0.3)
     assert terms["s_3_asf"] == pytest.approx(0.5)
+
+
+# ---------------------------------------------------------------------------
+# add_conditional_value_at_risk
+# ---------------------------------------------------------------------------
+
+_ALPHA = 0.95
+_SCALE = 1.0 / (1.0 - _ALPHA)
+
+
+@pytest.fixture(name="cvar_result")
+def cvar_result_fixture(model):
+    """Return (problem, added_symbols) from add_conditional_value_at_risk on f_1, f_2, f_3."""
+    combined, symbol_maps = build_combined_scenario_problem(model)
+    return add_conditional_value_at_risk(
+        model, ["f_1", "f_2", "f_3"], alpha=_ALPHA, combined=combined, symbol_maps=symbol_maps
+    )
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_cvar_returns_problem_and_dict(cvar_result):
+    """add_conditional_value_at_risk returns a Problem and a symbol mapping dict."""
+    problem, added = cvar_result
+    assert isinstance(problem, Problem)
+    assert isinstance(added, dict)
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_cvar_added_symbols_have_cvar_prefix(cvar_result):
+    """Each original symbol maps to CVAR_{sym}."""
+    _, added = cvar_result
+    for orig, cvar_sym in added.items():
+        assert cvar_sym == f"CVAR_{orig}"
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_cvar_threshold_variable_present(cvar_result):
+    """A VAR_{sym} threshold variable is added for each requested symbol."""
+    problem, _ = cvar_result
+    var_syms = {v.symbol for v in problem.variables}
+    assert "VAR_f_1" in var_syms
+    assert "VAR_f_2" in var_syms
+    assert "VAR_f_3" in var_syms
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_cvar_auxiliary_variables_per_leaf(cvar_result):
+    """Per-leaf auxiliary z_s variables are added for each symbol and leaf."""
+    problem, _ = cvar_result
+    var_syms = {v.symbol for v in problem.variables}
+    for f in ("f_1", "f_2", "f_3"):
+        for s in ("s_1", "s_2", "s_3"):
+            assert f"{s}_VAR_{f}" in var_syms
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_cvar_auxiliary_variable_has_zero_lower_bound(cvar_result):
+    """Auxiliary z_s variables have lowerbound=0 to enforce z_s >= 0."""
+    problem, _ = cvar_result
+    for v in problem.variables:
+        if v.symbol.endswith("_VAR_f_1") and v.symbol.startswith("s_"):
+            assert v.lowerbound == pytest.approx(0.0)
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_cvar_threshold_variable_is_unbounded(cvar_result):
+    """The VaR threshold variable has no finite bounds."""
+    problem, _ = cvar_result
+    var = next(v for v in problem.variables if v.symbol == "VAR_f_1")
+    assert var.lowerbound == -float("Inf")
+    assert var.upperbound == float("Inf")
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_cvar_constraints_per_leaf(cvar_result):
+    """One LTE constraint per leaf per symbol is added."""
+    problem, _ = cvar_result
+    con_syms = {c.symbol for c in (problem.constraints or [])}
+    for f in ("f_1", "f_2", "f_3"):
+        for s in ("s_1", "s_2", "s_3"):
+            assert f"{s}_VAR_{f}_con" in con_syms
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_cvar_constraints_are_lte(cvar_result):
+    """CVaR auxiliary constraints have LTE type (sym_s - eta - z_s <= 0)."""
+    problem, _ = cvar_result
+    for con in (problem.constraints or []):
+        if con.symbol == "s_1_VAR_f_1_con":
+            assert con.cons_type == ConstraintTypeEnum.LTE
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_cvar_result_added_as_objective(cvar_result):
+    """CVAR elements are added as objectives when the originals are objectives."""
+    problem, added = cvar_result
+    obj_syms = {o.symbol for o in (problem.objectives or [])}
+    for cvar_sym in added.values():
+        assert cvar_sym in obj_syms
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_cvar_expression_uses_correct_scale(cvar_result):
+    """CVaR expression multiplies the weighted sum by 1/(1-alpha)."""
+    problem, _ = cvar_result
+    obj = next(o for o in (problem.objectives or []) if o.symbol == "CVAR_f_1")
+    func = obj.func
+    assert func[0] == "Add"
+    assert func[1] == "VAR_f_1"
+    multiply = func[2]
+    assert multiply[0] == "Multiply"
+    assert multiply[1] == pytest.approx(_SCALE)
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_cvar_expression_uses_scenario_probabilities(cvar_result):
+    """CVaR weighted sum uses scenario probabilities as leaf weights."""
+    problem, _ = cvar_result
+    obj = next(o for o in (problem.objectives or []) if o.symbol == "CVAR_f_1")
+    sum_z = obj.func[2][2]
+    assert sum_z[0] == "Add"
+    terms = {term[2]: term[1] for term in sum_z[1:]}
+    assert terms["s_1_VAR_f_1"] == pytest.approx(0.2)
+    assert terms["s_2_VAR_f_1"] == pytest.approx(0.3)
+    assert terms["s_3_VAR_f_1"] == pytest.approx(0.5)
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_cvar_custom_prefixes(model):
+    """var_prefix and cvar_prefix arguments are respected."""
+    combined, symbol_maps = build_combined_scenario_problem(model)
+    problem, added = add_conditional_value_at_risk(
+        model, ["f_1"], alpha=_ALPHA, var_prefix="ETA_", cvar_prefix="RISK_",
+        combined=combined, symbol_maps=symbol_maps,
+    )
+    var_syms = {v.symbol for v in problem.variables}
+    assert "ETA_f_1" in var_syms
+    assert "s_1_ETA_f_1" in var_syms
+    assert added["f_1"] == "RISK_f_1"
+    assert any(o.symbol == "RISK_f_1" for o in (problem.objectives or []))
+
+
+# ---------------------------------------------------------------------------
+# add_min_max_robust — schema tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(name="robust_result")
+def robust_result_fixture(model):
+    """Return (problem, added_symbols) from add_min_max_robust on f_1, f_2, f_3."""
+    combined, symbol_maps = build_combined_scenario_problem(model)
+    return add_min_max_robust(model, ["f_1", "f_2", "f_3"], combined=combined, symbol_maps=symbol_maps)
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_robust_returns_problem_and_dict(robust_result):
+    """add_min_max_robust returns a Problem and a symbol mapping dict."""
+    problem, added = robust_result
+    assert isinstance(problem, Problem)
+    assert isinstance(added, dict)
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_robust_added_symbols_have_default_prefix(robust_result):
+    """Each original symbol maps to robust_{sym} with the default prefix."""
+    _, added = robust_result
+    for orig, robust_sym in added.items():
+        assert robust_sym == f"robust_{orig}"
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_robust_result_added_as_objective(robust_result):
+    """Robust elements for objectives are added as objectives."""
+    problem, added = robust_result
+    obj_syms = {o.symbol for o in (problem.objectives or [])}
+    for robust_sym in added.values():
+        assert robust_sym in obj_syms
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_robust_objective_is_minimization(robust_result):
+    """Robust objectives are always minimization (maximize=False)."""
+    problem, added = robust_result
+    for robust_sym in added.values():
+        obj = next(o for o in (problem.objectives or []) if o.symbol == robust_sym)
+        assert obj.maximize is False
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_robust_epigraph_variable_added(robust_result):
+    """An epigraph variable _t_robust_{sym} is added for each requested symbol."""
+    problem, _ = robust_result
+    var_syms = {v.symbol for v in problem.variables}
+    assert "_t_robust_f_1" in var_syms
+    assert "_t_robust_f_2" in var_syms
+    assert "_t_robust_f_3" in var_syms
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_robust_epigraph_variable_is_unbounded(robust_result):
+    """The epigraph variable has no finite bounds."""
+    problem, _ = robust_result
+    t_var = next(v for v in problem.variables if v.symbol == "_t_robust_f_1")
+    assert t_var.lowerbound == -float("Inf")
+    assert t_var.upperbound == float("Inf")
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_robust_upper_bound_constraints_per_leaf(robust_result):
+    """A per-leaf LTE constraint f_s - t <= 0 is added for each symbol and leaf."""
+    problem, _ = robust_result
+    con_syms = {c.symbol for c in (problem.constraints or [])}
+    for f in ("f_1", "f_2", "f_3"):
+        for s in ("s_1", "s_2", "s_3"):
+            assert f"{s}_robust_{f}_con" in con_syms
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_robust_constraints_are_lte(robust_result):
+    """The per-leaf robust constraints have LTE type."""
+    problem, _ = robust_result
+    for con in (problem.constraints or []):
+        if con.symbol.endswith("_robust_f_1_con"):
+            assert con.cons_type == ConstraintTypeEnum.LTE
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_robust_element_func_references_epigraph_variable(robust_result):
+    """The robust objective's func references the epigraph variable."""
+    problem, added = robust_result
+    obj = next(o for o in (problem.objectives or []) if o.symbol == added["f_1"])
+    assert "_t_robust_f_1" in str(obj.func)
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_robust_element_is_linear(robust_result):
+    """The robust objective is linear, convex, and twice differentiable."""
+    problem, added = robust_result
+    obj = next(o for o in (problem.objectives or []) if o.symbol == added["f_1"])
+    assert obj.is_linear
+    assert obj.is_convex
+    assert obj.is_twice_differentiable
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_robust_custom_prefix(model):
+    """The prefix argument is respected."""
+    combined, symbol_maps = build_combined_scenario_problem(model)
+    problem, added = add_min_max_robust(model, ["f_1"], prefix="wc_", combined=combined, symbol_maps=symbol_maps)
+    assert added["f_1"] == "wc_f_1"
+    assert any(o.symbol == "wc_f_1" for o in (problem.objectives or []))

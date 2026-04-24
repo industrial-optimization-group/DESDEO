@@ -6,7 +6,10 @@ import pytest
 
 from desdeo.problem.testproblems import simple_scenario_model
 from desdeo.tools import guess_best_solver
-from desdeo.tools.stochastic import add_expected_asf
+from desdeo.tools.robust import add_min_max_robust
+from desdeo.tools.scalarization import add_asf_diff
+from desdeo.tools.scenarios import build_combined_scenario_problem
+from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_asf
 
 _REF = {"f_1": 0.0, "f_2": 0.0, "f_3": 0.0}
 _IDEAL = {"f_1": -100.0, "f_2": -100.0, "f_3": -100.0}
@@ -82,3 +85,117 @@ def test_expected_asf_optimal_scalarization_is_finite(solve_result):
     )
     assert value is not None
     assert math.isfinite(value)
+
+
+# ---------------------------------------------------------------------------
+# add_conditional_value_at_risk — solving tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(name="cvar_asf_problem")
+def cvar_asf_problem_fixture(model):
+    """Combined problem with CVaR (alpha=0.95) of the per-leaf ASF scalarizations."""
+    asf_base, scal = add_asf_diff(model.base_problem, "asf", _REF, ideal=_IDEAL, nadir=_NADIR)
+    asf_model = model.with_base_problem(problem=asf_base)
+    combined, symbol_maps = build_combined_scenario_problem(asf_model)
+    return add_conditional_value_at_risk(
+        asf_model, [scal], alpha=0.95, combined=combined, symbol_maps=symbol_maps
+    )
+
+
+@pytest.fixture(name="cvar_solve_result")
+def cvar_solve_result_fixture(cvar_asf_problem):
+    """Solve the CVaR-ASF problem and return (result, cvar_symbol)."""
+    problem, added = cvar_asf_problem
+    cvar_sym = added["asf"]
+    solver_class = guess_best_solver(problem)
+    solver = solver_class(problem)
+    return solver.solve(cvar_sym), cvar_sym
+
+
+@pytest.mark.scenario
+@pytest.mark.slow
+def test_cvar_asf_solves_successfully(cvar_solve_result):
+    """The CVaR-ASF problem reports a successful solve."""
+    result, _ = cvar_solve_result
+    assert result.success
+
+
+@pytest.mark.scenario
+@pytest.mark.slow
+def test_cvar_asf_value_is_finite(cvar_solve_result):
+    """The optimal CVaR value is a finite number."""
+    result, cvar_sym = cvar_solve_result
+    value = (result.scalarization_values or {}).get(cvar_sym)
+    assert value is not None
+    assert math.isfinite(value)
+
+
+@pytest.mark.scenario
+@pytest.mark.slow
+def test_cvar_asf_var_variables_in_result(cvar_solve_result):
+    """The result contains the VaR threshold and per-leaf auxiliary variables."""
+    result, _ = cvar_solve_result
+    assert "VAR_asf" in result.optimal_variables
+    assert "s_1_VAR_asf" in result.optimal_variables
+    assert "s_2_VAR_asf" in result.optimal_variables
+    assert "s_3_VAR_asf" in result.optimal_variables
+
+
+@pytest.mark.scenario
+@pytest.mark.slow
+def test_cvar_asf_auxiliary_variables_nonnegative(cvar_solve_result):
+    """The optimal auxiliary z_s variables satisfy z_s >= 0."""
+    result, _ = cvar_solve_result
+    for s in ("s_1", "s_2", "s_3"):
+        assert result.optimal_variables[f"{s}_VAR_asf"] >= -1e-6
+
+
+# ---------------------------------------------------------------------------
+# add_min_max_robust — solving tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(name="robust_asf_problem")
+def robust_asf_problem_fixture(model):
+    """Combined problem with min-max robust ASF scalarization."""
+    asf_base, scal = add_asf_diff(model.base_problem, "asf", _REF, ideal=_IDEAL, nadir=_NADIR)
+    asf_model = model.with_base_problem(problem=asf_base)
+    combined, symbol_maps = build_combined_scenario_problem(asf_model)
+    return add_min_max_robust(asf_model, [scal], combined=combined, symbol_maps=symbol_maps)
+
+
+@pytest.fixture(name="robust_solve_result")
+def robust_solve_result_fixture(robust_asf_problem):
+    """Solve the min-max robust ASF problem and return (result, robust_symbol)."""
+    problem, added = robust_asf_problem
+    robust_sym = added["asf"]
+    solver_class = guess_best_solver(problem)
+    solver = solver_class(problem)
+    return solver.solve(robust_sym), robust_sym
+
+
+@pytest.mark.scenario
+@pytest.mark.slow
+def test_robust_asf_solves_successfully(robust_solve_result):
+    """The min-max robust ASF problem reports a successful solve."""
+    result, _ = robust_solve_result
+    assert result.success
+
+
+@pytest.mark.scenario
+@pytest.mark.slow
+def test_robust_asf_value_is_finite(robust_solve_result):
+    """The optimal robust ASF value is a finite number."""
+    result, robust_sym = robust_solve_result
+    value = (result.scalarization_values or {}).get(robust_sym)
+    assert value is not None
+    assert math.isfinite(value)
+
+
+@pytest.mark.scenario
+@pytest.mark.slow
+def test_robust_asf_has_shared_variable(robust_solve_result):
+    """The result contains the shared (non-anticipative) variable x_1."""
+    result, _ = robust_solve_result
+    assert "x_1" in result.optimal_variables
