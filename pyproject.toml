@@ -98,12 +98,6 @@ server = [ # production!
     "psycopg2>=2.9.10",
 ]
 
-stochastic = [
-    "sortedcollections",
-    "mpi4py>=3.0.3",
-    "mpi-sppy",
-]
-
 all-dev = [
     { include-group = "dev" },
     { include-group = "docs" },
@@ -119,9 +113,6 @@ optional = true
 
 [tool.uv]
 default-groups = ["dev", "docs", "jupyter", "web", "viz", "tools"]
-
-[tool.uv.sources]
-mpi-sppy = { path = "../mpi-sppy" }
 
 [tool.ruff]
 # Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.
