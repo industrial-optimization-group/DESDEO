@@ -104,7 +104,6 @@ def compare_models(
             "constraints",
             "extra_funcs",
             "simulators",
-            "scenario_keys",
         ]
 
     dict_1 = model_1.model_dump()
@@ -149,7 +148,7 @@ def test_tensor_constant(session_and_user: dict[str, Session | list[User]]):
     # check that original added TensorConstant and fetched match
     assert db_tensor == from_db_tensor
 
-    from_db_tensor_dump = from_db_tensor.model_dump(exclude={"id", "problem_id"})
+    from_db_tensor_dump = from_db_tensor.model_dump(exclude={"id", "problem_id", "scenario_model_id"})
     t_tensor_validated = TensorConstant.model_validate(from_db_tensor_dump)
 
     assert t_tensor_validated == t_tensor
@@ -173,7 +172,7 @@ def test_constant(session_and_user: dict[str, Session | list[User]]):
 
     assert db_constant == from_db_constant
 
-    from_db_constant_dump = from_db_constant.model_dump(exclude={"id", "problem_id"})
+    from_db_constant_dump = from_db_constant.model_dump(exclude={"id", "problem_id", "scenario_model_id"})
     constant_validated = Constant.model_validate(from_db_constant_dump)
 
     assert constant_validated == constant
@@ -205,7 +204,7 @@ def test_variable(session_and_user: dict[str, Session | list[User]]):
 
     assert db_variable == from_db_variable
 
-    from_db_variable_dump = from_db_variable.model_dump(exclude={"id", "problem_id"})
+    from_db_variable_dump = from_db_variable.model_dump(exclude={"id", "problem_id", "scenario_model_id"})
     variable_validated = Variable.model_validate(from_db_variable_dump)
 
     assert variable_validated == variable
@@ -238,7 +237,7 @@ def test_tensor_variable(session_and_user: dict[str, Session | list[User]]):
 
     assert db_t_variable == from_db_t_variable
 
-    from_db_t_variable_dump = from_db_t_variable.model_dump(exclude={"id", "problem_id"})
+    from_db_t_variable_dump = from_db_t_variable.model_dump(exclude={"id", "problem_id", "scenario_model_id"})
     t_variable_validated = TensorVariable.model_validate(from_db_t_variable_dump)
 
     assert t_variable_validated == t_variable
@@ -256,7 +255,6 @@ def test_objective(session_and_user: dict[str, Session | list[User]]):
         ideal=10.5,
         nadir=20.0,
         maximize=False,
-        scenario_keys=["s_1", "s_2"],
         unit="m",
         is_convex=False,
         is_linear=True,
@@ -278,7 +276,7 @@ def test_objective(session_and_user: dict[str, Session | list[User]]):
 
     assert db_objective == from_db_objective
 
-    from_db_objective_dump = from_db_objective.model_dump(exclude={"id", "problem_id"})
+    from_db_objective_dump = from_db_objective.model_dump(exclude={"id", "problem_id", "scenario_model_id"})
     objective_validated = Objective.model_validate(from_db_objective_dump)
 
     assert objective_validated == objective
@@ -296,7 +294,6 @@ def test_constraint(session_and_user: dict[str, Session | list[User]]):
         is_convex=True,
         is_linear=False,
         is_twice_differentiable=False,
-        scenario_keys=["Abloy", "MasterLock", "MasterLockToOpenMasterLock"],
         simulator_path="/dev/null/aaaaaaaaaa",
         surrogates=["/var/log", "/dev/sda/sda1/no"],
     )
@@ -314,7 +311,7 @@ def test_constraint(session_and_user: dict[str, Session | list[User]]):
 
     assert db_constraint == from_db_constraint
 
-    from_db_constraint_dump = from_db_constraint.model_dump(exclude={"id", "problem_id"})
+    from_db_constraint_dump = from_db_constraint.model_dump(exclude={"id", "problem_id", "scenario_model_id"})
     constraint_validated = Constraint.model_validate(from_db_constraint_dump)
 
     assert constraint_validated == constraint
@@ -331,7 +328,6 @@ def test_scalarization_function(session_and_user: dict[str, Session | list[User]
         is_convex=True,
         is_linear=True,
         is_twice_differentiable=False,
-        scenario_keys=["Abloy", "MasterLock", "MasterLockToOpenMasterLock", "MyHandsHurt"],
     )
 
     scalarization_dump = scalarization.model_dump()
@@ -347,7 +343,7 @@ def test_scalarization_function(session_and_user: dict[str, Session | list[User]
 
     assert db_scalarization == from_db_scalarization
 
-    from_db_scalarization_dump = from_db_scalarization.model_dump(exclude={"id", "problem_id"})
+    from_db_scalarization_dump = from_db_scalarization.model_dump(exclude={"id", "problem_id", "scenario_model_id"})
     scalarization_validated = ScalarizationFunction.model_validate(from_db_scalarization_dump)
 
     assert scalarization_validated == scalarization
@@ -364,7 +360,6 @@ def test_extra_function(session_and_user: dict[str, Session | list[User]]):
         is_convex=False,
         is_linear=False,
         is_twice_differentiable=True,
-        scenario_keys=["Abloy", "MasterLock", "MasterLockToOpenMasterLock", "MyHandsHurt", "RunningOutOfIdeas"],
     )
 
     extra_dump = extra.model_dump()
@@ -380,7 +375,7 @@ def test_extra_function(session_and_user: dict[str, Session | list[User]]):
 
     assert db_extra == from_db_extra
 
-    from_db_extra_dump = from_db_extra.model_dump(exclude={"id", "problem_id"})
+    from_db_extra_dump = from_db_extra.model_dump(exclude={"id", "problem_id", "scenario_model_id"})
     extra_validated = ExtraFunction.model_validate(from_db_extra_dump)
 
     assert extra_validated == extra
@@ -409,7 +404,7 @@ def test_discrete_representation(session_and_user: dict[str, Session | list[User
 
     assert db_discrete == from_db_discrete
 
-    from_db_discrete_dump = from_db_discrete.model_dump(exclude={"id", "problem_id"})
+    from_db_discrete_dump = from_db_discrete.model_dump(exclude={"id", "problem_id", "scenario_model_id"})
     discrete_validated = DiscreteRepresentation.model_validate(from_db_discrete_dump)
 
     assert discrete_validated == discrete
@@ -439,7 +434,7 @@ def test_simulator(session_and_user: dict[str, Session | list[User]]):
 
     assert db_simulator == from_db_simulator
 
-    from_db_simulator_dump = from_db_simulator.model_dump(exclude={"id", "problem_id"})
+    from_db_simulator_dump = from_db_simulator.model_dump(exclude={"id", "problem_id", "scenario_model_id"})
     simulator_validated = Simulator.model_validate(from_db_simulator_dump)
 
     assert simulator_validated == simulator
@@ -824,7 +819,7 @@ def test_problem_metadata(session_and_user: dict[str, Session | list[User]]):
 
 
 def test_group(session_and_user: dict[str, Session | list[User]]):
-    """なに？！ちょっとまって。。。ドクメンタはどこですか？？？"""
+    """なに？！ちょっとまって。。。ドクメンタはどこですか？？？"""  # noqa: D415, RUF002
     session: Session = session_and_user["session"]
     user: User = session_and_user["user"]
 
@@ -845,6 +840,7 @@ def test_group(session_and_user: dict[str, Session | list[User]]):
 
 
 def test_gnimbus_datas(session_and_user: dict[str, Session | list[User]]):
+    """Test that the GNIMBUS data models work as intended."""
     session: Session = session_and_user["session"]
     user: User = session_and_user["user"]
 
@@ -1116,9 +1112,7 @@ def test_nimbus_models(session_and_user: dict[str, Session | list[User]]):
     # 3. (TODO) Save a found solution (NIMBUSSaveState)
     # 4. Finalize the NIMBUS process (NIMBUSFinalState)
     nimbus_final_state = NIMBUSFinalState(
-        solution_origin_state_id=state_2.state.id,
-        solution_result_index=0,
-        solver_results=results_2[0]
+        solution_origin_state_id=state_2.state.id, solution_result_index=0, solver_results=results_2[0]
     )
 
     state_3 = StateDB.create(

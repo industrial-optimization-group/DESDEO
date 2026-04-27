@@ -63,13 +63,13 @@ class PyomoEvaluator:
         # Add objective function expressions
         model = self.init_objectives(problem, model)
 
-        # Add constraints, if any
-        if problem.constraints is not None:
-            model = self.init_constraints(problem, model)
-
         # Add scalarization functions, if any
         if problem.scalarization_funcs is not None:
             model = self.init_scalarizations(problem, model)
+
+        # Add constraints, if any
+        if problem.constraints is not None:
+            model = self.init_constraints(problem, model)
 
         self.model = model
         self.problem = problem

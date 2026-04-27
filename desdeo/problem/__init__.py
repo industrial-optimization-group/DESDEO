@@ -18,6 +18,8 @@ __all__ = [
     "Problem",
     "PyomoEvaluator",
     "ScalarizationFunction",
+    "Scenario",
+    "ScenarioModel",
     "Simulator",
     "SimulatorEvaluator",
     "SympyEvaluator",
@@ -52,6 +54,7 @@ from .gurobipy_evaluator import GurobipyEvaluator
 from .infix_parser import InfixExpressionParser
 from .json_parser import FormatEnum, MathParser
 from .pyomo_evaluator import PyomoEvaluator
+from .scenario import Scenario, ScenarioModel
 from .schema import (
     Constant,
     Constraint,
@@ -83,3 +86,5 @@ from .utils import (
     tensor_constant_from_dataframe,
     unflatten_variable_array,
 )
+
+ScenarioModel.model_rebuild()

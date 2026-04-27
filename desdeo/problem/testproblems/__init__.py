@@ -35,6 +35,7 @@ __all__ = [  # noqa: RUF022
     "simple_knapsack",
     "simple_knapsack_vectors",
     "simple_linear_test_problem",
+    "simple_scenario_model",
     "simple_scenario_test_problem",
     "simple_test_problem",
     "simulator_problem",
@@ -79,6 +80,7 @@ from .simple_problem import (
     simple_data_problem,
     simple_integer_test_problem,
     simple_linear_test_problem,
+    simple_scenario_model,
     simple_scenario_test_problem,
     simple_test_problem,
 )

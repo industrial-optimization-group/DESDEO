@@ -80,6 +80,8 @@ __all__ = [  # noqa: RUF022
     "RPMState",
     "SavedSolutionReference",
     "ScalarizationFunctionDB",
+    "ScenarioModelDB",
+    "ScenarioModelInfo",
     "SimulatorDB",
     "State",
     "StateDB",
@@ -283,6 +285,7 @@ from .problem import (
     VariableFixing,
 )
 from .reference_point_method import RPMSolveRequest
+from .scenario import ScenarioModelDB, ScenarioModelInfo
 from .session import (
     CreateSessionRequest,
     InteractiveSessionBase,

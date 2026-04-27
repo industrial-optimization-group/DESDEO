@@ -75,13 +75,13 @@ class GurobipyEvaluator:
         # Add objective function expressions
         self.objective_functions = self.init_objectives(problem)
 
-        # Add constraints, if any
-        if problem.constraints is not None:
-            self.constraints = self.init_constraints(problem)
-
         # Add scalarization functions, if any
         if problem.scalarization_funcs is not None:
             self.scalarizations = self.init_scalarizations(problem)
+
+        # Add constraints, if any
+        if problem.constraints is not None:
+            self.constraints = self.init_constraints(problem)
 
         self.problem = problem
 

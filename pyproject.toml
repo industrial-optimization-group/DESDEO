@@ -252,6 +252,7 @@ markers = [
     "gdmtools: tests related to group decision making.",
     "gnimbus: tests related to group nimbus method.",
     "external: tests related to providers interfacing to external problems.",
+    "scenario: tests related to scenario-based optimization.",
     "fixme: tests that are not passing, but maybe should, yet are ignored.",
     "githubskip: skip these tests on GitHub workflows.",
 ]

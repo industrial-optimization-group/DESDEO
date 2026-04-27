@@ -1045,7 +1045,8 @@ class MathParser:
                 return self.env[op_name](operands)
 
             # else, assume the list contents are parseable expressions
-            return [self._parse_to_cvxpy(e, callback) for e in expr]
+            parsed = [self._parse_to_cvxpy(e, callback) for e in expr]
+            return parsed[0] if len(parsed) == 1 else parsed
 
         msg = f"Encountered unsupported type '{type(expr)}' during parsing."
         raise ParserError(msg)

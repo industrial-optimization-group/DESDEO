@@ -694,7 +694,7 @@ wheels = [
 
 [[package]]
 name = "desdeo"
-version = "2.3.0"
+version = "2.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "bayesian-optimization" },
@@ -792,6 +792,11 @@ jupyter = [
 server = [
     { name = "gunicorn" },
     { name = "psycopg2" },
+]
+stochastic = [
+    { name = "mpi-sppy" },
+    { name = "mpi4py" },
+    { name = "sortedcollections" },
 ]
 tools = [
     { name = "djlint" },
@@ -911,6 +916,11 @@ jupyter = [
 server = [
     { name = "gunicorn", specifier = ">=23.0.0" },
     { name = "psycopg2", specifier = ">=2.9.10" },
+]
+stochastic = [
+    { name = "mpi-sppy", directory = "../mpi-sppy" },
+    { name = "mpi4py", specifier = ">=3.0.3" },
+    { name = "sortedcollections" },
 ]
 tools = [
     { name = "djlint", specifier = ">=1.34.1" },
@@ -2176,6 +2186,59 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/45/b0/79f0a968595c1d8a804fa9c66aa21cf676ffa9aacedf2ea50bd35d7f83d6/moocore-0.2.0-cp310-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:d0699b770b5eebdeac477a356d539efa8807c6cf067a453a0682e0df2299a512", size = 724847, upload-time = "2026-01-11T11:43:14.275Z" },
     { url = "https://files.pythonhosted.org/packages/3f/f0/535c1d448dbfa8ee79a83c36a6ded5a54ea35d02fac1fe2907ae540e369b/moocore-0.2.0-cp310-abi3-win_amd64.whl", hash = "sha256:ea057409731e73dbc4ba4214cbf7747309695b01314f8786678b758cc9c561c4", size = 485644, upload-time = "2026-01-11T11:43:15.598Z" },
     { url = "https://files.pythonhosted.org/packages/ce/ca/29bdef14758bfe869b74a0eae94d1a1ce220f75ce26ed6e7f4965ca70b49/moocore-0.2.0-cp310-abi3-win_arm64.whl", hash = "sha256:a7683feddfd2a47b4a0f89ee8d370cae72331792f68e67f083ccb37bb2f1c8cf", size = 476178, upload-time = "2026-01-11T11:43:16.919Z" },
+]
+
+[[package]]
+name = "mpi-sppy"
+version = "0.13.2.dev0"
+source = { directory = "../mpi-sppy" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pyomo" },
+    { name = "sortedcollections" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "matplotlib", marker = "extra == 'plot'" },
+    { name = "mpi4py", marker = "extra == 'mpi'", specifier = ">=3.0.3" },
+    { name = "numpy" },
+    { name = "pandas", marker = "extra == 'pandas'" },
+    { name = "pyomo", specifier = ">=6.4" },
+    { name = "scipy", marker = "extra == 'scipy'" },
+    { name = "sortedcollections" },
+    { name = "sphinx", marker = "extra == 'doc'" },
+    { name = "sphinx-copybutton", marker = "extra == 'doc'" },
+    { name = "sphinx-rtd-theme", marker = "extra == 'doc'" },
+]
+provides-extras = ["doc", "mpi", "scipy", "pandas", "plot"]
+
+[[package]]
+name = "mpi4py"
+version = "4.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/62/74/28ea85b0b949cad827ea50720e00e814e88c8fd536c27c3c491e4f025724/mpi4py-4.1.1.tar.gz", hash = "sha256:eb2c8489bdbc47fdc6b26ca7576e927a11b070b6de196a443132766b3d0a2a22", size = 500518, upload-time = "2025-10-10T13:55:20.402Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/36/b3/2e7df40608f2188dca16e38f8030add1071f06b1cd94dd8a4e16b9acbd84/mpi4py-4.1.1-cp310-abi3-macosx_10_9_x86_64.whl", hash = "sha256:1586f5d1557abed9cba7e984d18f32e787b353be0986e599974db177ae36329a", size = 1422849, upload-time = "2025-10-10T13:53:40.082Z" },
+    { url = "https://files.pythonhosted.org/packages/6d/ed/970bd3edc0e614eccc726fa406255b88f728a8bc059e81f96f28d6ede0af/mpi4py-4.1.1-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:ba85e4778d63c750226de95115c92b709f38d7e661be660a275da4f0992ee197", size = 1326982, upload-time = "2025-10-10T13:53:42.32Z" },
+    { url = "https://files.pythonhosted.org/packages/5d/c3/f9a5d1f9ba52ac6386bf3d3550027f42a6b102b0432113cc43294420feb2/mpi4py-4.1.1-cp310-abi3-manylinux1_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:0a8332884626994d9ef48da233dc7a0355f4868dd7ff59f078d5813a2935b930", size = 1373127, upload-time = "2025-10-10T13:53:43.957Z" },
+    { url = "https://files.pythonhosted.org/packages/84/d1/1fe75025df801d817ed49371c719559f742f3f263323442d34dbe3366af3/mpi4py-4.1.1-cp310-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:6e0352860f0b3e18bc0dcb47e42e583ccb9472f89752d711a6fca46a38670554", size = 1225134, upload-time = "2025-10-10T13:53:45.583Z" },
+    { url = "https://files.pythonhosted.org/packages/40/44/d653fec0e4ca8181645da4bfb2763017625e5b3f151b208fadd932cb1766/mpi4py-4.1.1-cp310-abi3-win_amd64.whl", hash = "sha256:0f46dfe666a599e4bd2641116b2b4852a3ed9d37915edf98fae471d666663128", size = 1478863, upload-time = "2025-10-10T13:53:47.178Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/2c/e201cd4828555f10306a5439875cbd0ecfba766ace01ff5c6df43f795650/mpi4py-4.1.1-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:d4403a7cec985be9963efc626193e6df3f63f5ada0c26373c28e640e623e56c3", size = 1669517, upload-time = "2025-10-10T13:54:08.404Z" },
+    { url = "https://files.pythonhosted.org/packages/7b/53/18d978c3a19deecf38217ce54319e6c9162fec3569c4256c039b66eac2f4/mpi4py-4.1.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:8a2ffccc9f3a8c7c957403faad594d650c60234ac08cbedf45beaa96602debe9", size = 1454721, upload-time = "2025-10-10T13:54:09.977Z" },
+    { url = "https://files.pythonhosted.org/packages/ee/15/b908d1d23a4bd2bd7b2e98de5df23b26e43145119fe294728bf89211b935/mpi4py-4.1.1-cp312-cp312-manylinux1_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:ed3d9b619bf197a290f7fd67eb61b1c2a5c204afd9621651a50dc0b1c1280d45", size = 1448977, upload-time = "2025-10-10T13:54:11.65Z" },
+    { url = "https://files.pythonhosted.org/packages/5d/19/088a2d37e80e0feb7851853b2a71cbe6f9b18bdf0eab680977864ea83aab/mpi4py-4.1.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:0699c194db5d95fc2085711e4e0013083bd7ae9a88438e1fd64ddb67e9b0cf9e", size = 1318737, upload-time = "2025-10-10T13:54:13.075Z" },
+    { url = "https://files.pythonhosted.org/packages/97/3a/526261f39bf096e5ff396d18b76740a58d872425612ff84113dd85c2c08e/mpi4py-4.1.1-cp312-cp312-win_amd64.whl", hash = "sha256:0abf5490c3d49c30542b461bfc5ad88dd7d147a4bdb456b7163640577fdfef88", size = 1725676, upload-time = "2025-10-10T13:54:14.681Z" },
+    { url = "https://files.pythonhosted.org/packages/30/75/2ffccd69360680a0216e71f90fd50dc8ff49711be54502d522a068196c68/mpi4py-4.1.1-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:f3dd973c509f2dbb6904c035a4a071509cde98decf0528fa21e2e7d5db5cc988", size = 1710002, upload-time = "2025-10-10T13:54:17.042Z" },
+    { url = "https://files.pythonhosted.org/packages/3c/13/22fa9dcbc5e4ae6fd10cba6d49b7c879c30c5bea88f450f79b373d200f40/mpi4py-4.1.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:c8c83a359e62dd7fdd030360f430e0e8986df029c0953ab216ff97a110038dc4", size = 1484623, upload-time = "2025-10-10T13:54:19.097Z" },
+    { url = "https://files.pythonhosted.org/packages/47/01/476f0f9dc96261d02214009f42e10338fc56f260f1f10b23ee89c515c8b7/mpi4py-4.1.1-cp313-cp313-manylinux1_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:323ba354ba951c7736c033c5f2ad07bb1276f9696f0312ea6ff0a28cd0ab3e3d", size = 1448403, upload-time = "2025-10-10T13:54:21.211Z" },
+    { url = "https://files.pythonhosted.org/packages/a2/20/dc990edb7b075ecdba4e02bcd03d1583faeb84f664d1585c4c00a0f9851a/mpi4py-4.1.1-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:8c4ef9fe5fb211b1c5b6afe521397e3feb01e104024d6bc37aa4289c370605e2", size = 1318018, upload-time = "2025-10-10T13:54:23.23Z" },
+    { url = "https://files.pythonhosted.org/packages/4e/bf/b0ab43a99ac2a1d6d5765cb7d2a4f093656090ce07528043057ecc3e87cb/mpi4py-4.1.1-cp313-cp313-win_amd64.whl", hash = "sha256:e13a1ba26604514a12c95b7d76058ce800d5740d5f5f3b50c4b782cfa0dfaa1f", size = 1722939, upload-time = "2025-10-10T13:54:24.862Z" },
+    { url = "https://files.pythonhosted.org/packages/84/26/3e00dc536311e758096414b4f33beb4c7f04dff875e87a6e88fbbe4fc2d8/mpi4py-4.1.1-cp313-cp313t-macosx_10_13_x86_64.whl", hash = "sha256:28ce1f7412f5e99a6b9fe2547203633431d0ee45670413a475a07e6c785e63b1", size = 1798116, upload-time = "2025-10-10T13:54:26.378Z" },
+    { url = "https://files.pythonhosted.org/packages/15/51/d06d2b126be5660aca8c00fe0d940a8658085038f61a9cfc834d3d5ffa80/mpi4py-4.1.1-cp313-cp313t-macosx_11_0_arm64.whl", hash = "sha256:dd1e49b84a0651018517e87daf68085719eca25e5c9a7cd05d98a73418c88836", size = 1586285, upload-time = "2025-10-10T13:54:27.838Z" },
+    { url = "https://files.pythonhosted.org/packages/51/63/eeb936e0e8cfd8160b6b297645c730b22d242595861cf6a2fa627a358175/mpi4py-4.1.1-cp313-cp313t-manylinux1_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:dd869ea7758b591ffbb1483588a6fbf84952a5090e80a45ea89674d55cf25f3b", size = 1514102, upload-time = "2025-10-10T13:54:29.297Z" },
+    { url = "https://files.pythonhosted.org/packages/1a/c1/06967d4c107ea7169d2120c4fb86c404707e6de82e277dc9f0fa5a9c1bf1/mpi4py-4.1.1-cp313-cp313t-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:475da0797442cba723c0ad37da6a1c51d9624e697dd8bf89f23d0fad81e73eda", size = 1395247, upload-time = "2025-10-10T13:54:30.881Z" },
+    { url = "https://files.pythonhosted.org/packages/9e/7c/5f0f32b39185f0a7074c165dc37cdd235bfd737928a2fe223e41b308fb4c/mpi4py-4.1.1-cp313-cp313t-win_amd64.whl", hash = "sha256:8d3bfa074776d9507ee957f5230d11ecd03da23f601a85349a1a333eaf55e5fa", size = 1771515, upload-time = "2025-10-10T13:54:32.395Z" },
 ]
 
 [[package]]
@@ -3627,6 +3690,27 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/04/06/82f56563b16d33c2586ac2615a3034a83a4ff1969b84c8d79339e5d07d73/snakeviz-2.2.2.tar.gz", hash = "sha256:08028c6f8e34a032ff14757a38424770abb8662fb2818985aeea0d9bc13a7d83", size = 182039, upload-time = "2024-11-09T22:03:58.99Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cd/f7/83b00cdf4f114f10750a18b64c27dc34636d0ac990ccac98282f5c0fbb43/snakeviz-2.2.2-py3-none-any.whl", hash = "sha256:77e7b9c82f6152edc330040319b97612351cd9b48c706434c535c2df31d10ac5", size = 183477, upload-time = "2024-11-09T22:03:57.049Z" },
+]
+
+[[package]]
+name = "sortedcollections"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sortedcontainers" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/01/00/6d749cc1f88e7f95f5442a8abb195fa607094deba9e0475affbfb7fa8c04/sortedcollections-2.1.0.tar.gz", hash = "sha256:d8e9609d6c580a16a1224a3dc8965789e03ebc4c3e5ffd05ada54a2fed5dcacd", size = 9287, upload-time = "2021-01-18T22:15:16.623Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6e/39/c993a7d0c9dbf3aeca5008bdd00e4436ad9b7170527cef0a14634b47001f/sortedcollections-2.1.0-py3-none-any.whl", hash = "sha256:b07abbc73472cc459da9dd6e2607d73d1f3b9309a32dd9a57fa2c6fa882f4c6c", size = 9531, upload-time = "2021-01-18T22:15:15.36Z" },
+]
+
+[[package]]
+name = "sortedcontainers"
+version = "2.4.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e8/c4/ba2f8066cceb6f23394729afe52f3bf7adec04bf9ed2c820b39e19299111/sortedcontainers-2.4.0.tar.gz", hash = "sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88", size = 30594, upload-time = "2021-05-16T22:03:42.897Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/32/46/9cb0e58b2deb7f82b84065f37f3bffeb12413f947f9388e4cac22c4621ce/sortedcontainers-2.4.0-py2.py3-none-any.whl", hash = "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0", size = 29575, upload-time = "2021-05-16T22:03:41.177Z" },
 ]
 
 [[package]]
