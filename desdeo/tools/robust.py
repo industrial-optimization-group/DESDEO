@@ -185,3 +185,131 @@ def add_min_max_robust(
             "constraints": new_constraints or None,
         }
     ), added_symbols
+
+
+def add_weighted_scenarios(
+    scenario_model: "ScenarioModel",
+    symbols: list[str],
+    weights: dict[str, float],
+    prefix: str = "weighted_",
+    combined: "Problem | None" = None,
+    symbol_maps: "dict[str, dict[str, dict[str, str]]] | None" = None,
+) -> "tuple[Problem, dict[str, str]]":
+    """Add user-weighted aggregations for selected symbols to the combined scenario problem.
+
+    Identical to ``add_expected_value`` in ``desdeo.tools.stochastic``, except that the
+    per-leaf weights come from the caller rather than from the scenario probabilities in
+    ``scenario_model``.  This lets you express, e.g., pessimistic weightings that put
+    more mass on bad scenarios than their true probabilities warrant.
+
+    The new element type matches the original: objectives stay objectives, scalarization
+    functions stay scalarization functions, and everything else becomes an extra function.
+
+    Args:
+        scenario_model: the ScenarioModel to expand.
+        symbols: original symbols whose weighted sums should be added.
+        weights: mapping from leaf scenario name to its weight.  Must contain a key
+            for every leaf in ``scenario_model.leaf_scenarios``.
+        prefix: prefix prepended to each original symbol to form the new symbol.
+            Defaults to ``'weighted_'``.
+        combined: pre-built combined Problem. If provided together with
+            ``symbol_maps``, ``build_combined_scenario_problem`` is not called.
+            Must match ``scenario_model``.
+        symbol_maps: pre-built symbol maps from ``build_combined_scenario_problem``.
+            Must be provided together with ``combined``; ignored otherwise.
+
+    Returns:
+        A tuple of the combined Problem with the weighted elements appended, and a dict
+        mapping each original symbol to its new weighted symbol.
+
+    Raises:
+        ValueError: if a requested symbol is not found in the combined problem.
+        ValueError: if ``weights`` is missing a key for any leaf scenario.
+    """
+    if combined is None or symbol_maps is None:
+        combined, symbol_maps = build_combined_scenario_problem(scenario_model)
+    leaf_scenarios = scenario_model.leaf_scenarios
+
+    missing = set(leaf_scenarios) - set(weights)
+    if missing:
+        raise ValueError(f"weights is missing keys for leaf scenarios: {missing}")
+
+    new_objectives = list(combined.objectives or [])
+    new_scal_funcs = list(combined.scalarization_funcs or [])
+    new_extra_funcs = list(combined.extra_funcs or [])
+    added_symbols: dict[str, str] = {}
+
+    for sym in symbols:
+        found_type: str | None = None
+        per_leaf: dict[str, str] | None = None
+        for elem_type, smap in symbol_maps.items():
+            if sym in smap:
+                found_type = elem_type
+                per_leaf = smap[sym]
+                break
+
+        if per_leaf is None:
+            raise ValueError(f"Symbol '{sym}' not found in the combined problem.")
+
+        terms = [["Multiply", weights[leaf], per_leaf[leaf]] for leaf in leaf_scenarios]
+        weighted_expr = terms[0] if len(terms) == 1 else ["Add", *terms]
+        weighted_sym = f"{prefix}{sym}"
+        added_symbols[sym] = weighted_sym
+
+        first_leaf_sym = per_leaf[next(iter(leaf_scenarios))]
+        elem_lists = {
+            "objectives": combined.objectives,
+            "scalarization_funcs": combined.scalarization_funcs,
+            "extra_funcs": combined.extra_funcs,
+            "constraints": combined.constraints,
+        }
+        ref_elem = next(
+            (e for e in (elem_lists.get(found_type) or []) if e.symbol == first_leaf_sym),
+            None,
+        )
+        is_linear = ref_elem.is_linear if ref_elem is not None else False
+        is_convex = ref_elem.is_convex if ref_elem is not None else False
+        is_twice_diff = ref_elem.is_twice_differentiable if ref_elem is not None else False
+
+        if found_type == "objectives":
+            new_objectives.append(
+                Objective(
+                    name=f"Weighted scenario value of {sym}",
+                    symbol=weighted_sym,
+                    func=weighted_expr,
+                    maximize=ref_elem.maximize if ref_elem is not None else False,
+                    is_linear=is_linear,
+                    is_convex=is_convex,
+                    is_twice_differentiable=is_twice_diff,
+                )
+            )
+        elif found_type == "scalarization_funcs":
+            new_scal_funcs.append(
+                ScalarizationFunction(
+                    name=f"Weighted scenario value of {sym}",
+                    symbol=weighted_sym,
+                    func=weighted_expr,
+                    is_linear=is_linear,
+                    is_convex=is_convex,
+                    is_twice_differentiable=is_twice_diff,
+                )
+            )
+        else:
+            new_extra_funcs.append(
+                ExtraFunction(
+                    name=f"Weighted scenario value of {sym}",
+                    symbol=weighted_sym,
+                    func=weighted_expr,
+                    is_linear=is_linear,
+                    is_convex=is_convex,
+                    is_twice_differentiable=is_twice_diff,
+                )
+            )
+
+    return combined.model_copy(
+        update={
+            "objectives": new_objectives or None,
+            "scalarization_funcs": new_scal_funcs or None,
+            "extra_funcs": new_extra_funcs or None,
+        }
+    ), added_symbols

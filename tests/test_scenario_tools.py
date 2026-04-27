@@ -4,7 +4,7 @@ import pytest
 
 from desdeo.problem.schema import ConstraintTypeEnum, Problem
 from desdeo.problem.testproblems import simple_scenario_model
-from desdeo.tools.robust import add_min_max_robust
+from desdeo.tools.robust import add_min_max_robust, add_weighted_scenarios
 from desdeo.tools.scenarios import build_combined_scenario_problem, build_scenario_problem
 from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_asf
 
@@ -661,3 +661,95 @@ def test_robust_custom_prefix(model):
     problem, added = add_min_max_robust(model, ["f_1"], prefix="wc_", combined=combined, symbol_maps=symbol_maps)
     assert added["f_1"] == "wc_f_1"
     assert any(o.symbol == "wc_f_1" for o in (problem.objectives or []))
+
+
+# ---------------------------------------------------------------------------
+# add_weighted_scenarios — schema tests
+# ---------------------------------------------------------------------------
+
+_WEIGHTS = {"s_1": 0.1, "s_2": 0.2, "s_3": 0.7}
+
+
+@pytest.fixture(name="weighted_result")
+def weighted_result_fixture(model):
+    """Return (problem, added_symbols) from add_weighted_scenarios on f_1, f_2, f_3."""
+    combined, symbol_maps = build_combined_scenario_problem(model)
+    return add_weighted_scenarios(
+        model, ["f_1", "f_2", "f_3"], weights=_WEIGHTS, combined=combined, symbol_maps=symbol_maps
+    )
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_weighted_returns_problem_and_dict(weighted_result):
+    """add_weighted_scenarios returns a Problem and a symbol mapping dict."""
+    problem, added = weighted_result
+    assert isinstance(problem, Problem)
+    assert isinstance(added, dict)
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_weighted_added_symbols_have_default_prefix(weighted_result):
+    """Each original symbol maps to weighted_{sym} with the default prefix."""
+    _, added = weighted_result
+    for orig, sym in added.items():
+        assert sym == f"weighted_{orig}"
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_weighted_result_added_as_objective(weighted_result):
+    """Weighted elements for objectives are added as objectives."""
+    problem, added = weighted_result
+    obj_syms = {o.symbol for o in (problem.objectives or [])}
+    for sym in added.values():
+        assert sym in obj_syms
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_weighted_expression_uses_provided_weights(weighted_result):
+    """The weighted-sum expression for f_1 uses the caller-supplied weights."""
+    problem, added = weighted_result
+    obj = next(o for o in (problem.objectives or []) if o.symbol == added["f_1"])
+    func = obj.func
+    assert func[0] == "Add"
+    terms = {term[2]: term[1] for term in func[1:]}
+    assert terms["s_1_f_1"] == pytest.approx(_WEIGHTS["s_1"])
+    assert terms["s_2_f_1"] == pytest.approx(_WEIGHTS["s_2"])
+    assert terms["s_3_f_1"] == pytest.approx(_WEIGHTS["s_3"])
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_weighted_no_new_variables_or_constraints(weighted_result):
+    """add_weighted_scenarios adds no new variables or constraints."""
+    problem, _ = weighted_result
+    combined, _ = build_combined_scenario_problem(simple_scenario_model())
+    assert len(problem.variables) == len(combined.variables)
+    assert len(problem.constraints or []) == len(combined.constraints or [])
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_weighted_missing_leaf_raises(model):
+    """Omitting a leaf from weights raises ValueError."""
+    combined, symbol_maps = build_combined_scenario_problem(model)
+    with pytest.raises(ValueError, match="missing keys"):
+        add_weighted_scenarios(
+            model, ["f_1"], weights={"s_1": 0.5, "s_2": 0.5},
+            combined=combined, symbol_maps=symbol_maps,
+        )
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_weighted_custom_prefix(model):
+    """The prefix argument is respected."""
+    combined, symbol_maps = build_combined_scenario_problem(model)
+    problem, added = add_weighted_scenarios(
+        model, ["f_1"], weights=_WEIGHTS, prefix="w_", combined=combined, symbol_maps=symbol_maps
+    )
+    assert added["f_1"] == "w_f_1"
+    assert any(o.symbol == "w_f_1" for o in (problem.objectives or []))
