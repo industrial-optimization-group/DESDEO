@@ -115,17 +115,9 @@ def add_min_max_robust(
 
         # Per-leaf upper-bound constraints: f_s <= t  ->  f_s - t <= 0
         # For objectives, use _min versions (already negated for maximization objectives).
-        # For scalarization functions, inline the expression: Pyomo adds constraints before
-        # scalarizations, so referencing a scalarization symbol causes an AttributeError.
         for leaf, leaf_sym in per_leaf.items():
             if found_type == "objectives":
                 con_func = ["Add", f"{leaf_sym}_min", ["Negate", t_sym]]
-            elif found_type == "scalarization_funcs":
-                leaf_elem = next(
-                    (e for e in (combined.scalarization_funcs or []) if e.symbol == leaf_sym), None
-                )
-                leaf_func = leaf_elem.func if leaf_elem is not None else leaf_sym
-                con_func = ["Add", leaf_func, ["Negate", t_sym]]
             else:
                 con_func = ["Add", leaf_sym, ["Negate", t_sym]]
 

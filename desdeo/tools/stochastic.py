@@ -310,15 +310,7 @@ def add_conditional_value_at_risk(
             )
 
             # z_s >= sym_s - eta  ->  sym_s - eta - z_s <= 0
-            # Pyomo adds constraints before scalarization functions, so a scalarization
-            # symbol is not yet a model attribute when the constraint is initialized.
-            # Inline the per-leaf expression to avoid an AttributeError at solve time.
-            if found_type == "scalarization_funcs":
-                leaf_elem = next((e for e in (combined.scalarization_funcs or []) if e.symbol == leaf_sym), None)
-                leaf_func = leaf_elem.func if leaf_elem is not None else leaf_sym
-                constraint_func = ["Add", leaf_func, ["Negate", var_sym], ["Negate", z_sym]]
-            else:
-                constraint_func = ["Add", leaf_sym, ["Negate", var_sym], ["Negate", z_sym]]
+            constraint_func = ["Add", leaf_sym, ["Negate", var_sym], ["Negate", z_sym]]
 
             new_constraints.append(
                 Constraint(
