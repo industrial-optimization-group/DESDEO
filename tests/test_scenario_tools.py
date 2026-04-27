@@ -187,7 +187,7 @@ def test_con1_only_for_leaves_that_have_it(combined):
 @pytest.mark.scenario
 def test_extra_funcs_renamed_per_leaf(combined):
     """extra_1 has different funcs in s_1 and s_2, so both get a leaf prefix."""
-    syms = {e.symbol for e in (combined.extra_funcs or [])}
+    syms = {e.symbol for e in combined.extra_funcs or []}
     assert "s_1_extra_1" in syms
     assert "s_2_extra_1" in syms
     assert "extra_1" not in syms
@@ -196,7 +196,7 @@ def test_extra_funcs_renamed_per_leaf(combined):
 @pytest.mark.scenario
 def test_extra_func_values_correct(combined):
     """s_1_extra_1 uses '2*x_1' and s_2_extra_1 uses '5*x_1' (stored as MathJSON)."""
-    ef_map = {e.symbol: e.func for e in (combined.extra_funcs or [])}
+    ef_map = {e.symbol: e.func for e in combined.extra_funcs or []}
     assert ef_map["s_1_extra_1"] == ["Multiply", 2, "x_1"]
     assert ef_map["s_2_extra_1"] == ["Multiply", 5, "x_1"]
 
@@ -360,7 +360,7 @@ def test_expected_asf_symbol_is_e_prefixed(asf_result):
 def test_expected_asf_per_leaf_scalarizations_present(asf_result):
     """The combined problem contains one ASF scalarization per leaf scenario."""
     problem, _ = asf_result
-    scal_syms = {s.symbol for s in (problem.scalarization_funcs or [])}
+    scal_syms = {s.symbol for s in problem.scalarization_funcs or []}
     assert "s_1_asf" in scal_syms
     assert "s_2_asf" in scal_syms
     assert "s_3_asf" in scal_syms
@@ -371,7 +371,7 @@ def test_expected_asf_per_leaf_scalarizations_present(asf_result):
 def test_expected_asf_expected_symbol_in_problem(asf_result):
     """The expected ASF symbol is present as a scalarization function."""
     problem, symbol = asf_result
-    scal_syms = {s.symbol for s in (problem.scalarization_funcs or [])}
+    scal_syms = {s.symbol for s in problem.scalarization_funcs or []}
     assert symbol in scal_syms
 
 
@@ -380,7 +380,7 @@ def test_expected_asf_expected_symbol_in_problem(asf_result):
 def test_expected_asf_uses_scenario_probabilities(asf_result):
     """The expected ASF is a weighted sum using the scenario probabilities."""
     problem, _ = asf_result
-    ef = next(s for s in (problem.scalarization_funcs or []) if s.symbol == "E_asf")
+    ef = next(s for s in problem.scalarization_funcs or [] if s.symbol == "E_asf")
     func = ef.func
     assert func[0] == "Add"
     terms = {term[2]: term[1] for term in func[1:]}
@@ -471,7 +471,7 @@ def test_cvar_threshold_variable_is_unbounded(cvar_result):
 def test_cvar_constraints_per_leaf(cvar_result):
     """One LTE constraint per leaf per symbol is added."""
     problem, _ = cvar_result
-    con_syms = {c.symbol for c in (problem.constraints or [])}
+    con_syms = {c.symbol for c in problem.constraints or []}
     for f in ("f_1", "f_2", "f_3"):
         for s in ("s_1", "s_2", "s_3"):
             assert f"{s}_VAR_{f}_con" in con_syms
@@ -482,7 +482,7 @@ def test_cvar_constraints_per_leaf(cvar_result):
 def test_cvar_constraints_are_lte(cvar_result):
     """CVaR auxiliary constraints have LTE type (sym_s - eta - z_s <= 0)."""
     problem, _ = cvar_result
-    for con in (problem.constraints or []):
+    for con in problem.constraints or []:
         if con.symbol == "s_1_VAR_f_1_con":
             assert con.cons_type == ConstraintTypeEnum.LTE
 
@@ -492,7 +492,7 @@ def test_cvar_constraints_are_lte(cvar_result):
 def test_cvar_result_added_as_objective(cvar_result):
     """CVAR elements are added as objectives when the originals are objectives."""
     problem, added = cvar_result
-    obj_syms = {o.symbol for o in (problem.objectives or [])}
+    obj_syms = {o.symbol for o in problem.objectives or []}
     for cvar_sym in added.values():
         assert cvar_sym in obj_syms
 
@@ -502,7 +502,7 @@ def test_cvar_result_added_as_objective(cvar_result):
 def test_cvar_expression_uses_correct_scale(cvar_result):
     """CVaR expression multiplies the weighted sum by 1/(1-alpha)."""
     problem, _ = cvar_result
-    obj = next(o for o in (problem.objectives or []) if o.symbol == "CVAR_f_1")
+    obj = next(o for o in problem.objectives or [] if o.symbol == "CVAR_f_1")
     func = obj.func
     assert func[0] == "Add"
     assert func[1] == "VAR_f_1"
@@ -516,7 +516,7 @@ def test_cvar_expression_uses_correct_scale(cvar_result):
 def test_cvar_expression_uses_scenario_probabilities(cvar_result):
     """CVaR weighted sum uses scenario probabilities as leaf weights."""
     problem, _ = cvar_result
-    obj = next(o for o in (problem.objectives or []) if o.symbol == "CVAR_f_1")
+    obj = next(o for o in problem.objectives or [] if o.symbol == "CVAR_f_1")
     sum_z = obj.func[2][2]
     assert sum_z[0] == "Add"
     terms = {term[2]: term[1] for term in sum_z[1:]}
@@ -531,14 +531,19 @@ def test_cvar_custom_prefixes(model):
     """var_prefix and cvar_prefix arguments are respected."""
     combined, symbol_maps = build_combined_scenario_problem(model)
     problem, added = add_conditional_value_at_risk(
-        model, ["f_1"], alpha=_ALPHA, var_prefix="ETA_", cvar_prefix="RISK_",
-        combined=combined, symbol_maps=symbol_maps,
+        model,
+        ["f_1"],
+        alpha=_ALPHA,
+        var_prefix="ETA_",
+        cvar_prefix="RISK_",
+        combined=combined,
+        symbol_maps=symbol_maps,
     )
     var_syms = {v.symbol for v in problem.variables}
     assert "ETA_f_1" in var_syms
     assert "s_1_ETA_f_1" in var_syms
     assert added["f_1"] == "RISK_f_1"
-    assert any(o.symbol == "RISK_f_1" for o in (problem.objectives or []))
+    assert any(o.symbol == "RISK_f_1" for o in problem.objectives or [])
 
 
 # ---------------------------------------------------------------------------
@@ -576,7 +581,7 @@ def test_robust_added_symbols_have_default_prefix(robust_result):
 def test_robust_result_added_as_objective(robust_result):
     """Robust elements for objectives are added as objectives."""
     problem, added = robust_result
-    obj_syms = {o.symbol for o in (problem.objectives or [])}
+    obj_syms = {o.symbol for o in problem.objectives or []}
     for robust_sym in added.values():
         assert robust_sym in obj_syms
 
@@ -587,7 +592,7 @@ def test_robust_objective_is_minimization(robust_result):
     """Robust objectives are always minimization (maximize=False)."""
     problem, added = robust_result
     for robust_sym in added.values():
-        obj = next(o for o in (problem.objectives or []) if o.symbol == robust_sym)
+        obj = next(o for o in problem.objectives or [] if o.symbol == robust_sym)
         assert obj.maximize is False
 
 
@@ -617,7 +622,7 @@ def test_robust_epigraph_variable_is_unbounded(robust_result):
 def test_robust_upper_bound_constraints_per_leaf(robust_result):
     """A per-leaf LTE constraint f_s - t <= 0 is added for each symbol and leaf."""
     problem, _ = robust_result
-    con_syms = {c.symbol for c in (problem.constraints or [])}
+    con_syms = {c.symbol for c in problem.constraints or []}
     for f in ("f_1", "f_2", "f_3"):
         for s in ("s_1", "s_2", "s_3"):
             assert f"{s}_robust_{f}_con" in con_syms
@@ -628,7 +633,7 @@ def test_robust_upper_bound_constraints_per_leaf(robust_result):
 def test_robust_constraints_are_lte(robust_result):
     """The per-leaf robust constraints have LTE type."""
     problem, _ = robust_result
-    for con in (problem.constraints or []):
+    for con in problem.constraints or []:
         if con.symbol.endswith("_robust_f_1_con"):
             assert con.cons_type == ConstraintTypeEnum.LTE
 
@@ -638,7 +643,7 @@ def test_robust_constraints_are_lte(robust_result):
 def test_robust_element_func_references_epigraph_variable(robust_result):
     """The robust objective's func references the epigraph variable."""
     problem, added = robust_result
-    obj = next(o for o in (problem.objectives or []) if o.symbol == added["f_1"])
+    obj = next(o for o in problem.objectives or [] if o.symbol == added["f_1"])
     assert "_t_robust_f_1" in str(obj.func)
 
 
@@ -647,7 +652,7 @@ def test_robust_element_func_references_epigraph_variable(robust_result):
 def test_robust_element_is_linear(robust_result):
     """The robust objective is linear, convex, and twice differentiable."""
     problem, added = robust_result
-    obj = next(o for o in (problem.objectives or []) if o.symbol == added["f_1"])
+    obj = next(o for o in problem.objectives or [] if o.symbol == added["f_1"])
     assert obj.is_linear
     assert obj.is_convex
     assert obj.is_twice_differentiable
@@ -660,7 +665,7 @@ def test_robust_custom_prefix(model):
     combined, symbol_maps = build_combined_scenario_problem(model)
     problem, added = add_min_max_robust(model, ["f_1"], prefix="wc_", combined=combined, symbol_maps=symbol_maps)
     assert added["f_1"] == "wc_f_1"
-    assert any(o.symbol == "wc_f_1" for o in (problem.objectives or []))
+    assert any(o.symbol == "wc_f_1" for o in problem.objectives or [])
 
 
 # ---------------------------------------------------------------------------
@@ -702,7 +707,7 @@ def test_weighted_added_symbols_have_default_prefix(weighted_result):
 def test_weighted_result_added_as_objective(weighted_result):
     """Weighted elements for objectives are added as objectives."""
     problem, added = weighted_result
-    obj_syms = {o.symbol for o in (problem.objectives or [])}
+    obj_syms = {o.symbol for o in problem.objectives or []}
     for sym in added.values():
         assert sym in obj_syms
 
@@ -712,7 +717,7 @@ def test_weighted_result_added_as_objective(weighted_result):
 def test_weighted_expression_uses_provided_weights(weighted_result):
     """The weighted-sum expression for f_1 uses the caller-supplied weights."""
     problem, added = weighted_result
-    obj = next(o for o in (problem.objectives or []) if o.symbol == added["f_1"])
+    obj = next(o for o in problem.objectives or [] if o.symbol == added["f_1"])
     func = obj.func
     assert func[0] == "Add"
     terms = {term[2]: term[1] for term in func[1:]}
@@ -738,8 +743,11 @@ def test_weighted_missing_leaf_raises(model):
     combined, symbol_maps = build_combined_scenario_problem(model)
     with pytest.raises(ValueError, match="missing keys"):
         add_weighted_scenarios(
-            model, ["f_1"], weights={"s_1": 0.5, "s_2": 0.5},
-            combined=combined, symbol_maps=symbol_maps,
+            model,
+            ["f_1"],
+            weights={"s_1": 0.5, "s_2": 0.5},
+            combined=combined,
+            symbol_maps=symbol_maps,
         )
 
 
@@ -752,4 +760,4 @@ def test_weighted_custom_prefix(model):
         model, ["f_1"], weights=_WEIGHTS, prefix="w_", combined=combined, symbol_maps=symbol_maps
     )
     assert added["f_1"] == "w_f_1"
-    assert any(o.symbol == "w_f_1" for o in (problem.objectives or []))
+    assert any(o.symbol == "w_f_1" for o in problem.objectives or [])

@@ -98,9 +98,7 @@ def cvar_asf_problem_fixture(model):
     asf_base, scal = add_asf_diff(model.base_problem, "asf", _REF, ideal=_IDEAL, nadir=_NADIR)
     asf_model = model.with_base_problem(problem=asf_base)
     combined, symbol_maps = build_combined_scenario_problem(asf_model)
-    return add_conditional_value_at_risk(
-        asf_model, [scal], alpha=0.95, combined=combined, symbol_maps=symbol_maps
-    )
+    return add_conditional_value_at_risk(asf_model, [scal], alpha=0.95, combined=combined, symbol_maps=symbol_maps)
 
 
 @pytest.fixture(name="cvar_solve_result")
