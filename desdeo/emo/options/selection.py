@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from desdeo.emo.operators.selection import (
+    ASFSelector,
     BaseSelector,
     IBEASelector,
     NSGA2Selector,
@@ -86,7 +87,22 @@ class IBEASelectorOptions(BaseModel):
     """The binary indicator for IBEA."""
 
 
-SelectorOptions = RVEASelectorOptions | NSGA2SelectorOptions | NSGA3SelectorOptions | IBEASelectorOptions
+class ASFSelectorOptions(BaseModel):
+    """Options for ASF-based Selection."""
+
+    name: Literal["ASFSelector"] = Field(
+        default="ASFSelector", frozen=True, description="The name of the selection operator."
+    )
+    """The name of the selection operator."""
+    population_size: int = Field(gt=0, description="The population size.")
+    """The population size."""
+    target_column: str = Field(description="Symbol of the scalarization target to sort by.")
+    """Symbol of the scalarization target to sort by (ascending, lower is better)."""
+
+
+SelectorOptions = (
+    RVEASelectorOptions | NSGA2SelectorOptions | NSGA3SelectorOptions | IBEASelectorOptions | ASFSelectorOptions
+)
 
 
 def selection_constructor(
@@ -112,6 +128,7 @@ def selection_constructor(
         "NSGA2Selector": NSGA2Selector,
         "NSGA3Selector": NSGA3Selector,
         "IBEASelector": IBEASelector,
+        "ASFSelector": ASFSelector,
     }
     options: dict = options.model_dump()
     name = options.pop("name")
