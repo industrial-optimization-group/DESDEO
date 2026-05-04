@@ -133,12 +133,12 @@ class MathParser:
 
         def _extract_from_array(arr, *raw_indices):
             arr = np.asarray(arr)
-            idx = _collect_indices(raw_indices, len(arr))
+            idx = _collect_indices(raw_indices, arr.shape[0])
             return arr[idx].tolist() if idx else []
 
         def _exclude_from_array(arr, *raw_indices):
             arr = np.asarray(arr)
-            n = len(arr)
+            n = arr.shape[0]
             excluded = set(_collect_indices(raw_indices, n))
             keep = [i for i in range(n) if i not in excluded]
             return arr[keep].tolist() if keep else []
@@ -705,6 +705,18 @@ class MathParser:
             self.RATIONAL: lambda x, y: sp.Rational(x, y),
         }
 
+        def _gurobipy_multiply(*args):
+            """Multiply, promoting scalar gp.Var * ndarray to MLinExpr via MVar.fromlist."""
+
+            def _mul(a, b):
+                if isinstance(a, gp.Var) and isinstance(b, np.ndarray):
+                    return gp.MVar.fromlist([a]) * b
+                if isinstance(b, gp.Var) and isinstance(a, np.ndarray):
+                    return gp.MVar.fromlist([b]) * a
+                return a * b
+
+            return reduce(_mul, args)
+
         def _gurobipy_matmul(*args):
             """Gurobipy matrix multiplication."""
 
@@ -726,10 +738,6 @@ class MathParser:
                 return summand.sum()
 
             return _sum(summand)
-            msg = (
-                "Matrix summation 'Sum' has not been implemented for the Gurobipy parser yet. Feel free to contribute!"
-            )
-            raise NotImplementedError(msg)
 
         def _gurobipy_random_access(indexed, *indices):
             # 1-based indexing assumed in JSON format; convert to 0-based for Python/numpy/gp.MVar
@@ -738,20 +746,30 @@ class MathParser:
                 return indexed[zero_based[0]]
             return indexed[zero_based]
 
+        def _gurobipy_extract(arr, *raw_indices):
+            idx = _collect_indices(raw_indices, arr.shape[0])
+            return arr[idx]
+
+        def _gurobipy_exclude(arr, *raw_indices):
+            n = arr.shape[0]
+            excluded = set(_collect_indices(raw_indices, n))
+            keep = [i for i in range(n) if i not in excluded]
+            return arr[keep]
+
         gurobipy_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
             self.NEGATE: lambda x: -x,
             self.ADD: lambda *args: reduce(lambda x, y: x + y, args),
             self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
-            self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
+            self.MUL: _gurobipy_multiply,
             self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
             # Vector and matrix operations
             self.MATMUL: _gurobipy_matmul,
             self.SUM: _gurobipy_summation,
             self.RANDOM_ACCESS: _gurobipy_random_access,
-            self.EXTRACT: lambda arr, *idx: _extract_from_array(np.asarray(arr), *idx),
-            self.EXCLUDE: lambda arr, *idx: _exclude_from_array(np.asarray(arr), *idx),
+            self.EXTRACT: _gurobipy_extract,
+            self.EXCLUDE: _gurobipy_exclude,
             # Exponentiation and logarithms
             # it would be possible to implement some of these with the special functions that
             # gurobi has to offer, but they would only work under specific circumstances
