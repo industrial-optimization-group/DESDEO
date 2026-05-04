@@ -12,6 +12,7 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 
+
 def simulator_problem(file_dir: str | Path):
     """A test problem with analytical, simulator and surrogate based objectives, constraints and extra functions.
 

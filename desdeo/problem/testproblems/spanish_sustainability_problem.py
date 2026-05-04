@@ -16,6 +16,7 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 
+
 def spanish_sustainability_problem():
     """Implements the Spanish sustainability problem."""
     coefficients_dict = {
@@ -384,7 +385,7 @@ def spanish_sustainability_problem():
     )
 
     # Environmental
-    f3_expr = "cte_enviro + beta_enviro @ X + gamma_enviro @ (X**2) + delta_enviro @ (X**3) " "+ omega_enviro @ Ln(X)"
+    f3_expr = "cte_enviro + beta_enviro @ X + gamma_enviro @ (X**2) + delta_enviro @ (X**3) + omega_enviro @ Ln(X)"
 
     f3 = Objective(
         name="Environmental indicator",

@@ -9,6 +9,7 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 
+
 def pareto_navigator_test_problem() -> Problem:
     r"""Defines the problem utilized in the (convex) Pareto navigator article.
 

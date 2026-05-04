@@ -1,15 +1,10 @@
 from desdeo.problem.schema import (
-    Constant,
-    Constraint,
-    ConstraintTypeEnum,
-    DiscreteRepresentation,
-    ExtraFunction,
     Objective,
-    ObjectiveTypeEnum,
     Problem,
     Variable,
     VariableTypeEnum,
 )
+
 
 def rocket_injector_design(original_version=False) -> Problem:
     """The rocekt injector design problem as published in Vaidyanathan, et al. (2003).

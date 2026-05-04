@@ -45,6 +45,7 @@ __all__ = [  # noqa: RUF022
     "zdt3",
     "best_cake_problem",
     "dmitry_forest_problem_disc",
+    "vehicle_crashworthiness",
 ]
 
 
@@ -87,4 +88,5 @@ from .spanish_sustainability_problem import (
     spanish_sustainability_problem,
     spanish_sustainability_problem_discrete,
 )
+from .vehicle_crashworthiness_problem import vehicle_crashworthiness
 from .zdt_problem import zdt1, zdt2, zdt3

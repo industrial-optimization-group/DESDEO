@@ -6,6 +6,7 @@ from desdeo.problem.schema import (
     Variable,
 )
 
+
 def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
     """Create a pydantic dataclass representation of the Binh and Korn problem.
 
