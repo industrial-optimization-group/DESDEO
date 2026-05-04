@@ -215,3 +215,82 @@ def complete_bounds_from_population(
                 parsed_bounds[var_name][op][0] = float(lower_bounds[var_i])
 
     return parsed_bounds
+
+
+def format_rule_summary(
+    parsed_bounds: dict,
+    variable_symbols: list[str],
+    population_bounds: dict[str, tuple[float, float]],
+) -> list[dict]:
+    """Combine parsed rule bounds with population-derived bounds into a row-per-variable summary.
+
+    Each entry has the variable symbol, the rule-derived lower/upper bound and the
+    accuracy of the rule that supplied each bound, plus the empirical lower/upper bound
+    observed in the final population. Accuracies of ``-1`` indicate that the rule-side
+    bound came from the box constraint (no rule covered it).
+
+    Args:
+        parsed_bounds (dict): Output of :func:`parse_rules_to_variable_bounds`
+            (or :func:`complete_bounds_from_population`).
+        variable_symbols (list[str]): Variable symbols, in display order.
+        population_bounds (dict[str, tuple[float, float]]): ``{symbol: (min, max)}`` from
+            the final population.
+
+    Returns:
+        list[dict]: One dict per variable with keys ``"variable"``, ``"rule_lower"``,
+            ``"rule_lower_accuracy"``, ``"rule_upper"``, ``"rule_upper_accuracy"``,
+            ``"pop_lower"``, ``"pop_upper"``.
+    """
+    summary: list[dict] = []
+    for symbol in variable_symbols:
+        bounds = parsed_bounds[symbol]
+        pop_lower, pop_upper = population_bounds[symbol]
+        summary.append(
+            {
+                "variable": symbol,
+                "rule_lower": float(bounds[">"][0]),
+                "rule_lower_accuracy": float(bounds[">"][1]),
+                "rule_upper": float(bounds["<="][0]),
+                "rule_upper_accuracy": float(bounds["<="][1]),
+                "pop_lower": float(pop_lower),
+                "pop_upper": float(pop_upper),
+            }
+        )
+    return summary
+
+
+def format_rule_table(rule_summary: list[dict]) -> str:
+    """Render :func:`format_rule_summary` output as an aligned plain-text table.
+
+    Bound values are shown with 5-decimal precision; accuracies with 3-decimal
+    precision. Accuracy ``-1`` is rendered as the literal ``"-1"`` to flag that
+    the bound came from the box constraint rather than a rule.
+
+    Args:
+        rule_summary (list[dict]): Output of :func:`format_rule_summary`.
+
+    Returns:
+        str: The formatted table including a header row.
+    """
+    headers = ["Variable", "Rule Lower", "Acc", "Rule Upper", "Acc", "Pop Lower", "Pop Upper"]
+
+    def _fmt_acc(value: float) -> str:
+        return "-1" if value == -1 else f"{value:.3f}"
+
+    rows: list[list[str]] = [headers]
+    for entry in rule_summary:
+        rows.append(
+            [
+                entry["variable"],
+                f"{entry['rule_lower']:.5f}",
+                _fmt_acc(entry["rule_lower_accuracy"]),
+                f"{entry['rule_upper']:.5f}",
+                _fmt_acc(entry["rule_upper_accuracy"]),
+                f"{entry['pop_lower']:.5f}",
+                f"{entry['pop_upper']:.5f}",
+            ]
+        )
+
+    col_widths = [max(len(row[c]) for row in rows) for c in range(len(headers))]
+    lines = ["  ".join(cell.ljust(col_widths[i]) for i, cell in enumerate(row)) for row in rows]
+    return "\n".join(lines)
