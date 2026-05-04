@@ -6,7 +6,7 @@ import polars as pl
 import polars.testing as plt
 import pytest
 
-from desdeo.problem import GurobipyEvaluator, PolarsEvaluator, PyomoEvaluator, SympyEvaluator
+from desdeo.problem import CVXPYEvaluator, GurobipyEvaluator, PolarsEvaluator, PyomoEvaluator, SympyEvaluator
 from desdeo.problem.sympy_evaluator import SympyEvaluatorError
 from desdeo.problem.testproblems import multi_valued_constraint_problem
 from desdeo.tools import (
@@ -126,6 +126,25 @@ def test_with_gurobipy_evaluator():
     evaluator.model.setParam("LogToConsole", 0)
     evaluator.set_optimization_target("f_2")
     evaluator.model.optimize()
+
+    values = evaluator.get_values()
+
+    g_values = np.array(values["G"])
+    assert g_values.shape == (2, 1)
+
+    tol = 1e-6
+    ok_mask = g_values <= tol
+    assert np.all(ok_mask), f"G constraint violated: {g_values[~ok_mask]}"
+
+
+@pytest.mark.cvxpy
+def test_with_cvxpy_evaluator():
+    """Test multi-valued constraints with the CVXPY evaluator."""
+    problem = multi_valued_constraint_problem()
+
+    evaluator = CVXPYEvaluator(problem)
+    evaluator.set_optimization_target("f_2")
+    evaluator.problem_model.solve()
 
     values = evaluator.get_values()
 

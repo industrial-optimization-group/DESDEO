@@ -36,7 +36,7 @@ class ParserError(Exception):
 class MathParser:
     """A class to instantiate MathJSON parsers.
 
-    Currently only parses MathJSON to polars expressions. Pyomo WIP.
+    Parses MathJSON expressions to polars, pyomo, sympy, gurobipy, or cvxpy expressions.
     """
 
     def __init__(self, to_format: FormatEnum = "polars"):  # noqa: C901
@@ -58,6 +58,9 @@ class MathParser:
         self.MATMUL: str = "MatMul"
         self.SUM: str = "Sum"
         self.RANDOM_ACCESS = "At"
+        self.EXTRACT: str = "Extract"
+        self.EXCLUDE: str = "Exclude"
+        self.TUPLE: str = "Tuple"
 
         # Exponentation and logarithms
         self.EXP: str = "Exp"
@@ -103,7 +106,76 @@ class MathParser:
 
         self.literals = int | float
 
-        def to_expr(x: self.literals | pl.Expr):
+        def _range_indices(spec: tuple, n: int) -> list[int]:
+            """Convert a 1-based Tuple range spec to a list of 0-based indices."""
+            start_1, stop_1 = int(spec[0]), int(spec[1])
+            step = int(spec[2]) if len(spec) >= 3 else None  # noqa: PLR2004
+            start_0 = (start_1 - 1) if start_1 > 0 else (n + start_1)
+            stop_0 = (stop_1 - 1) if stop_1 > 0 else (n + stop_1)
+            if step is None:
+                step = 1 if stop_0 >= start_0 else -1
+            if step > 0:
+                return [i for i in range(start_0, stop_0 + 1, step) if 0 <= i < n]
+            return [i for i in range(start_0, stop_0 - 1, step) if 0 <= i < n]
+
+        def _collect_indices(raw_indices: tuple, n: int) -> list[int]:
+            """Collect 0-based indices from a sequence of raw Extract/Exclude specs."""
+            indices = []
+            for spec in raw_indices:
+                if isinstance(spec, tuple):
+                    indices.extend(_range_indices(spec, n))
+                else:
+                    idx = int(spec)
+                    zero = (idx - 1) if idx > 0 else (n + idx)
+                    if 0 <= zero < n:
+                        indices.append(zero)
+            return indices
+
+        def _extract_from_array(arr, *raw_indices):
+            arr = np.asarray(arr)
+            idx = _collect_indices(raw_indices, len(arr))
+            return arr[idx].tolist() if idx else []
+
+        def _exclude_from_array(arr, *raw_indices):
+            arr = np.asarray(arr)
+            n = len(arr)
+            excluded = set(_collect_indices(raw_indices, n))
+            keep = [i for i in range(n) if i not in excluded]
+            return arr[keep].tolist() if keep else []
+
+        def _polars_extract(expr, *raw_indices):
+            def _fn(acc, _):
+                arr = acc.to_numpy()
+                if arr.ndim > 1:
+                    idx = _collect_indices(raw_indices, arr.shape[-1])
+                    result = arr[..., idx] if idx else np.empty((*arr.shape[:-1], 0), dtype=arr.dtype)
+                else:
+                    result = _extract_from_array(arr, *raw_indices)
+                return pl.Series(values=result.tolist())
+
+            return pl.reduce(function=_fn, exprs=[expr, None])
+
+        def _polars_exclude(expr, *raw_indices):
+            def _fn(acc, _):
+                arr = acc.to_numpy()
+                if arr.ndim > 1:
+                    n = arr.shape[-1]
+                    excluded = set(_collect_indices(raw_indices, n))
+                    keep = [i for i in range(n) if i not in excluded]
+                    result = arr[..., keep] if keep else np.empty((*arr.shape[:-1], 0), dtype=arr.dtype)
+                else:
+                    result = _exclude_from_array(arr, *raw_indices)
+                return pl.Series(values=result.tolist())
+
+            return pl.reduce(function=_fn, exprs=[expr, None])
+
+        def _not_impl_extract(*_args):
+            raise NotImplementedError("'Extract' is not implemented for this backend.")
+
+        def _not_impl_exclude(*_args):
+            raise NotImplementedError("'Exclude' is not implemented for this backend.")
+
+        def to_expr(x: self.literals | pl.Expr):  # type: ignore
             """Helper function to convert literals to polars expressions."""
             return pl.lit(x) if isinstance(x, self.literals) else x
 
@@ -180,6 +252,8 @@ class MathParser:
             self.MATMUL: _polars_reduce_matmul,
             self.SUM: lambda x: _polars_summation(x),
             self.RANDOM_ACCESS: _polars_random_access,
+            self.EXTRACT: _polars_extract,
+            self.EXCLUDE: _polars_exclude,
             # Exponentiation and logarithms
             self.EXP: lambda x: _polars_reduce_unary(x, np.exp),
             self.LN: lambda x: _polars_reduce_unary(x, np.log),
@@ -487,6 +561,34 @@ class MathParser:
         def _pyomo_random_access(indexed, *indices):
             return indexed[*indices]
 
+        def _pyomo_extract(indexed, *raw_indices):
+            if not (hasattr(indexed, "index_set") and indexed.is_indexed()):
+                msg = "'Extract' requires an indexed Pyomo expression."
+                raise ParserError(msg)
+            all_indices = sorted(indexed.index_set())
+            n = len(all_indices)
+            positions = _collect_indices(raw_indices, n)
+            selected = [all_indices[p] for p in positions]
+            new_set = pyomo.RangeSet(1, len(selected))
+            idx_map = {i + 1: sel for i, sel in enumerate(selected)}
+            expr = pyomo.Expression(new_set, rule=lambda _, i: indexed[idx_map[i]])
+            expr.construct()
+            return expr
+
+        def _pyomo_exclude(indexed, *raw_indices):
+            if not (hasattr(indexed, "index_set") and indexed.is_indexed()):
+                msg = "'Exclude' requires an indexed Pyomo expression."
+                raise ParserError(msg)
+            all_indices = sorted(indexed.index_set())
+            n = len(all_indices)
+            excluded_pos = set(_collect_indices(raw_indices, n))
+            keep = [all_indices[p] for p in range(n) if p not in excluded_pos]
+            new_set = pyomo.RangeSet(1, len(keep))
+            idx_map = {i + 1: k for i, k in enumerate(keep)}
+            expr = pyomo.Expression(new_set, rule=lambda _, i: indexed[idx_map[i]])
+            expr.construct()
+            return expr
+
         pyomo_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
@@ -499,6 +601,8 @@ class MathParser:
             self.MATMUL: _pyomo_matrix_multiplication,
             self.SUM: _pyomo_summation,
             self.RANDOM_ACCESS: _pyomo_random_access,
+            self.EXTRACT: _pyomo_extract,
+            self.EXCLUDE: _pyomo_exclude,
             # Exponentiation and logarithms
             self.EXP: lambda x: _pyomo_unary(x, pyomo.exp),
             self.LN: lambda x: _pyomo_unary(x, pyomo.log),
@@ -565,6 +669,8 @@ class MathParser:
             self.MATMUL: _sympy_matmul,
             self.SUM: _sympy_summation,
             self.RANDOM_ACCESS: _sympy_random_access,
+            self.EXTRACT: _not_impl_extract,
+            self.EXCLUDE: _not_impl_exclude,
             # Exponentiation and logarithms
             self.EXP: lambda x: sp.exp(to_sympy_expr(x)),
             self.LN: lambda x: sp.log(to_sympy_expr(x)),
@@ -644,6 +750,8 @@ class MathParser:
             self.MATMUL: _gurobipy_matmul,
             self.SUM: _gurobipy_summation,
             self.RANDOM_ACCESS: _gurobipy_random_access,
+            self.EXTRACT: lambda arr, *idx: _extract_from_array(np.asarray(arr), *idx),
+            self.EXCLUDE: lambda arr, *idx: _exclude_from_array(np.asarray(arr), *idx),
             # Exponentiation and logarithms
             # it would be possible to implement some of these with the special functions that
             # gurobi has to offer, but they would only work under specific circumstances
@@ -692,9 +800,7 @@ class MathParser:
                     a = np.array(a)
                 if isinstance(b, list):
                     b = np.array(b)
-                if len(np.shape(a @ b)) == 1:
-                    return a @ b
-                return (a @ b).sum()
+                return a @ b
 
             return reduce(_matmul, args)
 
@@ -708,12 +814,22 @@ class MathParser:
 
             return _sum(summand)
 
-        def _cvxpy_random_access(*args):
-            msg = (
-                "Tensor random access with 'At' has not been implemented for the CVXPY parser yet. "
-                "Feel free to contribute!"
-            )
-            raise NotImplementedError(msg)
+        def _cvxpy_random_access(indexed, *indices):
+            zero_based = tuple(int(i) - 1 for i in indices)
+            if len(zero_based) == 1:
+                return indexed[zero_based[0]]
+            return indexed[zero_based]
+
+        def _cvxpy_extract(expr, *raw_indices):
+            n = expr.shape[0]
+            idx = _collect_indices(raw_indices, n)
+            return expr[idx]
+
+        def _cvxpy_exclude(expr, *raw_indices):
+            n = expr.shape[0]
+            excluded = set(_collect_indices(raw_indices, n))
+            keep = [i for i in range(n) if i not in excluded]
+            return expr[keep]
 
         cvxpy_env = {
             # Define the operations for the different operators.
@@ -727,6 +843,8 @@ class MathParser:
             self.MATMUL: _cvxpy_matmul,
             self.SUM: _cvxpy_summation,
             self.RANDOM_ACCESS: _cvxpy_random_access,
+            self.EXTRACT: _cvxpy_extract,
+            self.EXCLUDE: _cvxpy_exclude,
             # Exponentiation and logarithms
             # CVXPY supports some of these via special functions, but with restrictions
             self.EXP: lambda x: cp.exp(x),
@@ -812,6 +930,12 @@ class MathParser:
                 # just a literal
                 return pl.lit(expr[0])
 
+            # Extract/Exclude: index args must stay as raw Python values, not polars expressions.
+            if expr[0] in (self.EXTRACT, self.EXCLUDE):
+                collection = self.parse(expr[1])
+                raw_indices = [self._parse_raw_index(e) for e in expr[2:]]
+                return self.env[expr[0]](collection, *raw_indices)
+
             # Extract the operation name
             if isinstance(expr[0], str) and expr[0] in self.env:
                 op_name = expr[0]
@@ -868,6 +992,11 @@ class MathParser:
                 # just a literal
                 return pyomo.Expression(expr=expr[0])
 
+            if expr[0] in (self.EXTRACT, self.EXCLUDE):
+                collection = self._parse_to_pyomo(expr[1], model)
+                raw_indices = [self._parse_raw_index(e) for e in expr[2:]]
+                return self.env[expr[0]](collection, *raw_indices)
+
             # Extract the operation name
             if isinstance(expr[0], str) and expr[0] in self.env:
                 op_name = expr[0]
@@ -918,6 +1047,11 @@ class MathParser:
             if len(expr) == 1 and isinstance(expr[0], str | self.literals):
                 # Terminal case, single symbol expression or literal
                 return sp.sympify(expr[0], evaluate=False)
+
+            if expr[0] in (self.EXTRACT, self.EXCLUDE):
+                collection = self.parse(expr[1])
+                raw_indices = [self._parse_raw_index(e) for e in expr[2:]]
+                return self.env[expr[0]](collection, *raw_indices)
 
             # Extract the operation name
             if isinstance(expr[0], str) and expr[0] in self.env:
@@ -972,6 +1106,11 @@ class MathParser:
             return expr
 
         if isinstance(expr, list):
+            if expr[0] in (self.EXTRACT, self.EXCLUDE):
+                collection = self._parse_to_gurobipy(expr[1], callback)
+                raw_indices = [self._parse_raw_index(e) for e in expr[2:]]
+                return self.env[expr[0]](collection, *raw_indices)
+
             # Extract the operation name
             if isinstance(expr[0], str) and expr[0] in self.env:
                 op_name = expr[0]
@@ -1022,6 +1161,11 @@ class MathParser:
             return expr
 
         if isinstance(expr, list):
+            if expr[0] in (self.EXTRACT, self.EXCLUDE):
+                collection = self._parse_to_cvxpy(expr[1], callback)
+                raw_indices = [self._parse_raw_index(e) for e in expr[2:]]
+                return self.env[expr[0]](collection, *raw_indices)
+
             # Extract the operation name
             if isinstance(expr[0], str) and expr[0] in self.env:
                 op_name = expr[0]
@@ -1042,6 +1186,15 @@ class MathParser:
             return parsed[0] if len(parsed) == 1 else parsed
 
         msg = f"Encountered unsupported type '{type(expr)}' during parsing."
+        raise ParserError(msg)
+
+    def _parse_raw_index(self, expr) -> int | tuple[int, ...]:
+        """Convert a MathJSON index spec to a plain Python int or tuple (for Extract/Exclude)."""
+        if isinstance(expr, (int, float)):
+            return int(expr)
+        if isinstance(expr, list) and expr[0] == self.TUPLE:
+            return tuple(int(x) for x in expr[1:])
+        msg = f"Extract/Exclude index must be an integer or Tuple range, got: {expr!r}"
         raise ParserError(msg)
 
 
