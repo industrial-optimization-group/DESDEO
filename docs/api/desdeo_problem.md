@@ -2,11 +2,18 @@
 ::: desdeo.problem.testproblems
     options:
         heading_level: 3
+        show_root_heading: false
 
 ## Problem schema
 ::: desdeo.problem.schema
     options:
         heading_level: 3
+
+## Scenario
+::: desdeo.problem.scenario
+    options:
+        heading_level: 3
+        show_root_heading: false
 
 ## JSON parser
 ::: desdeo.problem.json_parser
@@ -28,6 +35,21 @@
     options:
         heading_level: 3
 
+## Sympy evaluator
+::: desdeo.problem.sympy_evaluator
+    options:
+        heading_level: 3
+
+## Gurobipy evaluator
+::: desdeo.problem.gurobipy_evaluator
+    options:
+        heading_level: 3
+
+## CVXPY evaluator
+::: desdeo.problem.cvxpy_evaluator
+    options:
+        heading_level: 3
+
 ## Simulator evaluator
 ::: desdeo.problem.simulator_evaluator
     options:
@@ -37,3 +59,4 @@
 ::: desdeo.problem.utils
     options:
         heading_level: 3
+        show_root_heading: false
