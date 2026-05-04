@@ -149,10 +149,11 @@ def summer_cabin_battery_problem(initial_soc: float = 0.0, n_panels_max: int = 5
     - y ∈ {0,1}: whether the battery is installed
     - E ∈ [0, 42] kWh: battery capacity (14-42 kWh if installed, 0 otherwise)
     - n ∈ {0,...,n_panels_max}: number of 160 W solar panels
-    - c_t, d_t ∈ [0, 10] kW: hourly charge/discharge rate
-    - soc_t ∈ [0, 42] kWh: state of charge
-    - buy_t ≥ 0: electricity purchased from the grid (kWh/h)
-    - sell_t ≥ 0: electricity sold to the grid (kWh/h)
+    - c_t ∈ [0, 10] kW: hourly charging power (vector of length T)
+    - d_t ∈ [0, 10] kW: hourly discharging power (vector of length T)
+    - soc_t ∈ [0, 42] kWh: state of charge (vector of length T)
+    - buy_t ≥ 0 kWh/h: electricity purchased from the grid (vector of length T)
+    - sell_t ≥ 0 kWh/h: electricity sold to the grid (vector of length T)
 
     Objectives:
     - f_1: total electricity cost (EUR) = Σ q_t·buy_t - Σ p_t·sell_t
@@ -285,7 +286,7 @@ def summer_cabin_battery_problem(initial_soc: float = 0.0, n_panels_max: int = 5
             is_convex=True,
             is_twice_differentiable=True,
         ),
-        # SOC dynamics: soc_t = soc_{t-1} + c_t - d_t
+        # SOC dynamics: soc_1 = initial_soc + c_1 - d_1
         Constraint(
             name="SOC dynamics t=1",
             symbol="soc_con_1",
@@ -295,58 +296,42 @@ def summer_cabin_battery_problem(initial_soc: float = 0.0, n_panels_max: int = 5
             is_convex=True,
             is_twice_differentiable=True,
         ),
-        *[
-            Constraint(
-                name=f"SOC dynamics t={t}",
-                symbol=f"soc_con_{t}",
-                func=[
-                    "Add",
-                    ["At", "soc", t],
-                    ["Negate", ["At", "soc", t - 1]],
-                    ["Negate", ["At", "c", t]],
-                    ["At", "d", t],
-                ],
-                cons_type=ConstraintTypeEnum.EQ,
-                is_linear=True,
-                is_convex=True,
-                is_twice_differentiable=True,
-            )
-            for t in range(2, T + 1)
-        ],
-        # soc_t <= E
-        *[
-            Constraint(
-                name=f"SOC capacity upper bound t={t}",
-                symbol=f"soc_cap_con_{t}",
-                func=["Add", ["At", "soc", t], ["Negate", "E"]],
-                cons_type=ConstraintTypeEnum.LTE,
-                is_linear=True,
-                is_convex=True,
-                is_twice_differentiable=True,
-            )
-            for t in range(1, T + 1)
-        ],
-        # Energy balance: buy_t - sell_t + d_t - c_t + n*sol_t = l_t
-        *[
-            Constraint(
-                name=f"Energy balance t={t}",
-                symbol=f"energy_bal_{t}",
-                func=[
-                    "Add",
-                    ["At", "buy", t],
-                    ["Negate", ["At", "sell", t]],
-                    ["At", "d", t],
-                    ["Negate", ["At", "c", t]],
-                    ["Multiply", "n", ["At", "sol", t]],
-                    ["Negate", ["At", "l", t]],
-                ],
-                cons_type=ConstraintTypeEnum.EQ,
-                is_linear=True,
-                is_convex=True,
-                is_twice_differentiable=True,
-            )
-            for t in range(1, T + 1)
-        ],
+        # SOC dynamics t=2..T as a single vector constraint
+        Constraint(
+            name="SOC dynamics t=2..T",
+            symbol="soc_con",
+            func=[
+                "Add",
+                ["Extract", "soc", ["Tuple", 2, T]],
+                ["Negate", ["Extract", "soc", ["Tuple", 1, T - 1]]],
+                ["Negate", ["Extract", "c", ["Tuple", 2, T]]],
+                ["Extract", "d", ["Tuple", 2, T]],
+            ],
+            cons_type=ConstraintTypeEnum.EQ,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+        ),
+        # soc <= E (vector)
+        Constraint(
+            name="SOC capacity upper bound",
+            symbol="soc_cap_con",
+            func=["Subtract", "soc", "E"],
+            cons_type=ConstraintTypeEnum.LTE,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+        ),
+        # Energy balance: buy - sell + d - c + n*sol = l (vector)
+        Constraint(
+            name="Energy balance",
+            symbol="energy_bal",
+            func=["Add", "buy", ["Negate", "sell"], "d", ["Negate", "c"], ["Multiply", "n", "sol"], ["Negate", "l"]],
+            cons_type=ConstraintTypeEnum.EQ,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+        ),
     ]
 
     return Problem(
@@ -445,13 +430,11 @@ def summer_cabin_battery_problem_split(initial_soc: float = 0.0, n_panels_max: i
 
     for k in range(1, N_SEG + 1):
         sl = slice((k - 1) * S, k * S)
-        sk = f"s{k}"
-
         seg_vars.append(
             [
                 TensorVariable(
                     name=f"Charging power segment {k} (kW)",
-                    symbol=f"c_{sk}",
+                    symbol=f"c_s{k}",
                     shape=[S],
                     variable_type=VariableTypeEnum.real,
                     lowerbounds=0.0,
@@ -460,7 +443,7 @@ def summer_cabin_battery_problem_split(initial_soc: float = 0.0, n_panels_max: i
                 ),
                 TensorVariable(
                     name=f"Discharging power segment {k} (kW)",
-                    symbol=f"d_{sk}",
+                    symbol=f"d_s{k}",
                     shape=[S],
                     variable_type=VariableTypeEnum.real,
                     lowerbounds=0.0,
@@ -469,7 +452,7 @@ def summer_cabin_battery_problem_split(initial_soc: float = 0.0, n_panels_max: i
                 ),
                 TensorVariable(
                     name=f"State of charge segment {k} (kWh)",
-                    symbol=f"soc_{sk}",
+                    symbol=f"soc_s{k}",
                     shape=[S],
                     variable_type=VariableTypeEnum.real,
                     lowerbounds=0.0,
@@ -478,7 +461,7 @@ def summer_cabin_battery_problem_split(initial_soc: float = 0.0, n_panels_max: i
                 ),
                 TensorVariable(
                     name=f"Grid purchased segment {k} (kWh/h)",
-                    symbol=f"buy_{sk}",
+                    symbol=f"buy_s{k}",
                     shape=[S],
                     variable_type=VariableTypeEnum.real,
                     lowerbounds=0.0,
@@ -487,7 +470,7 @@ def summer_cabin_battery_problem_split(initial_soc: float = 0.0, n_panels_max: i
                 ),
                 TensorVariable(
                     name=f"Grid sold segment {k} (kWh/h)",
-                    symbol=f"sell_{sk}",
+                    symbol=f"sell_s{k}",
                     shape=[S],
                     variable_type=VariableTypeEnum.real,
                     lowerbounds=0.0,
@@ -500,19 +483,19 @@ def summer_cabin_battery_problem_split(initial_soc: float = 0.0, n_panels_max: i
             [
                 TensorConstant(
                     name=f"Spot price segment {k} (EUR/kWh)",
-                    symbol=f"p_{sk}",
+                    symbol=f"p_s{k}",
                     shape=[S],
                     values=prices[sl].tolist(),
                 ),
                 TensorConstant(
                     name=f"Load segment {k} (kWh/h)",
-                    symbol=f"l_{sk}",
+                    symbol=f"l_s{k}",
                     shape=[S],
                     values=loads[sl].tolist(),
                 ),
                 TensorConstant(
                     name=f"Solar per panel segment {k} (kWh/h)",
-                    symbol=f"sol_{sk}",
+                    symbol=f"sol_s{k}",
                     shape=[S],
                     values=solar[sl].tolist(),
                 ),
@@ -542,14 +525,13 @@ def summer_cabin_battery_problem_split(initial_soc: float = 0.0, n_panels_max: i
     ]
 
     for k in range(1, N_SEG + 1):
-        sk = f"s{k}"
-        c_sym = f"c_{sk}"
-        d_sym = f"d_{sk}"
-        soc_sym = f"soc_{sk}"
-        buy_sym = f"buy_{sk}"
-        sell_sym = f"sell_{sk}"
-        sol_sym = f"sol_{sk}"
-        l_sym = f"l_{sk}"
+        c_sym = f"c_s{k}"
+        d_sym = f"d_s{k}"
+        soc_sym = f"soc_s{k}"
+        buy_sym = f"buy_s{k}"
+        sell_sym = f"sell_s{k}"
+        sol_sym = f"sol_s{k}"
+        l_sym = f"l_s{k}"
 
         # SOC at t=1: reference initial_soc for segment 1, or last element of previous segment
         prev_soc_term = -initial_soc if k == 1 else ["Negate", ["At", f"soc_s{k - 1}", S]]
@@ -557,7 +539,7 @@ def summer_cabin_battery_problem_split(initial_soc: float = 0.0, n_panels_max: i
         constraints.append(
             Constraint(
                 name=f"SOC dynamics segment {k} t=1",
-                symbol=f"soc_con_{sk}_1",
+                symbol=f"soc_con_s{k}_1",
                 func=["Add", ["At", soc_sym, 1], prev_soc_term, ["Negate", ["At", c_sym, 1]], ["At", d_sym, 1]],
                 cons_type=ConstraintTypeEnum.EQ,
                 is_linear=True,
@@ -566,67 +548,63 @@ def summer_cabin_battery_problem_split(initial_soc: float = 0.0, n_panels_max: i
             )
         )
 
-        constraints.extend(
+        constraints.append(
             Constraint(
-                name=f"SOC dynamics segment {k} t={t}",
-                symbol=f"soc_con_{sk}_{t}",
+                name=f"SOC dynamics segment {k} t=2..{S}",
+                symbol=f"soc_con_s{k}",
                 func=[
                     "Add",
-                    ["At", soc_sym, t],
-                    ["Negate", ["At", soc_sym, t - 1]],
-                    ["Negate", ["At", c_sym, t]],
-                    ["At", d_sym, t],
+                    ["Extract", soc_sym, ["Tuple", 2, S]],
+                    ["Negate", ["Extract", soc_sym, ["Tuple", 1, S - 1]]],
+                    ["Negate", ["Extract", c_sym, ["Tuple", 2, S]]],
+                    ["Extract", d_sym, ["Tuple", 2, S]],
                 ],
                 cons_type=ConstraintTypeEnum.EQ,
                 is_linear=True,
                 is_convex=True,
                 is_twice_differentiable=True,
             )
-            for t in range(2, S + 1)
         )
 
-        constraints.extend(
+        constraints.append(
             Constraint(
-                name=f"SOC capacity upper bound segment {k} t={t}",
-                symbol=f"soc_cap_con_{sk}_{t}",
-                func=["Add", ["At", soc_sym, t], ["Negate", "E"]],
+                name=f"SOC capacity upper bound segment {k}",
+                symbol=f"soc_cap_con_s{k}",
+                func=["Subtract", soc_sym, "E"],
                 cons_type=ConstraintTypeEnum.LTE,
                 is_linear=True,
                 is_convex=True,
                 is_twice_differentiable=True,
             )
-            for t in range(1, S + 1)
         )
 
-        constraints.extend(
+        constraints.append(
             Constraint(
-                name=f"Energy balance segment {k} t={t}",
-                symbol=f"energy_bal_{sk}_{t}",
+                name=f"Energy balance segment {k}",
+                symbol=f"energy_bal_s{k}",
                 func=[
                     "Add",
-                    ["At", buy_sym, t],
-                    ["Negate", ["At", sell_sym, t]],
-                    ["At", d_sym, t],
-                    ["Negate", ["At", c_sym, t]],
-                    ["Multiply", "n", ["At", sol_sym, t]],
-                    ["Negate", ["At", l_sym, t]],
+                    buy_sym,
+                    ["Negate", sell_sym],
+                    d_sym,
+                    ["Negate", c_sym],
+                    ["Multiply", "n", sol_sym],
+                    ["Negate", l_sym],
                 ],
                 cons_type=ConstraintTypeEnum.EQ,
                 is_linear=True,
                 is_convex=True,
                 is_twice_differentiable=True,
             )
-            for t in range(1, S + 1)
         )
 
     # f_1 = sum over all segments of (p_sk · buy_sk + 0.05*sum(buy_sk) - p_sk · sell_sk)
     f1_terms = []
     for k in range(1, N_SEG + 1):
-        sk = f"s{k}"
         f1_terms += [
-            ["MatMul", f"p_{sk}", f"buy_{sk}"],
-            ["Multiply", 0.05, ["Sum", f"buy_{sk}"]],
-            ["Negate", ["MatMul", f"p_{sk}", f"sell_{sk}"]],
+            ["MatMul", f"p_s{k}", f"buy_s{k}"],
+            ["Multiply", 0.05, ["Sum", f"buy_s{k}"]],
+            ["Negate", ["MatMul", f"p_s{k}", f"sell_s{k}"]],
         ]
 
     all_variables = [installed, capacity, n_panels]
@@ -716,36 +694,36 @@ def summer_cabin_battery_problem_split_scenario(
     var_idx: dict[str, int] = {}
 
     for k in (2, 3):
-        for t in range(1, H + 1):
-            v = Variable(
-                name=f"Unmet demand s{k} t={t} (kWh)",
-                symbol=f"unmet_s{k}_{t}",
-                variable_type=VariableTypeEnum.real,
-                lowerbound=0.0,
-                upperbound=None,
-                initial_value=0.0,
-            )
-            var_idx[v.symbol] = len(var_pool)
-            var_pool.append(v)
+        v = TensorVariable(
+            name=f"Unmet demand s{k} (kWh)",
+            symbol=f"unmet_s{k}",
+            shape=[H],
+            variable_type=VariableTypeEnum.real,
+            lowerbounds=0.0,
+            upperbounds=None,
+            initial_values=0.0,
+        )
+        var_idx[v.symbol] = len(var_pool)
+        var_pool.append(v)
     for k in (2, 3):
-        for t in range(1, H + 1):
-            v = Variable(
-                name=f"Demand unserved indicator s{k} t={t}",
-                symbol=f"z_s{k}_{t}",
-                variable_type=VariableTypeEnum.binary,
-                lowerbound=0,
-                upperbound=1,
-                initial_value=0,
-            )
-            var_idx[v.symbol] = len(var_pool)
-            var_pool.append(v)
+        v = TensorVariable(
+            name=f"Demand unserved indicator s{k}",
+            symbol=f"z_s{k}",
+            shape=[H],
+            variable_type=VariableTypeEnum.binary,
+            lowerbounds=0,
+            upperbounds=1,
+            initial_values=0,
+        )
+        var_idx[v.symbol] = len(var_pool)
+        var_pool.append(v)
 
     def _f3(segments: tuple[int, ...]) -> Objective:
-        z_syms = [f"z_s{k}_{t}" for k in segments for t in range(1, H + 1)]
+        z_terms = [["Sum", f"z_s{k}"] for k in segments]
         return Objective(
             name="Hours with unserved electricity demand",
             symbol="f_3",
-            func=["Add", *z_syms],
+            func=z_terms[0] if len(z_terms) == 1 else ["Add", *z_terms],
             unit="h",
             maximize=False,
             is_linear=True,
@@ -776,80 +754,94 @@ def summer_cabin_battery_problem_split_scenario(
     con_idx: dict[str, int] = {}
 
     for k in (2, 3):
-        for t in range(1, H + 1):
-            c = Constraint(
-                name=f"Energy balance s{k} t={t} (with unmet slack)",
-                symbol=f"energy_bal_s{k}_{t}",
-                func=[
-                    "Add",
-                    ["At", f"buy_s{k}", t],
-                    ["Negate", ["At", f"sell_s{k}", t]],
-                    ["At", f"d_s{k}", t],
-                    ["Negate", ["At", f"c_s{k}", t]],
-                    ["Multiply", "n", ["At", f"sol_s{k}", t]],
-                    f"unmet_s{k}_{t}",
-                    ["Negate", ["At", f"l_s{k}", t]],
-                ],
-                cons_type=ConstraintTypeEnum.EQ,
-                is_linear=True,
-                is_convex=True,
-                is_twice_differentiable=True,
-            )
-            con_idx[c.symbol] = len(con_pool)
-            con_pool.append(c)
+        c = Constraint(
+            name=f"Energy balance s{k} t={H}+1.. (no unmet slack)",
+            symbol=f"energy_bal_s{k}",
+            func=[
+                "Add",
+                ["Exclude", f"buy_s{k}", ["Tuple", 1, H]],
+                ["Negate", ["Exclude", f"sell_s{k}", ["Tuple", 1, H]]],
+                ["Exclude", f"d_s{k}", ["Tuple", 1, H]],
+                ["Negate", ["Exclude", f"c_s{k}", ["Tuple", 1, H]]],
+                ["Multiply", "n", ["Exclude", f"sol_s{k}", ["Tuple", 1, H]]],
+                ["Negate", ["Exclude", f"l_s{k}", ["Tuple", 1, H]]],
+            ],
+            cons_type=ConstraintTypeEnum.EQ,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+        )
+        con_idx[c.symbol] = len(con_pool)
+        con_pool.append(c)
+
+        c = Constraint(
+            name=f"Energy balance s{k} t=1..{H} (with unmet slack)",
+            symbol=f"energy_bal_out_s{k}",
+            func=[
+                "Add",
+                ["Extract", f"d_s{k}", ["Tuple", 1, H]],
+                ["Negate", ["Extract", f"c_s{k}", ["Tuple", 1, H]]],
+                ["Multiply", "n", ["Extract", f"sol_s{k}", ["Tuple", 1, H]]],
+                f"unmet_s{k}",
+                ["Negate", ["Extract", f"l_s{k}", ["Tuple", 1, H]]],
+            ],
+            cons_type=ConstraintTypeEnum.EQ,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+        )
+        con_idx[c.symbol] = len(con_pool)
+        con_pool.append(c)
 
     for k in (2, 3):
-        for t in range(1, H + 1):
-            c = Constraint(
-                name=f"Big-M unmet indicator s{k} t={t}",
-                symbol=f"bigm_s{k}_{t}",
-                func=["Add", f"unmet_s{k}_{t}", ["Negate", ["Multiply", _M_UNMET, f"z_s{k}_{t}"]]],
-                cons_type=ConstraintTypeEnum.LTE,
-                is_linear=True,
-                is_convex=True,
-                is_twice_differentiable=True,
-            )
-            con_idx[c.symbol] = len(con_pool)
-            con_pool.append(c)
+        c = Constraint(
+            name=f"Big-M unmet indicator s{k} t=1..{H}",
+            symbol=f"bigm_s{k}",
+            func=["Subtract", f"unmet_s{k}", ["Multiply", _M_UNMET, f"z_s{k}"]],
+            cons_type=ConstraintTypeEnum.LTE,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+        )
+        con_idx[c.symbol] = len(con_pool)
+        con_pool.append(c)
 
     for k in (2, 3):
-        for t in range(1, H + 1):
-            c = Constraint(
-                name=f"Outage no-trade s{k} t={t}",
-                symbol=f"outage_trade_s{k}_{t}",
-                func=["Add", ["At", f"buy_s{k}", t], ["At", f"sell_s{k}", t]],
-                cons_type=ConstraintTypeEnum.EQ,
-                is_linear=True,
-                is_convex=True,
-                is_twice_differentiable=True,
-            )
-            con_idx[c.symbol] = len(con_pool)
-            con_pool.append(c)
+        c = Constraint(
+            name=f"Outage no-trade s{k} t=1..{H}",
+            symbol=f"outage_trade_s{k}",
+            func=["Add", ["Extract", f"buy_s{k}", ["Tuple", 1, H]], ["Extract", f"sell_s{k}", ["Tuple", 1, H]]],
+            cons_type=ConstraintTypeEnum.EQ,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+        )
+        con_idx[c.symbol] = len(con_pool)
+        con_pool.append(c)
 
     _outage_segs: dict[str, tuple[int, ...]] = {"S1a": (), "S2a": (2,), "S1b": (3,), "S2b": (2, 3)}
 
-    def _scenario(name: str) -> Scenario:
-        segs = _outage_segs[name]
-        return Scenario(
-            variables={
-                sym: var_idx[sym]
-                for k in segs
-                for t in range(1, H + 1)
-                for sym in [f"unmet_s{k}_{t}", f"z_s{k}_{t}"]
-            },
+    scenarios: dict[str, Scenario] = {}
+    for name, segs in _outage_segs.items():
+        variables: dict[str, int] = {}
+        constraints: dict[str, int] = {}
+        for k in segs:
+            variables[f"unmet_s{k}"] = var_idx[f"unmet_s{k}"]
+            variables[f"z_s{k}"] = var_idx[f"z_s{k}"]
+            constraints[f"energy_bal_s{k}"] = con_idx[f"energy_bal_s{k}"]
+            constraints[f"energy_bal_out_s{k}"] = con_idx[f"energy_bal_out_s{k}"]
+            constraints[f"bigm_s{k}"] = con_idx[f"bigm_s{k}"]
+            constraints[f"outage_trade_s{k}"] = con_idx[f"outage_trade_s{k}"]
+        scenarios[name] = Scenario(
+            variables=variables,
             objectives={"f_3": obj_idx[name]},
-            constraints={
-                sym: con_idx[sym]
-                for k in segs
-                for t in range(1, H + 1)
-                for sym in [f"energy_bal_s{k}_{t}", f"bigm_s{k}_{t}", f"outage_trade_s{k}_{t}"]
-            },
+            constraints=constraints,
         )
 
+    investments = ["y", "E", "n"]
     s1_sched = ["c_s1", "d_s1", "soc_s1", "buy_s1", "sell_s1"]
     s2_sched = ["c_s2", "d_s2", "soc_s2", "buy_s2", "sell_s2"]
-    s2_unmet = [f"unmet_s2_{t}" for t in range(1, H + 1)]
-    s2_z = [f"z_s2_{t}" for t in range(1, H + 1)]
+    s2_unmet = ["unmet_s2", "z_s2"]
 
     return ScenarioModel(
         scenario_tree={
@@ -869,15 +861,10 @@ def summer_cabin_battery_problem_split_scenario(
         variables=tuple(var_pool),
         objectives=tuple(obj_pool),
         constraints=tuple(con_pool),
-        scenarios={
-            "S1a": _scenario("S1a"),
-            "S2a": _scenario("S2a"),
-            "S1b": _scenario("S1b"),
-            "S2b": _scenario("S2b"),
-        },
+        scenarios=scenarios,
         anticipation_stop={
-            "ROOT": ["y", "E", "n", *s1_sched],
+            "ROOT": [*investments, *s1_sched],
             "S1": s2_sched,
-            "S2": [*s2_sched, *s2_unmet, *s2_z],
+            "S2": [*s2_sched, *s2_unmet],
         },
     )
