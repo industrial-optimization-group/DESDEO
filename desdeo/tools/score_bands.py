@@ -519,8 +519,17 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
     if result.options.scales is None:
         raise ValueError("Scales must be provided in the SCOREBandsResult to plot the figure.")
 
-    scaled_data = data.select((pl.all() - pl.all().min()) / (pl.all().max() - pl.all().min()))
-
+    # Original scaling (not used in final version, but keeping for reference)
+    # scaled_data = data.select((pl.all() - pl.all().min()) / (pl.all().max() - pl.all().min()))
+    # Scaling with respect to the provided scales, which may not aling with the actual min and max in the data
+    # (e.g. if user wants to use fixed scales across multiple visualizations)
+    scaled_data = data.with_columns(
+        [
+            (pl.col(col) - result.options.scales[col][0])
+            / (result.options.scales[col][1] - result.options.scales[col][0])
+            for col in column_names
+        ]
+    )
     fig = go.Figure()
     fig.update_xaxes(showticklabels=False, showgrid=False, zeroline=False)
     fig.update_yaxes(showticklabels=False, showgrid=False, zeroline=False)
