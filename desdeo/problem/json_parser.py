@@ -106,27 +106,32 @@ class MathParser:
 
         self.literals = int | float
 
-        def _range_indices(spec: tuple, n: int) -> list[int]:
-            """Convert a 1-based Tuple range spec to a list of 0-based indices."""
-            start_1, stop_1 = int(spec[0]), int(spec[1])
-            step = int(spec[2]) if len(spec) >= 3 else None  # noqa: PLR2004
-            start_0 = (start_1 - 1) if start_1 > 0 else (n + start_1)
-            stop_0 = (stop_1 - 1) if stop_1 > 0 else (n + stop_1)
-            if step is None:
-                step = 1 if stop_0 >= start_0 else -1
-            if step > 0:
-                return [i for i in range(start_0, stop_0 + 1, step) if 0 <= i < n]
-            return [i for i in range(start_0, stop_0 - 1, step) if 0 <= i < n]
-
         def _collect_indices(raw_indices: tuple, n: int) -> list[int]:
-            """Collect 0-based indices from a sequence of raw Extract/Exclude specs."""
+            """Collect 0-based indices from a sequence of raw Extract/Exclude specs.
+
+            Args:
+                raw_indices: the index arguments passed to Extract or Exclude.
+                    Each element is either a plain number (single 1-based index)
+                    or a tuple ``(start, stop[, step])``.  Positive values count
+                    from the front; negative values count from the back (e.g.
+                    ``-1`` is the last element).
+                n: total length of the array being indexed.  Required to
+                    resolve negative indices and to clamp out-of-range values.
+            """
+            def _to_zero(i1: int) -> int:
+                # Convert a 1-based (positive) or end-relative (negative) index to 0-based.
+                return (i1 - 1) if i1 > 0 else (n + i1)
+
             indices = []
             for spec in raw_indices:
                 if isinstance(spec, tuple):
-                    indices.extend(_range_indices(spec, n))
+                    start = _to_zero(int(spec[0]))
+                    stop = _to_zero(int(spec[1]))
+                    step = int(spec[2]) if len(spec) >= 3 else (1 if stop >= start else -1)  # noqa: PLR2004
+                    rng = range(start, stop + 1, step) if step > 0 else range(start, stop - 1, step)
+                    indices.extend(i for i in rng if 0 <= i < n)
                 else:
-                    idx = int(spec)
-                    zero = (idx - 1) if idx > 0 else (n + idx)
+                    zero = _to_zero(int(spec))
                     if 0 <= zero < n:
                         indices.append(zero)
             return indices
