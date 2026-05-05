@@ -47,7 +47,7 @@ __all__ = [
     "add_group_stom_diff",
     "add_guess_sf_diff",
     "add_guess_sf_nondiff",
-    "add_min_max_robust",
+    "add_worst_case_robust",
     "add_nimbus_sf_diff",
     "add_nimbus_sf_nondiff",
     "add_objective_as_scalarization",
@@ -110,7 +110,7 @@ from desdeo.tools.pyomo_solver_interfaces import (
     PyomoGurobiSolver,
     PyomoIpoptSolver,
 )
-from desdeo.tools.robust import add_min_max_robust, add_weighted_scenarios
+from desdeo.tools.robust import add_weighted_scenarios, add_worst_case_robust
 from desdeo.tools.scalarization import (
     ScalarizationError,
     add_asf_diff,

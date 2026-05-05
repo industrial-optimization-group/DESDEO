@@ -4,7 +4,7 @@ import pytest
 
 from desdeo.problem.schema import ConstraintTypeEnum, Problem
 from desdeo.problem.testproblems import simple_scenario_model
-from desdeo.tools.robust import add_min_max_robust, add_weighted_scenarios
+from desdeo.tools.robust import add_worst_case_robust, add_weighted_scenarios
 from desdeo.tools.scenarios import build_combined_scenario_problem, build_scenario_problem
 from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_asf
 
@@ -559,21 +559,21 @@ def test_cvar_custom_prefixes(model):
 
 
 # ---------------------------------------------------------------------------
-# add_min_max_robust — schema tests
+# add_worst_case_robust — schema tests
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture(name="robust_result")
 def robust_result_fixture(model):
-    """Return (problem, added_symbols) from add_min_max_robust on f_1, f_2, f_3."""
+    """Return (problem, added_symbols) from add_worst_case_robust on f_1, f_2, f_3."""
     combined, symbol_maps = build_combined_scenario_problem(model)
-    return add_min_max_robust(model, ["f_1", "f_2", "f_3"], combined=combined, symbol_maps=symbol_maps)
+    return add_worst_case_robust(model, ["f_1", "f_2", "f_3"], combined=combined, symbol_maps=symbol_maps)
 
 
 @pytest.mark.schema
 @pytest.mark.scenario
 def test_robust_returns_problem_and_dict(robust_result):
-    """add_min_max_robust returns a Problem and a symbol mapping dict."""
+    """add_worst_case_robust returns a Problem and a symbol mapping dict."""
     problem, added = robust_result
     assert isinstance(problem, Problem)
     assert isinstance(added, dict)
@@ -675,7 +675,7 @@ def test_robust_element_is_linear(robust_result):
 def test_robust_custom_prefix(model):
     """The prefix argument is respected."""
     combined, symbol_maps = build_combined_scenario_problem(model)
-    problem, added = add_min_max_robust(model, ["f_1"], prefix="wc_", combined=combined, symbol_maps=symbol_maps)
+    problem, added = add_worst_case_robust(model, ["f_1"], prefix="wc_", combined=combined, symbol_maps=symbol_maps)
     assert added["f_1"] == "wc_f_1"
     assert any(o.symbol == "wc_f_1" for o in problem.objectives or [])
 

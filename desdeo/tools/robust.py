@@ -18,23 +18,27 @@ if TYPE_CHECKING:
     from desdeo.problem.schema import Problem
 
 
-def add_min_max_robust(
+def add_worst_case_robust(
     scenario_model: "ScenarioModel",
     symbols: list[str],
     prefix: str = "robust_",
     combined: "Problem | None" = None,
     symbol_maps: "dict[str, dict[str, dict[str, str]]] | None" = None,
 ) -> "tuple[Problem, dict[str, str]]":
-    """Add min-max robust aggregations for selected symbols to the combined scenario problem.
+    """Add worst-case robust aggregations for selected symbols to the combined scenario problem.
 
-    Uses the standard epigraph reformulation: introduces an auxiliary variable ``t`` and
-    per-leaf upper-bound constraints ``f_s - t <= 0``, then exposes ``t`` as the robust
-    element to minimize. This is equivalent to minimizing ``max_s f_s`` but avoids
-    non-smooth ``Max`` expressions that most solvers cannot handle.
+    Uses the standard epigraph reformulation with an auxiliary variable ``t`` and
+    per-leaf bound constraints, avoiding non-smooth ``Max``/``Min`` expressions that
+    most solvers cannot handle.
 
-    For objectives the per-leaf ``_min`` expressions (negated for maximization objectives)
-    are used in the constraints. Scalarization functions are always minimization, so their
-    per-leaf expressions are inlined directly.
+    The worst-case direction matches the original optimisation direction:
+
+    * **Minimise** objectives / scalarization functions / extra functions — worst case
+      is the largest value across scenarios.  Adds constraints ``f_s - t <= 0`` and
+      exposes ``t`` as a new **minimise** element (equivalent to ``min max_s f_s``).
+    * **Maximise** objectives — worst case is the smallest value across scenarios.
+      Adds constraints ``t - f_s <= 0`` and exposes ``t`` as a new **maximise** element
+      (equivalent to ``max min_s f_s``).
 
     The new element type matches the original: objectives stay objectives, scalarization
     functions stay scalarization functions, and everything else becomes an extra function.
@@ -101,10 +105,14 @@ def add_min_max_robust(
         t_sym = f"_t_{robust_sym}"
         added_symbols[sym] = robust_sym
 
-        # Epigraph variable t: minimizing t subject to f_s <= t gives min max_s f_s.
+        is_maximize = found_type == "objectives" and ref_elem is not None and ref_elem.maximize
+
+        # Epigraph variable t.
+        # Minimise objective: t >= f_s for all s  →  t = max_s f_s  →  minimise t.
+        # Maximise objective: t <= f_s for all s  →  t = min_s f_s  →  maximise t.
         new_variables.append(
             Variable(
-                name=f"Min-max robust epigraph variable for {sym}",
+                name=f"Worst-case robust epigraph variable for {sym}",
                 symbol=t_sym,
                 variable_type=VariableTypeEnum.real,
                 lowerbound=-float("Inf"),
@@ -113,17 +121,13 @@ def add_min_max_robust(
             )
         )
 
-        # Per-leaf upper-bound constraints: f_s <= t  ->  f_s - t <= 0
-        # For objectives, use _min versions (already negated for maximization objectives).
         for leaf, leaf_sym in per_leaf.items():
-            if found_type == "objectives":
-                con_func = ["Add", f"{leaf_sym}_min", ["Negate", t_sym]]
-            else:
-                con_func = ["Add", leaf_sym, ["Negate", t_sym]]
+            # Maximise: t - f_s <= 0  →  t <= f_s.  Minimise: f_s - t <= 0  →  f_s <= t.
+            con_func = ["Add", t_sym, ["Negate", leaf_sym]] if is_maximize else ["Add", leaf_sym, ["Negate", t_sym]]
 
             new_constraints.append(
                 Constraint(
-                    name=f"Min-max robust upper bound for {sym} in {leaf}",
+                    name=f"Worst-case robust bound for {sym} in {leaf}",
                     symbol=f"{leaf}_{robust_sym}_con",
                     func=con_func,
                     cons_type=ConstraintTypeEnum.LTE,
@@ -136,10 +140,10 @@ def add_min_max_robust(
         if found_type == "objectives":
             new_objectives.append(
                 Objective(
-                    name=f"Min-max robust value of {sym}",
+                    name=f"Worst-case robust value of {sym}",
                     symbol=robust_sym,
                     func=t_sym,
-                    maximize=False,
+                    maximize=is_maximize,
                     is_linear=True,
                     is_convex=True,
                     is_twice_differentiable=True,

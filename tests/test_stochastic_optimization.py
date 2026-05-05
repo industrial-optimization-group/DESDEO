@@ -6,7 +6,7 @@ import pytest
 
 from desdeo.problem.testproblems import simple_scenario_model
 from desdeo.tools import guess_best_solver
-from desdeo.tools.robust import add_min_max_robust
+from desdeo.tools.robust import add_worst_case_robust
 from desdeo.tools.scalarization import add_asf_diff
 from desdeo.tools.scenarios import build_combined_scenario_problem
 from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_asf
@@ -150,7 +150,7 @@ def test_cvar_asf_auxiliary_variables_nonnegative(cvar_solve_result):
 
 
 # ---------------------------------------------------------------------------
-# add_min_max_robust — solving tests
+# add_worst_case_robust — solving tests
 # ---------------------------------------------------------------------------
 
 
@@ -160,7 +160,7 @@ def robust_asf_problem_fixture(model):
     asf_base, scal = add_asf_diff(model.base_problem, "asf", _REF, ideal=_IDEAL, nadir=_NADIR)
     asf_model = model.with_base_problem(problem=asf_base)
     combined, symbol_maps = build_combined_scenario_problem(asf_model)
-    return add_min_max_robust(asf_model, [scal], combined=combined, symbol_maps=symbol_maps)
+    return add_worst_case_robust(asf_model, [scal], combined=combined, symbol_maps=symbol_maps)
 
 
 @pytest.fixture(name="robust_solve_result")
