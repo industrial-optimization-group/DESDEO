@@ -2,6 +2,7 @@
 
 import math
 from functools import cached_property
+from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -224,8 +225,8 @@ class ScenarioModel(BaseModel):
         return self.model_copy(update={"base_problem": new_base})
 
     @cached_property
-    def leaf_scenarios(self) -> dict[str, float]:
-        """Return a dict mapping each leaf scenario name to its probability.
+    def leaf_scenarios(self) -> MappingProxyType[str, float]:
+        """Return a read-only mapping from each leaf scenario name to its probability.
 
         Leaf scenarios are nodes in the scenario tree with no children that also
         appear in the scenarios dict.  If scenario_probabilities is empty, equal
@@ -235,9 +236,9 @@ class ScenarioModel(BaseModel):
             n for n, children in self.scenario_tree.items() if n != "ROOT" and not children and n in self.scenarios
         ]
         if self.scenario_probabilities:
-            return {leaf: self.scenario_probabilities[leaf] for leaf in leaves}
+            return MappingProxyType({leaf: self.scenario_probabilities[leaf] for leaf in leaves})
         equal = 1.0 / len(leaves) if leaves else 0.0
-        return dict.fromkeys(leaves, equal)
+        return MappingProxyType(dict.fromkeys(leaves, equal))
 
     def get_scenario_problem(self, scenario_name: str) -> "Problem":
         """Return a modified copy of base_problem with the elements defined in the named scenario applied."""
