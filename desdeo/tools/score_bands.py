@@ -128,6 +128,11 @@ class SCOREBandsConfig(BaseModel):
             - An hsv/hsva string (e.g. 'hsv(0,100%,100%)')
             - A named CSS color: see https://plotly.com/python/css-colors/ for a list
     """
+    highlight_cluster: int | None = Field(default=None)
+    """Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.
+        If a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a
+        pattern fill in the band.
+    """
     clustering_algorithm: ClusteringOptions = Field(
         default=DBSCANOptions(),
     )
@@ -173,6 +178,9 @@ class SCOREBandsResult(BaseModel):
     cluster_names: dict[int, str] | None = Field(default=None)
     """Optional dictionary mapping cluster IDs to descriptive names for display in the visualization.
         If None, the cluster IDs themselves are used as names. Defaults to None."""
+    cluster_hover_info: dict[int, str] | None = Field(default=None)
+    """Optional dictionary mapping cluster IDs to hover information for display in the visualization.
+        If None, no additional hover information is displayed. Defaults to None."""
     axis_positions: dict[str, float]
     """Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
         objective is at position 0.0, and the last objective is at position 1.0."""
@@ -511,10 +519,7 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
     if result.options.scales is None:
         raise ValueError("Scales must be provided in the SCOREBandsResult to plot the figure.")
 
-    scale_min = pl.DataFrame({name: result.options.scales[name][0] for name in result.options.scales})
-    scale_max = pl.DataFrame({name: result.options.scales[name][1] for name in result.options.scales})
-
-    scaled_data = (data[column_names] - scale_min) / (scale_max - scale_min)
+    scaled_data = data.select((pl.all() - pl.all().min()) / (pl.all().max() - pl.all().min()))
 
     fig = go.Figure()
     fig.update_xaxes(showticklabels=False, showgrid=False, zeroline=False)
@@ -522,6 +527,7 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
     fig.update_layout(plot_bgcolor="rgba(0,0,0,0)")
 
     cluster_column_name = "cluster"
+    # Avoid overwriting existing column just in case data has a 'cluster' column
     if cluster_column_name in scaled_data.columns:
         cluster_column_name = "cluster_id"
     scaled_data = scaled_data.with_columns(pl.Series(cluster_column_name, result.clusters))
@@ -553,6 +559,7 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
             mode="markers+lines+text",
             line={"color": current_axis_colour},
             showlegend=False,
+            hoverinfo="skip",
         )
         # Column Name
         fig.add_scatter(
@@ -576,7 +583,16 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
     for cluster_id in sorted(result.bands.keys()):
         r, g, b, a = colorscale(cluster_id - 1)  # Needed as cluster numbering starts at 1
         a = 0.6
+        highlight = None
+        if result.options.highlight_cluster is not None and cluster_id == result.options.highlight_cluster:
+            highlight = {"shape": "x"}
+        hovertext = (
+            result.cluster_hover_info.get(cluster_id, f"Cluster {cluster_id}")
+            if result.cluster_hover_info is not None
+            else f"Cluster {cluster_id}"
+        )
         color_bands = f"rgba({r}, {g}, {b}, {a})"
+        color_solutions = f"rgba({r}, {g}, {b}, 0.3)"
         # color_soln = f"rgba({r}, {g}, {b}, {a})"
 
         lows = [
@@ -602,14 +618,13 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
             x=[result.axis_positions[col_name] for col_name in column_names],
             y=lows,
             line={"color": color_bands},
-            name=f"{int(100 * result.options.interval_size)}% band: {current_cluster_name}; "
-            f"{result.cardinalities[cluster_id]} Solutions        ",
+            name=f"{int(100 * result.options.interval_size)}% band: {current_cluster_name}",
             mode="lines",
             legendgroup=f"{int(100 * result.options.interval_size)}% band: {current_cluster_name}",
             showlegend=True,
             line_shape="spline",
-            hovertext=f"{current_cluster_name}",
-            hoverinfo="skip",
+            hovertext=hovertext,
+            hoverinfo="text",
         )
         # upper bound of the band
         fig.add_scatter(
@@ -619,12 +634,13 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
             name=f"{current_cluster_name}",
             fillcolor=color_bands,
             mode="lines",
+            fillpattern=go.scatter.Fillpattern(highlight),
             legendgroup=f"{int(100 * result.options.interval_size)}% band: {current_cluster_name}",
             showlegend=False,
             line_shape="spline",
             fill="tonexty",
-            hovertext=f"{current_cluster_name}",
-            hoveron="fills",
+            hovertext=hovertext,
+            hoverinfo="text",
         )
 
         if result.options.include_medians:
@@ -637,6 +653,54 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
                 mode="lines+markers",
                 marker={"line": {"color": "Black", "width": 2}},
                 legendgroup=f"Median: {current_cluster_name}",
+                showlegend=True,
+            )
+        # Drawing each solution as a single trace (like how it was done in the past) can make the figure very heavy
+        # and make interactions (showing/hiding traces) very laggy.
+        # Thus here, we draw all solutions in a cluster as a single trace. Basically we make a huge zig-zag trace for
+        # each cluster. E.g. imagine two solutions with obj vals (1, 2, 3) and (4, 5, 6) on three objectives. These
+        # become the y values in the parallel coordinates plot in this order (1, 2, 3, 6, 5, 4). Subsets of these points
+        # which belong to the same solution are given the same hovertext
+        if result.options.include_solutions:
+            cluster_solutions = scaled_data.filter(pl.col(cluster_column_name) == cluster_id).select(column_names)
+
+            x = []
+            y = []
+            ax_pos = [result.axis_positions[col_name] for col_name in column_names]
+            hovertexts = []
+            rev_ax_pos = ax_pos[::-1]
+            for i, row in enumerate(cluster_solutions.iter_rows()):
+                if i % 2 == 0:
+                    x = x + ax_pos
+                    y = y + list(row)
+                else:
+                    x = x + rev_ax_pos
+                    y = y + list(row)[::-1]
+                # Scale values back to original scale for hovertext
+                hovertext = [
+                    (
+                        f"<b>{col}</b>: "
+                        f"{
+                            (
+                                val * (result.options.scales[col][1] - result.options.scales[col][0])
+                                + result.options.scales[col][0]
+                            ):.2f} <br>"
+                    )
+                    for col, val in zip(column_names, row, strict=True)
+                ]
+                hovertext = "".join(hovertext)
+                hovertext = [hovertext] * len(column_names)
+                hovertexts = hovertexts + hovertext
+            fig.add_scatter(
+                x=x,
+                y=y,
+                line={"color": color_solutions},
+                name=f"{result.cardinalities[cluster_id]} Solutions: {current_cluster_name}",
+                mode="lines",
+                legendgroup=f"{result.cardinalities[cluster_id]} Solutions: {current_cluster_name}",
+                hovertext=hovertexts,
+                hoverinfo="text",
+                hoveron="points+fills",
                 showlegend=True,
             )
     fig.update_layout(font_size=18)
