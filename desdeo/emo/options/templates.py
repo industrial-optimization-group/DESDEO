@@ -326,6 +326,8 @@ class ConstructorExtras:
     """The publisher associated with the current solver."""
     archive: NonDominatedArchive | None
     """The archive associated with the current solver, if any."""
+    learning_operator: LearningModeOperator | None = None
+    """The XLEMOO learning-mode operator, if the template is XLEMOO. ``None`` otherwise."""
 
 
 def emo_constructor(
@@ -465,7 +467,12 @@ def emo_constructor(
             seed=template.seed,
         )
         components["learning_operator"] = learning_operator
-        constructor_extras = ConstructorExtras(problem=problem_, publisher=publisher, archive=archive)
+        constructor_extras = ConstructorExtras(
+            problem=problem_,
+            publisher=publisher,
+            archive=archive,
+            learning_operator=learning_operator,
+        )
         return (
             partial(
                 template_xlemoo,

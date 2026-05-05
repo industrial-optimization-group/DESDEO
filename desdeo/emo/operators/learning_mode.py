@@ -72,6 +72,7 @@ class LearningModeOperator:
         self.l_split = l_split
         self.instantiation_factor = instantiation_factor
         self.seed = seed
+        self.rng = np.random.default_rng(seed)
 
         self.variable_symbols: list[str] = [v.symbol for v in problem.get_flattened_variables()]
         self.variable_bounds: list[tuple[float, float]] = [
@@ -141,6 +142,7 @@ class LearningModeOperator:
             variable_symbols=self.variable_symbols,
             variable_bounds=self.variable_bounds,
             n_samples=n_to_instantiate,
+            rng=self.rng,
         )
 
         instantiated_df = pl.DataFrame(instantiated, schema=self.variable_symbols)

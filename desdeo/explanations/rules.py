@@ -39,6 +39,7 @@ def instantiate_from_rules(
     variable_symbols: list[str],
     variable_bounds: list[tuple[float, float]],
     n_samples: int,
+    rng: np.random.Generator | None = None,
 ) -> np.ndarray:
     """Sample decision vectors that satisfy the bounds defined by a single rule.
 
@@ -57,11 +58,16 @@ def instantiate_from_rules(
         variable_bounds (list[tuple[float, float]]): ``(lower, upper)`` for each
             variable, in the same order as ``variable_symbols``.
         n_samples (int): How many decision vectors to generate.
+        rng (np.random.Generator | None, optional): Random generator used for
+            sampling. If ``None``, a fresh OS-seeded generator is created on
+            every call (non-deterministic). Pass an explicit generator for
+            reproducibility.
 
     Returns:
         np.ndarray: A 2D array of shape ``(n_samples, len(variable_symbols))``.
     """
-    rng = np.random.default_rng()
+    if rng is None:
+        rng = np.random.default_rng()
     symbol_to_index = {symbol: i for i, symbol in enumerate(variable_symbols)}
 
     op_value_per_index: dict[int, list[tuple[str, float]]] = {}
@@ -102,6 +108,7 @@ def instantiate_from_ruleset(
     variable_symbols: list[str],
     variable_bounds: list[tuple[float, float]],
     n_samples: int,
+    rng: np.random.Generator | None = None,
 ) -> np.ndarray:
     """Distribute ``n_samples`` across a list of rules proportional to their weights.
 
@@ -117,10 +124,16 @@ def instantiate_from_ruleset(
         variable_bounds (list[tuple[float, float]]): ``(lower, upper)`` for each
             variable, in the same order as ``variable_symbols``.
         n_samples (int): Approximate total number of samples to generate.
+        rng (np.random.Generator | None, optional): Random generator used for
+            sampling. If ``None``, a fresh OS-seeded generator is created on
+            every call (non-deterministic). Pass an explicit generator for
+            reproducibility.
 
     Returns:
         np.ndarray: A 2D array stacking all generated samples.
     """
+    if rng is None:
+        rng = np.random.default_rng()
     if len(weights) < len(rules_list):
         rules_list = rules_list[: len(weights)]
 
@@ -132,7 +145,7 @@ def instantiate_from_ruleset(
     rules_pos = [rule for rule, keep in zip(rules_list, positive_mask, strict=True) if keep]
 
     instantiated = [
-        instantiate_from_rules(rule, variable_symbols, variable_bounds, int(n_per_rule[i]))
+        instantiate_from_rules(rule, variable_symbols, variable_bounds, int(n_per_rule[i]), rng=rng)
         for i, rule in enumerate(rules_pos)
     ]
     return np.vstack(instantiated)

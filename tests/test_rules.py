@@ -477,3 +477,56 @@ def test_format_rule_table_after_xlemoo_run():
     assert table.strip()
     for sym in variable_symbols:
         assert sym in table
+
+
+@pytest.mark.explanation_utils
+def test_instantiate_from_rules_seeded_rng_deterministic():
+    """Passing the same seeded ``np.random.Generator`` produces identical samples."""
+    rule: Rule = {("x_1", ">"): "1.0", ("x_2", "<="): "9.0"}
+    variable_symbols = ["x_1", "x_2", "x_3"]
+    bounds = [(0.0, 10.0)] * 3
+
+    a = instantiate_from_rules(
+        rule,
+        variable_symbols=variable_symbols,
+        variable_bounds=bounds,
+        n_samples=200,
+        rng=np.random.default_rng(123),
+    )
+    b = instantiate_from_rules(
+        rule,
+        variable_symbols=variable_symbols,
+        variable_bounds=bounds,
+        n_samples=200,
+        rng=np.random.default_rng(123),
+    )
+
+    npt.assert_array_equal(a, b)
+
+
+@pytest.mark.explanation_utils
+def test_instantiate_from_ruleset_seeded_rng_deterministic():
+    """Passing the same seeded ``np.random.Generator`` produces identical ruleset samples."""
+    rules: list[Rule] = [{("x_1", ">"): "1.0"}, {("x_1", "<="): "5.0"}]
+    weights = [0.6, 0.4]
+    variable_symbols = ["x_1"]
+    bounds = [(0.0, 10.0)]
+
+    a = instantiate_from_ruleset(
+        rules_list=rules,
+        weights=weights,
+        variable_symbols=variable_symbols,
+        variable_bounds=bounds,
+        n_samples=300,
+        rng=np.random.default_rng(7),
+    )
+    b = instantiate_from_ruleset(
+        rules_list=rules,
+        weights=weights,
+        variable_symbols=variable_symbols,
+        variable_bounds=bounds,
+        n_samples=300,
+        rng=np.random.default_rng(7),
+    )
+
+    npt.assert_array_equal(a, b)
