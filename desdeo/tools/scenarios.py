@@ -28,28 +28,6 @@ _RESERVED: frozenset[str] = frozenset(
 # ---------------------------------------------------------------------------
 
 
-def _extract_symbols(expr: str) -> set[str]:
-    """Return all variable/constant symbols referenced in a func string.
-
-    Uses the infix parser to produce a MathJSON AST, then walks it to collect
-    all string leaves that are not operator keywords.
-    """
-    parsed = _parser.parse(expr)
-    symbols: set[str] = set()
-    _walk_mathjson(parsed, symbols)
-    return symbols
-
-
-def _walk_mathjson(node, symbols: set[str]) -> None:
-    """Recursively collect non-operator string leaves from a MathJSON node."""
-    if isinstance(node, str):
-        if node not in _RESERVED:
-            symbols.add(node)
-    elif isinstance(node, list):
-        for child in node:
-            _walk_mathjson(child, symbols)
-
-
 def _rename_symbols(expr: str | list, symbol_map: dict[str, str]) -> list:
     """Rename symbols in a MathJSON expression (list) or infix string.
 
@@ -131,10 +109,7 @@ def _build_variable_maps(
     var_syms = {v.symbol for v in scenario_model.base_problem.variables}
 
     var_maps: dict[str, dict[str, str]] = {
-        leaf: {
-            sym: _new_variable_symbol(sym, leaf, scenario_model.anticipation_stop, parent_map)
-            for sym in var_syms
-        }
+        leaf: {sym: _new_variable_symbol(sym, leaf, scenario_model.anticipation_stop, parent_map) for sym in var_syms}
         for leaf in leaf_scenarios
     }
 
@@ -164,8 +139,7 @@ def _build_constant_maps(
         combined_constants: {new_sym -> Constant | TensorConstant}
     """
     const_per_leaf: dict[str, dict[str, Constant | TensorConstant]] = {
-        leaf: {c.symbol: c for c in (scenario_problems[leaf].constants or [])}
-        for leaf in leaf_scenarios
+        leaf: {c.symbol: c for c in (scenario_problems[leaf].constants or [])} for leaf in leaf_scenarios
     }
     all_const_syms: set[str] = {sym for lc in const_per_leaf.values() for sym in lc}
 
@@ -192,9 +166,7 @@ def _build_constant_maps(
                 if sym in const_per_leaf[leaf]:
                     new_sym = f"{leaf}_{sym}"
                     const_maps[leaf][sym] = new_sym
-                    combined_constants[new_sym] = const_per_leaf[leaf][sym].model_copy(
-                        update={"symbol": new_sym}
-                    )
+                    combined_constants[new_sym] = const_per_leaf[leaf][sym].model_copy(update={"symbol": new_sym})
 
     return const_maps, combined_constants
 
@@ -235,11 +207,7 @@ def _combine_elements(
     seen: set[str] = set()
     symbol_map: dict[str, dict[str, str]] = {}
 
-    all_syms: set[str] = {
-        elem.symbol
-        for leaf in leaf_scenarios
-        for elem in (get_list(scenario_problems[leaf]) or [])
-    }
+    all_syms: set[str] = {elem.symbol for leaf in leaf_scenarios for elem in (get_list(scenario_problems[leaf]) or [])}
 
     for sym in all_syms:
         renamed: dict[str, str] = {}
@@ -257,9 +225,7 @@ def _combine_elements(
             }
             renamed[leaf] = _rename_symbols(match.func, leaf_map)
 
-        is_shared = (
-            len({str(v) for v in renamed.values()}) == 1 and len(renamed) == len(leaf_scenarios)
-        )
+        is_shared = len({str(v) for v in renamed.values()}) == 1 and len(renamed) == len(leaf_scenarios)
 
         if is_shared:
             new_sym = sym
@@ -270,9 +236,7 @@ def _combine_elements(
                 elem = next(e for e in (get_list(scenario_problems[first_leaf]) or []) if e.symbol == sym)
                 combined.append(elem.model_copy(update=make_update(elem, new_sym, renamed[first_leaf])))
         else:
-            symbol_map[sym] = {
-                leaf: f"{leaf}_{sym}" if leaf in renamed else sym for leaf in leaf_scenarios
-            }
+            symbol_map[sym] = {leaf: f"{leaf}_{sym}" if leaf in renamed else sym for leaf in leaf_scenarios}
             for leaf, new_func in renamed.items():
                 new_sym = f"{leaf}_{sym}"
                 if new_sym not in seen:
@@ -391,13 +355,9 @@ def build_combined_scenario_problem(
 
     parent_map = _build_parent_map(scenario_model.scenario_tree)
 
-    scenario_problems: dict[str, Problem] = {
-        leaf: scenario_model.get_scenario_problem(leaf) for leaf in leaf_scenarios
-    }
+    scenario_problems: dict[str, Problem] = {leaf: scenario_model.get_scenario_problem(leaf) for leaf in leaf_scenarios}
 
-    var_maps, combined_variables = _build_variable_maps(
-        scenario_model, leaf_scenarios, parent_map, scenario_problems
-    )
+    var_maps, combined_variables = _build_variable_maps(scenario_model, leaf_scenarios, parent_map, scenario_problems)
     const_maps, combined_constants = _build_constant_maps(leaf_scenarios, scenario_problems)
 
     def _name_update(elem, new_sym, new_func):
@@ -416,9 +376,7 @@ def build_combined_scenario_problem(
             name: new_sym
             for orig, per_leaf in objectives_map.items()
             for name, new_sym in (
-                [(orig, per_leaf[leaf]), (f"{orig}_min", f"{per_leaf[leaf]}_min")]
-                if per_leaf[leaf] != orig
-                else []
+                [(orig, per_leaf[leaf]), (f"{orig}_min", f"{per_leaf[leaf]}_min")] if per_leaf[leaf] != orig else []
             )
         }
         for leaf in leaf_scenarios
@@ -430,24 +388,17 @@ def build_combined_scenario_problem(
     # Build per-leaf rename maps for extra function symbols.
     # Constraints and scalarization functions may reference extra functions by symbol.
     ef_extra_maps: dict[str, dict[str, str]] = {
-        leaf: {
-            orig: per_leaf[leaf]
-            for orig, per_leaf in extra_funcs_map.items()
-            if per_leaf[leaf] != orig
-        }
+        leaf: {orig: per_leaf[leaf] for orig, per_leaf in extra_funcs_map.items() if per_leaf[leaf] != orig}
         for leaf in leaf_scenarios
     }
 
     # Combined extra maps: objective + extra_func renames for constraints and scal funcs.
     combined_extra_maps: dict[str, dict[str, str]] = {
-        leaf: {**obj_extra_maps[leaf], **ef_extra_maps[leaf]}
-        for leaf in leaf_scenarios
+        leaf: {**obj_extra_maps[leaf], **ef_extra_maps[leaf]} for leaf in leaf_scenarios
     }
 
     constraints_list, constraints_map = _combine(lambda p: p.constraints, combined_extra_maps)
-    scalarization_funcs_list, scalarization_funcs_map = _combine(
-        lambda p: p.scalarization_funcs, combined_extra_maps
-    )
+    scalarization_funcs_list, scalarization_funcs_map = _combine(lambda p: p.scalarization_funcs, combined_extra_maps)
 
     # Variable symbol map: original_sym -> {leaf -> new_sym}
     variables_map: dict[str, dict[str, str]] = {
@@ -458,8 +409,7 @@ def build_combined_scenario_problem(
     # Constant symbol map: original_sym -> {leaf -> new_sym}, defaulting to original
     all_const_syms: set[str] = {sym for lm in const_maps.values() for sym in lm}
     constants_map: dict[str, dict[str, str]] = {
-        sym: {leaf: const_maps[leaf].get(sym, sym) for leaf in leaf_scenarios}
-        for sym in all_const_syms
+        sym: {leaf: const_maps[leaf].get(sym, sym) for leaf in leaf_scenarios} for sym in all_const_syms
     }
 
     symbol_maps: dict[str, dict[str, dict[str, str]]] = {
@@ -474,8 +424,7 @@ def build_combined_scenario_problem(
     problem = Problem(
         name=f"{scenario_model.base_problem.name} (combined)",
         description=(
-            f"Combined scenario problem from {len(leaf_scenarios)} leaf scenarios: "
-            + ", ".join(leaf_scenarios)
+            f"Combined scenario problem from {len(leaf_scenarios)} leaf scenarios: " + ", ".join(leaf_scenarios)
         ),
         constants=list(combined_constants.values()) or None,
         variables=list(combined_variables.values()),
