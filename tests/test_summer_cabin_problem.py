@@ -10,6 +10,7 @@ from desdeo.problem.testproblems import (
     summer_cabin_battery_problem_split_scenario,
 )
 from desdeo.tools import CVXPYSolver, GurobipySolver, PyomoBonminSolver, PyomoGurobiSolver, PyomoIpoptSolver
+from desdeo.tools.robust import add_worst_case_robust
 from desdeo.tools.scenarios import build_scenario_problem
 from desdeo.tools.stochastic import add_expected_value
 from desdeo.tools.utils import payoff_table_method
@@ -399,3 +400,79 @@ def test_payoff_table_cvxpy(combined_ev_problem):
     """Payoff table method runs to completion with CVXPYSolver."""
     ideal, nadir = payoff_table_method(combined_ev_problem, CVXPYSolver)
     _check_payoff_table(ideal, nadir)
+
+
+# ---------------------------------------------------------------------------
+# Worst-case robust combined problem
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(name="combined_wc_problem")
+def combined_wc_problem_fixture():
+    """Return the worst-case robust combined problem built from the scenario model."""
+    model = summer_cabin_battery_problem_split_scenario()
+    problem, _ = add_worst_case_robust(model, symbols=["f_1", "f_2", "f_3"])
+    return problem
+
+
+def _check_wc_payoff_table(ideal, nadir):
+    assert set(ideal.keys()) == set(nadir.keys())
+    for sym in ideal:
+        assert ideal[sym] <= nadir[sym] + 1e-6, f"{sym}: ideal {ideal[sym]} > nadir {nadir[sym]}"
+    for sym in ("robust_f_1", "robust_f_2", "robust_f_3"):
+        assert sym in ideal, f"Expected objective {sym} missing from payoff table"
+
+
+@pytest.mark.pyomo
+@pytest.mark.scenario
+def test_pyomo_gurobi_constructs_wc(combined_wc_problem):
+    """PyomoGurobiSolver can be constructed for the worst-case robust problem."""
+    assert PyomoGurobiSolver(combined_wc_problem) is not None
+
+
+@pytest.mark.pyomo
+@pytest.mark.scenario
+def test_pyomo_bonmin_constructs_wc(combined_wc_problem):
+    """PyomoBonminSolver can be constructed for the worst-case robust problem."""
+    assert PyomoBonminSolver(combined_wc_problem) is not None
+
+
+@pytest.mark.pyomo
+@pytest.mark.scenario
+def test_pyomo_ipopt_constructs_wc(combined_wc_problem):
+    """PyomoIpoptSolver can be constructed for the worst-case robust problem."""
+    assert PyomoIpoptSolver(combined_wc_problem) is not None
+
+
+@pytest.mark.gurobipy
+@pytest.mark.scenario
+def test_gurobipy_constructs_wc(combined_wc_problem):
+    """GurobipySolver can be constructed for the worst-case robust problem."""
+    assert GurobipySolver(combined_wc_problem) is not None
+
+
+@pytest.mark.cvxpy
+@pytest.mark.scenario
+def test_cvxpy_constructs_wc(combined_wc_problem):
+    """CVXPYSolver can be constructed for the worst-case robust problem."""
+    assert CVXPYSolver(combined_wc_problem) is not None
+
+
+@pytest.mark.gurobipy
+@pytest.mark.scenario
+@pytest.mark.slow
+@pytest.mark.githubskip(reason="Gurobi license issues")
+def test_payoff_table_gurobipy_wc(combined_wc_problem):
+    """Payoff table method runs to completion with GurobipySolver on the worst-case robust problem."""
+    ideal, nadir = payoff_table_method(combined_wc_problem, GurobipySolver)
+    _check_wc_payoff_table(ideal, nadir)
+
+
+@pytest.mark.cvxpy
+@pytest.mark.scenario
+@pytest.mark.slow
+@pytest.mark.githubskip(reason="Gurobi license issues")
+def test_payoff_table_cvxpy_wc(combined_wc_problem):
+    """Payoff table method runs to completion with CVXPYSolver on the worst-case robust problem."""
+    ideal, nadir = payoff_table_method(combined_wc_problem, CVXPYSolver)
+    _check_wc_payoff_table(ideal, nadir)

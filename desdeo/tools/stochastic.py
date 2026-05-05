@@ -69,7 +69,7 @@ def add_expected_asf(
             delta=delta,
         )
 
-    modified_model = scenario_model.with_base_problem(problem=scal_problem)
+    modified_model = scenario_model.with_base_problem(problem=scal_problem, validate=True)
     combined, symbol_maps = build_combined_scenario_problem(modified_model)
     combined, added = add_expected_value(modified_model, [scal], combined=combined, symbol_maps=symbol_maps)
 
@@ -147,8 +147,11 @@ def add_expected_value(
 
         if found_type in _func_bearing:
             terms = [
-                ["Multiply", weights[leaf],
-                 next((e.func for e in elem_list if e.symbol == per_leaf[leaf]), per_leaf[leaf])]
+                [
+                    "Multiply",
+                    weights[leaf],
+                    next((e.func for e in elem_list if e.symbol == per_leaf[leaf]), per_leaf[leaf]),
+                ]
                 for leaf in weights
             ]
         else:

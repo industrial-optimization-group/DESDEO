@@ -6,7 +6,7 @@ from desdeo.problem.schema import ConstraintTypeEnum, Problem
 from desdeo.problem.testproblems import simple_scenario_model
 from desdeo.tools.robust import add_worst_case_robust, add_weighted_scenarios
 from desdeo.tools.scenarios import build_combined_scenario_problem, build_scenario_problem
-from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_asf
+from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_asf, add_expected_value
 
 
 @pytest.fixture(name="model")
@@ -383,6 +383,7 @@ def test_expected_asf_uses_scenario_probabilities(asf_result):
     ef = next(s for s in problem.scalarization_funcs or [] if s.symbol == "E_asf")
     func = ef.func
     assert func[0] == "Add"
+
     # Each term is ["Multiply", weight, <inlined ASF expression>].
     # Match by the per-leaf _alpha symbol embedded in the expression.
     def find_alpha(node):
@@ -773,3 +774,26 @@ def test_weighted_custom_prefix(model):
     )
     assert added["f_1"] == "w_f_1"
     assert any(o.symbol == "w_f_1" for o in problem.objectives or [])
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_weighted_multiple_aggregations(model):
+    """Multiple calls to add_weighted_scenarios with different symbols and weights work correctly."""
+    combined, symbol_maps = build_combined_scenario_problem(model)
+    problem, added1 = add_worst_case_robust(
+        scenario_model=model, symbols=["f_1", "f_2", "f_3"], combined=combined, symbol_maps=symbol_maps
+    )
+    problem, added2 = add_expected_value(
+        scenario_model=model, symbols=["f_1", "f_2", "f_3"], combined=problem, symbol_maps=symbol_maps
+    )
+    problem, added3 = add_conditional_value_at_risk(
+        scenario_model=model, symbols=["f_1", "f_2", "f_3"], alpha=0.95, combined=problem, symbol_maps=symbol_maps
+    )
+    problem, added4 = add_weighted_scenarios(
+        scenario_model=model,
+        symbols=["f_1", "f_2", "f_3"],
+        weights=_WEIGHTS,
+        combined=problem,
+        symbol_maps=symbol_maps,
+    )

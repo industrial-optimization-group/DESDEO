@@ -198,15 +198,19 @@ class ScenarioModel(BaseModel):
                     )
         return v
 
-    def with_base_problem(self, problem: "Problem | None" = None, **updates) -> "ScenarioModel":
+    def with_base_problem(self, problem: "Problem | None" = None, validate: bool = False, **updates) -> "ScenarioModel":
         """Return a new ScenarioModel with the base_problem updated.
 
-        Uses model_copy internally, so validators are NOT re-run. Avoid updates
-        that could invalidate cross-field constraints already established on this
-        ScenarioModel (e.g. removing variables referenced in anticipation_stop).
+        By default uses model_copy, so validators are NOT re-run. Pass
+        ``validate=True`` to reconstruct via model_validate, which re-runs all
+        field validators (including anticipation_stop checks). Only safe when the
+        update cannot remove variables or scenario-tree nodes that validators
+        reference.
 
         Args:
             problem: if provided, replaces the base_problem entirely.
+            validate: if True, reconstruct with model_validate so all validators
+                run, which is somewhat slower. Defaults to False.
             **updates: keyword arguments forwarded to Problem.model_copy(update=...)
                 to partially update the existing base_problem. Ignored when
                 ``problem`` is given.
@@ -215,6 +219,8 @@ class ScenarioModel(BaseModel):
             A new ScenarioModel with the modified base_problem.
         """
         new_base = problem if problem is not None else self.base_problem.model_copy(update=updates)
+        if validate:
+            return type(self).model_validate(self.model_dump() | {"base_problem": new_base})
         return self.model_copy(update={"base_problem": new_base})
 
     @cached_property
@@ -226,9 +232,7 @@ class ScenarioModel(BaseModel):
         weights (1/n) are assigned to each leaf.
         """
         leaves = [
-            n
-            for n, children in self.scenario_tree.items()
-            if n != "ROOT" and not children and n in self.scenarios
+            n for n, children in self.scenario_tree.items() if n != "ROOT" and not children and n in self.scenarios
         ]
         if self.scenario_probabilities:
             return {leaf: self.scenario_probabilities[leaf] for leaf in leaves}
