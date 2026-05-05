@@ -100,8 +100,8 @@ server = [ # production!
 
 stochastic = [
     "sortedcollections",
-    "mpi4py>=3.0.3",
-    "mpi-sppy",
+    "mpi4py>=3.0.3", # Need mpi installed on your system before installing this
+    "mpi-sppy@ git+https://github.com/juropo/mpi-sppy@main",
 ]
 
 all-dev = [
@@ -119,9 +119,6 @@ optional = true
 
 [tool.uv]
 default-groups = ["dev", "docs", "jupyter", "web", "viz", "tools"]
-
-[tool.uv.sources]
-mpi-sppy = { path = "../mpi-sppy" }
 
 [tool.ruff]
 # Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.

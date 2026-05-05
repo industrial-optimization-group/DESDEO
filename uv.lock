@@ -918,7 +918,7 @@ server = [
     { name = "psycopg2", specifier = ">=2.9.10" },
 ]
 stochastic = [
-    { name = "mpi-sppy", directory = "../mpi-sppy" },
+    { name = "mpi-sppy", git = "https://github.com/juropo/mpi-sppy?rev=main" },
     { name = "mpi4py", specifier = ">=3.0.3" },
     { name = "sortedcollections" },
 ]
@@ -2191,27 +2191,12 @@ wheels = [
 [[package]]
 name = "mpi-sppy"
 version = "0.13.2.dev0"
-source = { directory = "../mpi-sppy" }
+source = { git = "https://github.com/juropo/mpi-sppy?rev=main#8d26d0b6b3f177df4397f6c311bb47a772f44925" }
 dependencies = [
     { name = "numpy" },
     { name = "pyomo" },
     { name = "sortedcollections" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "matplotlib", marker = "extra == 'plot'" },
-    { name = "mpi4py", marker = "extra == 'mpi'", specifier = ">=3.0.3" },
-    { name = "numpy" },
-    { name = "pandas", marker = "extra == 'pandas'" },
-    { name = "pyomo", specifier = ">=6.4" },
-    { name = "scipy", marker = "extra == 'scipy'" },
-    { name = "sortedcollections" },
-    { name = "sphinx", marker = "extra == 'doc'" },
-    { name = "sphinx-copybutton", marker = "extra == 'doc'" },
-    { name = "sphinx-rtd-theme", marker = "extra == 'doc'" },
-]
-provides-extras = ["doc", "mpi", "scipy", "pandas", "plot"]
 
 [[package]]
 name = "mpi4py"
