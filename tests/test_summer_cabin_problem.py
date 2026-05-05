@@ -349,6 +349,7 @@ def _check_payoff_table(ideal, nadir):
 @pytest.mark.gurobipy
 @pytest.mark.scenario
 @pytest.mark.slow
+@pytest.mark.githubskip(reason="Gurobi license issues")
 def test_payoff_table_gurobipy(combined_ev_problem):
     """Payoff table method runs to completion with GurobipySolver."""
     ideal, nadir = payoff_table_method(combined_ev_problem, GurobipySolver)
@@ -376,9 +377,24 @@ def test_pyomo_ipopt_constructs(combined_ev_problem):
     assert PyomoIpoptSolver(combined_ev_problem) is not None
 
 
+@pytest.mark.gurobipy
+@pytest.mark.scenario
+def test_gurobipy_constructs(combined_ev_problem):
+    """GurobipySolver can be constructed (model builds without error)."""
+    assert GurobipySolver(combined_ev_problem) is not None
+
+
+@pytest.mark.cvxpy
+@pytest.mark.scenario
+def test_cvxpy_constructs(combined_ev_problem):
+    """CVXPYSolver can be constructed (model builds without error)."""
+    assert CVXPYSolver(combined_ev_problem) is not None
+
+
 @pytest.mark.cvxpy
 @pytest.mark.scenario
 @pytest.mark.slow
+@pytest.mark.githubskip(reason="Gurobi license issues")
 def test_payoff_table_cvxpy(combined_ev_problem):
     """Payoff table method runs to completion with CVXPYSolver."""
     ideal, nadir = payoff_table_method(combined_ev_problem, CVXPYSolver)
