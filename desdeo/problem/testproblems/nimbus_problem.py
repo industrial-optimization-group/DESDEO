@@ -6,6 +6,7 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 
+
 def nimbus_test_problem() -> Problem:
     r"""Defines the test problem utilized in the article describing Synchronous NIMBUS.
 

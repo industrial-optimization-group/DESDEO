@@ -6,6 +6,7 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 
+
 def mixed_variable_dimensions_problem():
     """Defines a problem with variables with mixed dimensions.
 

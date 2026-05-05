@@ -206,6 +206,14 @@ max-complexity = 15
     "FBT",     # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
     "PLR2004", # Magic value used in comparison, ...
 ]
+# Notebooks legitimately use prints to display output and rarely need
+# module/function docstrings or rigorous naming.
+"**/*.ipynb" = [
+    "T201",    # `print` found
+    "D100",    # Missing docstring in public module
+    "D103",    # Missing docstring in public function
+    "PLR2004", # Magic value used in comparison
+]
 
 [tool.ruff.format]
 quote-style = "double"

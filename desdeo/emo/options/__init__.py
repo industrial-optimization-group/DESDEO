@@ -42,6 +42,7 @@ from .scalar_selection import (
     scalar_selector_constructor,
 )
 from .selection import (
+    ASFSelectorOptions,
     IBEASelectorOptions,
     NSGA2SelectorOptions,
     NSGA3SelectorOptions,
@@ -61,6 +62,7 @@ from .termination import (
 )
 
 __all__ = [  # noqa: RUF022
+    "ASFSelectorOptions",
     "BinaryFlipMutationOptions",
     "BlendAlphaCrossoverOptions",
     "BoundedExponentialCrossoverOptions",

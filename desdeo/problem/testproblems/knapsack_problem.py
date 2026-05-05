@@ -11,6 +11,7 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 
+
 def simple_knapsack() -> Problem:
     r"""Defines a simple multiobjective knapsack problem.
 

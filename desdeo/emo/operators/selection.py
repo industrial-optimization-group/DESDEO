@@ -6,10 +6,10 @@ TODO:@light-weaver
 
 import warnings
 from abc import abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from enum import StrEnum
 from itertools import combinations
-from typing import Callable, Literal, TypeVar
+from typing import Literal, TypeVar
 
 import numpy as np
 import polars as pl
@@ -111,7 +111,7 @@ class ReferenceVectorOptions(BaseModel):
     """The method for normalizing the reference vectors. Defaults to "spherical"."""
     lattice_resolution: int | None = None
     """Number of divisions along an axis when creating the simplex lattice. This is not required/used for the "s_energy"
-    method. If not specified, the lattice resolution is calculated based on the `number_of_vectors`. If "spherical" is 
+    method. If not specified, the lattice resolution is calculated based on the `number_of_vectors`. If "spherical" is
     selected as the `vector_type`, this value overrides the `number_of_vectors`.
     """
     number_of_vectors: int = 200
@@ -261,10 +261,9 @@ class BaseDecompositionSelector(BaseSelector):
                 norm = np.sum(self.reference_vectors, axis=1).reshape(-1, 1)
                 self.reference_vectors = np.divide(self.reference_vectors, norm)
                 return
-            else:
-                norm = np.sum(1 - self.reference_vectors, axis=1).reshape(-1, 1)
-                self.reference_vectors = 1 - np.divide(1 - self.reference_vectors, norm)
-                return
+            norm = np.sum(1 - self.reference_vectors, axis=1).reshape(-1, 1)
+            self.reference_vectors = 1 - np.divide(1 - self.reference_vectors, norm)
+            return
         # Not needed due to pydantic validation
         raise ValueError("Invalid vector type. Must be either 'spherical' or 'planar'.")
 
@@ -979,10 +978,9 @@ class NSGA3Selector(BaseDecompositionSelector):
         for front_id in range(len(fronts)):
             if len(np.concatenate(fronts[: front_id + 1])) < self.n_survive:
                 continue
-            else:
-                fronts = fronts[: front_id + 1]
-                selection = np.concatenate(fronts)
-                break
+            fronts = fronts[: front_id + 1]
+            selection = np.concatenate(fronts)
+            break
         F = fitness[selection]
 
         last_front = fronts[-1]
@@ -1727,6 +1725,144 @@ class NSGA2Selector(BaseSelector):
 
         self.notify()
         return solutions, outputs
+
+    def state(self) -> Sequence[Message]:
+        """Return the state of the selector."""
+        if self.verbosity == 0 or self.selection is None or self.selected_targets is None:
+            return []
+        if self.verbosity == 1:
+            return [
+                DictMessage(
+                    topic=SelectorMessageTopics.STATE,
+                    value={
+                        "population_size": self.population_size,
+                        "selected_individuals": self.selection,
+                    },
+                    source=self.__class__.__name__,
+                )
+            ]
+        # verbosity == 2
+        if isinstance(self.selected_individuals, pl.DataFrame):
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                source=self.__class__.__name__,
+            )
+        else:
+            warnings.warn("Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.", stacklevel=2)
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=self.selected_targets,
+                source=self.__class__.__name__,
+            )
+        return [
+            DictMessage(
+                topic=SelectorMessageTopics.STATE,
+                value={
+                    "population_size": self.population_size,
+                    "selected_individuals": self.selection,
+                },
+                source=self.__class__.__name__,
+            ),
+            message,
+            NumpyArrayMessage(
+                topic=SelectorMessageTopics.SELECTED_FITNESS,
+                value=self.fitness,
+                source=self.__class__.__name__,
+            ),
+        ]
+
+    def update(self, message: Message) -> None:
+        pass
+
+
+class ASFSelector(BaseSelector):
+    """Selects the top ``population_size`` individuals by an achievement scalarizing function value.
+
+    The combined parent and offspring populations are ranked by the value of a
+    scalarization target column (lower is better) and the best individuals are
+    kept. Selection is deterministic and contains no random component.
+    """
+
+    @property
+    def provided_topics(self):
+        """Topics published by this selector for each verbosity level."""
+        return {
+            0: [],
+            1: [SelectorMessageTopics.STATE],
+            2: [SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS, SelectorMessageTopics.SELECTED_FITNESS],
+        }
+
+    @property
+    def interested_topics(self):
+        """Topics this selector subscribes to (none)."""
+        return []
+
+    def __init__(
+        self,
+        problem: Problem,
+        verbosity: int,
+        publisher: Publisher,
+        population_size: int,
+        target_column: str,
+        seed: int = 0,
+    ):
+        """Initialize the ASF selector.
+
+        Args:
+            problem (Problem): The problem to solve.
+            verbosity (int): The verbosity level of the selector.
+            publisher (Publisher): The publisher to send messages to.
+            population_size (int): The size of the population to keep after selection.
+            target_column (str): Symbol of the scalarization target column to sort by (ascending).
+            seed (int, optional): Random seed (kept for API compatibility). Defaults to 0.
+        """
+        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher, seed=seed)
+        self.population_size = population_size
+        self.target_column = target_column
+        self.selection: list[int] | None = None
+        self.selected_individuals: SolutionType | None = None
+        self.selected_targets: pl.DataFrame | None = None
+        self.fitness: np.ndarray | None = None
+        if self.constraints_symbols is not None:
+            raise NotImplementedError("ASF selector does not support constraints. Please use a different selector.")
+
+    def do(
+        self, parents: tuple[SolutionType, pl.DataFrame], offsprings: tuple[SolutionType, pl.DataFrame]
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Combine parents and offspring, then keep the best individuals by ASF value.
+
+        Args:
+            parents (tuple[SolutionType, pl.DataFrame]): Parent decision variables and outputs.
+            offsprings (tuple[SolutionType, pl.DataFrame]): Offspring decision variables and outputs.
+
+        Returns:
+            tuple[SolutionType, pl.DataFrame]: The selected decision variables and outputs.
+        """
+        if self.constraints_symbols is not None:
+            raise NotImplementedError("ASF selector does not support constraints. Please use a different selector.")
+        if isinstance(parents[0], pl.DataFrame) and isinstance(offsprings[0], pl.DataFrame):
+            solutions = parents[0].vstack(offsprings[0])
+        elif isinstance(parents[0], list) and isinstance(offsprings[0], list):
+            solutions = parents[0] + offsprings[0]
+        else:
+            raise TypeError("The decision variables must be either a list or a polars DataFrame, not both")
+        alltargets = parents[1].vstack(offsprings[1])
+
+        target_vals = alltargets[self.target_column].to_numpy()
+        order = np.argsort(target_vals, kind="stable")
+        chosen = order[: self.population_size].tolist()
+
+        if isinstance(solutions, pl.DataFrame):
+            self.selected_individuals = solutions[chosen]
+        else:
+            self.selected_individuals = [solutions[i] for i in chosen]
+        self.selected_targets = alltargets[chosen]
+        self.selection = chosen
+        self.fitness = target_vals[chosen]
+
+        self.notify()
+        return self.selected_individuals, self.selected_targets
 
     def state(self) -> Sequence[Message]:
         """Return the state of the selector."""

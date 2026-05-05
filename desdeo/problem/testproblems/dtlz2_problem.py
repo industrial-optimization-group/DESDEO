@@ -8,6 +8,7 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 
+
 def dtlz2(n_variables: int, n_objectives: int) -> Problem:
     r"""Defines the DTLZ2 test problem.
 
@@ -56,7 +57,7 @@ def dtlz2(n_variables: int, n_objectives: int) -> Problem:
         # function f_m
         prod_expr = " * ".join([f"Cos(0.5 * {np.pi} * x_{i})" for i in range(1, n_objectives - m + 1)])
         if m > 1:
-            prod_expr += f"{' * ' if prod_expr != "" else ""}Sin(0.5 * {np.pi} * x_{n_objectives - m + 1})"
+            prod_expr += f"{' * ' if prod_expr != '' else ''}Sin(0.5 * {np.pi} * x_{n_objectives - m + 1})"
         if prod_expr == "":
             prod_expr = "1"  # When m == n_objectives, the product is empty, implying f_M = g.
         f_m_expr = f"({g_symbol}) * ({prod_expr})"
