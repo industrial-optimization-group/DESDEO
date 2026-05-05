@@ -118,6 +118,7 @@ class MathParser:
                 n: total length of the array being indexed.  Required to
                     resolve negative indices and to clamp out-of-range values.
             """
+
             def _to_zero(i1: int) -> int:
                 # Convert a 1-based (positive) or end-relative (negative) index to 0-based.
                 return (i1 - 1) if i1 > 0 else (n + i1)
@@ -1149,9 +1150,11 @@ class MathParser:
                     return self.env[op_name](*operands)
 
                 return self.env[op_name](operands)
-
-            # else, assume the list contents are parseable expressions
-            return [self._parse_to_gurobipy(e, callback) for e in expr]
+            if len(expr) == 1 and isinstance(expr[0], str):
+                # Terminal case, single string expression with unnecessary brackets, e.g., ["x1"] instead of "x1"
+                return (
+                    callback(expr[0]) + 0
+                )  # adding 0 to ensure it's treated as an expression, not a variable reference
 
         msg = f"Encountered unsupported type '{type(expr)}' during parsing."
         raise ParserError(msg)
