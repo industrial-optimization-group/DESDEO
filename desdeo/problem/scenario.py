@@ -92,6 +92,36 @@ class ScenarioModel(BaseModel):
                 return {**v, **{name: [] for name in missing_leaves}}
         return v
 
+    @field_validator("scenario_tree", mode="after")
+    @classmethod
+    def validate_tree_structure(cls, v):
+        """Verify that scenario_tree is a valid rooted tree with ROOT as the universal ancestor."""
+        if "ROOT" not in v:
+            raise ValueError("scenario_tree must contain a 'ROOT' key.")
+
+        child_counts: dict[str, int] = {}
+        for children in v.values():
+            for child in children:
+                child_counts[child] = child_counts.get(child, 0) + 1
+
+        if "ROOT" in child_counts:
+            raise ValueError("'ROOT' must not appear as a child of any node.")
+        multi_parent = [n for n, c in child_counts.items() if c > 1]
+        if multi_parent:
+            raise ValueError(f"Nodes have more than one parent (not a tree): {sorted(multi_parent)}.")
+
+        visited: set[str] = set()
+        stack = ["ROOT"]
+        while stack:
+            node = stack.pop()
+            visited.add(node)
+            stack.extend(v.get(node, []))
+        unreachable = set(v) - visited
+        if unreachable:
+            raise ValueError(f"Nodes not reachable from ROOT: {sorted(unreachable)}.")
+
+        return v
+
     scenario_probabilities: dict[str, float] = Field(
         default={},
         description="Maps each scenario tree node to its probability. ROOT is always included with probability 1.0. "
