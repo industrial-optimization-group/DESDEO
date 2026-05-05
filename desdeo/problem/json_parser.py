@@ -375,10 +375,11 @@ class MathParser:
                 if (hasattr(x, "index_set") and x.is_indexed()) and (hasattr(y, "index_set") and y.is_indexed()):
                     # try matrix addition
                     # check that the dimensions of x and y matches
-                    if x.index_set().set_tuple != y.index_set().set_tuple:
+                    x_idx, y_idx = x.index_set(), y.index_set()
+                    if x_idx.dimen != y_idx.dimen or len(x_idx) != len(y_idx):
                         msg = (
-                            f"The dimensions of x {x.index_set().set_tuple} must match that"
-                            f" of y {y.index_set().set_tuple} for matrix addition."
+                            f"The shapes of x ({x_idx.dimen}D, len={len(x_idx)}) and "
+                            f"y ({y_idx.dimen}D, len={len(y_idx)}) must match for matrix addition."
                         )
                         raise ParserError(msg)
 

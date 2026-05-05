@@ -2,7 +2,7 @@
 
 import itertools
 from collections.abc import Iterable
-from operator import eq as _eq
+from operator import eq as _eq  # noqa: F401
 from operator import le as _python_le
 
 import pyomo.environ as pyomo
@@ -25,10 +25,9 @@ def _le(expr, rhs, name):
         tmp_expr = _python_le(expr, rhs)
         return pyomo.Constraint(expr=tmp_expr, name=name)
 
-    # indexed → one row per index
-    tmp = pyomo.Constraint(expr.index_set(), rule=lambda m, *idx: expr[idx] <= rhs)
-    tmp.construct()
-    return tmp
+    # indexed → pre-materialise all expressions and pass as a dict rule
+    data = {k: expr[k] <= rhs for k in expr.index_set()}
+    return pyomo.Constraint(expr.index_set(), rule=data)
 
 
 class PyomoEvaluatorError(Exception):
@@ -104,7 +103,7 @@ class PyomoEvaluator:
 
         return init_rule
 
-    def init_variables(self, problem: Problem, model: pyomo.Model) -> pyomo.Model:
+    def init_variables(self, problem: Problem, model: pyomo.Model) -> pyomo.Model:  # noqa: C901
         """Add variables to the pyomo model.
 
         Args:
@@ -158,7 +157,8 @@ class PyomoEvaluator:
                             f"upper bound {var.upperbound}"
                         )
                         raise PyomoEvaluatorError(msg)
-                    # TODO: check binary type!
+                    case (_, _, VariableTypeEnum.binary):
+                        domain = pyomo.Binary
                     case _:
                         msg = f"Could not figure out the type for variable {var}."
                         raise PyomoEvaluatorError(msg)
@@ -342,10 +342,13 @@ class PyomoEvaluator:
                     # constraints in DESDEO are defined such that they must be less than zero
                     pyomo_expr = _le(pyomo_expr, 0, cons.name)
                 case ConstraintTypeEnum.EQ:
-                    # if these constraints start acting up, check how indexed
-                    # stuff is implemented in the local function _le
-                    pyomo_expr = pyomo.Constraint(expr=_eq(pyomo_expr, 0), name=cons.name)
-                    pyomo_expr.construct()
+                    if hasattr(pyomo_expr, "is_indexed") and pyomo_expr.is_indexed():
+                        _e = pyomo_expr
+                        data = {k: _e[k] == 0 for k in _e.index_set()}
+                        pyomo_expr = pyomo.Constraint(_e.index_set(), rule=data)
+                    else:
+                        pyomo_expr = pyomo.Constraint(expr=pyomo_expr == 0, name=cons.name)
+                        pyomo_expr.construct()
                 case _:
                     msg = f"Constraint type of {con_type} not supported. Must be one of {ConstraintTypeEnum}."
                     raise PyomoEvaluatorError(msg)

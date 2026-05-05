@@ -242,11 +242,17 @@ def parse_pyomo_optimizer_results(
             if isinstance(result, dict):
                 # multi-valued
                 indices = list(getattr(evaluator.model, con.symbol).keys())
-                shape = tuple(len({idx[k] for idx in indices}) for k in range(len(indices[0])))
-                values_list = np.zeros(shape)
-
-                for idx in indices:
-                    values_list[*[i - 1 for i in idx]] = result[idx]
+                if indices and isinstance(indices[0], int):
+                    # 1-D constraint indexed by RangeSet — keys are plain integers
+                    values_list = np.zeros(len(indices))
+                    for idx in indices:
+                        values_list[idx - 1] = result[idx]
+                else:
+                    # multi-D constraint — keys are tuples
+                    shape = tuple(len({idx[k] for idx in indices}) for k in range(len(indices[0])))
+                    values_list = np.zeros(shape)
+                    for idx in indices:
+                        values_list[*[i - 1 for i in idx]] = result[idx]
 
                 constraint_values[con.symbol] = values_list.tolist()
 

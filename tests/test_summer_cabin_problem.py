@@ -1,5 +1,6 @@
 """Structural tests for the summer cabin electricity optimization problem."""
 
+# ruff: noqa: N806
 import pytest
 
 from desdeo.problem.schema import ConstraintTypeEnum, TensorVariable
@@ -8,8 +9,10 @@ from desdeo.problem.testproblems import (
     summer_cabin_battery_problem_split,
     summer_cabin_battery_problem_split_scenario,
 )
+from desdeo.tools import CVXPYSolver, GurobipySolver, PyomoBonminSolver, PyomoGurobiSolver, PyomoIpoptSolver
 from desdeo.tools.scenarios import build_scenario_problem
-
+from desdeo.tools.stochastic import add_expected_value
+from desdeo.tools.utils import payoff_table_method
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -112,7 +115,7 @@ def test_split_objectives(split_problem):
 
 
 def test_split_constraint_count(split_problem):
-    """Split problem has 2 shared + 4 per segment × 3 segments = 14 constraints."""
+    """Split problem has 2 shared + 4 per segment x 3 segments = 14 constraints."""
     assert len(split_problem.constraints) == 14
 
 
@@ -246,18 +249,14 @@ def test_s1a_no_extra_constraints(scenario_model):
 def test_s1b_constraint_symbols(scenario_model):
     """S1b has exactly the 4 outage constraints for s3."""
     s1b = scenario_model.scenarios["S1b"]
-    assert set(s1b.constraints.keys()) == {
-        "energy_bal_s3", "energy_bal_out_s3", "bigm_s3", "outage_trade_s3"
-    }
+    assert set(s1b.constraints.keys()) == {"energy_bal_s3", "energy_bal_out_s3", "bigm_s3", "outage_trade_s3"}
 
 
 @pytest.mark.scenario
 def test_s2a_constraint_symbols(scenario_model):
     """S2a has exactly the 4 outage constraints for s2."""
     s2a = scenario_model.scenarios["S2a"]
-    assert set(s2a.constraints.keys()) == {
-        "energy_bal_s2", "energy_bal_out_s2", "bigm_s2", "outage_trade_s2"
-    }
+    assert set(s2a.constraints.keys()) == {"energy_bal_s2", "energy_bal_out_s2", "bigm_s2", "outage_trade_s2"}
 
 
 @pytest.mark.scenario
@@ -265,8 +264,14 @@ def test_s2b_constraint_symbols(scenario_model):
     """S2b has 8 outage constraints (4 per outage segment)."""
     s2b = scenario_model.scenarios["S2b"]
     expected = {
-        "energy_bal_s2", "energy_bal_out_s2", "bigm_s2", "outage_trade_s2",
-        "energy_bal_s3", "energy_bal_out_s3", "bigm_s3", "outage_trade_s3",
+        "energy_bal_s2",
+        "energy_bal_out_s2",
+        "bigm_s2",
+        "outage_trade_s2",
+        "energy_bal_s3",
+        "energy_bal_out_s3",
+        "bigm_s3",
+        "outage_trade_s3",
     }
     assert set(s2b.constraints.keys()) == expected
 
@@ -318,3 +323,63 @@ def test_build_scenario_problem_works_for_all_leaves(scenario_model):
         assert prob is not None
         obj_syms = [o.symbol for o in prob.objectives]
         assert "f_3" in obj_syms, f"Scenario {name} problem missing f_3"
+
+
+# ---------------------------------------------------------------------------
+# Solver tests — payoff table on expected-value combined problem
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(name="combined_ev_problem")
+def combined_ev_problem_fixture():
+    """Return the expected-value combined problem built from the scenario model."""
+    model = summer_cabin_battery_problem_split_scenario()
+    problem, _ = add_expected_value(model, symbols=["f_1", "f_2", "f_3"])
+    return problem
+
+
+def _check_payoff_table(ideal, nadir):
+    assert set(ideal.keys()) == set(nadir.keys())
+    for sym in ideal:
+        assert ideal[sym] <= nadir[sym] + 1e-6, f"{sym}: ideal {ideal[sym]} > nadir {nadir[sym]}"
+    for sym in ("E_f_1", "E_f_2", "E_f_3"):
+        assert sym in ideal, f"Expected objective {sym} missing from payoff table"
+
+
+@pytest.mark.gurobipy
+@pytest.mark.scenario
+@pytest.mark.slow
+def test_payoff_table_gurobipy(combined_ev_problem):
+    """Payoff table method runs to completion with GurobipySolver."""
+    ideal, nadir = payoff_table_method(combined_ev_problem, GurobipySolver)
+    _check_payoff_table(ideal, nadir)
+
+
+@pytest.mark.pyomo
+@pytest.mark.scenario
+def test_pyomo_gurobi_constructs(combined_ev_problem):
+    """PyomoGurobiSolver can be constructed (model builds without error)."""
+    assert PyomoGurobiSolver(combined_ev_problem) is not None
+
+
+@pytest.mark.pyomo
+@pytest.mark.scenario
+def test_pyomo_bonmin_constructs(combined_ev_problem):
+    """PyomoBonminSolver can be constructed (model builds without error)."""
+    assert PyomoBonminSolver(combined_ev_problem) is not None
+
+
+@pytest.mark.pyomo
+@pytest.mark.scenario
+def test_pyomo_ipopt_constructs(combined_ev_problem):
+    """PyomoIpoptSolver can be constructed (model builds without error)."""
+    assert PyomoIpoptSolver(combined_ev_problem) is not None
+
+
+@pytest.mark.cvxpy
+@pytest.mark.scenario
+@pytest.mark.slow
+def test_payoff_table_cvxpy(combined_ev_problem):
+    """Payoff table method runs to completion with CVXPYSolver."""
+    ideal, nadir = payoff_table_method(combined_ev_problem, CVXPYSolver)
+    _check_payoff_table(ideal, nadir)
