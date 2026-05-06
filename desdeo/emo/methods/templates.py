@@ -125,6 +125,11 @@ def template_xlemoo(
 ) -> EMOResult:
     """Implements the XLEMOO loop alternating between Darwinian and Learning modes.
 
+    The loop interleaves ``n_darwin_per_cycle`` Darwinian iterations with
+    ``n_learning_per_cycle`` Learning iterations. Each iteration counts as one
+    generation against the terminator, so the cycle structure is just a phase
+    selector for what happens inside that generation.
+
     Args:
         evaluator (EMOEvaluator): Evaluator for objective and target values.
         crossover (BaseCrossover): The crossover operator.
@@ -134,8 +139,9 @@ def template_xlemoo(
             and offspring population by a single fitness column (e.g.
             :class:`~desdeo.emo.operators.scalar_selection.ElitistSelection`).
         learning_operator (LearningModeOperator): Operator that performs one learning step
-            (rule extraction + instantiation) using the archive.
-        terminator (BaseTerminator): Termination operator. Its `check()` advances the
+            (rule extraction + instantiation) using the archive. Its :meth:`do` returns
+            instantiated decision vectors (or ``None`` when no rules can be extracted).
+        terminator (BaseTerminator): Termination operator. Its ``check()`` advances the
             generation counter and notifies subscribers (e.g. the Archive).
         repair (Callable, optional): Function repairing offspring back into bounds. Defaults
             to identity.
@@ -147,12 +153,15 @@ def template_xlemoo(
     Returns:
         EMOResult: The final population and its objective/target values.
     """
+    if n_darwin_per_cycle == 0 and n_learning_per_cycle == 0:
+        raise ValueError("At least one of n_darwin_per_cycle and n_learning_per_cycle must be > 0.")
+
+    cycle_len = n_darwin_per_cycle + n_learning_per_cycle
     solutions, outputs = generator.do()
+    gen_in_cycle = 0
 
     while not terminator.check():
-        stop = False
-
-        for _ in range(n_darwin_per_cycle):
+        if gen_in_cycle < n_darwin_per_cycle:
             offspring = crossover.do(population=solutions)
             offspring = mutation.do(offspring, solutions)
             offspring = repair(offspring)
@@ -160,21 +169,14 @@ def template_xlemoo(
             combined_decvars = solutions.vstack(offspring)
             combined_outputs = outputs.vstack(offspring_outputs)
             solutions, outputs = selection.do((combined_decvars, combined_outputs))
-            if terminator.check():
-                stop = True
-                break
-        if stop:
-            break
-
-        for _ in range(n_learning_per_cycle):
-            solutions, outputs = learning_operator.do()
-            # Re-publish the new population through the pub/sub flow so the archive sees it.
-            outputs = evaluator.evaluate(solutions)
-            solutions, outputs = selection.do((solutions, outputs))
-            if terminator.check():
-                stop = True
-                break
-        if stop:
-            break
+        else:
+            instantiated = learning_operator.do()
+            if instantiated is not None:
+                instantiated_outputs = evaluator.evaluate(instantiated)
+                combined_decvars = solutions.vstack(instantiated)
+                combined_outputs = outputs.vstack(instantiated_outputs)
+                solutions, outputs = selection.do((combined_decvars, combined_outputs))
+            # else: no usable rules this round; keep the current population unchanged
+        gen_in_cycle = (gen_in_cycle + 1) % cycle_len
 
     return EMOResult(optimal_variables=solutions, optimal_outputs=outputs)

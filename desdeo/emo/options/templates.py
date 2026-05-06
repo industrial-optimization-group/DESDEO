@@ -446,10 +446,24 @@ def emo_constructor(
         )
         components["mate_selection"] = scalar_selector
 
-    learning_archive: Archive | None = None
+    learning_operator: LearningModeOperator | None = None
     if template.name == "TemplateXLEMOO":
+        if not isinstance(selector, ElitistSelection):
+            raise InvalidTemplateError("XLEMOO requires an ElitistSelection scalar selector.")
         learning_archive = Archive(problem=problem_, publisher=publisher)
         components["learning_archive"] = learning_archive
+        learning_operator = LearningModeOperator(
+            problem=problem_,
+            archive=learning_archive,
+            selector=selector,
+            publisher=publisher,
+            verbosity=template.verbosity,
+            h_split=template.h_split,
+            l_split=template.l_split,
+            instantiation_factor=template.instantiation_factor,
+            seed=template.seed,
+        )
+        components["learning_operator"] = learning_operator
 
     [publisher.auto_subscribe(x) for x in components.values()]
     [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components.values()]
@@ -467,19 +481,6 @@ def emo_constructor(
     }
 
     if template.name == "TemplateXLEMOO":
-        if not isinstance(selector, ElitistSelection):
-            raise InvalidTemplateError("XLEMOO requires an ElitistSelection scalar selector.")
-        learning_operator = LearningModeOperator(
-            problem=problem_,
-            archive=learning_archive,
-            evaluator=evaluator,
-            selector=selector,
-            h_split=template.h_split,
-            l_split=template.l_split,
-            instantiation_factor=template.instantiation_factor,
-            seed=template.seed,
-        )
-        components["learning_operator"] = learning_operator
         constructor_extras = ConstructorExtras(
             problem=problem_,
             publisher=publisher,

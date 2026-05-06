@@ -8,7 +8,7 @@ from desdeo.emo.hooks.archivers import Archive
 from desdeo.emo.operators.crossover import SimulatedBinaryCrossover
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.generator import LHSGenerator
-from desdeo.emo.operators.learning_mode import LearningModeOperator, _split_indices
+from desdeo.emo.operators.learning_mode import LearningModeOperator
 from desdeo.emo.operators.mutation import BoundedPolynomialMutation
 from desdeo.emo.operators.scalar_selection import ElitistSelection
 from desdeo.emo.operators.termination import MaxGenerationsTerminator
@@ -18,7 +18,7 @@ from desdeo.tools.scalarization import add_asf_nondiff
 
 
 def _build_components(population_size: int = 30):
-    """Construct a DTLZ2 problem with ASF and the components needed to run template1."""
+    """Construct a DTLZ2 problem with ASF and the components needed to warm up an archive."""
     problem = dtlz2(n_variables=5, n_objectives=3)
     reference_point = {"f_1": 0.5, "f_2": 0.5, "f_3": 0.5}
     problem, asf_symbol = add_asf_nondiff(problem, symbol="asf", reference_point=reference_point)
@@ -91,47 +91,43 @@ def _run_darwinian(components: dict, generations: int) -> None:
         solutions, outputs = selector.do((combined_decvars, combined_outputs))
 
 
+def _build_operator(components: dict) -> LearningModeOperator:
+    """Construct a `LearningModeOperator` from the test components."""
+    return LearningModeOperator(
+        problem=components["problem"],
+        archive=components["archive"],
+        selector=components["selector"],
+        publisher=components["publisher"],
+        seed=0,
+    )
+
+
 @pytest.mark.ea
-def test_learning_mode_runs():
-    """`LearningModeOperator.do()` returns a tuple of two polars DataFrames without error."""
+def test_learning_mode_returns_decision_dataframe():
+    """`LearningModeOperator.do()` returns just the instantiated decision-variable DataFrame."""
     components = _build_components()
     _run_darwinian(components, generations=20)
 
-    operator = LearningModeOperator(
-        problem=components["problem"],
-        archive=components["archive"],
-        evaluator=components["evaluator"],
-        selector=components["selector"],
-        seed=0,
-    )
-
+    operator = _build_operator(components)
     result = operator.do()
 
-    assert isinstance(result, tuple)
-    assert len(result) == 2
-    decision_vars, outputs = result
-    assert isinstance(decision_vars, pl.DataFrame)
-    assert isinstance(outputs, pl.DataFrame)
+    assert isinstance(result, pl.DataFrame)
+    # Same columns as the problem's decision variables, in the same order.
+    assert list(result.columns) == [v.symbol for v in components["problem"].get_flattened_variables()]
 
 
 @pytest.mark.ea
-def test_learning_mode_returns_correct_size():
-    """The returned population has exactly ``population_size`` rows and the right columns."""
+def test_learning_mode_returns_expected_row_count():
+    """The instantiated DataFrame is sized according to ``instantiation_factor * winner_size``."""
     components = _build_components(population_size=30)
     _run_darwinian(components, generations=20)
 
-    operator = LearningModeOperator(
-        problem=components["problem"],
-        archive=components["archive"],
-        evaluator=components["evaluator"],
-        selector=components["selector"],
-        seed=0,
-    )
+    operator = _build_operator(components)
+    decision_vars = operator.do()
 
-    decision_vars, outputs = operator.do()
-
-    assert decision_vars.shape == (30, 5)
-    assert outputs.shape[0] == 30
+    expected = int(operator.instantiation_factor * components["selector"].winner_size)
+    # `instantiate_from_ruleset` may round to a slightly different total; allow ±5.
+    assert abs(decision_vars.height - expected) <= 5
 
 
 @pytest.mark.ea
@@ -140,27 +136,18 @@ def test_learning_mode_stores_ml_model():
     components = _build_components()
     _run_darwinian(components, generations=20)
 
-    operator = LearningModeOperator(
-        problem=components["problem"],
-        archive=components["archive"],
-        evaluator=components["evaluator"],
-        selector=components["selector"],
-        seed=0,
-    )
-
+    operator = _build_operator(components)
     assert operator.current_ml_model is None
     operator.do()
     assert operator.current_ml_model is not None
 
 
 @pytest.mark.ea
-def test_hl_split_correct_sizes():
-    """``_split_indices`` returns the expected fractional and absolute counts."""
-    assert _split_indices(100, 0.2) == 20
-    assert _split_indices(100, 0.5) == 50
-    assert _split_indices(100, 5) == 5
-    # Asking for more than half clamps to half.
-    assert _split_indices(100, 80) == 50
+def test_learning_mode_returns_none_on_empty_archive():
+    """If the archive has no solutions, the operator returns ``None`` instead of crashing."""
+    components = _build_components()
+    operator = _build_operator(components)
+    assert operator.do() is None
 
 
 @pytest.mark.ea
@@ -174,8 +161,8 @@ def test_hl_split_best_in_h_group():
     variable_symbols = [v.symbol for v in components["problem"].get_flattened_variables()]
 
     unique = archive.solutions.unique(subset=variable_symbols, maintain_order=True).sort(asf)
-    h_size = _split_indices(unique.height, 0.2)
-    l_size = _split_indices(unique.height, 0.2)
+    h_size = int(0.2 * unique.height)
+    l_size = int(0.2 * unique.height)
 
     h_vals = unique.head(h_size)[asf].to_numpy()
     l_vals = unique.tail(l_size)[asf].to_numpy()
@@ -189,15 +176,9 @@ def test_learning_mode_instantiated_within_bounds():
     components = _build_components()
     _run_darwinian(components, generations=20)
 
-    operator = LearningModeOperator(
-        problem=components["problem"],
-        archive=components["archive"],
-        evaluator=components["evaluator"],
-        selector=components["selector"],
-        seed=0,
-    )
-
-    decision_vars, _ = operator.do()
+    operator = _build_operator(components)
+    decision_vars = operator.do()
+    assert decision_vars is not None
     values = decision_vars.to_numpy()
 
     for i, var in enumerate(components["problem"].get_flattened_variables()):
@@ -211,13 +192,7 @@ def test_learning_mode_reads_from_archive():
     components = _build_components()
     _run_darwinian(components, generations=20)
 
-    operator = LearningModeOperator(
-        problem=components["problem"],
-        archive=components["archive"],
-        evaluator=components["evaluator"],
-        selector=components["selector"],
-        seed=0,
-    )
+    operator = _build_operator(components)
     operator.do()
     rows_before = components["archive"].solutions.height
 

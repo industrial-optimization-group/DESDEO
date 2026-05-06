@@ -435,10 +435,19 @@ def test_format_rule_table_after_xlemoo_run():
     terminator = MaxGenerationsTerminator(60, publisher=publisher)
     archive = Archive(problem=problem, publisher=publisher)
     learning_operator = LearningModeOperator(
-        problem=problem, archive=archive, evaluator=evaluator, selector=selector, seed=0
+        problem=problem, archive=archive, selector=selector, publisher=publisher, seed=0
     )
 
-    components: list[Subscriber] = [evaluator, generator, crossover, mutation, selector, terminator, archive]
+    components: list[Subscriber] = [
+        evaluator,
+        generator,
+        crossover,
+        mutation,
+        selector,
+        terminator,
+        archive,
+        learning_operator,
+    ]
     [publisher.auto_subscribe(c) for c in components]
     [publisher.register_topics(topics=c.provided_topics[c.verbosity], source=c.__class__.__name__) for c in components]
 
