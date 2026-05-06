@@ -1,5 +1,6 @@
 """Defines simple test problems for testing purposes."""
 
+from desdeo.problem.scenario import Scenario, ScenarioModel
 from desdeo.problem.schema import (
     Constant,
     Constraint,
@@ -190,6 +191,9 @@ def simple_linear_test_problem() -> Problem:
         variables=variables,
         constraints=[con_1, con_2],
         objectives=objectives,
+        is_linear=True,
+        is_convex=True,
+        is_twice_differentiable=True,
     )
 
 
@@ -286,7 +290,6 @@ def simple_scenario_test_problem():
             is_linear=True,
             is_convex=True,
             is_twice_differentiable=True,
-            scenario_keys="s_1",
         ),
         Constraint(
             name="con_2",
@@ -296,7 +299,6 @@ def simple_scenario_test_problem():
             is_linear=True,
             is_convex=True,
             is_twice_differentiable=True,
-            scenario_keys="s_2",
         ),
         Constraint(
             name="con_3",
@@ -306,7 +308,6 @@ def simple_scenario_test_problem():
             is_linear=True,
             is_convex=True,
             is_twice_differentiable=True,
-            scenario_keys=None,
         ),
         Constraint(
             name="con_4",
@@ -316,7 +317,6 @@ def simple_scenario_test_problem():
             is_linear=True,
             is_convex=True,
             is_twice_differentiable=True,
-            scenario_keys=["s_1", "s_2"],
         ),
     ]
 
@@ -338,7 +338,6 @@ def simple_scenario_test_problem():
             is_linear=True,
             is_convex=True,
             is_twice_differentiable=True,
-            scenario_keys="s_1",
         ),
         Objective(
             name="f_2",
@@ -351,7 +350,6 @@ def simple_scenario_test_problem():
             is_linear=True,
             is_convex=True,
             is_twice_differentiable=True,
-            scenario_keys=["s_1", "s_2"],
         ),
         Objective(
             name="f_3",
@@ -364,7 +362,6 @@ def simple_scenario_test_problem():
             is_linear=True,
             is_convex=True,
             is_twice_differentiable=True,
-            scenario_keys=None,
         ),
         Objective(
             name="f_4",
@@ -377,7 +374,6 @@ def simple_scenario_test_problem():
             is_linear=True,
             is_convex=True,
             is_twice_differentiable=True,
-            scenario_keys="s_2",
         ),
         Objective(
             name="f_5",
@@ -390,7 +386,6 @@ def simple_scenario_test_problem():
             is_linear=True,
             is_convex=True,
             is_twice_differentiable=True,
-            scenario_keys="s_2",
         ),
     ]
 
@@ -402,7 +397,6 @@ def simple_scenario_test_problem():
             is_linear=True,
             is_convex=True,
             is_twice_differentiable=True,
-            scenario_keys="s_2",
         )
     ]
 
@@ -414,5 +408,202 @@ def simple_scenario_test_problem():
         constraints=constraints,
         objectives=objectives,
         extra_funcs=extra_funcs,
-        scenario_keys=["s_1", "s_2"],
+    )
+
+
+def simple_scenario_model() -> ScenarioModel:
+    """Returns a ScenarioModel for testing scenario-based problem construction.
+
+    The base problem contains elements shared across all scenarios (f_3, con_3).
+    The pool contains scenario-specific elements.
+    Scenario s_1: objectives f_1, f_2 and constraints con_1, con_4.
+    Scenario s_2: objectives f_2, f_4, f_5, constraints con_2, con_4, and extra_func extra_1.
+    """
+    constants = [Constant(name="c_1", symbol="c_1", value=3)]
+    variables = [
+        Variable(
+            name="x_1",
+            symbol="x_1",
+            lowerbound=-5.1,
+            upperbound=6.2,
+            initial_value=0,
+            variable_type=VariableTypeEnum.real,
+        ),
+        Variable(
+            name="x_2",
+            symbol="x_2",
+            lowerbound=-5.2,
+            upperbound=6.1,
+            initial_value=0,
+            variable_type=VariableTypeEnum.real,
+        ),
+    ]
+
+    base_problem = Problem(
+        name="Simple scenario base problem",
+        description="Base problem for scenario testing; contains elements shared by all scenarios.",
+        variables=variables,
+        constants=constants,
+        objectives=[
+            Objective(
+                name="f_3",
+                symbol="f_3",
+                func="(x_1 - 3)**2 + x_2",
+                maximize=False,
+                ideal=-100,
+                nadir=100,
+                objective_type=ObjectiveTypeEnum.analytical,
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            ),
+        ],
+        constraints=[
+            Constraint(
+                name="con_3",
+                symbol="con_3",
+                cons_type=ConstraintTypeEnum.LTE,
+                func="x_2 - 50",
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            ),
+        ],
+    )
+
+    return ScenarioModel(
+        scenario_tree={"ROOT": ["s_1", "s_2", "s_3"], "s_1": [], "s_2": [], "s_3": []},
+        scenario_probabilities={"s_1": 0.2, "s_2": 0.3, "s_3": 0.5},
+        anticipation_stop={"ROOT": ["x_1"]},
+        base_problem=base_problem,
+        objectives=[
+            # index 0: f_1 used by s_1
+            Objective(
+                name="f_1 (s_1)",
+                symbol="f_1",
+                func="x_1 + x_2",
+                maximize=False,
+                ideal=-100,
+                nadir=100,
+                objective_type=ObjectiveTypeEnum.analytical,
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            ),
+            # index 1: f_2 used by s_1 and s_3
+            Objective(
+                name="f_2 (s_1/s_3)",
+                symbol="f_2",
+                func="x_1 - x_2",
+                maximize=False,
+                ideal=-100,
+                nadir=100,
+                objective_type=ObjectiveTypeEnum.analytical,
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            ),
+            # index 2: f_1 used by s_2 and s_3
+            Objective(
+                name="f_1 (s_2/s_3)",
+                symbol="f_1",
+                func="c_1 + x_2**2 - x_1",
+                maximize=False,
+                ideal=-100,
+                nadir=100,
+                objective_type=ObjectiveTypeEnum.analytical,
+                is_linear=False,
+                is_convex=True,
+                is_twice_differentiable=True,
+            ),
+            # index 3: f_2 used by s_2
+            Objective(
+                name="f_2 (s_2)",
+                symbol="f_2",
+                func="-x_1 - x_2",
+                maximize=False,
+                ideal=-100,
+                nadir=100,
+                objective_type=ObjectiveTypeEnum.analytical,
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            ),
+        ],
+        constraints=[
+            Constraint(
+                name="con_1",
+                symbol="con_1",
+                cons_type=ConstraintTypeEnum.LTE,
+                func="x_1 + x_2 - 15",
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            ),
+            Constraint(
+                name="con_2",
+                symbol="con_2",
+                cons_type=ConstraintTypeEnum.LTE,
+                func="x_1 + x_2 - 65",
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            ),
+            Constraint(
+                name="con_4",
+                symbol="con_4",
+                cons_type=ConstraintTypeEnum.LTE,
+                func="extra_1 - 5",
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            ),
+        ],
+        extra_funcs=[
+            # index 0: used by s_2
+            ExtraFunction(
+                name="extra_1 (s_2)",
+                symbol="extra_1",
+                func="5*x_1",
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            ),
+            # index 1: used by s_1
+            ExtraFunction(
+                name="extra_1 (s_1)",
+                symbol="extra_1",
+                func="2*x_1",
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            ),
+        ],
+        constants=[
+            Constant(name="c_1 (s_1)", symbol="c_1", value=1.0),  # index 0
+            Constant(name="c_1 (s_2)", symbol="c_1", value=5.0),  # index 1
+            Constant(name="c_1 (s_3)", symbol="c_1", value=10.0),  # index 2
+        ],
+        scenarios={
+            # constants: c_1→0/1/2 per scenario
+            # objectives: f_1→0(s_1),2(s_2/s_3) | f_2→1(s_1/s_3),3(s_2)
+            # constraints: con_1=0, con_2=1, con_4=2 | extra_funcs: extra_1→1(s_1),0(s_2)
+            "s_1": Scenario(
+                constants={"c_1": 0},
+                objectives={"f_1": 0, "f_2": 1},
+                constraints={"con_1": 0, "con_4": 2},
+                extra_funcs={"extra_1": 1},
+            ),
+            "s_2": Scenario(
+                constants={"c_1": 1},
+                objectives={"f_1": 2, "f_2": 3},
+                constraints={"con_2": 1, "con_4": 2},
+                extra_funcs={"extra_1": 0},
+            ),
+            "s_3": Scenario(
+                constants={"c_1": 2},
+                objectives={"f_1": 2, "f_2": 1},
+                constraints={"con_1": 0, "con_2": 1},
+            ),
+        },
     )

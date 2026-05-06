@@ -4,6 +4,7 @@ from pathlib import Path
 
 import polars as pl
 
+from desdeo.problem.scenario import Scenario, ScenarioModel
 from desdeo.problem.schema import (
     DiscreteRepresentation,
     Objective,
@@ -271,7 +272,7 @@ def river_pollution_scenario() -> Problem:
     where $\\gamma = \\log\\left(\\frac{\\alpha}{2} - 1\\right) + \\frac{\\alpha}{2} + 1.5$.
 
     Returns:
-        Problem: the scenario-based river pollution problem.
+        ScenarioModel: the scenario-based river pollution problem.
 
     References:
         Narula, Subhash C., and HRoland Weistroffer. "A flexible method for
@@ -351,16 +352,34 @@ def river_pollution_scenario() -> Problem:
 
     variables = [x1, x2]
 
-    # define objectives for each scenario
-    objectives = []
-    scenario_keys = []
+    f4_expr = "-0.96 + 0.96/(1.09 - x_2**2)"
+    f4 = Objective(
+        name="Addition to city tax",
+        symbol="f4",
+        func=f4_expr,
+        objective_type=ObjectiveTypeEnum.analytical,
+        maximize=False,
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=True,
+    )
+
+    base_problem = Problem(
+        name="Scenario-based river pollution problem",
+        description="The scenario-based river pollution problem",
+        constants=constants,
+        variables=variables,
+        objectives=[f4],
+    )
+
+    # Build per-scenario objective pool and scenario definitions
+    pool_objectives = []
+    scenarios = {}
 
     for i in range(num_scenarios):
         scenario_key = f"{scenario_key_stub}_{i + 1}"
-        scenario_keys.append(scenario_key)
 
         gamma_expr = f"Ln(alpha[{i + 1}]/2 - 1) + alpha[{i + 1}]/2 + 1.5"
-
         f1_expr = f"alpha[{i + 1}] + (Ln((beta[{i + 1}]/2 - 1.14)**2) + beta[{i + 1}]**3)*x_1"
         f2_expr = (
             f"{gamma_expr} + delta[{i + 1}]*x_1 + xi[{i + 1}]*x_2 + 0.01/(eta[{i + 1}] - x_1**2) "
@@ -368,73 +387,46 @@ def river_pollution_scenario() -> Problem:
         )
         f3_expr = f"r[{i + 1}]  - 0.71/(1.09 - x_1**2)"
 
-        # f1
-        objectives.append(
-            Objective(
-                name="DO level city",
-                symbol=f"f1_{i + 1}",
-                scenario_keys=[scenario_key],
-                func=f1_expr,
-                objective_type=ObjectiveTypeEnum.analytical,
-                maximize=True,
-                is_linear=False,
-                is_convex=False,
-                is_twice_differentiable=True,
-            )
-        )
-
-        # f2
-        objectives.append(
-            Objective(
-                name="DO level fishery",
-                symbol=f"f2_{i + 1}",
-                scenario_keys=[scenario_key],
-                func=f2_expr,
-                objective_type=ObjectiveTypeEnum.analytical,
-                maximize=True,
-                is_linear=False,
-                is_convex=False,
-                is_twice_differentiable=True,
-            )
-        )
-
-        # f3
-        objectives.append(
-            Objective(
-                name="Return of investment",
-                symbol=f"f3_{i + 1}",
-                scenario_keys=[scenario_key],
-                func=f3_expr,
-                objective_type=ObjectiveTypeEnum.analytical,
-                maximize=True,
-                is_linear=False,
-                is_convex=False,
-                is_twice_differentiable=True,
-            )
-        )
-
-    f4_expr = "-0.96 + 0.96/(1.09 - x_2**2)"
-
-    # f4, by setting the scenario_key to None, the objective function is assumed to be part of all the scenarios.
-    objectives.append(
-        Objective(
-            name="Addition to city tax",
-            symbol="f4",
-            scenario_keys=None,
-            func=f4_expr,
+        f1 = Objective(
+            name="DO level city",
+            symbol=f"f1_{i + 1}",
+            func=f1_expr,
             objective_type=ObjectiveTypeEnum.analytical,
-            maximize=False,
+            maximize=True,
             is_linear=False,
             is_convex=False,
             is_twice_differentiable=True,
         )
-    )
+        f2 = Objective(
+            name="DO level fishery",
+            symbol=f"f2_{i + 1}",
+            func=f2_expr,
+            objective_type=ObjectiveTypeEnum.analytical,
+            maximize=True,
+            is_linear=False,
+            is_convex=False,
+            is_twice_differentiable=True,
+        )
+        f3 = Objective(
+            name="Return of investment",
+            symbol=f"f3_{i + 1}",
+            func=f3_expr,
+            objective_type=ObjectiveTypeEnum.analytical,
+            maximize=True,
+            is_linear=False,
+            is_convex=False,
+            is_twice_differentiable=True,
+        )
 
-    return Problem(
-        name="Scenario-based river pollution problem",
-        description="The scenario-based river pollution problem",
-        constants=constants,
-        variables=variables,
-        objectives=objectives,
-        scenario_keys=scenario_keys,
+        base_idx = i * 3
+        pool_objectives.extend([f1, f2, f3])
+        scenarios[scenario_key] = Scenario(
+            objectives={f1.symbol: base_idx, f2.symbol: base_idx + 1, f3.symbol: base_idx + 2}
+        )
+
+    return ScenarioModel(
+        scenario_tree=[f"{scenario_key_stub}_{i + 1}" for i in range(num_scenarios)],
+        base_problem=base_problem,
+        objectives=pool_objectives,
+        scenarios=scenarios,
     )

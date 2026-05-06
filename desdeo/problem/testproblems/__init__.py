@@ -35,6 +35,7 @@ __all__ = [  # noqa: RUF022
     "simple_knapsack",
     "simple_knapsack_vectors",
     "simple_linear_test_problem",
+    "simple_scenario_model",
     "simple_scenario_test_problem",
     "simple_test_problem",
     "simulator_problem",
@@ -45,6 +46,11 @@ __all__ = [  # noqa: RUF022
     "zdt3",
     "best_cake_problem",
     "dmitry_forest_problem_disc",
+    "generate_solar_profile",
+    "generate_summer_cabin_electricity_data",
+    "summer_cabin_battery_problem",
+    "summer_cabin_battery_problem_split",
+    "summer_cabin_battery_problem_split_scenario",
 ]
 
 
@@ -79,6 +85,7 @@ from .simple_problem import (
     simple_data_problem,
     simple_integer_test_problem,
     simple_linear_test_problem,
+    simple_scenario_model,
     simple_scenario_test_problem,
     simple_test_problem,
 )
@@ -87,4 +94,5 @@ from .spanish_sustainability_problem import (
     spanish_sustainability_problem,
     spanish_sustainability_problem_discrete,
 )
+from .summer_cabin_electricity import generate_solar_profile, generate_summer_cabin_electricity_data, summer_cabin_battery_problem, summer_cabin_battery_problem_split, summer_cabin_battery_problem_split_scenario
 from .zdt_problem import zdt1, zdt2, zdt3

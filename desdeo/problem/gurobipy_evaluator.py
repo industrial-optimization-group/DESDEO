@@ -75,13 +75,13 @@ class GurobipyEvaluator:
         # Add objective function expressions
         self.objective_functions = self.init_objectives(problem)
 
-        # Add constraints, if any
-        if problem.constraints is not None:
-            self.constraints = self.init_constraints(problem)
-
         # Add scalarization functions, if any
         if problem.scalarization_funcs is not None:
             self.scalarizations = self.init_scalarizations(problem)
+
+        # Add constraints, if any
+        if problem.constraints is not None:
+            self.constraints = self.init_constraints(problem)
 
         self.problem = problem
 
@@ -531,7 +531,16 @@ class GurobipyEvaluator:
 
         if self.problem.constraints is not None:
             for const in self.problem.constraints:
-                result_dict[const.symbol] = -self.constraints[const.symbol].getAttr("Slack")
+                con = self.constraints[const.symbol]
+                if isinstance(con, gp.MQConstr):
+                    slack = con.QCSlack
+                    result_dict[const.symbol] = (-np.array(slack)).tolist() if hasattr(slack, "__len__") else -slack
+                elif isinstance(con, gp.MConstr):
+                    result_dict[const.symbol] = (-con.Slack).tolist()
+                elif isinstance(con, gp.QConstr):
+                    result_dict[const.symbol] = -con.getAttr("QCSlack")
+                else:
+                    result_dict[const.symbol] = -con.getAttr("Slack")
 
         if self.problem.scalarization_funcs is not None:
             for scal in self.problem.scalarization_funcs:

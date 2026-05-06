@@ -1,11 +1,12 @@
 """Tests related to multi-valued constraints."""
 
+# ruff: noqa: F841
 import numpy as np
 import polars as pl
 import polars.testing as plt
 import pytest
 
-from desdeo.problem import GurobipyEvaluator, PolarsEvaluator, PyomoEvaluator, SympyEvaluator
+from desdeo.problem import CVXPYEvaluator, GurobipyEvaluator, PolarsEvaluator, PyomoEvaluator, SympyEvaluator
 from desdeo.problem.sympy_evaluator import SympyEvaluatorError
 from desdeo.problem.testproblems import multi_valued_constraint_problem
 from desdeo.tools import (
@@ -115,20 +116,44 @@ def test_with_sympy_evaluator():
     # res = evaluator.evaluate(x_input)
 
 
+@pytest.mark.gurobipy
 def test_with_gurobipy_evaluator():
-    """Test multi-valued constraints with the Gurobipy evaluator.
-
-    TODO: fix me!
-    """
+    """Test multi-valued constraints with the Gurobipy evaluator."""
     problem = multi_valued_constraint_problem()
 
-    with pytest.raises(NotImplementedError):
-        # TODO: implement missing support for tensors and associated operators
-        evaluator = GurobipyEvaluator(problem)
+    evaluator = GurobipyEvaluator(problem)
+    evaluator.model.setParam("OutputFlag", 0)
+    evaluator.model.setParam("LogToConsole", 0)
+    evaluator.set_optimization_target("f_2")
+    evaluator.model.optimize()
 
-    # x_input = {"X": [[[1.0], [2.0]], [[2.0], [1.0]], [[-4.0], [4.0]]], "y": [-1.0, 0.0, 1.0]}
+    values = evaluator.get_values()
 
-    # res = evaluator.evaluate(x_input)
+    g_values = np.array(values["G"])
+    assert g_values.shape == (2, 1)
+
+    tol = 1e-6
+    ok_mask = g_values <= tol
+    assert np.all(ok_mask), f"G constraint violated: {g_values[~ok_mask]}"
+
+
+@pytest.mark.cvxpy
+def test_with_cvxpy_evaluator():
+    """Test multi-valued constraints with the CVXPY evaluator."""
+    problem = multi_valued_constraint_problem()
+
+    evaluator = CVXPYEvaluator(problem)
+    evaluator.set_optimization_target("f_2")
+    evaluator.problem_model.solve()
+
+    values = evaluator.get_values()
+
+    g_values = np.array(values["G"])
+    assert g_values.shape == (2, 1)
+
+    tol = 1e-6
+    ok_mask = g_values <= tol
+    assert np.all(ok_mask), f"G constraint violated: {g_values[~ok_mask]}"
 
 
 def test_with_pyomo_solvers():

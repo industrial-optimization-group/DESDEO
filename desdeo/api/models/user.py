@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from .archive import UserSavedSolutionDB
     from .preference import PreferenceDB
     from .problem import ProblemDB
+    from .scenario import ScenarioModelDB
     from .session import InteractiveSessionDB
 
 
@@ -41,6 +42,7 @@ class User(UserBase, table=True):
     archive: list["UserSavedSolutionDB"] = Relationship(back_populates="user")
     preferences: list["PreferenceDB"] = Relationship(back_populates="user")
     problems: list["ProblemDB"] = Relationship(back_populates="user")
+    scenario_models: list["ScenarioModelDB"] = Relationship(back_populates="user")
     sessions: list["InteractiveSessionDB"] = Relationship(back_populates="user")
 
 

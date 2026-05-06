@@ -98,6 +98,12 @@ server = [ # production!
     "psycopg2>=2.9.10",
 ]
 
+stochastic = [
+    "sortedcollections",
+    "mpi4py>=3.0.3", # Need mpi installed on your system before installing this
+    "mpi-sppy@ git+https://github.com/juropo/mpi-sppy@main",
+]
+
 all-dev = [
     { include-group = "dev" },
     { include-group = "docs" },
@@ -252,6 +258,7 @@ markers = [
     "gdmtools: tests related to group decision making.",
     "gnimbus: tests related to group nimbus method.",
     "external: tests related to providers interfacing to external problems.",
+    "scenario: tests related to scenario-based optimization.",
     "fixme: tests that are not passing, but maybe should, yet are ignored.",
     "githubskip: skip these tests on GitHub workflows.",
 ]
