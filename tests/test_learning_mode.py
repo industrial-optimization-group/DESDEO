@@ -5,13 +5,12 @@ import polars as pl
 import pytest
 
 from desdeo.emo.hooks.archivers import Archive
-from desdeo.emo.methods.templates import template1
 from desdeo.emo.operators.crossover import SimulatedBinaryCrossover
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.generator import LHSGenerator
 from desdeo.emo.operators.learning_mode import LearningModeOperator, _split_indices
 from desdeo.emo.operators.mutation import BoundedPolynomialMutation
-from desdeo.emo.operators.selection import ASFSelector
+from desdeo.emo.operators.scalar_selection import ElitistSelection
 from desdeo.emo.operators.termination import MaxGenerationsTerminator
 from desdeo.problem.testproblems import dtlz2
 from desdeo.tools.patterns import Publisher, Subscriber
@@ -36,12 +35,11 @@ def _build_components(population_size: int = 30):
     )
     crossover = SimulatedBinaryCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
     mutation = BoundedPolynomialMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
-    selector = ASFSelector(
-        problem=problem,
+    selector = ElitistSelection(
         publisher=publisher,
-        population_size=population_size,
-        target_column=asf_symbol,
         verbosity=2,
+        winner_size=population_size,
+        target_column=asf_symbol,
     )
     archive = Archive(problem=problem, publisher=publisher)
 
@@ -60,7 +58,7 @@ def _build_components(population_size: int = 30):
 
 
 def _run_darwinian(components: dict, generations: int) -> None:
-    """Wire the publisher, then run ``generations`` Darwinian iterations via template1."""
+    """Wire the publisher, then run ``generations`` Darwinian iterations of an ElitistSelection EA."""
     terminator = MaxGenerationsTerminator(generations, publisher=components["publisher"])
     subs: list[Subscriber] = [
         components["evaluator"],
@@ -77,14 +75,20 @@ def _run_darwinian(components: dict, generations: int) -> None:
         for s in subs
     ]
 
-    template1(
-        evaluator=components["evaluator"],
-        generator=components["generator"],
-        crossover=components["crossover"],
-        mutation=components["mutation"],
-        selection=components["selector"],
-        terminator=terminator,
-    )
+    evaluator = components["evaluator"]
+    generator = components["generator"]
+    crossover = components["crossover"]
+    mutation = components["mutation"]
+    selector = components["selector"]
+
+    solutions, outputs = generator.do()
+    while not terminator.check():
+        offspring = crossover.do(population=solutions)
+        offspring = mutation.do(offspring, solutions)
+        offspring_outputs = evaluator.evaluate(offspring)
+        combined_decvars = solutions.vstack(offspring)
+        combined_outputs = outputs.vstack(offspring_outputs)
+        solutions, outputs = selector.do((combined_decvars, combined_outputs))
 
 
 @pytest.mark.ea
@@ -226,14 +230,19 @@ def test_learning_mode_reads_from_archive():
         source=extra_terminator.__class__.__name__,
     )
 
-    template1(
-        evaluator=components["evaluator"],
-        generator=components["generator"],
-        crossover=components["crossover"],
-        mutation=components["mutation"],
-        selection=components["selector"],
-        terminator=extra_terminator,
-    )
+    evaluator = components["evaluator"]
+    generator = components["generator"]
+    crossover = components["crossover"]
+    mutation = components["mutation"]
+    selector = components["selector"]
+    solutions, outputs = generator.do()
+    while not extra_terminator.check():
+        offspring = crossover.do(population=solutions)
+        offspring = mutation.do(offspring, solutions)
+        offspring_outputs = evaluator.evaluate(offspring)
+        combined_decvars = solutions.vstack(offspring)
+        combined_outputs = outputs.vstack(offspring_outputs)
+        solutions, outputs = selector.do((combined_decvars, combined_outputs))
 
     rows_after = components["archive"].solutions.height
     assert rows_after > rows_before

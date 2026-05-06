@@ -12,7 +12,7 @@ from imodels import SkopeRulesClassifier
 
 from desdeo.emo.hooks.archivers import Archive
 from desdeo.emo.operators.evaluator import EMOEvaluator
-from desdeo.emo.operators.selection import ASFSelector
+from desdeo.emo.operators.scalar_selection import ElitistSelection
 from desdeo.explanations.rules import (
     extract_skoped_rules,
     instantiate_from_ruleset,
@@ -38,7 +38,7 @@ class LearningModeOperator:
         problem: Problem,
         archive: Archive,
         evaluator: EMOEvaluator,
-        selector: ASFSelector,
+        selector: ElitistSelection,
         h_split: float = 0.2,
         l_split: float = 0.2,
         instantiation_factor: float = 10.0,
@@ -51,8 +51,8 @@ class LearningModeOperator:
             problem (Problem): The optimization problem.
             archive (Archive): Archive holding all evaluated solutions so far.
             evaluator (EMOEvaluator): Evaluator used to score newly instantiated individuals.
-            selector (ASFSelector): ASF selector that defines the target column and the
-                desired population size.
+            selector (ElitistSelection): Elitist scalar selector that defines the target column
+                and the desired ``winner_size`` (kept population size).
             h_split (float, optional): Fraction (or absolute count if ``>= 1``) of unique
                 individuals placed in the H-group. Defaults to ``0.2``.
             l_split (float, optional): Fraction (or absolute count if ``>= 1``) of unique
@@ -105,7 +105,7 @@ class LearningModeOperator:
             tuple[pl.DataFrame, pl.DataFrame]: Selected decision variables and their outputs.
         """
         target_column = self.selector.target_column
-        population_size = self.selector.population_size
+        population_size = self.selector.winner_size
 
         all_solutions = self.archive.solutions
         non_dec_cols = [c for c in all_solutions.columns if c not in (*self.variable_symbols, "generation")]
@@ -149,8 +149,7 @@ class LearningModeOperator:
         instantiated_outputs = self.evaluator.evaluate(instantiated_df)
 
         h_outputs = h_group[non_dec_cols]
+        combined_decvars = h_group[self.variable_symbols].vstack(instantiated_df)
+        combined_outputs = h_outputs.vstack(instantiated_outputs)
 
-        return self.selector.do(
-            parents=(h_group[self.variable_symbols], h_outputs),
-            offsprings=(instantiated_df, instantiated_outputs),
-        )
+        return self.selector.do((combined_decvars, combined_outputs))

@@ -4,9 +4,8 @@ from desdeo.emo.options.crossover import SimulatedBinaryCrossoverOptions, Unifor
 from desdeo.emo.options.generator import LHSGeneratorOptions, RandomMixedIntegerGeneratorOptions
 from desdeo.emo.options.mutation import BoundedPolynomialMutationOptions, MixedIntegerRandomMutationOptions
 from desdeo.emo.options.repair import NoRepairOptions
-from desdeo.emo.options.scalar_selection import TournamentSelectionOptions
+from desdeo.emo.options.scalar_selection import ElitistSelectionOptions, TournamentSelectionOptions
 from desdeo.emo.options.selection import (
-    ASFSelectorOptions,
     IBEASelectorOptions,
     NSGA2SelectorOptions,
     NSGA3SelectorOptions,
@@ -401,9 +400,9 @@ def xlemoo_options() -> EMOOptions:
                 distribution_index=20,
                 mutation_probability=None,
             ),
-            selection=ASFSelectorOptions(
-                name="ASFSelector",
-                population_size=50,
+            selection=ElitistSelectionOptions(
+                name="ElitistSelection",
+                winner_size=50,
                 target_column="asf",
             ),
             generator=LHSGeneratorOptions(

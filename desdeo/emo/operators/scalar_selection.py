@@ -1,5 +1,6 @@
 """Classs for scalar selection operators."""
 
+import warnings
 from abc import abstractmethod
 from collections.abc import Sequence
 
@@ -7,7 +8,13 @@ import numpy as np
 import polars as pl
 
 from desdeo.emo.operators.selection import SolutionType
-from desdeo.tools.message import Message, SelectorMessageTopics
+from desdeo.tools.message import (
+    DictMessage,
+    Message,
+    NumpyArrayMessage,
+    PolarsDataFrameMessage,
+    SelectorMessageTopics,
+)
 from desdeo.tools.patterns import Publisher, Subscriber
 
 
@@ -200,3 +207,144 @@ class TournamentSelection(BaseScalarSelector):
         selected_solutions = solutions[0][selected_indices]
         selected_outputs = solutions[1][selected_indices]
         return selected_solutions, selected_outputs
+
+
+class ElitistSelection(BaseScalarSelector):
+    """Deterministic elitist selection: keep the top ``winner_size`` rows by a single output column.
+
+    The selector ranks the combined ``(decision_variables, outputs)`` tuple by
+    the values of ``outputs[target_column]`` (lower is better) and returns the
+    best ``winner_size`` rows. No randomness, so the operation is reproducible.
+    Useful as an elitist scheme for any single fitness column already present
+    in the outputs DataFrame, e.g. an achievement scalarizing function value
+    added via :func:`desdeo.tools.scalarization.add_asf_nondiff`.
+    """
+
+    @property
+    def provided_topics(self):
+        """Topics published by this selector for each verbosity level."""
+        return {
+            0: [],
+            1: [SelectorMessageTopics.STATE],
+            2: [SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS, SelectorMessageTopics.SELECTED_FITNESS],
+        }
+
+    @property
+    def interested_topics(self):
+        """ElitistSelection reads its fitness column from the outputs DataFrame; no subscriptions needed."""
+        return []
+
+    def __init__(
+        self,
+        *,
+        winner_size: int,
+        target_column: str,
+        verbosity: int,
+        publisher: Publisher,
+    ):
+        """Initialize the elitist scalar selector.
+
+        Args:
+            winner_size (int): The number of individuals to keep after selection.
+            target_column (str): Name of the output column to sort by (ascending,
+                lower is better).
+            verbosity (int): Verbosity level for emitted messages.
+            publisher (Publisher): Publisher used to emit selection state.
+        """
+        super().__init__(verbosity=verbosity, publisher=publisher)
+        self.winner_size = winner_size
+        self.target_column = target_column
+        self.selection: list[int] | None = None
+        self.selected_individuals: SolutionType | None = None
+        self.selected_targets: pl.DataFrame | None = None
+
+    def do(
+        self,
+        solutions: tuple[SolutionType, pl.DataFrame],
+        fitness: np.ndarray | None = None,
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Keep the top ``winner_size`` rows by ``target_column`` (ascending).
+
+        Args:
+            solutions (tuple[SolutionType, pl.DataFrame]): Combined parents and
+                offspring as a single ``(decision_variables, outputs)`` tuple.
+            fitness (np.ndarray | None, optional): Optional fitness override.
+                If ``None`` (the usual case), the values in
+                ``outputs[target_column]`` are used.
+
+        Returns:
+            tuple[SolutionType, pl.DataFrame]: The selected decision variables
+                and their outputs.
+        """
+        decvars, outputs = solutions
+        values = fitness if fitness is not None else outputs[self.target_column].to_numpy()
+        order = np.argsort(values, kind="stable")
+        chosen = order[: self.winner_size].tolist()
+
+        if isinstance(decvars, pl.DataFrame):
+            self.selected_individuals = decvars[chosen]
+        else:
+            self.selected_individuals = [decvars[i] for i in chosen]
+        self.selected_targets = outputs[chosen]
+        self.selection = chosen
+        self.fitness = np.asarray(values)[chosen]
+
+        self.notify()
+        return self.selected_individuals, self.selected_targets
+
+    def _do(
+        self,
+        solutions: tuple[SolutionType, pl.DataFrame],
+        fitness: np.ndarray | None = None,
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """ABC requirement: delegate to the public :meth:`do`."""
+        return self.do(solutions, fitness)
+
+    def state(self) -> Sequence[Message]:
+        """Emit the selection state for archivers and other listeners."""
+        if self.verbosity == 0 or self.selection is None or self.selected_targets is None:
+            return []
+        if self.verbosity == 1:
+            return [
+                DictMessage(
+                    topic=SelectorMessageTopics.STATE,
+                    value={
+                        "winner_size": self.winner_size,
+                        "selected_individuals": self.selection,
+                    },
+                    source=self.__class__.__name__,
+                )
+            ]
+        # verbosity == 2
+        if isinstance(self.selected_individuals, pl.DataFrame):
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                source=self.__class__.__name__,
+            )
+        else:
+            warnings.warn("Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.", stacklevel=2)
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=self.selected_targets,
+                source=self.__class__.__name__,
+            )
+        return [
+            DictMessage(
+                topic=SelectorMessageTopics.STATE,
+                value={
+                    "winner_size": self.winner_size,
+                    "selected_individuals": self.selection,
+                },
+                source=self.__class__.__name__,
+            ),
+            message,
+            NumpyArrayMessage(
+                topic=SelectorMessageTopics.SELECTED_FITNESS,
+                value=self.fitness,
+                source=self.__class__.__name__,
+            ),
+        ]
+
+    def update(self, message: Message) -> None:
+        """ElitistSelection has no subscriptions; ignore any messages."""

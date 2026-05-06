@@ -13,7 +13,7 @@ from desdeo.emo.hooks.archivers import Archive, NonDominatedArchive
 from desdeo.emo.methods.templates import EMOResult, template1, template2, template_xlemoo
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.learning_mode import LearningModeOperator
-from desdeo.emo.operators.selection import ASFSelector
+from desdeo.emo.operators.scalar_selection import ElitistSelection
 from desdeo.emo.options.crossover import (
     CrossoverOptions,
     crossover_constructor,
@@ -130,6 +130,11 @@ class TemplateXLEMOOOptions(BaseTemplateOptions):
         default="TemplateXLEMOO", frozen=True, description="The name of the template."
     )
     """The name of the template."""
+    selection: ScalarSelectionOptions = Field(  # type: ignore[assignment]
+        description="The scalar selection operator (typically ElitistSelectionOptions)."
+    )
+    """The scalar selection operator. XLEMOO is an elitist single-objective method, so the
+    selection step is a scalar (top-N by a target column) rather than a multiobjective one."""
     n_darwin_per_cycle: int = Field(default=20, gt=0, description="Number of Darwinian iterations per cycle.")
     """Number of Darwinian iterations per cycle."""
     n_learning_per_cycle: int = Field(default=1, ge=0, description="Number of Learning iterations per cycle.")
@@ -367,13 +372,21 @@ def emo_constructor(
 
     evaluator = EMOEvaluator(problem=problem_, publisher=publisher, verbosity=template.verbosity)
 
-    selector = selection_constructor(
-        problem=problem_,
-        options=selector_options,
-        publisher=publisher,
-        verbosity=template.verbosity,
-        seed=template.seed,
-    )
+    if template.name == "TemplateXLEMOO":
+        selector = scalar_selector_constructor(
+            options=selector_options,
+            publisher=publisher,
+            verbosity=template.verbosity,
+            seed=template.seed,
+        )
+    else:
+        selector = selection_constructor(
+            problem=problem_,
+            options=selector_options,
+            publisher=publisher,
+            verbosity=template.verbosity,
+            seed=template.seed,
+        )
 
     generator = generator_constructor(
         problem=problem_,
@@ -454,8 +467,8 @@ def emo_constructor(
     }
 
     if template.name == "TemplateXLEMOO":
-        if not isinstance(selector, ASFSelector):
-            raise InvalidTemplateError("XLEMOO requires an ASFSelector.")
+        if not isinstance(selector, ElitistSelection):
+            raise InvalidTemplateError("XLEMOO requires an ElitistSelection scalar selector.")
         learning_operator = LearningModeOperator(
             problem=problem_,
             archive=learning_archive,
@@ -492,9 +505,9 @@ def emo_constructor(
 def _xlemoo_preference_handler(
     preference: PreferenceOptions | None,
     problem: Problem,
-    selection: SelectorOptions,
+    selection: ScalarSelectionOptions,
     scalarization: str,
-) -> tuple[Problem, SelectorOptions]:
+) -> tuple[Problem, ScalarSelectionOptions]:
     """Attach the chosen reference-point scalarization for XLEMOO and point the selector at it.
 
     XLEMOO ranks solutions by a single scalarization target. If the user supplies a reference
@@ -503,8 +516,8 @@ def _xlemoo_preference_handler(
     the selector's existing ``target_column`` is assumed to already match a scalarization
     function on the problem.
     """
-    if selection.name != "ASFSelector":
-        raise InvalidTemplateError("XLEMOO requires an ASFSelectorOptions selection operator.")
+    if selection.name != "ElitistSelection":
+        raise InvalidTemplateError("XLEMOO requires an ElitistSelectionOptions scalar selection operator.")
 
     if preference is None:
         return problem, selection

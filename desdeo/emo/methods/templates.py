@@ -13,7 +13,7 @@ from desdeo.emo.operators.generator import BaseGenerator
 from desdeo.emo.operators.learning_mode import LearningModeOperator
 from desdeo.emo.operators.mutation import BaseMutation
 from desdeo.emo.operators.scalar_selection import BaseScalarSelector
-from desdeo.emo.operators.selection import ASFSelector, BaseSelector
+from desdeo.emo.operators.selection import BaseSelector
 from desdeo.emo.operators.termination import BaseTerminator
 from desdeo.tools.generics import EMOResult
 
@@ -116,7 +116,7 @@ def template_xlemoo(
     crossover: BaseCrossover,
     mutation: BaseMutation,
     generator: BaseGenerator,
-    selection: ASFSelector,
+    selection: BaseScalarSelector,
     learning_operator: LearningModeOperator,
     terminator: BaseTerminator,
     repair: Callable[[pl.DataFrame], pl.DataFrame] = lambda x: x,
@@ -130,7 +130,9 @@ def template_xlemoo(
         crossover (BaseCrossover): The crossover operator.
         mutation (BaseMutation): The mutation operator.
         generator (BaseGenerator): Initial population generator.
-        selection (ASFSelector): ASF-based selection operator.
+        selection (BaseScalarSelector): Scalar selector that ranks the combined parent
+            and offspring population by a single fitness column (e.g.
+            :class:`~desdeo.emo.operators.scalar_selection.ElitistSelection`).
         learning_operator (LearningModeOperator): Operator that performs one learning step
             (rule extraction + instantiation) using the archive.
         terminator (BaseTerminator): Termination operator. Its `check()` advances the
@@ -155,7 +157,9 @@ def template_xlemoo(
             offspring = mutation.do(offspring, solutions)
             offspring = repair(offspring)
             offspring_outputs = evaluator.evaluate(offspring)
-            solutions, outputs = selection.do(parents=(solutions, outputs), offsprings=(offspring, offspring_outputs))
+            combined_decvars = solutions.vstack(offspring)
+            combined_outputs = outputs.vstack(offspring_outputs)
+            solutions, outputs = selection.do((combined_decvars, combined_outputs))
             if terminator.check():
                 stop = True
                 break
@@ -166,9 +170,7 @@ def template_xlemoo(
             solutions, outputs = learning_operator.do()
             # Re-publish the new population through the pub/sub flow so the archive sees it.
             outputs = evaluator.evaluate(solutions)
-            empty_solutions = pl.DataFrame(schema=solutions.schema)
-            empty_outputs = pl.DataFrame(schema=outputs.schema)
-            solutions, outputs = selection.do(parents=(solutions, outputs), offsprings=(empty_solutions, empty_outputs))
+            solutions, outputs = selection.do((solutions, outputs))
             if terminator.check():
                 stop = True
                 break

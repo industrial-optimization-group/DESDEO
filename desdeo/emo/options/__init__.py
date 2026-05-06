@@ -36,13 +36,13 @@ from .mutation import (
 )
 from .repair import RepairOptions, repair_constructor
 from .scalar_selection import (
+    ElitistSelectionOptions,
     RouletteWheelSelectionOptions,
     ScalarSelectionOptions,
     TournamentSelectionOptions,
     scalar_selector_constructor,
 )
 from .selection import (
-    ASFSelectorOptions,
     IBEASelectorOptions,
     NSGA2SelectorOptions,
     NSGA3SelectorOptions,
@@ -62,7 +62,6 @@ from .termination import (
 )
 
 __all__ = [  # noqa: RUF022
-    "ASFSelectorOptions",
     "BinaryFlipMutationOptions",
     "BlendAlphaCrossoverOptions",
     "BoundedExponentialCrossoverOptions",
@@ -92,6 +91,7 @@ __all__ = [  # noqa: RUF022
     "ReferenceVectorOptions",
     "RouletteWheelSelectionOptions",
     "RVEASelectorOptions",
+    "ElitistSelectionOptions",
     "ScalarSelectionOptions",
     "scalar_selector_constructor",
     "SelfAdaptiveGaussianMutationOptions",

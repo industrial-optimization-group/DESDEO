@@ -56,9 +56,12 @@ from .options.mutation import (
     SelfAdaptiveGaussianMutationOptions,
 )
 from .options.repair import ClipRepairOptions, NoRepairOptions
-from .options.scalar_selection import RouletteWheelSelectionOptions, TournamentSelectionOptions
+from .options.scalar_selection import (
+    ElitistSelectionOptions,
+    RouletteWheelSelectionOptions,
+    TournamentSelectionOptions,
+)
 from .options.selection import (
-    ASFSelectorOptions,
     IBEASelectorOptions,
     NSGA2SelectorOptions,
     NSGA3SelectorOptions,
@@ -108,7 +111,6 @@ selection = SimpleNamespace(
     NSGA3SelectorOptions=NSGA3SelectorOptions,
     NSGA2SelectorOptions=NSGA2SelectorOptions,
     RVEASelectorOptions=RVEASelectorOptions,
-    ASFSelectorOptions=ASFSelectorOptions,
 )
 
 other = SimpleNamespace(
@@ -118,6 +120,7 @@ other = SimpleNamespace(
 scalar_selection = SimpleNamespace(
     TournamentSelectionOptions=TournamentSelectionOptions,
     RouletteWheelSelectionOptions=RouletteWheelSelectionOptions,
+    ElitistSelectionOptions=ElitistSelectionOptions,
 )
 
 mutation = SimpleNamespace(

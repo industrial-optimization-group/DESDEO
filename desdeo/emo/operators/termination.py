@@ -12,7 +12,6 @@ Warning:
 """
 
 import time
-from abc import abstractmethod
 from collections.abc import Sequence
 
 from desdeo.tools.message import (

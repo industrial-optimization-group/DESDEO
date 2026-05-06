@@ -11,7 +11,7 @@ from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.generator import LHSGenerator
 from desdeo.emo.operators.learning_mode import LearningModeOperator
 from desdeo.emo.operators.mutation import BoundedPolynomialMutation
-from desdeo.emo.operators.selection import ASFSelector
+from desdeo.emo.operators.scalar_selection import ElitistSelection
 from desdeo.emo.operators.termination import MaxGenerationsTerminator
 from desdeo.emo.options.algorithms import emo_constructor
 from desdeo.emo.options.templates import EMOOptions, ReferencePointOptions
@@ -40,12 +40,11 @@ def _build_components(
     )
     crossover = SimulatedBinaryCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
     mutation = BoundedPolynomialMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
-    selector = ASFSelector(
-        problem=problem,
+    selector = ElitistSelection(
         publisher=publisher,
-        population_size=population_size,
-        target_column=asf_symbol,
         verbosity=2,
+        winner_size=population_size,
+        target_column=asf_symbol,
     )
     terminator = MaxGenerationsTerminator(max_generations, publisher=publisher)
     archive = Archive(problem=problem, publisher=publisher)

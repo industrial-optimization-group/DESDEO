@@ -13,7 +13,7 @@ from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.generator import LHSGenerator
 from desdeo.emo.operators.learning_mode import LearningModeOperator
 from desdeo.emo.operators.mutation import BoundedPolynomialMutation
-from desdeo.emo.operators.selection import ASFSelector
+from desdeo.emo.operators.scalar_selection import ElitistSelection
 from desdeo.emo.operators.termination import MaxGenerationsTerminator
 from desdeo.explanations import (
     Rule,
@@ -431,9 +431,7 @@ def test_format_rule_table_after_xlemoo_run():
     )
     crossover = SimulatedBinaryCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
     mutation = BoundedPolynomialMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
-    selector = ASFSelector(
-        problem=problem, publisher=publisher, population_size=population_size, target_column=asf_symbol, verbosity=2
-    )
+    selector = ElitistSelection(publisher=publisher, verbosity=2, winner_size=population_size, target_column=asf_symbol)
     terminator = MaxGenerationsTerminator(60, publisher=publisher)
     archive = Archive(problem=problem, publisher=publisher)
     learning_operator = LearningModeOperator(
