@@ -867,7 +867,7 @@ all-dev = [
     { name = "mkdocstrings-python", specifier = ">=1.0" },
     { name = "mypy", specifier = ">=1.0" },
     { name = "neoteroi-mkdocs", specifier = ">=1.1.2" },
-    { name = "pre-commit", specifier = ">=0.14.14" },
+    { name = "pre-commit", specifier = ">=4.5.1" },
     { name = "pyparsing", extras = ["diagrams"], specifier = ">=3.1.1" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.26.0" },
@@ -888,7 +888,7 @@ all-dev = [
 ]
 dev = [
     { name = "mypy", specifier = ">=1.0" },
-    { name = "pre-commit", specifier = ">=0.14.14" },
+    { name = "pre-commit", specifier = ">=4.5.1" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.26.0" },
     { name = "pytest-testmon", specifier = ">=2.1.1" },
