@@ -1,6 +1,6 @@
 # Scenarios
 
-[Download as Jupyter notebook](https://raw.githubusercontent.com/industrial-optimization-group/DESDEO/master/docs/explanation/scenarios.ipynb)
+[Download as Jupyter notebook](https://raw.githubusercontent.com/industrial-optimization-group/DESDEO/master/notebooks/scenarios.ipynb)
 
 One way of modeling uncertainty in decision making is using _scenarios_. A scenario in optimization context is typically a set of parameters or constraints that describes what our optimization problem might look like in a plausible future.
 
