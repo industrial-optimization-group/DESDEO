@@ -686,6 +686,9 @@ function getConsensusClasses(axisName: string): string {
 
 			if (voteResult.success) {
 				console.log('Voted successfully:', voteResult.data.message);
+				// Refresh local voting state immediately so vote counters update without
+				// waiting for a websocket update event.
+				await fetch_votes_and_confirms();
 			} else {
 				throw new Error(`Vote failed: ${voteResult.error || 'Unknown error'}`);
 			}
