@@ -345,7 +345,8 @@ def summer_cabin_battery_problem(initial_soc: float = 0.0, n_panels_max: int = 5
         constants=[price_const, load_const, solar_const],
         objectives=[
             Objective(
-                name="Total electricity cost",
+                name="Electricity cost",
+                description="Total electricity cost",
                 symbol="f_1",
                 func=[
                     "Add",
@@ -360,7 +361,8 @@ def summer_cabin_battery_problem(initial_soc: float = 0.0, n_panels_max: int = 5
                 is_twice_differentiable=True,
             ),
             Objective(
-                name="Total investment cost",
+                name="Investment cost",
+                description="Total investment cost",
                 symbol="f_2",
                 func=["Add", ["Multiply", 2000.0, "y"], ["Multiply", 310.0, "E"], ["Multiply", 200.0, "n"]],
                 unit="EUR",
@@ -623,7 +625,8 @@ def summer_cabin_battery_problem_split(initial_soc: float = 0.0, n_panels_max: i
         constants=all_constants,
         objectives=[
             Objective(
-                name="Total electricity cost",
+                name="Electricity cost",
+                description="Total electricity cost",
                 symbol="f_1",
                 func=["Add", *f1_terms],
                 unit="EUR",
@@ -633,7 +636,8 @@ def summer_cabin_battery_problem_split(initial_soc: float = 0.0, n_panels_max: i
                 is_twice_differentiable=True,
             ),
             Objective(
-                name="Total investment cost",
+                name="Investment cost",
+                description="Total investment cost",
                 symbol="f_2",
                 func=["Add", ["Multiply", 2000.0, "y"], ["Multiply", 310.0, "E"], ["Multiply", 200.0, "n"]],
                 unit="EUR",
@@ -721,7 +725,8 @@ def summer_cabin_battery_problem_split_scenario(
     def _f3(segments: tuple[int, ...]) -> Objective:
         z_terms = [["Sum", f"z_s{k}"] for k in segments]
         return Objective(
-            name="Hours with unserved electricity demand",
+            name="Power outage",
+            description="Hours with unserved electricity demand",
             symbol="f_3",
             func=z_terms[0] if len(z_terms) == 1 else ["Add", *z_terms],
             unit="h",
@@ -739,7 +744,8 @@ def summer_cabin_battery_problem_split_scenario(
     obj_idx["S1a"] = len(obj_pool)
     obj_pool.append(
         Objective(
-            name="Hours with unserved electricity demand",
+            name="Power outage",
+            description="Hours with unserved electricity demand",
             symbol="f_3",
             func=["Multiply", 0, "y"],  # always 0 — no outage possible in this scenario
             unit="h",
