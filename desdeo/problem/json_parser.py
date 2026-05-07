@@ -4,6 +4,7 @@ from collections.abc import Callable
 from enum import Enum
 from functools import reduce
 
+import cvxpy as cp
 import gurobipy as gp
 import numpy as np
 import polars as pl
@@ -14,6 +15,8 @@ from pyomo.core.expr.numeric_expr import MinExpression as _PyomoMin
 
 # Mathematical objects in gurobipy can take many types
 gpexpression = gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr
+# Mathematical objects in cvxpy can take many types
+cvxpyexpression = cp.Variable | cp.Expression | cp.Constant | int | float
 
 
 class FormatEnum(str, Enum):
@@ -23,6 +26,7 @@ class FormatEnum(str, Enum):
     pyomo = "pyomo"
     sympy = "sympy"
     gurobipy = "gurobipy"
+    cvxpy = "cvxpy"
 
 
 class ParserError(Exception):
@@ -32,7 +36,7 @@ class ParserError(Exception):
 class MathParser:
     """A class to instantiate MathJSON parsers.
 
-    Currently only parses MathJSON to polars expressions. Pyomo WIP.
+    Parses MathJSON expressions to polars, pyomo, sympy, gurobipy, or cvxpy expressions.
     """
 
     def __init__(self, to_format: FormatEnum = "polars"):  # noqa: C901
@@ -54,6 +58,9 @@ class MathParser:
         self.MATMUL: str = "MatMul"
         self.SUM: str = "Sum"
         self.RANDOM_ACCESS = "At"
+        self.EXTRACT: str = "Extract"
+        self.EXCLUDE: str = "Exclude"
+        self.TUPLE: str = "Tuple"
 
         # Exponentation and logarithms
         self.EXP: str = "Exp"
@@ -99,7 +106,82 @@ class MathParser:
 
         self.literals = int | float
 
-        def to_expr(x: self.literals | pl.Expr):
+        def _collect_indices(raw_indices: tuple, n: int) -> list[int]:
+            """Collect 0-based indices from a sequence of raw Extract/Exclude specs.
+
+            Args:
+                raw_indices: the index arguments passed to Extract or Exclude.
+                    Each element is either a plain number (single 1-based index)
+                    or a tuple ``(start, stop[, step])``.  Positive values count
+                    from the front; negative values count from the back (e.g.
+                    ``-1`` is the last element).
+                n: total length of the array being indexed.  Required to
+                    resolve negative indices and to clamp out-of-range values.
+            """
+
+            def _to_zero(i1: int) -> int:
+                # Convert a 1-based (positive) or end-relative (negative) index to 0-based.
+                return (i1 - 1) if i1 > 0 else (n + i1)
+
+            indices = []
+            for spec in raw_indices:
+                if isinstance(spec, tuple):
+                    start = _to_zero(int(spec[0]))
+                    stop = _to_zero(int(spec[1]))
+                    step = int(spec[2]) if len(spec) >= 3 else (1 if stop >= start else -1)  # noqa: PLR2004
+                    rng = range(start, stop + 1, step) if step > 0 else range(start, stop - 1, step)
+                    indices.extend(i for i in rng if 0 <= i < n)
+                else:
+                    zero = _to_zero(int(spec))
+                    if 0 <= zero < n:
+                        indices.append(zero)
+            return indices
+
+        def _extract_from_array(arr, *raw_indices):
+            arr = np.asarray(arr)
+            idx = _collect_indices(raw_indices, arr.shape[0])
+            return arr[idx].tolist() if idx else []
+
+        def _exclude_from_array(arr, *raw_indices):
+            arr = np.asarray(arr)
+            n = arr.shape[0]
+            excluded = set(_collect_indices(raw_indices, n))
+            keep = [i for i in range(n) if i not in excluded]
+            return arr[keep].tolist() if keep else []
+
+        def _polars_extract(expr, *raw_indices):
+            def _fn(acc, _):
+                arr = acc.to_numpy()
+                if arr.ndim > 1:
+                    idx = _collect_indices(raw_indices, arr.shape[-1])
+                    result = arr[..., idx] if idx else np.empty((*arr.shape[:-1], 0), dtype=arr.dtype)
+                else:
+                    result = _extract_from_array(arr, *raw_indices)
+                return pl.Series(values=result.tolist())
+
+            return pl.reduce(function=_fn, exprs=[expr, None])
+
+        def _polars_exclude(expr, *raw_indices):
+            def _fn(acc, _):
+                arr = acc.to_numpy()
+                if arr.ndim > 1:
+                    n = arr.shape[-1]
+                    excluded = set(_collect_indices(raw_indices, n))
+                    keep = [i for i in range(n) if i not in excluded]
+                    result = arr[..., keep] if keep else np.empty((*arr.shape[:-1], 0), dtype=arr.dtype)
+                else:
+                    result = _exclude_from_array(arr, *raw_indices)
+                return pl.Series(values=result.tolist())
+
+            return pl.reduce(function=_fn, exprs=[expr, None])
+
+        def _not_impl_extract(*_args):
+            raise NotImplementedError("'Extract' is not implemented for this backend.")
+
+        def _not_impl_exclude(*_args):
+            raise NotImplementedError("'Exclude' is not implemented for this backend.")
+
+        def to_expr(x: self.literals | pl.Expr):  # type: ignore
             """Helper function to convert literals to polars expressions."""
             return pl.lit(x) if isinstance(x, self.literals) else x
 
@@ -176,6 +258,8 @@ class MathParser:
             self.MATMUL: _polars_reduce_matmul,
             self.SUM: lambda x: _polars_summation(x),
             self.RANDOM_ACCESS: _polars_random_access,
+            self.EXTRACT: _polars_extract,
+            self.EXCLUDE: _polars_exclude,
             # Exponentiation and logarithms
             self.EXP: lambda x: _polars_reduce_unary(x, np.exp),
             self.LN: lambda x: _polars_reduce_unary(x, np.log),
@@ -297,10 +381,11 @@ class MathParser:
                 if (hasattr(x, "index_set") and x.is_indexed()) and (hasattr(y, "index_set") and y.is_indexed()):
                     # try matrix addition
                     # check that the dimensions of x and y matches
-                    if x.index_set().set_tuple != y.index_set().set_tuple:
+                    x_idx, y_idx = x.index_set(), y.index_set()
+                    if x_idx.dimen != y_idx.dimen or len(x_idx) != len(y_idx):
                         msg = (
-                            f"The dimensions of x {x.index_set().set_tuple} must match that"
-                            f" of y {y.index_set().set_tuple} for matrix addition."
+                            f"The shapes of x ({x_idx.dimen}D, len={len(x_idx)}) and "
+                            f"y ({y_idx.dimen}D, len={len(y_idx)}) must match for matrix addition."
                         )
                         raise ParserError(msg)
 
@@ -483,6 +568,34 @@ class MathParser:
         def _pyomo_random_access(indexed, *indices):
             return indexed[*indices]
 
+        def _pyomo_extract(indexed, *raw_indices):
+            if not (hasattr(indexed, "index_set") and indexed.is_indexed()):
+                msg = "'Extract' requires an indexed Pyomo expression."
+                raise ParserError(msg)
+            all_indices = sorted(indexed.index_set())
+            n = len(all_indices)
+            positions = _collect_indices(raw_indices, n)
+            selected = [all_indices[p] for p in positions]
+            new_set = pyomo.RangeSet(1, len(selected))
+            idx_map = {i + 1: sel for i, sel in enumerate(selected)}
+            expr = pyomo.Expression(new_set, rule=lambda _, i: indexed[idx_map[i]])
+            expr.construct()
+            return expr
+
+        def _pyomo_exclude(indexed, *raw_indices):
+            if not (hasattr(indexed, "index_set") and indexed.is_indexed()):
+                msg = "'Exclude' requires an indexed Pyomo expression."
+                raise ParserError(msg)
+            all_indices = sorted(indexed.index_set())
+            n = len(all_indices)
+            excluded_pos = set(_collect_indices(raw_indices, n))
+            keep = [all_indices[p] for p in range(n) if p not in excluded_pos]
+            new_set = pyomo.RangeSet(1, len(keep))
+            idx_map = {i + 1: k for i, k in enumerate(keep)}
+            expr = pyomo.Expression(new_set, rule=lambda _, i: indexed[idx_map[i]])
+            expr.construct()
+            return expr
+
         pyomo_env = {
             # Define the operations for the different operators.
             # Basic arithmetic operations
@@ -495,6 +608,8 @@ class MathParser:
             self.MATMUL: _pyomo_matrix_multiplication,
             self.SUM: _pyomo_summation,
             self.RANDOM_ACCESS: _pyomo_random_access,
+            self.EXTRACT: _pyomo_extract,
+            self.EXCLUDE: _pyomo_exclude,
             # Exponentiation and logarithms
             self.EXP: lambda x: _pyomo_unary(x, pyomo.exp),
             self.LN: lambda x: _pyomo_unary(x, pyomo.log),
@@ -561,6 +676,8 @@ class MathParser:
             self.MATMUL: _sympy_matmul,
             self.SUM: _sympy_summation,
             self.RANDOM_ACCESS: _sympy_random_access,
+            self.EXTRACT: _not_impl_extract,
+            self.EXCLUDE: _not_impl_exclude,
             # Exponentiation and logarithms
             self.EXP: lambda x: sp.exp(to_sympy_expr(x)),
             self.LN: lambda x: sp.log(to_sympy_expr(x)),
@@ -595,6 +712,18 @@ class MathParser:
             self.RATIONAL: lambda x, y: sp.Rational(x, y),
         }
 
+        def _gurobipy_multiply(*args):
+            """Multiply, promoting scalar gp.Var * ndarray to MLinExpr via MVar.fromlist."""
+
+            def _mul(a, b):
+                if isinstance(a, gp.Var) and isinstance(b, np.ndarray):
+                    return gp.MVar.fromlist([a]) * b
+                if isinstance(b, gp.Var) and isinstance(a, np.ndarray):
+                    return gp.MVar.fromlist([b]) * a
+                return a * b
+
+            return reduce(_mul, args)
+
         def _gurobipy_matmul(*args):
             """Gurobipy matrix multiplication."""
 
@@ -603,16 +732,9 @@ class MathParser:
                     a = np.array(a)
                 if isinstance(b, list):
                     b = np.array(b)
-                if len(np.shape(a @ b)) == 1:
-                    return a @ b
-                return (a @ b).sum()
+                return a @ b
 
             return reduce(_matmul, args)
-            msg = (
-                "Matrix multiplication '@' has not been implemented for the Gurobipy parser yet."
-                " Feel free to contribute!"
-            )
-            raise NotImplementedError(msg)
 
         def _gurobipy_summation(summand):
             """Gurobipy matrix summation."""
@@ -623,17 +745,23 @@ class MathParser:
                 return summand.sum()
 
             return _sum(summand)
-            msg = (
-                "Matrix summation 'Sum' has not been implemented for the Gurobipy parser yet. Feel free to contribute!"
-            )
-            raise NotImplementedError(msg)
 
-        def _gurobipy_random_access(*args):
-            msg = (
-                "Tensor random access with 'At' has not been implemented for the Gurobipy parser yet. "
-                "Feel free to contribute!"
-            )
-            raise NotImplementedError(msg)
+        def _gurobipy_random_access(indexed, *indices):
+            # 1-based indexing assumed in JSON format; convert to 0-based for Python/numpy/gp.MVar
+            zero_based = tuple(int(i) - 1 for i in indices)
+            if len(zero_based) == 1:
+                return indexed[zero_based[0]]
+            return indexed[zero_based]
+
+        def _gurobipy_extract(arr, *raw_indices):
+            idx = _collect_indices(raw_indices, arr.shape[0])
+            return arr[idx]
+
+        def _gurobipy_exclude(arr, *raw_indices):
+            n = arr.shape[0]
+            excluded = set(_collect_indices(raw_indices, n))
+            keep = [i for i in range(n) if i not in excluded]
+            return arr[keep]
 
         gurobipy_env = {
             # Define the operations for the different operators.
@@ -641,12 +769,14 @@ class MathParser:
             self.NEGATE: lambda x: -x,
             self.ADD: lambda *args: reduce(lambda x, y: x + y, args),
             self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
-            self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
+            self.MUL: _gurobipy_multiply,
             self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
             # Vector and matrix operations
             self.MATMUL: _gurobipy_matmul,
             self.SUM: _gurobipy_summation,
             self.RANDOM_ACCESS: _gurobipy_random_access,
+            self.EXTRACT: _gurobipy_extract,
+            self.EXCLUDE: _gurobipy_exclude,
             # Exponentiation and logarithms
             # it would be possible to implement some of these with the special functions that
             # gurobi has to offer, but they would only work under specific circumstances
@@ -683,6 +813,96 @@ class MathParser:
             self.MIN: lambda *args: gp.min_(args),
         }
 
+        def _cvxpy_error():
+            msg = "The cvxpy model format only supports linear and quadratic expressions."
+            return lambda x: (_ for _ in ()).throw(ParserError(msg))
+
+        def _cvxpy_matmul(*args):
+            """CVXPY matrix multiplication."""
+
+            def _matmul(a, b):
+                if isinstance(a, list):
+                    a = np.array(a)
+                if isinstance(b, list):
+                    b = np.array(b)
+                return a @ b
+
+            return reduce(_matmul, args)
+
+        def _cvxpy_summation(summand):
+            """CVXPY matrix summation."""
+
+            def _sum(summand):
+                if isinstance(summand, list):
+                    summand = np.array(summand)
+                return cp.sum(summand)
+
+            return _sum(summand)
+
+        def _cvxpy_random_access(indexed, *indices):
+            zero_based = tuple(int(i) - 1 for i in indices)
+            if len(zero_based) == 1:
+                return indexed[zero_based[0]]
+            return indexed[zero_based]
+
+        def _cvxpy_extract(expr, *raw_indices):
+            n = expr.shape[0]
+            idx = _collect_indices(raw_indices, n)
+            return expr[idx]
+
+        def _cvxpy_exclude(expr, *raw_indices):
+            n = expr.shape[0]
+            excluded = set(_collect_indices(raw_indices, n))
+            keep = [i for i in range(n) if i not in excluded]
+            return expr[keep]
+
+        cvxpy_env = {
+            # Define the operations for the different operators.
+            # Basic arithmetic operations
+            self.NEGATE: lambda x: -x,
+            self.ADD: lambda *args: reduce(lambda x, y: x + y, args),
+            self.SUB: lambda *args: reduce(lambda x, y: x - y, args),
+            self.MUL: lambda *args: reduce(lambda x, y: x * y, args),
+            self.DIV: lambda *args: reduce(lambda x, y: x / y, args),
+            # Vector and matrix operations
+            self.MATMUL: _cvxpy_matmul,
+            self.SUM: _cvxpy_summation,
+            self.RANDOM_ACCESS: _cvxpy_random_access,
+            self.EXTRACT: _cvxpy_extract,
+            self.EXCLUDE: _cvxpy_exclude,
+            # Exponentiation and logarithms
+            # CVXPY supports some of these via special functions, but with restrictions
+            self.EXP: lambda x: cp.exp(x),
+            self.LN: lambda x: cp.log(x),
+            self.LB: lambda x: cp.log(x) / np.log(2),
+            self.LG: lambda x: cp.log(x) / np.log(10),
+            self.LOP: lambda x: cp.log1p(x),
+            self.SQRT: lambda x: cp.sqrt(x),
+            self.SQUARE: lambda x: cp.square(x),
+            self.POW: lambda x, y: x**y,  # may cause errors for non-integer powers
+            # Trigonometric operations - CVXPY supports these
+            self.ARCCOS: lambda x: cp.arccos(x),
+            self.ARCCOSH: lambda x: cp.arccosh(x),
+            self.ARCSIN: lambda x: cp.arcsin(x),
+            self.ARCSINH: lambda x: cp.arcsinh(x),
+            self.ARCTAN: lambda x: cp.arctan(x),
+            self.ARCTANH: lambda x: cp.arctanh(x),
+            self.COS: lambda x: cp.cos(x),
+            self.COSH: lambda x: cp.cosh(x),
+            self.SIN: lambda x: cp.sin(x),
+            self.SINH: lambda x: cp.sinh(x),
+            self.TAN: lambda x: cp.tan(x),
+            self.TANH: lambda x: cp.tanh(x),
+            # Rounding operations
+            self.ABS: lambda x: cp.abs(x),
+            self.CEIL: lambda x: cp.ceil(x),
+            self.FLOOR: lambda x: cp.floor(x),
+            # Other operations
+            self.RATIONAL: lambda lst: reduce(lambda x, y: x / y, lst),
+            self.MAX: lambda *args: cp.max(cp.stack(args, axis=0), axis=0),
+            self.MIN: lambda *args: cp.min(cp.stack(args, axis=0), axis=0),
+        }
+
         match to_format:
             case FormatEnum.polars:
                 self.env = polars_env
@@ -696,6 +916,9 @@ class MathParser:
             case FormatEnum.gurobipy:
                 self.env = gurobipy_env
                 self.parse = self._parse_to_gurobipy
+            case FormatEnum.cvxpy:
+                self.env = cvxpy_env
+                self.parse = self._parse_to_cvxpy
             case _:
                 msg = f"Given target format {to_format} not supported. Must be one of {FormatEnum}."
                 raise ParserError(msg)
@@ -731,6 +954,12 @@ class MathParser:
                     return pl.col(expr)
                 # just a literal
                 return pl.lit(expr[0])
+
+            # Extract/Exclude: index args must stay as raw Python values, not polars expressions.
+            if expr[0] in (self.EXTRACT, self.EXCLUDE):
+                collection = self.parse(expr[1])
+                raw_indices = [self._parse_raw_index(e) for e in expr[2:]]
+                return self.env[expr[0]](collection, *raw_indices)
 
             # Extract the operation name
             if isinstance(expr[0], str) and expr[0] in self.env:
@@ -788,6 +1017,11 @@ class MathParser:
                 # just a literal
                 return pyomo.Expression(expr=expr[0])
 
+            if expr[0] in (self.EXTRACT, self.EXCLUDE):
+                collection = self._parse_to_pyomo(expr[1], model)
+                raw_indices = [self._parse_raw_index(e) for e in expr[2:]]
+                return self.env[expr[0]](collection, *raw_indices)
+
             # Extract the operation name
             if isinstance(expr[0], str) and expr[0] in self.env:
                 op_name = expr[0]
@@ -838,6 +1072,11 @@ class MathParser:
             if len(expr) == 1 and isinstance(expr[0], str | self.literals):
                 # Terminal case, single symbol expression or literal
                 return sp.sympify(expr[0], evaluate=False)
+
+            if expr[0] in (self.EXTRACT, self.EXCLUDE):
+                collection = self.parse(expr[1])
+                raw_indices = [self._parse_raw_index(e) for e in expr[2:]]
+                return self.env[expr[0]](collection, *raw_indices)
 
             # Extract the operation name
             if isinstance(expr[0], str) and expr[0] in self.env:
@@ -892,6 +1131,11 @@ class MathParser:
             return expr
 
         if isinstance(expr, list):
+            if expr[0] in (self.EXTRACT, self.EXCLUDE):
+                collection = self._parse_to_gurobipy(expr[1], callback)
+                raw_indices = [self._parse_raw_index(e) for e in expr[2:]]
+                return self.env[expr[0]](collection, *raw_indices)
+
             # Extract the operation name
             if isinstance(expr[0], str) and expr[0] in self.env:
                 op_name = expr[0]
@@ -906,11 +1150,78 @@ class MathParser:
                     return self.env[op_name](*operands)
 
                 return self.env[op_name](operands)
-
-            # else, assume the list contents are parseable expressions
-            return [self._parse_to_gurobipy(e, callback) for e in expr]
+            if len(expr) == 1 and isinstance(expr[0], str):
+                # Terminal case, single string expression with unnecessary brackets, e.g., ["x1"] instead of "x1"
+                return (
+                    callback(expr[0]) + 0
+                )  # adding 0 to ensure it's treated as an expression, not a variable reference
 
         msg = f"Encountered unsupported type '{type(expr)}' during parsing."
+        raise ParserError(msg)
+
+    def _parse_to_cvxpy(
+        self, expr: list | str | int | float, callback: Callable[[str], cvxpyexpression]
+    ) -> cvxpyexpression:
+        """Parses the MathJSON format recursively into a CVXPY expression.
+
+        CVXPY supports a much broader range of expressions compared to gurobipy, including
+        exponentials, logarithms, and trigonometric functions. However, some operations still have
+        restrictions due to DCP (Disciplined Convex Programming) rules.
+
+        Args:
+            expr (list | str | int | float): a list with a Polish notation expression that describes a, e.g.,
+                ["Multiply", ["Sqrt", 2], "x2"]
+            callback (Callable): A function that can return a CVXPY expression associated with the
+                correct model when called with symbol str.
+
+        Returns:
+            Returns a CVXPY expression equivalent to the original expression.
+        """
+        if isinstance(expr, (cp.Variable, cp.Parameter, cp.Expression)):
+            # Terminal case: cvxpy expression
+            return expr
+        if isinstance(expr, str):
+            # Terminal case: str expression, represent a variable or expression
+            return callback(expr)
+        if isinstance(expr, self.literals):
+            # Terminal case: numeric literal
+            return expr
+
+        if isinstance(expr, list):
+            if expr[0] in (self.EXTRACT, self.EXCLUDE):
+                collection = self._parse_to_cvxpy(expr[1], callback)
+                raw_indices = [self._parse_raw_index(e) for e in expr[2:]]
+                return self.env[expr[0]](collection, *raw_indices)
+
+            # Extract the operation name
+            if isinstance(expr[0], str) and expr[0] in self.env:
+                op_name = expr[0]
+                # Parse the operands
+                operands = [self._parse_to_cvxpy(e, callback) for e in expr[1:]]
+
+                while isinstance(operands, list) and len(operands) == 1:
+                    # if the operands have redundant brackets, remove them
+                    operands = operands[0]
+
+                if isinstance(operands, list):
+                    return self.env[op_name](*operands)
+
+                return self.env[op_name](operands)
+
+            # else, assume the list contents are parseable expressions
+            parsed = [self._parse_to_cvxpy(e, callback) for e in expr]
+            return parsed[0] if len(parsed) == 1 else parsed
+
+        msg = f"Encountered unsupported type '{type(expr)}' during parsing."
+        raise ParserError(msg)
+
+    def _parse_raw_index(self, expr) -> int | tuple[int, ...]:
+        """Convert a MathJSON index spec to a plain Python int or tuple (for Extract/Exclude)."""
+        if isinstance(expr, (int, float)):
+            return int(expr)
+        if isinstance(expr, list) and expr[0] == self.TUPLE:
+            return tuple(int(x) for x in expr[1:])
+        msg = f"Extract/Exclude index must be an integer or Tuple range, got: {expr!r}"
         raise ParserError(msg)
 
 

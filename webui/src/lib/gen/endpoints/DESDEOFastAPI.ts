@@ -1129,10 +1129,14 @@ export interface GroupRevertRequest {
 	state_id: number;
 }
 
+export type ValidationErrorCtx = { [key: string]: unknown };
+
 export interface ValidationError {
 	loc: (string | number)[];
 	msg: string;
 	type: string;
+	input?: unknown;
+	ctx?: ValidationErrorCtx;
 }
 
 export interface HTTPValidationError {
@@ -2214,15 +2218,29 @@ export type loginLoginPostResponse200 = {
 	status: 200;
 };
 
+export type loginLoginPostResponse401 = {
+	data: void;
+	status: 401;
+};
+
 export type loginLoginPostResponse422 = {
 	data: HTTPValidationError;
 	status: 422;
 };
 
+export type loginLoginPostResponse500 = {
+	data: void;
+	status: 500;
+};
+
 export type loginLoginPostResponseSuccess = loginLoginPostResponse200 & {
 	headers: Headers;
 };
-export type loginLoginPostResponseError = loginLoginPostResponse422 & {
+export type loginLoginPostResponseError = (
+	| loginLoginPostResponse401
+	| loginLoginPostResponse422
+	| loginLoginPostResponse500
+) & {
 	headers: Headers;
 };
 

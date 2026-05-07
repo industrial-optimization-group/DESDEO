@@ -3,6 +3,8 @@
 __all__ = [
     "BaseSolver",
     "BonminOptions",
+    "CVXPYSolver",
+    "CVXPYSolverOptions",
     "GurobipySolver",
     "IpoptOptions",
     "NevergradGenericOptions",
@@ -22,7 +24,11 @@ __all__ = [
     "add_asf_generic_diff",
     "add_asf_generic_nondiff",
     "add_asf_nondiff",
+    "add_asf_partial_diff",
+    "add_conditional_value_at_risk",
     "add_epsilon_constraints",
+    "add_expected_asf",
+    "add_expected_value",
     "add_group_asf",
     "add_group_asf_agg",
     "add_group_asf_agg_diff",
@@ -41,21 +47,31 @@ __all__ = [
     "add_group_stom_diff",
     "add_guess_sf_diff",
     "add_guess_sf_nondiff",
+    "add_worst_case_robust",
     "add_nimbus_sf_diff",
     "add_nimbus_sf_nondiff",
     "add_objective_as_scalarization",
     "add_stom_sf_diff",
     "add_stom_sf_nondiff",
+    "add_weighted_scenarios",
     "add_weighted_sums",
     "available_nevergrad_optimizers",
     "available_solvers",
+    "build_combined_scenario_problem",
+    "build_scenario_problem",
     "find_compatible_solvers",
     "flip_maximized_objective_values",
     "get_corrected_ideal_and_nadir",
     "guess_best_solver",
     "payoff_table_method",
+    "solve_all_scenarios",
+    "solve_scenario",
 ]
 
+from desdeo.tools.cvxpy_solver_interfaces import (
+    CVXPYSolver,
+    CVXPYSolverOptions,
+)
 from desdeo.tools.generics import BaseSolver, SolverOptions, SolverResults
 from desdeo.tools.group_scalarization import (
     add_group_asf,
@@ -84,6 +100,7 @@ from desdeo.tools.ng_solver_interfaces import (
     NevergradGenericSolver,
     available_nevergrad_optimizers,
 )
+from desdeo.tools.partial_scalarization import add_asf_partial_diff
 from desdeo.tools.proximal_solver import ProximalSolver
 from desdeo.tools.pyomo_solver_interfaces import (
     BonminOptions,
@@ -93,6 +110,7 @@ from desdeo.tools.pyomo_solver_interfaces import (
     PyomoGurobiSolver,
     PyomoIpoptSolver,
 )
+from desdeo.tools.robust import add_weighted_scenarios, add_worst_case_robust
 from desdeo.tools.scalarization import (
     ScalarizationError,
     add_asf_diff,
@@ -109,7 +127,14 @@ from desdeo.tools.scalarization import (
     add_stom_sf_nondiff,
     add_weighted_sums,
 )
+from desdeo.tools.scenarios import (
+    build_combined_scenario_problem,
+    build_scenario_problem,
+    solve_all_scenarios,
+    solve_scenario,
+)
 from desdeo.tools.scipy_solver_interfaces import ScipyDeSolver, ScipyMinimizeSolver
+from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_asf, add_expected_value
 from desdeo.tools.utils import (
     available_solvers,
     find_compatible_solvers,

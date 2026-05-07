@@ -31,12 +31,19 @@ export const actions: Actions = {
         const response = await loginLoginPost(body);
 
         if (response.status != 200){
-            return fail(response.status);
+            if (response.status === 401) {
+                form.message = "Invalid username or password";
+            } else if (response.status >= 500) {
+                form.message = "Server unavailable";
+            } else {
+                form.message = "Login failed. Please try again.";
+            }
+            return fail(response.status, {form});
         }
 
         cookies.set("access_token", response.data.access_token, {httpOnly: true, secure: !dev, sameSite: "lax", path: '/'});
         cookies.set("refresh_token", response.data.refresh_token, {httpOnly: true, secure: !dev, sameSite: "lax", path: '/'});
 
-        redirect(303, '/dashboard');
+        throw redirect(303, '/dashboard');
     },
 };

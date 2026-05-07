@@ -15,6 +15,8 @@
 #
 # test-failures: rerun the last falures only.
 #
+# test-webui: run the web UI unit tests (vitest).
+#
 # fullstack: run the web-API and web-GUI for local develpment.
 
 # Pytest conf (defined with `?=` can be overridden, e.g., `make test
@@ -40,6 +42,9 @@ test-changes:
 
 test-failures:
 	$(PYTEST) --lf $(PYTEST_SKIP) $(PYTEST_OPTS)
+
+test-webui:
+	cd webui && npx vitest run --config vitest.config.ts
 
 fullstack:
 	./run_fullstack.sh

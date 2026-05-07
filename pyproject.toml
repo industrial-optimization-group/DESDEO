@@ -1,6 +1,6 @@
 [project]
 name = "desdeo"
-version = "2.3.0"
+version = "2.4.0"
 description = "DESDEO is a modular and open source framework for interactive multiobjective optimization."
 authors = [
     { name = "Giovanni Misitano", email = "giovanni.a.misitano@jyu.fi" },
@@ -37,7 +37,7 @@ dependencies = [
     "pymoo >= 0.6.1.2",
     "shap >= 0.47.0",
     "requests >= 2.32.0",
-    "cvxpy[scip] >= 1.6.4",
+    "cvxpy[scip]>=1.8.0",
     "moocore >= 0.1.7",
     "websockets>=15.0.1",
     "coco-experiment>=2.8.2",
@@ -59,6 +59,7 @@ dev = [
     "pytest-asyncio>=0.26.0",
     "snakeviz>=2.2.0",
     "pre-commit>=0.14.14",
+    "rust-just>=1.49.0",
 ]
 
 docs = [
@@ -95,6 +96,12 @@ tools = ["djlint>=1.34.1", "eralchemy>=1.5.0"]
 server = [ # production!
     "gunicorn>=23.0.0",
     "psycopg2>=2.9.10",
+]
+
+stochastic = [
+    "sortedcollections",
+    "mpi4py>=3.0.3", # Need mpi installed on your system before installing this
+    "mpi-sppy@ git+https://github.com/juropo/mpi-sppy@main",
 ]
 
 all-dev = [
@@ -228,6 +235,7 @@ markers = [
     "scalarization: tests related to scalarization functions",
     "nimbus: tests related to the NIMBUS method",
     "gurobipy: tests related to the gurobipy solver",
+    "cvxpy: tests related to the cvxpy solver",
     "pareto_navigator: tests related to the Pareto Navigator method",
     "patterns: tests related to the publisher-subscriber pattern",
     "forest_problem: tests related to the forest problem examples.",
@@ -250,6 +258,7 @@ markers = [
     "gdmtools: tests related to group decision making.",
     "gnimbus: tests related to group nimbus method.",
     "external: tests related to providers interfacing to external problems.",
+    "scenario: tests related to scenario-based optimization.",
     "fixme: tests that are not passing, but maybe should, yet are ignored.",
     "githubskip: skip these tests on GitHub workflows.",
 ]

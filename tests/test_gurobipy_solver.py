@@ -13,7 +13,12 @@ from desdeo.problem import (
     Variable,
     VariableTypeEnum,
 )
-from desdeo.problem.testproblems import simple_knapsack_vectors, simple_linear_test_problem
+from desdeo.problem.gurobipy_evaluator import GurobipyEvaluatorError
+from desdeo.problem.testproblems import (
+    simple_constrained_quadratic_tensor_test_problem,
+    simple_knapsack_vectors,
+    simple_linear_test_problem,
+)
 from desdeo.tools import GurobipySolver, PersistentGurobipySolver
 
 
@@ -36,7 +41,7 @@ def test_gurobipy_solver():
 @pytest.mark.slow
 @pytest.mark.gurobipy
 def test_gurobipy_persistent_solver():
-    """Tests the bonmin solver."""
+    """Tests the gurobipy solver."""
     problem = simple_linear_test_problem()
     solver = PersistentGurobipySolver(problem)
 
@@ -73,7 +78,8 @@ def test_gurobipy_persistent_solver():
     assert solver.evaluator.model.getConstrByName("c_test") is None
 
     solver.remove_variable("y")
-    assert solver.evaluator.get_expression_by_name("y") is None
+    with pytest.raises(GurobipyEvaluatorError):
+        solver.evaluator.get_expression_by_name("y")
 
     # Check that the solver can still solve the original problem
     # after removing the added variables and constraints
@@ -97,7 +103,8 @@ def test_gurobipy_persistent_solver():
     assert isinstance(solver.evaluator.get_expression_by_name("y"), gp.MVar)
 
     solver.remove_variable("y")
-    assert solver.evaluator.get_expression_by_name("y") is None
+    with pytest.raises(GurobipyEvaluatorError):
+        solver.evaluator.get_expression_by_name("y")
 
 
 @pytest.mark.slow
@@ -124,3 +131,19 @@ def test_gurobipy_solver_with_tensors():
     assert np.allclose(xs["X"], [0.0, 0.0, 1.0, 0.0])
     assert np.isclose(ys["f_1"], 6.0)
     assert np.isclose(ys["f_2"], 7.0)
+
+
+@pytest.mark.slow
+@pytest.mark.gurobipy
+def test_gurobipy_solver_qp_with_tensors():
+    """Test gurobipy solver with a quadratic problem with TensorVariables."""
+    problem = simple_constrained_quadratic_tensor_test_problem()
+    solver = GurobipySolver(problem)
+
+    results = solver.solve("f_1_min")
+
+    assert results.success
+    xs, ys = results.optimal_variables, results.optimal_objectives
+
+    assert np.allclose(xs["X"], [2 / 3, 2 / 3])
+    assert np.isclose(ys["f_1"], -((2 / 3) ** 2))

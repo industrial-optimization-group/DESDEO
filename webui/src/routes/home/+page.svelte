@@ -11,13 +11,21 @@
 
 
 	let { data } = $props();
-	const { form, enhance, errors, submitting } = $derived(superForm(data.form,{
+	const { form, enhance, errors, submitting, message } = $derived(superForm(data.form,{
 		validators: zod4(loginSchema),
 		validationMethod: 'onblur'
 	}
 	));
 
-	let loginError: string | null = null; // whether login is successful or not
+	let loginError: string | null = $state(null);
+
+	$effect(() => {
+		loginError = $message ?? null;
+	});
+
+	function clearError() {
+		loginError = null;
+	}
 </script>
 
 <svelte:head>
@@ -49,13 +57,14 @@
 					<div class="grid gap-6">
 						<div class="grid gap-3">
 							<Label for="username">Username<span class="text-red-500">*</span></Label>
-							<Input 
-								id="username" 
-								name="username" 
-								placeholder="Enter your username" 
-								bind:value={$form.username} 
-								class={$errors.username ? 'border-red-500' : ''} 
-								required 
+							<Input
+								id="username"
+								name="username"
+								placeholder="Enter your username"
+								bind:value={$form.username}
+								oninput={clearError}
+								class={$errors.username || loginError ? 'border-red-500' : ''}
+								required
 							/>
 							{#if $errors.username}
 								<small class="text-red-500">{$errors.username}</small>
@@ -74,14 +83,16 @@
 								name="password"
 								placeholder="Enter your password"
 								bind:value={$form.password}
-								class={$errors.password ? 'border-red-500' : ''}
+								oninput={clearError}
+								class={$errors.password || loginError ? 'border-red-500' : ''}
 								required
 							/>
 							{#if $errors.password}
 								<small class="text-red-500">{$errors.password}</small>
 							{/if}
 						</div>
-						<Button type="submit" class="w-full" disabled={$submitting}>
+
+						<Button type="submit" class="w-full" disabled={$submitting || $form.username === "" || $form.password === ""}>
 							{#if $submitting}
 								<LoadingSpinner/>
 								Logging in...

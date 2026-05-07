@@ -374,7 +374,11 @@ def get_current_user_info(user: Annotated[User, Depends(get_current_user)]) -> U
     return user
 
 
-@router.post("/login", response_model=Tokens)
+@router.post("/login", response_model=Tokens, responses={
+    401: {"description": "Incorrect username or password"},
+    500: {"description": "Server unavailable"}
+})
+
 def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Annotated[Session, Depends(get_session)],
