@@ -66,6 +66,7 @@
 	import ScoreBands from '$lib/components/visualizations/score-bands/score-bands.svelte';
 	import ParallelCoordinates from '$lib/components/visualizations/parallel-coordinates/parallel-coordinates.svelte';
 	import ScoreBandsSolutionTable from './score-bands-solution-table.svelte';
+	import ClusterBandTable from '$lib/components/custom/score-bands-table/solution-table.svelte';
 	import HistoryBrowser from './history-browser.svelte';
 	import ConfigPanel from './config-panel.svelte';
 	import { onMount, onDestroy } from 'svelte';
@@ -149,6 +150,31 @@
 		return counts;
 	});
 
+	function getClusterVoteCount(clusterId: number): number {
+	return votes_per_cluster[clusterId] ?? 0;
+}
+
+function getClusterVotePercent(clusterId: number): number {
+	if (totalVoters === 0) return 0;
+	return Math.round((getClusterVoteCount(clusterId) / totalVoters) * 100);
+}
+
+function getConsensusLabel(axisName: string): string {
+	const status = axis_agreement?.[axisName];
+
+	if (status === 'agreement') return 'Agreement';
+	if (status === 'disagreement') return 'Disagreement';
+	return 'Neutral';
+}
+
+function getConsensusClasses(axisName: string): string {
+	const status = axis_agreement?.[axisName];
+
+	if (status === 'agreement') return 'text-green-700';
+	if (status === 'disagreement') return 'text-red-700';
+	return 'text-muted-foreground';
+}
+
 	// Calculate axis agreement when everyone has voted
 	let axis_agreement = $derived.by(() => {
 		// Only calculate if we're in consensus phase and have the necessary data
@@ -203,6 +229,24 @@
 	let isDecisionPhase = $derived(phase === 'Decision Phase');
 	let isConsensusPhase = $derived(phase === 'Consensus Reaching Phase');
 
+	// Map raw objective keys to display labels for SCORE-bands axes.
+	// Prefer objective.name for readability, but keep robust fallbacks.
+	let objectiveDisplayMap = $derived.by(() => {
+		const map: Record<string, string> = {};
+		(data.problem.objectives || []).forEach((objective: any) => {
+			const displayLabel = objective.name || objective.symbol;
+			if (!displayLabel) return;
+
+			if (objective.name) {
+				map[objective.name] = displayLabel;
+			}
+			if (objective.symbol) {
+				map[objective.symbol] = displayLabel;
+			}
+		});
+		return map;
+	});
+
 	// Data from scoreBandsResult stored in format that is actually used in UI
 	let SCOREBands = $derived.by(() => {
 		if (!scoreBandsResult || scoreBandsResult === null) {
@@ -219,22 +263,54 @@
 			};
 		}
 
+		const rawAxisNames = scoreBandsResult.ordered_dimensions;
+		const displayAxisNames = rawAxisNames.map(
+			(axisName) => objectiveDisplayMap[axisName] || axisName
+		);
+
+		const remapAxisKeyedObject = <T,>(
+			obj: Record<string, Record<string, T>>
+		): Record<string, Record<string, T>> => {
+			return Object.fromEntries(
+				Object.entries(obj).map(([clusterId, axisValues]) => [
+					clusterId,
+					Object.fromEntries(
+						Object.entries(axisValues).map(([axisName, value]) => [
+							objectiveDisplayMap[axisName] || axisName,
+							value
+						])
+					)
+				])
+			);
+		};
+
+		const rawScales = calculateScales(data.problem, scoreBandsResult);
+		const remappedScales = displayAxisNames.reduce(
+			(acc, displayAxisName, index) => {
+				const rawAxisName = rawAxisNames[index];
+				acc[displayAxisName] =
+					rawScales[rawAxisName] || rawScales[displayAxisName] || [0, 1];
+				return acc;
+			},
+			{} as Record<string, [number, number]>
+		);
+
 		const derivedData = {
-			axisNames: scoreBandsResult.ordered_dimensions,
+			axisNames: displayAxisNames,
 			clusterIds: Object.keys(scoreBandsResult.bands)
 				.sort((a, b) => parseInt(a) - parseInt(b))
 				.map((id) => Number(id)),
 			// Convert axis_positions dict to ordered array
-			axisPositions: scoreBandsResult.ordered_dimensions.map(
+			axisPositions: rawAxisNames.map(
 				(objName) => scoreBandsResult?.axis_positions[objName]
 			) as number[],
 
 			// TODO: Visualization used axisSigns, but is the info from backend or user in UI? "Flip axes" -checkbox?
-			axisSigns: new Array(scoreBandsResult.ordered_dimensions.length).fill(1),
+			axisSigns: new Array(rawAxisNames.length).fill(1),
 			data: [], // TODO: This could be filled with solution data, if it will be a thing later. Visualization might not work: copy-paste from old function, not tested.
-			bands: scoreBandsResult.bands,
-			medians: scoreBandsResult.medians,
-			scales: calculateScales(data.problem, scoreBandsResult), // TODO: see calculateScales function
+			bands: remapAxisKeyedObject(scoreBandsResult.bands),
+			medians: remapAxisKeyedObject(scoreBandsResult.medians),
+			scales: remappedScales,
 			solutions_per_cluster: scoreBandsResult.cardinalities
 		};
 		return derivedData;
@@ -315,6 +391,50 @@
 	let cluster_colors = $derived(
 		SCOREBands.clusterIds.length > 0 ? generate_cluster_colors(SCOREBands.clusterIds) : {}
 	);
+
+	let clusterBandRows = $derived.by(() => {
+		if (!isConsensusPhase || !SCOREBands.clusterIds.length || !SCOREBands.scales || scoreBandsResult == null|| !scoreBandsResult.bands || !scoreBandsResult.medians ) {
+			return [];
+		}
+
+		const result = scoreBandsResult;
+
+		const axisNames = result.ordered_dimensions;
+
+
+		return Object.keys(result.bands).map((clusterId) => {
+			const objectiveRanges: Record<string, any> = {};
+
+			axisNames.forEach((axisName) => {
+				const bandRange = result.bands[clusterId]?.[axisName];
+				const median = result.medians[clusterId]?.[axisName];
+				const axisScale = SCOREBands.scales?.[axisName];
+
+				if (!bandRange || median === undefined) return;
+				if (!axisScale || axisScale.length !== 2) return;
+
+				const scaleMin = Math.min(axisScale[0], axisScale[1]);
+				const scaleMax = Math.max(axisScale[0], axisScale[1]);
+
+				objectiveRanges[axisName] = {
+					min: Math.min(bandRange[0], bandRange[1]),
+					max: Math.max(bandRange[0], bandRange[1]),
+					median,
+					scaleMin,
+					scaleMax
+				};
+			});
+
+			return {
+				id: Number(clusterId),
+				label: `Cluster ${clusterId} band`,
+				color: cluster_colors[Number(clusterId)] || '#64748b',
+				numSolutions: result.cardinalities[clusterId] ?? 0,
+				objectiveRanges
+			};
+		});
+	});
+
 	let axis_options = $derived(
 		SCOREBands.axisNames.length > 0
 			? generate_axis_options(SCOREBands.axisNames, axis_agreement)
@@ -821,189 +941,231 @@
 		/>
 
 		{#if isConsensusPhase}
-			<!-- CONSENSUS PHASE: Existing SCORE Bands Content -->
-			<div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
-				<!-- Controls Panel -->
-				<div class="space-y-6 lg:col-span-1">
-					<div class="card bg-base-100 shadow-xl">
-						<div class="card-body">
-							<h2 class="card-title">Visualization Options</h2>
-
-							<!-- Display Options -->
-							<div class="form-control">
-								<label class="label cursor-pointer">
-									<span class="label-text">Show Bands</span>
-									<input
-										type="checkbox"
-										bind:checked={show_bands}
-										disabled={!canToggleBands()}
-										class="checkbox checkbox-primary"
-										title={canToggleBands()
-											? ''
-											: 'At least one visualization option must remain active'}
-									/>
-								</label>
-							</div>
-
-							<!-- TODO: when solutions can be fetched from backend, uncomment this and fix related code -->
-							<!-- <div class="form-control">
-							<label class="label cursor-pointer">
-								<span class="label-text text-gray-500">Show Solutions</span>
-								<input
-									type="checkbox"
-									bind:checked={show_solutions}
-									disabled={true}
-									class="checkbox checkbox-primary"
-									title="Individual solutions are not available"
-								/>
-							</label>
-						</div> -->
-
-							<div class="form-control">
-								<label class="label cursor-pointer">
-									<span class="label-text">Show Medians</span>
-									<input
-										type="checkbox"
-										bind:checked={show_medians}
-										disabled={!canToggleMedians()}
-										class="checkbox checkbox-primary"
-										title={canToggleMedians()
-											? ''
-											: 'At least one visualization option must remain active'}
-									/>
-								</label>
-							</div>
-						</div>
-					</div>
-
-					<!-- Cluster Visibility -->
-					<div class="card bg-base-100 shadow-xl">
-						<div class="card-body">
-							<h2 class="card-title">Cluster Visibility</h2>
-
-							{#each SCOREBands.clusterIds as clusterId}
-								<div class="form-control">
-									<label class="label cursor-pointer">
-										<span class="label-text">
-											<span
-												class="inline-block h-4 w-4 rounded"
-												style="background-color: {cluster_colors[clusterId] || '#000000'};"
-											></span>
-											Cluster {clusterId}
-											{#if SCOREBands.solutions_per_cluster && SCOREBands.solutions_per_cluster[clusterId]}
-												<span class="ml-1 text-xs text-gray-500">
-													({SCOREBands.solutions_per_cluster[clusterId]} solutions)
-												</span>
-											{/if}
-										</span>
-										<input
-											type="checkbox"
-											bind:checked={cluster_visibility_map[clusterId]}
-											class="checkbox checkbox-primary"
-										/>
-									</label>
-								</div>
-							{/each}
-
-							{#if SCOREBands.clusterIds.length === 0}
-								<p class="text-sm text-gray-500">No clusters available</p>
-							{/if}
-						</div>
-					</div>
-
-					<!-- Selection Info -->
-					<div class="card bg-base-100 shadow-xl">
-						<div class="card-body">
-							<h2 class="card-title">Selection</h2>
-							<div class="space-y-2">
-								{#if selected_band !== null}
-									<div class="alert alert-info">
-										<span class="font-medium">Band {selected_band} selected</span>
-									</div>
-								{:else}
-									<div class="text-sm text-gray-500">No band selected</div>
-								{/if}
-								<!-- TODO: when there is a need to select an axis, uncomment code below -->
-								<!-- {#if selected_axis !== null}
-								<div class="alert alert-warning">
-									<span class="font-medium"
-										>Axis "{SCOREBands.axisNames[selected_axis] || 'Unknown'}" selected</span
-									>
-								</div>
-							{:else}
-								<div class="text-sm text-gray-500">No axis selected</div>
-							{/if} -->
-
-								{#if selected_band === null && selected_axis === null}
-									<div class="mt-2 text-xs text-gray-400">Click on bands to select them</div>
-								{/if}
-							</div>
-						</div>
-					</div>
-
-					<!-- "Voting buttons" -->
-					{#if isDecisionMaker}
-						<div class="card bg-base-100 shadow-xl">
-							<div class="card-body">
-								<h2 class="card-title">Voting</h2>
-								<div class="space-y-2 p-2">
-									<Button
-										onclick={() => vote(selected_band)}
-										disabled={selected_band === null || vote_confirmed}
-									>
-										Vote
-									</Button>
-									<Button onclick={confirm_vote} disabled={!have_all_voted || vote_confirmed}>
-										Confirm vote
-									</Button>
-								</div>
-							</div>
-						</div>
-					{/if}
-					<!-- Votes Chart -->
-					<div class="card bg-base-100 shadow-xl">
-						<div class="card-body">
-							<div bind:this={votesChartContainer} class="h-48 w-full"></div>
-						</div>
-					</div>
-					<!-- History Browser Component, visible for owner only -->
-					<HistoryBrowser
-						{history}
-						currentIterationId={iteration_id}
-						onRevertToIteration={revert_to}
-						{isOwner}
-					/>
+			{#if isConsensusPhase}
+	<div class="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)_360px]">
+		<!-- LEFT: Data & Settings -->
+		<aside class="space-y-4">
+			<div class="rounded-lg border bg-card shadow-sm">
+				<div class="flex items-center justify-between border-b px-4 py-3">
+					<h2 class="text-sm font-semibold">Data & Settings</h2>
 				</div>
 
-				<!-- Visualization Area -->
-				<div class="lg:col-span-3">
-					<div class="card bg-base-100 shadow-xl">
-						<div class="card-body">
-							<div class="flex h-[600px] w-full items-center justify-center">
-								<ScoreBands
-									data={SCOREBands.data}
-									axisNames={SCOREBands.axisNames}
-									axisPositions={SCOREBands.axisPositions}
-									axisSigns={SCOREBands.axisSigns}
-									groups={SCOREBands.clusterIds}
-									{options}
-									bands={SCOREBands.bands}
-									medians={SCOREBands.medians}
-									scales={SCOREBands.scales}
-									clusterVisibility={cluster_visibility_map}
-									clusterColors={cluster_colors}
-									axisOptions={axis_options}
-									axisOrder={effective_axis_order}
-									onBandSelect={handle_band_select}
-									onAxisSelect={handle_axis_select}
-									selectedBand={selected_band}
-									selectedAxis={selected_axis}
-								/>
-							</div>
+				<div class="space-y-4 p-4">
+					<div>
+						<div class="text-xs text-muted-foreground">Input data</div>
+						<div class="mt-1 text-sm font-medium">
+							{data.problem.name ?? 'Current problem'}
 						</div>
+					</div>
+
+					<div class="space-y-2">
+						<div class="text-sm font-medium">Visualization options</div>
+
+						<label class="flex items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								bind:checked={show_bands}
+								disabled={!canToggleBands()}
+								class="checkbox checkbox-primary checkbox-sm"
+							/>
+							Show bands
+						</label>
+
+						<label class="flex items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								bind:checked={show_medians}
+								disabled={!canToggleMedians()}
+								class="checkbox checkbox-primary checkbox-sm"
+							/>
+							Show medians
+						</label>
+					</div>
+
+					<div class="space-y-2">
+						<div class="text-sm font-medium">Visible clusters</div>
+
+						{#each SCOREBands.clusterIds as clusterId}
+							<label class="flex items-center justify-between gap-2 text-sm">
+								<span class="flex items-center gap-2">
+									<span
+										class="h-3 w-3 rounded-full"
+										style={`background-color: ${cluster_colors[clusterId] || '#64748b'};`}
+									></span>
+									Cluster {clusterId}
+								</span>
+
+								<input
+									type="checkbox"
+									bind:checked={cluster_visibility_map[clusterId]}
+									class="checkbox checkbox-primary checkbox-sm"
+								/>
+							</label>
+						{/each}
 					</div>
 				</div>
 			</div>
+
+			<ConfigPanel
+				currentConfig={scoreBandsResult?.options || null}
+				{latestIteration}
+				{totalVoters}
+				onRecalculate={configure}
+				isVisible={isOwner && isConsensusPhase}
+			/>
+
+			<HistoryBrowser
+				{history}
+				currentIterationId={iteration_id}
+				onRevertToIteration={revert_to}
+				{isOwner}
+			/>
+		</aside>
+
+		<!-- CENTER: Visualization + band table -->
+		<main class="space-y-4">
+			<div class="rounded-lg border bg-card shadow-sm">
+				<div class="flex items-center justify-between border-b px-4 py-3">
+					<div>
+						<h2 class="text-sm font-semibold">Visualization</h2>
+						<p class="mt-1 text-xs text-muted-foreground">
+							Select a band in the chart or in the table below.
+						</p>
+					</div>
+				</div>
+
+				<div class="h-[520px] p-4">
+					<ScoreBands
+						data={SCOREBands.data}
+						axisNames={SCOREBands.axisNames}
+						axisPositions={SCOREBands.axisPositions}
+						axisSigns={SCOREBands.axisSigns}
+						groups={SCOREBands.clusterIds}
+						{options}
+						bands={SCOREBands.bands}
+						medians={SCOREBands.medians}
+						scales={SCOREBands.scales}
+						clusterVisibility={cluster_visibility_map}
+						clusterColors={cluster_colors}
+						axisOptions={axis_options}
+						axisOrder={effective_axis_order}
+						onBandSelect={handle_band_select}
+						onAxisSelect={handle_axis_select}
+						selectedBand={selected_band}
+						selectedAxis={selected_axis}
+					/>
+				</div>
+
+				<div class="border-t px-4 py-3 text-sm text-muted-foreground">
+					Bands show the regions of the Pareto front still available after the previous
+					iteration.
+				</div>
+			</div>
+
+			<ClusterBandTable
+				axisNames={SCOREBands.axisNames}
+				bands={clusterBandRows}
+				selectedBand={selected_band}
+				onBandSelect={handle_band_select}
+			/>
+		</main>
+
+		<!-- RIGHT: Voting + consensus -->
+		<aside class="space-y-4">
+			<div class="rounded-lg border bg-card shadow-sm">
+				<div class="border-b px-4 py-3">
+					<h2 class="text-sm font-semibold">Group voting</h2>
+					<p class="mt-1 text-xs text-muted-foreground">
+						{totalVoters} decision makers
+					</p>
+				</div>
+
+				<div class="space-y-2 p-4">
+					<div class="text-sm font-medium">Select your preferred band</div>
+
+					{#each SCOREBands.clusterIds as clusterId}
+						<button
+							type="button"
+							class="flex w-full items-center justify-between rounded-md border px-3 py-3 text-left text-sm hover:bg-muted
+								{selected_band === clusterId ? 'border-primary bg-muted' : ''}"
+							onclick={() => handle_band_select(clusterId)}
+							disabled={vote_confirmed}
+						>
+							<span class="flex items-center gap-2">
+								<span
+									class="h-3 w-3 rounded-full"
+									style={`background-color: ${cluster_colors[clusterId] || '#64748b'};`}
+								></span>
+								Cluster {clusterId}
+							</span>
+
+							<span class="text-muted-foreground">
+								{getClusterVoteCount(clusterId)} / {totalVoters}
+								({getClusterVotePercent(clusterId)}%)
+							</span>
+						</button>
+					{/each}
+
+					{#if isDecisionMaker}
+						<div class="pt-4">
+							<Button
+								class="w-full"
+								onclick={() => vote(selected_band)}
+								disabled={selected_band === null || vote_confirmed}
+							>
+								Vote
+							</Button>
+
+							<Button
+								class="mt-2 w-full"
+								variant="outline"
+								onclick={confirm_vote}
+								disabled={!have_all_voted || vote_confirmed}
+							>
+								Confirm vote
+							</Button>
+						</div>
+					{/if}
+				</div>
+			</div>
+
+			<div class="rounded-lg border bg-card shadow-sm">
+				<div class="flex items-center justify-between border-b px-4 py-3">
+					<h2 class="text-sm font-semibold">Consensus status</h2>
+					<span class="text-xs text-muted-foreground">Updates after all votes</span>
+				</div>
+
+				<div class="divide-y">
+					{#each SCOREBands.axisNames as axisName}
+						<div class="flex items-center justify-between px-4 py-3">
+							<div>
+								<div class="font-medium">{axisName}</div>
+								<div class={`text-sm ${getConsensusClasses(axisName)}`}>
+									{getConsensusLabel(axisName)}
+								</div>
+							</div>
+
+							<div
+								class="h-2 w-24 rounded-full bg-muted"
+								title={getConsensusLabel(axisName)}
+							>
+								<div
+									class="h-2 rounded-full
+										{axis_agreement?.[axisName] === 'agreement'
+											? 'bg-green-600'
+											: axis_agreement?.[axisName] === 'disagreement'
+												? 'bg-red-600'
+												: 'bg-muted-foreground/40'}"
+									style="width: {axis_agreement?.[axisName] === 'neutral' ? 40 : 80}%"
+								></div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			</div>
+		</aside>
+	</div>
+{/if}
 		{:else if isDecisionPhase}
 			<!-- DECISION PHASE: Solution Selection Content -->
 			<div class="grid grid-cols-1 gap-6 lg:grid-cols-4">

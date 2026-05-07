@@ -2,7 +2,7 @@
   "cookies": [
     {
       "name": "access_token",
-      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Mywic3ViIjoiZG0yIiwiZXhwIjoxNzc4MTg3NTMzLCJqdGkiOiI0NTJhOTExNy1hMjVkLTQ5YjctYjI5ZS01MWFlYmQxMGRmYTcifQ.J-P0xFGMn1Jq3JosdAi7I6tkyy1TLgzJNCAtRd6thQo",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Mywic3ViIjoiZG0yIiwiZXhwIjoxNzc4MTg5MTA1LCJqdGkiOiI5NzZjMDhmZC1iYjExLTQ2NTktYmYxNS0wMDU0ZjdkMTljZWIifQ.V3Qx7wzHCPoii4C8ifBhKWo1Y7Aucp-cCoXYpet5MUo",
       "domain": "localhost",
       "path": "/",
       "expires": -1,
@@ -12,7 +12,7 @@
     },
     {
       "name": "refresh_token",
-      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Mywic3ViIjoiZG0yIiwiZXhwIjoxNzc4MTg3NTMzLCJqdGkiOiI0YjRjZWRmYi01ZmE2LTRkYjEtOWZkYy05NDEzNDY2MWNjZTAifQ.WdkLu97DmRNx4ZSA_67R4RwLQzU6PwV_bMIGrPEYA6g",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Mywic3ViIjoiZG0yIiwiZXhwIjoxNzc4MTg5MTA1LCJqdGkiOiJhNWQyZmIxMC1lNTM2LTRkMmQtOTJhMS05ZWIxNmM5YWUwNjMifQ.yMFYzwtxP9dXqd0nxXunTmiIbi4YnMnnuHwfLO-qKWE",
       "domain": "localhost",
       "path": "/",
       "expires": -1,
