@@ -519,12 +519,88 @@ function getConsensusClasses(axisName: string): string {
 
 	// Votes chart container
 	let votesChartContainer: HTMLDivElement | undefined = $state();
+	let waitingRefreshTimer: ReturnType<typeof setInterval> | null = null;
+	let consensusVotesSyncTimer: ReturnType<typeof setInterval> | null = null;
+	let isConsensusVoteSyncing = $state(false);
+	let isConsensusIterationSyncing = $state(false);
 
 	// Update votes chart when votes change
 	$effect(() => {
 		if (votesChartContainer) {
 			drawVotesChart(votesChartContainer, votes_per_cluster, totalVoters, cluster_colors);
 		}
+	});
+
+	$effect(() => {
+		const shouldSyncVotes =
+			isConsensusPhase || (isDecisionPhase && !isGroupDecisionReached);
+
+		if (!shouldSyncVotes) {
+			if (consensusVotesSyncTimer) {
+				clearInterval(consensusVotesSyncTimer);
+				consensusVotesSyncTimer = null;
+			}
+			return;
+		}
+
+		if (!consensusVotesSyncTimer) {
+			// Keep vote counts and "all voted" state in sync for every user
+			// in active voting phases, even if websocket vote updates are missed.
+			consensusVotesSyncTimer = setInterval(() => {
+				if (isConsensusVoteSyncing) {
+					return;
+				}
+
+				isConsensusVoteSyncing = true;
+				fetch_votes_and_confirms().finally(() => {
+					isConsensusVoteSyncing = false;
+				});
+			}, 2000);
+		}
+
+		return () => {
+			if (consensusVotesSyncTimer) {
+				clearInterval(consensusVotesSyncTimer);
+				consensusVotesSyncTimer = null;
+			}
+			isConsensusVoteSyncing = false;
+		};
+	});
+
+	$effect(() => {
+		const shouldPollForNextIteration = isConsensusPhase;
+
+		if (!shouldPollForNextIteration) {
+			if (waitingRefreshTimer) {
+				clearInterval(waitingRefreshTimer);
+				waitingRefreshTimer = null;
+			}
+			isConsensusIterationSyncing = false;
+			return;
+		}
+
+		if (!waitingRefreshTimer) {
+			// Keep iteration header and phase in sync for every user during
+			// consensus, even if websocket updates are delayed or missed.
+			waitingRefreshTimer = setInterval(() => {
+				if (isConsensusIterationSyncing) {
+					return;
+				}
+
+				isConsensusIterationSyncing = true;
+				fetch_score_bands().finally(() => {
+					isConsensusIterationSyncing = false;
+				});
+			}, 3000);
+		}
+
+		return () => {
+			if (waitingRefreshTimer) {
+				clearInterval(waitingRefreshTimer);
+				waitingRefreshTimer = null;
+			}
+			isConsensusIterationSyncing = false;
+		};
 	});
 
 	onMount(async () => {
@@ -542,7 +618,10 @@ function getConsensusClasses(axisName: string): string {
 			// Subscribe to websocket messages
 			wsService.messageStore.subscribe((store) => {
 				// Handle different message types from the backend:
-				const msg = store.message;
+				const msg =
+					typeof store.message === 'string'
+						? store.message
+						: JSON.stringify(store.message);
 				console.log('WebSocket message received:', msg);
 
 				// Handle update messages (messages don't show to user, just trigger state updates)
@@ -573,6 +652,18 @@ function getConsensusClasses(axisName: string): string {
 
 	// Cleanup websocket connection when component is destroyed
 	onDestroy(() => {
+		if (consensusVotesSyncTimer) {
+			clearInterval(consensusVotesSyncTimer);
+			consensusVotesSyncTimer = null;
+		}
+		isConsensusVoteSyncing = false;
+
+		if (waitingRefreshTimer) {
+			clearInterval(waitingRefreshTimer);
+			waitingRefreshTimer = null;
+		}
+		isConsensusIterationSyncing = false;
+
 		if (wsService) {
 			console.log('Closing WebSocket connection');
 			wsService.close();
@@ -585,6 +676,9 @@ function getConsensusClasses(axisName: string): string {
 	 */
 	async function fetch_score_bands() {
 		try {
+			const previousIterationId = iteration_id;
+			const previousPhase = phase;
+
 			const scoreResponse = await fetch('/interactive_methods/GDM-SCORE-bands/fetch_score_bands', {
 				method: 'POST',
 				headers: {
@@ -612,8 +706,6 @@ function getConsensusClasses(axisName: string): string {
 
 				// The last item from history is the current response
 				const currentResponse = history[history.length - 1];
-				selected_band = null;
-				selected_solution = null;
 				// Check which type of response we got and update state accordingly
 				if (currentResponse.method === 'gdm-score-bands') {
 					// Regular SCORE bands response - cast to proper type for TypeScript
@@ -642,6 +734,14 @@ function getConsensusClasses(axisName: string): string {
 					console.log('Decision phase data fetched successfully:', currentResponse);
 				} else {
 					throw new Error(`Unknown method: ${currentResponse.method}`);
+				}
+
+				const iterationChanged = iteration_id !== previousIterationId;
+				const phaseChanged = phase !== previousPhase;
+
+				if (iterationChanged || phaseChanged) {
+					selected_band = null;
+					selected_solution = null;
 				}
 			} else {
 				throw new Error(`Fetch score failed: ${scoreResult.error || 'Unknown error'}`);
@@ -730,7 +830,11 @@ function getConsensusClasses(axisName: string): string {
 			} else {
 				throw new Error(`Confirm failed: ${confirmResult.error || 'Unknown error'}`);
 			}
-			fetch_votes_and_confirms();
+			// Refresh both vote status and iteration state locally so the UI updates
+			// immediately even if websocket update delivery is delayed.
+			await fetch_votes_and_confirms();
+			await fetch_score_bands();
+			clusters_to_visible();
 		} catch (error) {
 			console.error('Error in Confirm:', error);
 			errorMessage.set(`${error}`);
@@ -1084,6 +1188,11 @@ function getConsensusClasses(axisName: string): string {
 					<p class="mt-1 text-xs text-muted-foreground">
 						{totalVoters} decision makers
 					</p>
+					{#if isConsensusPhase}
+						<p class="mt-1 text-xs text-muted-foreground">
+							Vote sync: {isConsensusVoteSyncing ? 'updating...' : 'live'}
+						</p>
+					{/if}
 				</div>
 
 				<div class="space-y-2 p-4">
