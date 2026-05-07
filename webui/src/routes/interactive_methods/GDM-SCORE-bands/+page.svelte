@@ -393,21 +393,24 @@ function getConsensusClasses(axisName: string): string {
 	);
 
 	let clusterBandRows = $derived.by(() => {
-		if (!isConsensusPhase || !SCOREBands.clusterIds.length || !SCOREBands.scales || scoreBandsResult == null|| !scoreBandsResult.bands || !scoreBandsResult.medians ) {
+		if (
+			!isConsensusPhase ||
+			!SCOREBands.clusterIds.length ||
+			!SCOREBands.scales ||
+			!SCOREBands.bands ||
+			!SCOREBands.medians
+		) {
 			return [];
 		}
 
-		const result = scoreBandsResult;
+		const axisNames = SCOREBands.axisNames;
 
-		const axisNames = result.ordered_dimensions;
-
-
-		return Object.keys(result.bands).map((clusterId) => {
+		return Object.keys(SCOREBands.bands).map((clusterId) => {
 			const objectiveRanges: Record<string, any> = {};
 
 			axisNames.forEach((axisName) => {
-				const bandRange = result.bands[clusterId]?.[axisName];
-				const median = result.medians[clusterId]?.[axisName];
+				const bandRange = SCOREBands.bands[clusterId]?.[axisName];
+				const median = SCOREBands.medians[clusterId]?.[axisName];
 				const axisScale = SCOREBands.scales?.[axisName];
 
 				if (!bandRange || median === undefined) return;
@@ -429,7 +432,7 @@ function getConsensusClasses(axisName: string): string {
 				id: Number(clusterId),
 				label: `Cluster ${clusterId} band`,
 				color: cluster_colors[Number(clusterId)] || '#64748b',
-				numSolutions: result.cardinalities[clusterId] ?? 0,
+				numSolutions: SCOREBands.solutions_per_cluster[clusterId] ?? 0,
 				objectiveRanges
 			};
 		});
