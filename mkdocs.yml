@@ -26,7 +26,7 @@ nav:
       - "Solvers": "explanation/solvers.ipynb"
       - "Test problems": "explanation/test_problems.ipynb"
       - "Evolutionary algorithms": "explanation/templates_and_pub_sub.ipynb"
-      - "Scenarios": "explanation/scenarios.ipynb"
+      - "Scenarios": "explanation/scenarios.md"
       - "Pydantic interface": "explanation/pydantic_interface.md"
       - "Group decision making and websockets": "explanation/group_decision_making_and_websockets.md"
       - "Web-API models and schema": "explanation/database_models_and_schema.md"
@@ -66,9 +66,6 @@ nav:
       - "Database relations mapping": "web_api/relations.md"
   - "Web-GUI":
       - "": "web_gui/index.md"
-
-hooks:
-  - docs/hooks.py
 
 watch:
   - desdeo
