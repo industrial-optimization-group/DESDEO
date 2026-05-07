@@ -162,7 +162,6 @@ export const GetProblemsProblemAllGetResponseItem = zod
 		is_convex: zod.union([zod.boolean(), zod.null()]),
 		is_linear: zod.union([zod.boolean(), zod.null()]),
 		is_twice_differentiable: zod.union([zod.boolean(), zod.null()]),
-		scenario_keys: zod.union([zod.array(zod.string()), zod.null()]),
 		variable_domain: zod
 			.enum(['continuous', 'binary', 'integer', 'mixed'])
 			.describe('An enumerator for the possible variable type domains of a problem.'),
@@ -319,7 +318,6 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 		is_convex: zod.union([zod.boolean(), zod.null()]),
 		is_linear: zod.union([zod.boolean(), zod.null()]),
 		is_twice_differentiable: zod.union([zod.boolean(), zod.null()]),
-		scenario_keys: zod.union([zod.array(zod.string()), zod.null()]),
 		variable_domain: zod
 			.enum(['continuous', 'binary', 'integer', 'mixed'])
 			.describe('An enumerator for the possible variable type domains of a problem.'),
@@ -341,7 +339,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 							),
 						value: zod.number().describe('The value of the constant.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constant`.')
 			),
@@ -372,7 +371,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								"Symbol to represent the constant. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1."
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorConstant`.')
 			),
@@ -408,7 +408,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 							.optional()
 							.describe('Initial value of the variable. This is optional.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Variable`.')
 			),
@@ -471,7 +472,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								'Type of the variable. Can be real, integer, or binary. Note that each element of a TensorVariable is assumed to be of the same type.'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorVariable`.')
 			),
@@ -481,7 +483,6 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 			zod
 				.object({
 					func: zod.union([zod.array(zod.unknown()), zod.null()]),
-					scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					simulator_path: zod
 						.union([
@@ -563,7 +564,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 							'Whether the function expression is twice differentiable or not. Defaults to `False`'
 						),
 					id: zod.union([zod.number(), zod.null()]).optional(),
-					problem_id: zod.union([zod.number(), zod.null()]).optional()
+					problem_id: zod.union([zod.number(), zod.null()]).optional(),
+					scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 				})
 				.describe('The SQLModel equivalent to `Objective`.')
 		),
@@ -572,7 +574,6 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -631,7 +632,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constraint`.')
 			),
@@ -642,7 +644,6 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.array(zod.string()),
 						name: zod.string().describe('Name of the scalarization function.'),
 						symbol: zod
 							.union([zod.string(), zod.null()])
@@ -673,7 +674,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ScalarizationFunction`.')
 			),
@@ -684,7 +686,6 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -734,7 +735,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ExtraFunction`.')
 			),
@@ -968,7 +970,6 @@ export const GetProblemProblemProblemIdGetResponse = zod
 		is_convex: zod.union([zod.boolean(), zod.null()]),
 		is_linear: zod.union([zod.boolean(), zod.null()]),
 		is_twice_differentiable: zod.union([zod.boolean(), zod.null()]),
-		scenario_keys: zod.union([zod.array(zod.string()), zod.null()]),
 		variable_domain: zod
 			.enum(['continuous', 'binary', 'integer', 'mixed'])
 			.describe('An enumerator for the possible variable type domains of a problem.'),
@@ -990,7 +991,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 							),
 						value: zod.number().describe('The value of the constant.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constant`.')
 			),
@@ -1021,7 +1023,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 								"Symbol to represent the constant. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1."
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorConstant`.')
 			),
@@ -1057,7 +1060,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 							.optional()
 							.describe('Initial value of the variable. This is optional.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Variable`.')
 			),
@@ -1120,7 +1124,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 								'Type of the variable. Can be real, integer, or binary. Note that each element of a TensorVariable is assumed to be of the same type.'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorVariable`.')
 			),
@@ -1130,7 +1135,6 @@ export const GetProblemProblemProblemIdGetResponse = zod
 			zod
 				.object({
 					func: zod.union([zod.array(zod.unknown()), zod.null()]),
-					scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					simulator_path: zod
 						.union([
@@ -1212,7 +1216,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 							'Whether the function expression is twice differentiable or not. Defaults to `False`'
 						),
 					id: zod.union([zod.number(), zod.null()]).optional(),
-					problem_id: zod.union([zod.number(), zod.null()]).optional()
+					problem_id: zod.union([zod.number(), zod.null()]).optional(),
+					scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 				})
 				.describe('The SQLModel equivalent to `Objective`.')
 		),
@@ -1221,7 +1226,6 @@ export const GetProblemProblemProblemIdGetResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -1280,7 +1284,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constraint`.')
 			),
@@ -1291,7 +1296,6 @@ export const GetProblemProblemProblemIdGetResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.array(zod.string()),
 						name: zod.string().describe('Name of the scalarization function.'),
 						symbol: zod
 							.union([zod.string(), zod.null()])
@@ -1322,7 +1326,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ScalarizationFunction`.')
 			),
@@ -1333,7 +1338,6 @@ export const GetProblemProblemProblemIdGetResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -1383,7 +1387,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ExtraFunction`.')
 			),
@@ -1720,7 +1725,6 @@ export const AddProblemProblemAddPostResponse = zod
 		is_convex: zod.union([zod.boolean(), zod.null()]),
 		is_linear: zod.union([zod.boolean(), zod.null()]),
 		is_twice_differentiable: zod.union([zod.boolean(), zod.null()]),
-		scenario_keys: zod.union([zod.array(zod.string()), zod.null()]),
 		variable_domain: zod
 			.enum(['continuous', 'binary', 'integer', 'mixed'])
 			.describe('An enumerator for the possible variable type domains of a problem.'),
@@ -1742,7 +1746,8 @@ export const AddProblemProblemAddPostResponse = zod
 							),
 						value: zod.number().describe('The value of the constant.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constant`.')
 			),
@@ -1773,7 +1778,8 @@ export const AddProblemProblemAddPostResponse = zod
 								"Symbol to represent the constant. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1."
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorConstant`.')
 			),
@@ -1809,7 +1815,8 @@ export const AddProblemProblemAddPostResponse = zod
 							.optional()
 							.describe('Initial value of the variable. This is optional.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Variable`.')
 			),
@@ -1872,7 +1879,8 @@ export const AddProblemProblemAddPostResponse = zod
 								'Type of the variable. Can be real, integer, or binary. Note that each element of a TensorVariable is assumed to be of the same type.'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorVariable`.')
 			),
@@ -1882,7 +1890,6 @@ export const AddProblemProblemAddPostResponse = zod
 			zod
 				.object({
 					func: zod.union([zod.array(zod.unknown()), zod.null()]),
-					scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					simulator_path: zod
 						.union([
@@ -1962,7 +1969,8 @@ export const AddProblemProblemAddPostResponse = zod
 							'Whether the function expression is twice differentiable or not. Defaults to `False`'
 						),
 					id: zod.union([zod.number(), zod.null()]).optional(),
-					problem_id: zod.union([zod.number(), zod.null()]).optional()
+					problem_id: zod.union([zod.number(), zod.null()]).optional(),
+					scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 				})
 				.describe('The SQLModel equivalent to `Objective`.')
 		),
@@ -1971,7 +1979,6 @@ export const AddProblemProblemAddPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -2030,7 +2037,8 @@ export const AddProblemProblemAddPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constraint`.')
 			),
@@ -2041,7 +2049,6 @@ export const AddProblemProblemAddPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.array(zod.string()),
 						name: zod.string().describe('Name of the scalarization function.'),
 						symbol: zod
 							.union([zod.string(), zod.null()])
@@ -2068,7 +2075,8 @@ export const AddProblemProblemAddPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ScalarizationFunction`.')
 			),
@@ -2079,7 +2087,6 @@ export const AddProblemProblemAddPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -2129,7 +2136,8 @@ export const AddProblemProblemAddPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ExtraFunction`.')
 			),
@@ -2454,7 +2462,6 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 		is_convex: zod.union([zod.boolean(), zod.null()]),
 		is_linear: zod.union([zod.boolean(), zod.null()]),
 		is_twice_differentiable: zod.union([zod.boolean(), zod.null()]),
-		scenario_keys: zod.union([zod.array(zod.string()), zod.null()]),
 		variable_domain: zod
 			.enum(['continuous', 'binary', 'integer', 'mixed'])
 			.describe('An enumerator for the possible variable type domains of a problem.'),
@@ -2476,7 +2483,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 							),
 						value: zod.number().describe('The value of the constant.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constant`.')
 			),
@@ -2507,7 +2515,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								"Symbol to represent the constant. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1."
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorConstant`.')
 			),
@@ -2543,7 +2552,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 							.optional()
 							.describe('Initial value of the variable. This is optional.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Variable`.')
 			),
@@ -2606,7 +2616,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								'Type of the variable. Can be real, integer, or binary. Note that each element of a TensorVariable is assumed to be of the same type.'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorVariable`.')
 			),
@@ -2616,7 +2627,6 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 			zod
 				.object({
 					func: zod.union([zod.array(zod.unknown()), zod.null()]),
-					scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					simulator_path: zod
 						.union([
@@ -2698,7 +2708,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 							'Whether the function expression is twice differentiable or not. Defaults to `False`'
 						),
 					id: zod.union([zod.number(), zod.null()]).optional(),
-					problem_id: zod.union([zod.number(), zod.null()]).optional()
+					problem_id: zod.union([zod.number(), zod.null()]).optional(),
+					scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 				})
 				.describe('The SQLModel equivalent to `Objective`.')
 		),
@@ -2707,7 +2718,6 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -2766,7 +2776,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constraint`.')
 			),
@@ -2777,7 +2788,6 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.array(zod.string()),
 						name: zod.string().describe('Name of the scalarization function.'),
 						symbol: zod
 							.union([zod.string(), zod.null()])
@@ -2808,7 +2818,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ScalarizationFunction`.')
 			),
@@ -2819,7 +2830,6 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -2869,7 +2879,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ExtraFunction`.')
 			),
@@ -3210,7 +3221,7 @@ export const SelectSolverProblemAssignSolverPostBody = zod
 		solver_string_representation: zod
 			.string()
 			.describe(
-				"One of the following: ['scipy_minimize', 'scipy_de', 'proximal', 'nevergrad', 'pyomo_bonmin', 'pyomo_cbc', 'pyomo_ipopt', 'pyomo_gurobi', 'gurobipy', 'gurobipy_persistent']"
+				"One of the following: ['scipy_minimize', 'scipy_de', 'proximal', 'nevergrad', 'pyomo_bonmin', 'pyomo_cbc', 'pyomo_ipopt', 'pyomo_gurobi', 'gurobipy', 'gurobipy_persistent', 'cvxpy']"
 			)
 	})
 	.describe('Model to request a specific solver for a problem.');
@@ -7896,6 +7907,18 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostBody = zod
 							.describe(
 								'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
 							),
+						axis_colours: zod
+							.union([zod.record(zod.string(), zod.string()), zod.null()])
+							.optional()
+							.describe(
+								"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+							),
+						highlight_cluster: zod
+							.union([zod.number(), zod.null()])
+							.optional()
+							.describe(
+								'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+							),
 						clustering_algorithm: zod
 							.union([
 								zod
@@ -7987,7 +8010,7 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostBody = zod
 								getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmDefault
 							)
 							.describe(
-								'Clustering algorithm to use. Currently supported options: \"GMM\", \"DBSCAN\",\n    and \"KMeans\". Defaults to \"DBSCAN\".'
+								'Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'
 							),
 						distance_formula: zod
 							.union([zod.literal(1), zod.literal(2)])
@@ -8128,6 +8151,18 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 											.describe(
 												'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
 											),
+										axis_colours: zod
+											.union([zod.record(zod.string(), zod.string()), zod.null()])
+											.optional()
+											.describe(
+												"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+											),
+										highlight_cluster: zod
+											.union([zod.number(), zod.null()])
+											.optional()
+											.describe(
+												'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+											),
 										clustering_algorithm: zod
 											.union([
 												zod
@@ -8223,7 +8258,7 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 												getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsClusteringAlgorithmDefault
 											)
 											.describe(
-												'Clustering algorithm to use. Currently supported options: \"GMM\", \"DBSCAN\",\n    and \"KMeans\". Defaults to \"DBSCAN\".'
+												'Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'
 											),
 										distance_formula: zod
 											.union([zod.literal(1), zod.literal(2)])
@@ -8293,6 +8328,18 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 									.array(zod.number())
 									.describe(
 										'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
+									),
+								cluster_names: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'Optional dictionary mapping cluster IDs to descriptive names for display in the visualization.\nIf None, the cluster IDs themselves are used as names. Defaults to None.'
+									),
+								cluster_hover_info: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'Optional dictionary mapping cluster IDs to hover information for display in the visualization.\nIf None, no additional hover information is displayed. Defaults to None.'
 									),
 								axis_positions: zod
 									.record(zod.string(), zod.number())
@@ -8475,6 +8522,18 @@ export const ConfigureGdmGdmScoreBandsConfigurePostBody = zod
 					.describe(
 						'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
 					),
+				axis_colours: zod
+					.union([zod.record(zod.string(), zod.string()), zod.null()])
+					.optional()
+					.describe(
+						"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+					),
+				highlight_cluster: zod
+					.union([zod.number(), zod.null()])
+					.optional()
+					.describe(
+						'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+					),
 				clustering_algorithm: zod
 					.union([
 						zod
@@ -8565,9 +8624,7 @@ export const ConfigureGdmGdmScoreBandsConfigurePostBody = zod
 					.default(
 						configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigClusteringAlgorithmDefault
 					)
-					.describe(
-						'Clustering algorithm to use. Currently supported options: \"GMM\", \"DBSCAN\",\n    and \"KMeans\". Defaults to \"DBSCAN\".'
-					),
+					.describe('Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'),
 				distance_formula: zod
 					.union([zod.literal(1), zod.literal(2)])
 					.default(configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigDistanceFormulaDefault)

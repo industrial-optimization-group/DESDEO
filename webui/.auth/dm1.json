@@ -1,0 +1,35 @@
+{
+  "cookies": [
+    {
+      "name": "access_token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Miwic3ViIjoiZG0xIiwiZXhwIjoxNzc4MTg3NTMwLCJqdGkiOiJmYjU0NTEzMC1lODE0LTQzNDctOTBkMC0zZTllMGZmM2NjZmUifQ.wCoKsnFsUOBeFGm13BSN8gDy3ld01-Yj_rQPn7gA4lE",
+      "domain": "localhost",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "refresh_token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Miwic3ViIjoiZG0xIiwiZXhwIjoxNzc4MTg3NTMwLCJqdGkiOiI0MGM5ZTc3Ny04YjgyLTRkYzMtYTFkZi1jOTgzZDI0MmFlMGUifQ.54JzIRmZFhSQ23y9SqwHEtAbYCWHZD_ir7txlcRYMys",
+      "domain": "localhost",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:5173",
+      "localStorage": [
+        {
+          "name": "authState",
+          "value": "{\"accessToken\":\"authenticated\",\"user\":{\"username\":\"dm1\",\"id\":2,\"role\":\"dm\",\"group_ids\":[1]}}"
+        }
+      ]
+    }
+  ]
+}
