@@ -67,6 +67,9 @@ nav:
   - "Web-GUI":
       - "": "web_gui/index.md"
 
+hooks:
+  - docs/hooks.py
+
 watch:
   - desdeo
 
