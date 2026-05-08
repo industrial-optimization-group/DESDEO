@@ -107,7 +107,6 @@
 		is_convex: z.boolean().nullable(),
 		is_linear: z.boolean().nullable(),
 		is_twice_differentiable: z.boolean().nullable(),
-		scenario_keys: z.array(z.string()).nullable(),
 		variable_domain: z.string(),
 		user_id: z.number(),
 		constants: z.array(z.any()).nullable(),
