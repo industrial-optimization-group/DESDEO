@@ -1695,6 +1695,17 @@ export interface SiteSelectionMetaData {
 }
 
 /**
+ * Metadata for generating a human-readable description of a solution.
+ */
+export interface SolutionDescriptionMetaData {
+	id: number | null;
+	metadata_id: number | null;
+	metadata_type: string;
+	parts: unknown[];
+	separator: string;
+}
+
+/**
  * Response model for ProblemMetaData.
  */
 export interface ProblemMetaDataPublic {
@@ -1702,6 +1713,7 @@ export interface ProblemMetaDataPublic {
 	forest_metadata: ForestProblemMetaData[] | null;
 	representative_nd_metadata: RepresentativeNonDominatedSolutions[] | null;
 	site_selection_metadata: SiteSelectionMetaData[] | null;
+	solution_description_metadata: SolutionDescriptionMetaData[] | null;
 }
 
 /**

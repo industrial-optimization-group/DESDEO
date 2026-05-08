@@ -21,6 +21,17 @@ type Solution = SolutionReferenceResponse;
 type Response = NIMBUSClassificationResponse | NIMBUSInitializationResponse;
 
 /**
+ * Checks if a problem has solution description metadata
+ * @param prob The problem to check
+ * @returns boolean indicating if the problem has solution description metadata
+ */
+export function checkSolutionDescription(prob: ProblemInfo | null): boolean {
+	if (!prob || !prob.problem_metadata) return false
+	const m = prob.problem_metadata.solution_description_metadata
+	return Array.isArray(m) && m.length > 0
+}
+
+/**
  * Checks if a problem has utopia metadata for map visualization
  * @param prob The problem to check
  * @returns boolean indicating if the problem has utopia metadata
