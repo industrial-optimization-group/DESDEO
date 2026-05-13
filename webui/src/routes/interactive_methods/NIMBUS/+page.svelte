@@ -91,11 +91,13 @@
 	import SolutionTable from '$lib/components/custom/nimbus/solution-table.svelte';
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 	import UtopiaMap from '$lib/components/custom/nimbus/utopia-map.svelte';
+	import SolutionDescriptionPanel from '$lib/components/custom/nimbus/solution-description-panel.svelte';
 	import { PREFERENCE_TYPES } from '$lib/constants';
 
 	// Utility functions
 	import {
 		checkUtopiaMetadata,
+		checkSolutionDescription,
 		mapSolutionsToObjectiveValues,
 		updatePreferencesFromState,
 		validateIterationAllowed,
@@ -168,6 +170,10 @@
 
 	// Variable to track if problem has utopia metadata
 	let hasUtopiaMetadata = $state(false);
+
+	// Variable to track if problem has solution description metadata
+	let hasSolutionDescription = $state(false);
+	let solutionDescription = $state<string | null>(null);
 
 	// Variables for showing the map for UTOPIA - stores maps for all solutions
 	let mapStates: MapState[] = $state([]);
@@ -266,6 +272,7 @@
 		handle_remove_saved as handleRemoveSavedRequest,
 		handle_finish as handleFinishRequest,
 		get_maps as getMapsRequest,
+		get_solution_description as getSolutionDescriptionRequest,
 		initialize_nimbus_state as initializeNimbusStateRequest
 	} from './handlers';
 	import EndStateView from '../GNIMBUS/components/EndStateView.svelte';
@@ -515,6 +522,13 @@
 		if (hasUtopiaMetadata && selected_iteration_index[0] >= 0 && mapStates[selected_iteration_index[0]]) {
 			mapState = { ...mapStates[selected_iteration_index[0]] };
 		}
+
+		// Fetch solution description if available
+		if (hasSolutionDescription && problem) {
+			getSolutionDescriptionRequest(problem, selectedSolution).then((desc) => {
+				solutionDescription = desc;
+			});
+		}
 	}
 
 	// Helper function to initialize preferences from previous state or ideal values
@@ -559,6 +573,7 @@
 				// Check if problem has utopia metadata (this only needs to be done once)
 				// Using the imported utility function
 				hasUtopiaMetadata = checkUtopiaMetadata(problem);
+				hasSolutionDescription = !hasUtopiaMetadata && checkSolutionDescription(problem);
 
 				// Initialize NIMBUS state from the API
 				await initialize_nimbus_state(problem.id);
@@ -673,12 +688,9 @@
 							/>
 						</Resizable.Pane>
 
-						<!-- Right side: Decision space placeholder, only shown for problems with utopia metadata -->
+						<!-- Right side: only shown for problems with utopia or description metadata -->
 						{#if hasUtopiaMetadata}
-							<!-- Resizable handle between panels with custom styling -->
 							<ResizableHandle withHandle class="border-l border-gray-200 shadow-sm" />
-
-							<!-- Map visualization -->
 							<Resizable.Pane defaultSize={35} minSize={20} class="h-full">
 								<UtopiaMap
 									mapOptions={mapState.mapOptions}
@@ -688,6 +700,11 @@
 									mapName={mapState.mapName}
 									mapDescription={mapState.mapDescription}
 								/>
+							</Resizable.Pane>
+						{:else if hasSolutionDescription}
+							<ResizableHandle withHandle class="border-l border-gray-200 shadow-sm" />
+							<Resizable.Pane defaultSize={35} minSize={20} class="h-full">
+								<SolutionDescriptionPanel description={solutionDescription} />
 							</Resizable.Pane>
 						{/if}
 					</Resizable.PaneGroup>
@@ -813,6 +830,11 @@
 									mapName={mapState.mapName}
 									mapDescription={mapState.mapDescription}
 								/>
+							</Resizable.Pane>
+						{:else if mode === 'iterate' && hasSolutionDescription}
+							<ResizableHandle withHandle class="border-4 border-gray-200 shadow-sm" />
+							<Resizable.Pane defaultSize={35} minSize={20} class="h-full">
+								<SolutionDescriptionPanel description={solutionDescription} />
 							</Resizable.Pane>
 						{/if}
 					</Resizable.PaneGroup>
