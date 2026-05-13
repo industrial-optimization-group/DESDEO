@@ -25,7 +25,7 @@ plugins:
           ignore_init_summary: false
   include-markdown:
   mkdocs-jupyter:
-    execute: true # KEEP otherwise as a carbon copy of mkdcos.yml
+    execute: false # changed to see if doc build is failing because of notebooks
     include_requirejs: true
     custom_mathjax_url: "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML-full,Safe"
     remove_tag_config:
