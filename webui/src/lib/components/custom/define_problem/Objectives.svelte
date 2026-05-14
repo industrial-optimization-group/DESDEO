@@ -7,7 +7,7 @@
     let { form, addObjective, removeObjective } = $props();
 	const { form: formData, errors } = form;
 </script>
-            
+
 <FormFieldset {form} name="objectives">
     <FormLegend>Objectives</FormLegend>
     {#if $errors.objectives}<div class="text-red-500 text-sm mb-2 p-2 bg-red-50 border border-red-200 rounded">{$errors.objectives}</div>{/if}
@@ -52,7 +52,6 @@
             <option value="simulator">Simulator</option>
             <option value="surrogate">Surrogate</option>
         </select>
-        <Input type="text" placeholder='Scenario keys, e.g. ["scenario1", "scenario2"]' bind:value={objective.scenario_keys} /> <!-- optional -->
     {/each}
     <div class="flex gap-2">
         <button type="button" class="mb-2 rounded border px-2 py-1" onclick={() => addObjective()}> + </button>

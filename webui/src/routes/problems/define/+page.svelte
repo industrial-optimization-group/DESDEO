@@ -43,7 +43,6 @@
 		is_linear: boolean;
 		is_convex: boolean;
 		is_twice_differentiable: boolean;
-		scenario_keys: string;
 		simulator_path: string;
 		surrogates: string;
 	};
@@ -56,7 +55,6 @@
 		is_linear: boolean;
 		is_convex: boolean;
 		is_twice_differentiable: boolean;
-		scenario_keys: string;
 		simulator_path: string;
 		surrogates: string;
 	};
@@ -93,7 +91,6 @@
 		is_linear: false,
 		is_convex: false,
 		is_twice_differentiable: false,
-		scenario_keys: '',
 		simulator_path: '',
 		surrogates: ''
 	});
@@ -106,7 +103,6 @@
 		is_linear: true,
 		is_convex: false,
 		is_twice_differentiable: false,
-		scenario_keys: '',
 		simulator_path: '',
 		surrogates: ''
 	});
@@ -126,7 +122,6 @@
 
 	let name = $state('');
 	let description = $state('');
-	let scenarioKeys = $state('');
 	let isConvexSelection = $state<'auto' | 'true' | 'false'>('auto');
 	let isLinearSelection = $state<'auto' | 'true' | 'false'>('auto');
 	let isTwiceDifferentiableSelection = $state<'auto' | 'true' | 'false'>('auto');
@@ -302,7 +297,6 @@
 			is_linear: objective.is_linear,
 			is_convex: objective.is_convex,
 			is_twice_differentiable: objective.is_twice_differentiable,
-			scenario_keys: showAdvanced ? toStringList(objective.scenario_keys) : null,
 			simulator_path: showAdvanced ? objective.simulator_path.trim() || null : null,
 			surrogates: showAdvanced ? toStringList(objective.surrogates) : null
 		})),
@@ -316,7 +310,6 @@
 						is_linear: constraint.is_linear,
 						is_convex: constraint.is_convex,
 						is_twice_differentiable: constraint.is_twice_differentiable,
-						scenario_keys: showAdvanced ? toStringList(constraint.scenario_keys) : null,
 						simulator_path: showAdvanced ? constraint.simulator_path.trim() || null : null,
 						surrogates: showAdvanced ? toStringList(constraint.surrogates) : null
 					}))
@@ -329,7 +322,6 @@
 						value: parseNumber(constant.value) ?? 0
 					}))
 				: null,
-		scenario_keys: showAdvanced ? toStringList(scenarioKeys) : null,
 		is_convex: parseTriState(isConvexSelection),
 		is_linear: parseTriState(isLinearSelection),
 		is_twice_differentiable: parseTriState(isTwiceDifferentiableSelection)
@@ -338,7 +330,6 @@
 	const handleClearForm = () => {
 		name = '';
 		description = '';
-		scenarioKeys = '';
 		isConvexSelection = 'auto';
 		isLinearSelection = 'auto';
 		isTwiceDifferentiableSelection = 'auto';
@@ -406,10 +397,6 @@
 		let hasAdvanced = false;
 		if (parsed.name) name = parsed.name;
 		if (parsed.description) description = parsed.description;
-		if (parsed.scenario_keys) {
-			scenarioKeys = parsed.scenario_keys.join(', ');
-			hasAdvanced = true;
-		}
 		isConvexSelection = parsed.is_convex === null || parsed.is_convex === undefined ? 'auto' : parsed.is_convex ? 'true' : 'false';
 		isLinearSelection = parsed.is_linear === null || parsed.is_linear === undefined ? 'auto' : parsed.is_linear ? 'true' : 'false';
 		isTwiceDifferentiableSelection =
@@ -449,7 +436,6 @@
 				is_linear: objective.is_linear ?? false,
 				is_convex: objective.is_convex ?? false,
 				is_twice_differentiable: objective.is_twice_differentiable ?? false,
-				scenario_keys: objective.scenario_keys?.join(', ') ?? '',
 				simulator_path:
 					typeof objective.simulator_path === 'string'
 						? objective.simulator_path
@@ -459,7 +445,7 @@
 				surrogates: objective.surrogates?.join(', ') ?? ''
 			}));
 
-			if (parsed.objectives.some((objective) => objective.scenario_keys || objective.surrogates || objective.simulator_path)) {
+			if (parsed.objectives.some((objective) => objective.surrogates || objective.simulator_path)) {
 				hasAdvanced = true;
 			}
 		}
@@ -476,7 +462,6 @@
 				is_linear: constraint.is_linear ?? true,
 				is_convex: constraint.is_convex ?? false,
 				is_twice_differentiable: constraint.is_twice_differentiable ?? false,
-				scenario_keys: constraint.scenario_keys?.join(', ') ?? '',
 				simulator_path:
 					typeof constraint.simulator_path === 'string'
 						? constraint.simulator_path
@@ -486,7 +471,7 @@
 				surrogates: constraint.surrogates?.join(', ') ?? ''
 			}));
 
-			if (parsed.constraints.some((constraint) => constraint.scenario_keys || constraint.surrogates || constraint.simulator_path)) {
+			if (parsed.constraints.some((constraint) => constraint.surrogates || constraint.simulator_path)) {
 				hasAdvanced = true;
 			}
 		}
@@ -639,10 +624,6 @@
 								Show advanced fields
 							</label>
 							{#if showAdvanced}
-								<div class="grid gap-2">
-									<Label for="problem-scenario-keys">Scenario keys (comma separated)</Label>
-									<Input id="problem-scenario-keys" bind:value={scenarioKeys} />
-								</div>
 								<div class="grid gap-3">
 									<Label>Problem characteristics</Label>
 									<div class="grid gap-2 md:grid-cols-3">
@@ -888,10 +869,6 @@
 											{#if showAdvanced}
 												<div class="grid gap-2 md:grid-cols-2">
 													<div class="grid gap-2">
-														<Label>Scenario keys (comma separated)</Label>
-														<Input bind:value={objective.scenario_keys} placeholder="Optional" />
-													</div>
-													<div class="grid gap-2">
 														<Label>Simulator path or URL</Label>
 														<Input bind:value={objective.simulator_path} placeholder="Optional" />
 													</div>
@@ -987,10 +964,6 @@
 											</div>
 											{#if showAdvanced}
 												<div class="grid gap-2 md:grid-cols-2">
-													<div class="grid gap-2">
-														<Label>Scenario keys (comma separated)</Label>
-														<Input bind:value={constraint.scenario_keys} placeholder="Optional" />
-													</div>
 													<div class="grid gap-2">
 														<Label>Simulator path or URL</Label>
 														<Input bind:value={constraint.simulator_path} placeholder="Optional" />

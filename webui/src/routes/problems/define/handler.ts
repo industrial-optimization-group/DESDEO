@@ -23,7 +23,6 @@ export type ProblemPayload = {
 	objectives: ObjectivePayload[];
 	constants?: ConstantDB[] | null;
 	constraints?: ConstraintPayload[] | null;
-	scenario_keys?: string[] | null;
 	is_convex?: boolean | null;
 	is_linear?: boolean | null;
 	is_twice_differentiable?: boolean | null;
