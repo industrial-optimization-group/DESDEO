@@ -394,10 +394,7 @@ def calculate_axes_positions(
     return np.cumsum(np.append(0, axis_len))
 
 
-def score_json(
-    data: pl.DataFrame,
-    options: SCOREBandsConfig,
-) -> SCOREBandsResult:
+def score_json(data: pl.DataFrame, options: SCOREBandsConfig) -> SCOREBandsResult:
     """Generate the SCORE Bands data for a given dataset and configuration options.
 
     Args:
@@ -573,6 +570,7 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
             line={"color": current_axis_colour},
             showlegend=False,
             hoverinfo="skip",
+            zorder=100,
         )
         # Objective Name
         name = descriptive_names[col_name]
@@ -611,7 +609,7 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
             else f"Cluster {cluster_id}"
         )
         color_bands = f"rgba({r}, {g}, {b}, {a})"
-        color_solutions = f"rgba({r}, {g}, {b}, 0.3)"
+        color_solutions = f"rgba({r}, {g}, {b}, 0.5)"
         # color_soln = f"rgba({r}, {g}, {b}, {a})"
 
         lows = [
@@ -713,7 +711,7 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
             fig.add_scatter(
                 x=x,
                 y=y,
-                line={"color": color_solutions},
+                line={"color": color_solutions, "width": 1},
                 name=f"{result.cardinalities[cluster_id]} Solutions: {current_cluster_name}",
                 mode="lines",
                 legendgroup=f"{result.cardinalities[cluster_id]} Solutions: {current_cluster_name}",
