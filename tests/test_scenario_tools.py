@@ -4,7 +4,7 @@ import pytest
 
 from desdeo.problem.schema import ConstraintTypeEnum, Problem
 from desdeo.problem.testproblems import simple_scenario_model
-from desdeo.tools.robust import add_worst_case_robust, add_weighted_scenarios
+from desdeo.tools.robust import add_weighted_scenarios, add_worst_case_robust
 from desdeo.tools.scenarios import build_combined_scenario_problem, build_scenario_problem
 from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_asf, add_expected_value
 
@@ -475,8 +475,8 @@ def test_cvar_threshold_variable_is_unbounded(cvar_result):
     """The VaR threshold variable has no finite bounds."""
     problem, _ = cvar_result
     var = next(v for v in problem.variables if v.symbol == "VAR_f_1")
-    assert var.lowerbound == -float("Inf")
-    assert var.upperbound == float("Inf")
+    assert var.lowerbound is None
+    assert var.upperbound is None
 
 
 @pytest.mark.schema
@@ -626,8 +626,8 @@ def test_robust_epigraph_variable_is_unbounded(robust_result):
     """The epigraph variable has no finite bounds."""
     problem, _ = robust_result
     t_var = next(v for v in problem.variables if v.symbol == "_t_robust_f_1")
-    assert t_var.lowerbound == -float("Inf")
-    assert t_var.upperbound == float("Inf")
+    assert t_var.lowerbound is None
+    assert t_var.upperbound is None
 
 
 @pytest.mark.schema

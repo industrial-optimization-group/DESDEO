@@ -25,7 +25,9 @@ __all__ = [
     "add_asf_generic_nondiff",
     "add_asf_nondiff",
     "add_asf_partial_diff",
+    "add_asf_partial_nondiff",
     "add_conditional_value_at_risk",
+    "add_cumulonimbus_diff",
     "add_epsilon_constraints",
     "add_expected_asf",
     "add_expected_value",
@@ -47,7 +49,6 @@ __all__ = [
     "add_group_stom_diff",
     "add_guess_sf_diff",
     "add_guess_sf_nondiff",
-    "add_worst_case_robust",
     "add_nimbus_sf_diff",
     "add_nimbus_sf_nondiff",
     "add_objective_as_scalarization",
@@ -55,6 +56,7 @@ __all__ = [
     "add_stom_sf_nondiff",
     "add_weighted_scenarios",
     "add_weighted_sums",
+    "add_worst_case_robust",
     "available_nevergrad_optimizers",
     "available_solvers",
     "build_combined_scenario_problem",
@@ -100,7 +102,7 @@ from desdeo.tools.ng_solver_interfaces import (
     NevergradGenericSolver,
     available_nevergrad_optimizers,
 )
-from desdeo.tools.partial_scalarization import add_asf_partial_diff
+from desdeo.tools.partial_scalarization import add_asf_partial_diff, add_asf_partial_nondiff, add_cumulonimbus_diff
 from desdeo.tools.proximal_solver import ProximalSolver
 from desdeo.tools.pyomo_solver_interfaces import (
     BonminOptions,

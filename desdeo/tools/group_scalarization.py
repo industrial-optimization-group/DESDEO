@@ -345,8 +345,8 @@ def add_group_asf_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
 
@@ -495,8 +495,8 @@ def add_group_asf_agg_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
     # Correct the aspirations and hard_constraints
@@ -580,7 +580,7 @@ def add_group_asf_agg_diff(
     return _problem.add_constraints(constraints), symbol
 
 
-def add_group_nimbus(  # noqa: PLR0913
+def add_group_nimbus(
     problem: Problem,
     symbol: str,
     classifications_list: list[dict[str, tuple[str, float | None]]],
@@ -796,7 +796,7 @@ def add_group_nimbus(  # noqa: PLR0913
     return _problem.add_constraints(constraints), symbol
 
 
-def add_group_nimbus_compromise(  # noqa: PLR0913
+def add_group_nimbus_compromise(
     problem: Problem,
     symbol: str,
     group_classification: dict[str, tuple[Literal["improve", "worsen", "conflict"], list[float]]],
@@ -1059,7 +1059,7 @@ def add_group_nimbus_compromise(  # noqa: PLR0913
     return _problem.add_constraints(constraints), symbol
 
 
-def add_group_nimbus_compromise_diff(  # noqa: PLR0913
+def add_group_nimbus_compromise_diff(
     problem: Problem,
     symbol: str,
     group_classification: dict[str, tuple[Literal["improve", "worsen", "conflict"], list[float]]],
@@ -1225,8 +1225,8 @@ def add_group_nimbus_compromise_diff(  # noqa: PLR0913
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
 
@@ -1351,7 +1351,7 @@ def add_group_nimbus_compromise_diff(  # noqa: PLR0913
     return _problem.add_constraints(constraints), symbol
 
 
-def add_group_nimbus_sf(  # noqa: PLR0913
+def add_group_nimbus_sf(
     problem: Problem,
     symbol: str,
     classifications_list: list[dict[str, tuple[str, float | None]]],
@@ -1576,7 +1576,7 @@ def add_group_nimbus_sf(  # noqa: PLR0913
     return _problem.add_constraints(constraints), symbol
 
 
-def add_group_nimbus_diff(  # noqa: PLR0913
+def add_group_nimbus_diff(
     problem: Problem,
     symbol: str,
     classifications_list: list[dict[str, tuple[str, float | None]]],
@@ -1695,8 +1695,8 @@ def add_group_nimbus_diff(  # noqa: PLR0913
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
 
@@ -1990,7 +1990,6 @@ def add_group_stom_agg(
         tuple[Problem, str]: a tuple with the copy of the problem with the added
             scalarization and the symbol of the added scalarization.
     """
-
     # check if ideal point is specified
     # if not specified, try to calculate corrected ideal point
     if ideal is not None:
@@ -2130,8 +2129,8 @@ def add_group_stom_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
 
@@ -2267,7 +2266,6 @@ def add_group_stom_agg_diff(
         tuple[Problem, str]: a tuple with the copy of the problem with the added
             scalarization and the symbol of the added scalarization.
     """
-
     # check if ideal point is specified
     # if not specified, try to calculate corrected ideal point
     if ideal is not None:
@@ -2283,8 +2281,8 @@ def add_group_stom_agg_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
     # Correct the aspirations and hard_constraints
@@ -2544,7 +2542,6 @@ def add_group_guess_agg(
         tuple[Problem, str]: a tuple with the copy of the problem with the added
             scalarization and the symbol of the added scalarization.
     """
-
     # check if ideal point is specified
     # if not specified, try to calculate corrected ideal point
     if ideal is not None:
@@ -2694,8 +2691,8 @@ def add_group_guess_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
 
@@ -2832,7 +2829,6 @@ def add_group_guess_agg_diff(
         tuple[Problem, str]: a tuple with the copy of the problem with the added
             scalarization and the symbol of the added scalarization.
     """
-
     # check if nadir point is specified
     # if not specified, try to calculate corrected nadir point
     if nadir is not None:
@@ -2848,8 +2844,8 @@ def add_group_guess_agg_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
 
@@ -3045,8 +3041,8 @@ def add_group_scenario_sf_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=0.0,
     )
 

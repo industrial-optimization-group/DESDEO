@@ -44,6 +44,18 @@ __all__ = [  # noqa: RUF022
     "IntermediateSolutionRequest",
     "IntermediateSolutionResponse",
     "IntermediateSolutionState",
+    "CumulusClassificationRequest",
+    "CumulusClassificationResponse",
+    "CumulusClassificationState",
+    "CumulusDeleteSaveRequest",
+    "CumulusDeleteSaveResponse",
+    "CumulusFinalizeRequest",
+    "CumulusFinalizeResponse",
+    "CumulusInitializationRequest",
+    "CumulusInitializationResponse",
+    "CumulusIntermediateSolutionResponse",
+    "CumulusSaveRequest",
+    "CumulusSaveResponse",
     "NIMBUSClassificationRequest",
     "NIMBUSClassificationState",
     "NIMBUSDeleteSaveRequest",
@@ -153,6 +165,19 @@ __all__ = [  # noqa: RUF022
 
 
 from .archive import UserSavedEMOResults
+from .cumulus import (
+    CumulusClassificationRequest,
+    CumulusClassificationResponse,
+    CumulusDeleteSaveRequest,
+    CumulusDeleteSaveResponse,
+    CumulusFinalizeRequest,
+    CumulusFinalizeResponse,
+    CumulusInitializationRequest,
+    CumulusInitializationResponse,
+    CumulusIntermediateSolutionResponse,
+    CumulusSaveRequest,
+    CumulusSaveResponse,
+)
 from .emo import (
     EMOFetchRequest,
     EMOFetchResponse,
@@ -297,6 +322,7 @@ from .session import (
     InteractiveSessionInfo,
 )
 from .state import (
+    CumulusClassificationState,
     EMOIterateState,
     EMOSaveState,
     ENautilusFinalState,

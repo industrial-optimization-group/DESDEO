@@ -320,8 +320,8 @@ def add_asf_generic_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
 
@@ -652,8 +652,8 @@ def add_nimbus_sf_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
 
@@ -1084,8 +1084,8 @@ def add_stom_sf_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
 
@@ -1320,8 +1320,8 @@ def add_guess_sf_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
 
@@ -1589,8 +1589,8 @@ def add_asf_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
 

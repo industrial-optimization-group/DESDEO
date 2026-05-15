@@ -248,6 +248,37 @@ class NIMBUSFinalState(ResultInterface, SQLModel, table=True):
         return 1
 
 
+class CumulusClassificationState(ResultInterface, SQLModel, table=True):
+    """CUMULUS: classification / solve candidates."""
+
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
+
+    preferences: ReferencePoint = Field(sa_column=Column(PreferenceType))
+    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    solver: str | None = None
+    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    current_objectives: dict[str, float] = Field(sa_column=Column(JSON), default_factory=dict)
+    scalarizations: list[str] = Field(sa_column=Column(JSON), default_factory=list)
+
+    # results
+    solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
+
+    @property
+    def result_objective_values(self) -> list[dict[str, float]]:
+        """Objective values of the result."""
+        return [x.optimal_objectives for x in self.solver_results]
+
+    @property
+    def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        """Variable values of the result."""
+        return [x.optimal_variables for x in self.solver_results]
+
+    @property
+    def num_solutions(self) -> int:
+        """Number of solutions in the result."""
+        return len(self.solver_results)
+
+
 class GNIMBUSOptimizationState(ResultInterface, SQLModel, table=True):
     """GNIMBUS: classification / solving."""
 

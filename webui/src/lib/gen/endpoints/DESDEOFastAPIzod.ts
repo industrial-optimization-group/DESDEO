@@ -154,6 +154,9 @@ export const getProblemsProblemAllGetResponseProblemMetadataOneForestMetadataOne
 export const getProblemsProblemAllGetResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault = `representative_non_dominated_solutions`;
 export const getProblemsProblemAllGetResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault = `site_selection_metadata`;
 export const getProblemsProblemAllGetResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault = 15;
+export const getProblemsProblemAllGetResponseProblemMetadataOneSolutionDescriptionMetadataOneItemMetadataTypeDefault = `solution_description_metadata`;
+export const getProblemsProblemAllGetResponseProblemMetadataOneSolutionDescriptionMetadataOneItemSeparatorDefault = `
+`;
 
 export const GetProblemsProblemAllGetResponseItem = zod
 	.object({
@@ -162,7 +165,6 @@ export const GetProblemsProblemAllGetResponseItem = zod
 		is_convex: zod.union([zod.boolean(), zod.null()]),
 		is_linear: zod.union([zod.boolean(), zod.null()]),
 		is_twice_differentiable: zod.union([zod.boolean(), zod.null()]),
-		scenario_keys: zod.union([zod.array(zod.string()), zod.null()]),
 		variable_domain: zod
 			.enum(['continuous', 'binary', 'integer', 'mixed'])
 			.describe('An enumerator for the possible variable type domains of a problem.'),
@@ -272,6 +274,41 @@ export const GetProblemsProblemAllGetResponseItem = zod
 								)
 						),
 						zod.null()
+					]),
+					solution_description_metadata: zod.union([
+						zod.array(
+							zod
+								.object({
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											getProblemsProblemAllGetResponseProblemMetadataOneSolutionDescriptionMetadataOneItemMetadataTypeDefault
+										),
+									parts: zod.array(
+										zod
+											.object({
+												text: zod.union([zod.string(), zod.null()]).optional(),
+												label: zod.union([zod.string(), zod.null()]).optional(),
+												symbol: zod.union([zod.string(), zod.null()]).optional(),
+												expression: zod.union([zod.array(zod.unknown()), zod.null()]).optional(),
+												format_spec: zod.union([zod.string(), zod.null()]).optional(),
+												suffix: zod.union([zod.string(), zod.null()]).optional()
+											})
+											.describe(
+												'A single part of a solution description template.\n\nA part is either a static text string or a computed value derived from solver results.\nExactly one of `text`, `symbol`, or `expression` should be set.\n\n- `text`: included verbatim in the output.\n- `symbol`: looks up a key from `optimal_variables` or `optimal_objectives`.\n- `expression`: a MathJSON expression evaluated against the solver result values.\n\nWhen `symbol` or `expression` is used, `label` is prepended and `suffix` is appended.\n`format_spec` is a Python format spec string (e.g. `\".0f\"`, `\".2f\"`) applied to the value.'
+											)
+									),
+									separator: zod
+										.string()
+										.default(
+											getProblemsProblemAllGetResponseProblemMetadataOneSolutionDescriptionMetadataOneItemSeparatorDefault
+										)
+								})
+								.describe('Metadata for generating a human-readable description of a solution.')
+						),
+						zod.null()
 					])
 				})
 				.describe('Response model for ProblemMetaData.'),
@@ -311,6 +348,9 @@ export const getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneForestMet
 export const getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault = `representative_non_dominated_solutions`;
 export const getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault = `site_selection_metadata`;
 export const getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault = 15;
+export const getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneSolutionDescriptionMetadataOneItemMetadataTypeDefault = `solution_description_metadata`;
+export const getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneSolutionDescriptionMetadataOneItemSeparatorDefault = `
+`;
 
 export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 	.object({
@@ -319,7 +359,6 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 		is_convex: zod.union([zod.boolean(), zod.null()]),
 		is_linear: zod.union([zod.boolean(), zod.null()]),
 		is_twice_differentiable: zod.union([zod.boolean(), zod.null()]),
-		scenario_keys: zod.union([zod.array(zod.string()), zod.null()]),
 		variable_domain: zod
 			.enum(['continuous', 'binary', 'integer', 'mixed'])
 			.describe('An enumerator for the possible variable type domains of a problem.'),
@@ -341,7 +380,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 							),
 						value: zod.number().describe('The value of the constant.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constant`.')
 			),
@@ -372,7 +412,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								"Symbol to represent the constant. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1."
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorConstant`.')
 			),
@@ -408,7 +449,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 							.optional()
 							.describe('Initial value of the variable. This is optional.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Variable`.')
 			),
@@ -471,7 +513,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								'Type of the variable. Can be real, integer, or binary. Note that each element of a TensorVariable is assumed to be of the same type.'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorVariable`.')
 			),
@@ -481,7 +524,6 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 			zod
 				.object({
 					func: zod.union([zod.array(zod.unknown()), zod.null()]),
-					scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					simulator_path: zod
 						.union([
@@ -563,7 +605,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 							'Whether the function expression is twice differentiable or not. Defaults to `False`'
 						),
 					id: zod.union([zod.number(), zod.null()]).optional(),
-					problem_id: zod.union([zod.number(), zod.null()]).optional()
+					problem_id: zod.union([zod.number(), zod.null()]).optional(),
+					scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 				})
 				.describe('The SQLModel equivalent to `Objective`.')
 		),
@@ -572,7 +615,6 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -631,7 +673,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constraint`.')
 			),
@@ -642,7 +685,6 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.array(zod.string()),
 						name: zod.string().describe('Name of the scalarization function.'),
 						symbol: zod
 							.union([zod.string(), zod.null()])
@@ -673,7 +715,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ScalarizationFunction`.')
 			),
@@ -684,7 +727,6 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -734,7 +776,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ExtraFunction`.')
 			),
@@ -908,6 +951,41 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								)
 						),
 						zod.null()
+					]),
+					solution_description_metadata: zod.union([
+						zod.array(
+							zod
+								.object({
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneSolutionDescriptionMetadataOneItemMetadataTypeDefault
+										),
+									parts: zod.array(
+										zod
+											.object({
+												text: zod.union([zod.string(), zod.null()]).optional(),
+												label: zod.union([zod.string(), zod.null()]).optional(),
+												symbol: zod.union([zod.string(), zod.null()]).optional(),
+												expression: zod.union([zod.array(zod.unknown()), zod.null()]).optional(),
+												format_spec: zod.union([zod.string(), zod.null()]).optional(),
+												suffix: zod.union([zod.string(), zod.null()]).optional()
+											})
+											.describe(
+												'A single part of a solution description template.\n\nA part is either a static text string or a computed value derived from solver results.\nExactly one of `text`, `symbol`, or `expression` should be set.\n\n- `text`: included verbatim in the output.\n- `symbol`: looks up a key from `optimal_variables` or `optimal_objectives`.\n- `expression`: a MathJSON expression evaluated against the solver result values.\n\nWhen `symbol` or `expression` is used, `label` is prepended and `suffix` is appended.\n`format_spec` is a Python format spec string (e.g. `\".0f\"`, `\".2f\"`) applied to the value.'
+											)
+									),
+									separator: zod
+										.string()
+										.default(
+											getProblemsInfoProblemAllInfoGetResponseProblemMetadataOneSolutionDescriptionMetadataOneItemSeparatorDefault
+										)
+								})
+								.describe('Metadata for generating a human-readable description of a solution.')
+						),
+						zod.null()
 					])
 				})
 				.describe('Response model for ProblemMetaData.'),
@@ -960,6 +1038,9 @@ export const getProblemProblemProblemIdGetResponseProblemMetadataOneForestMetada
 export const getProblemProblemProblemIdGetResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault = `representative_non_dominated_solutions`;
 export const getProblemProblemProblemIdGetResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault = `site_selection_metadata`;
 export const getProblemProblemProblemIdGetResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault = 15;
+export const getProblemProblemProblemIdGetResponseProblemMetadataOneSolutionDescriptionMetadataOneItemMetadataTypeDefault = `solution_description_metadata`;
+export const getProblemProblemProblemIdGetResponseProblemMetadataOneSolutionDescriptionMetadataOneItemSeparatorDefault = `
+`;
 
 export const GetProblemProblemProblemIdGetResponse = zod
 	.object({
@@ -968,7 +1049,6 @@ export const GetProblemProblemProblemIdGetResponse = zod
 		is_convex: zod.union([zod.boolean(), zod.null()]),
 		is_linear: zod.union([zod.boolean(), zod.null()]),
 		is_twice_differentiable: zod.union([zod.boolean(), zod.null()]),
-		scenario_keys: zod.union([zod.array(zod.string()), zod.null()]),
 		variable_domain: zod
 			.enum(['continuous', 'binary', 'integer', 'mixed'])
 			.describe('An enumerator for the possible variable type domains of a problem.'),
@@ -990,7 +1070,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 							),
 						value: zod.number().describe('The value of the constant.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constant`.')
 			),
@@ -1021,7 +1102,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 								"Symbol to represent the constant. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1."
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorConstant`.')
 			),
@@ -1057,7 +1139,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 							.optional()
 							.describe('Initial value of the variable. This is optional.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Variable`.')
 			),
@@ -1120,7 +1203,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 								'Type of the variable. Can be real, integer, or binary. Note that each element of a TensorVariable is assumed to be of the same type.'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorVariable`.')
 			),
@@ -1130,7 +1214,6 @@ export const GetProblemProblemProblemIdGetResponse = zod
 			zod
 				.object({
 					func: zod.union([zod.array(zod.unknown()), zod.null()]),
-					scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					simulator_path: zod
 						.union([
@@ -1212,7 +1295,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 							'Whether the function expression is twice differentiable or not. Defaults to `False`'
 						),
 					id: zod.union([zod.number(), zod.null()]).optional(),
-					problem_id: zod.union([zod.number(), zod.null()]).optional()
+					problem_id: zod.union([zod.number(), zod.null()]).optional(),
+					scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 				})
 				.describe('The SQLModel equivalent to `Objective`.')
 		),
@@ -1221,7 +1305,6 @@ export const GetProblemProblemProblemIdGetResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -1280,7 +1363,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constraint`.')
 			),
@@ -1291,7 +1375,6 @@ export const GetProblemProblemProblemIdGetResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.array(zod.string()),
 						name: zod.string().describe('Name of the scalarization function.'),
 						symbol: zod
 							.union([zod.string(), zod.null()])
@@ -1322,7 +1405,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ScalarizationFunction`.')
 			),
@@ -1333,7 +1417,6 @@ export const GetProblemProblemProblemIdGetResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -1383,7 +1466,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ExtraFunction`.')
 			),
@@ -1557,6 +1641,41 @@ export const GetProblemProblemProblemIdGetResponse = zod
 								)
 						),
 						zod.null()
+					]),
+					solution_description_metadata: zod.union([
+						zod.array(
+							zod
+								.object({
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											getProblemProblemProblemIdGetResponseProblemMetadataOneSolutionDescriptionMetadataOneItemMetadataTypeDefault
+										),
+									parts: zod.array(
+										zod
+											.object({
+												text: zod.union([zod.string(), zod.null()]).optional(),
+												label: zod.union([zod.string(), zod.null()]).optional(),
+												symbol: zod.union([zod.string(), zod.null()]).optional(),
+												expression: zod.union([zod.array(zod.unknown()), zod.null()]).optional(),
+												format_spec: zod.union([zod.string(), zod.null()]).optional(),
+												suffix: zod.union([zod.string(), zod.null()]).optional()
+											})
+											.describe(
+												'A single part of a solution description template.\n\nA part is either a static text string or a computed value derived from solver results.\nExactly one of `text`, `symbol`, or `expression` should be set.\n\n- `text`: included verbatim in the output.\n- `symbol`: looks up a key from `optimal_variables` or `optimal_objectives`.\n- `expression`: a MathJSON expression evaluated against the solver result values.\n\nWhen `symbol` or `expression` is used, `label` is prepended and `suffix` is appended.\n`format_spec` is a Python format spec string (e.g. `\".0f\"`, `\".2f\"`) applied to the value.'
+											)
+									),
+									separator: zod
+										.string()
+										.default(
+											getProblemProblemProblemIdGetResponseProblemMetadataOneSolutionDescriptionMetadataOneItemSeparatorDefault
+										)
+								})
+								.describe('Metadata for generating a human-readable description of a solution.')
+						),
+						zod.null()
 					])
 				})
 				.describe('Response model for ProblemMetaData.'),
@@ -1712,6 +1831,9 @@ export const addProblemProblemAddPostResponseProblemMetadataOneForestMetadataOne
 export const addProblemProblemAddPostResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault = `representative_non_dominated_solutions`;
 export const addProblemProblemAddPostResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault = `site_selection_metadata`;
 export const addProblemProblemAddPostResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault = 15;
+export const addProblemProblemAddPostResponseProblemMetadataOneSolutionDescriptionMetadataOneItemMetadataTypeDefault = `solution_description_metadata`;
+export const addProblemProblemAddPostResponseProblemMetadataOneSolutionDescriptionMetadataOneItemSeparatorDefault = `
+`;
 
 export const AddProblemProblemAddPostResponse = zod
 	.object({
@@ -1720,7 +1842,6 @@ export const AddProblemProblemAddPostResponse = zod
 		is_convex: zod.union([zod.boolean(), zod.null()]),
 		is_linear: zod.union([zod.boolean(), zod.null()]),
 		is_twice_differentiable: zod.union([zod.boolean(), zod.null()]),
-		scenario_keys: zod.union([zod.array(zod.string()), zod.null()]),
 		variable_domain: zod
 			.enum(['continuous', 'binary', 'integer', 'mixed'])
 			.describe('An enumerator for the possible variable type domains of a problem.'),
@@ -1742,7 +1863,8 @@ export const AddProblemProblemAddPostResponse = zod
 							),
 						value: zod.number().describe('The value of the constant.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constant`.')
 			),
@@ -1773,7 +1895,8 @@ export const AddProblemProblemAddPostResponse = zod
 								"Symbol to represent the constant. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1."
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorConstant`.')
 			),
@@ -1809,7 +1932,8 @@ export const AddProblemProblemAddPostResponse = zod
 							.optional()
 							.describe('Initial value of the variable. This is optional.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Variable`.')
 			),
@@ -1872,7 +1996,8 @@ export const AddProblemProblemAddPostResponse = zod
 								'Type of the variable. Can be real, integer, or binary. Note that each element of a TensorVariable is assumed to be of the same type.'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorVariable`.')
 			),
@@ -1882,7 +2007,6 @@ export const AddProblemProblemAddPostResponse = zod
 			zod
 				.object({
 					func: zod.union([zod.array(zod.unknown()), zod.null()]),
-					scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					simulator_path: zod
 						.union([
@@ -1962,7 +2086,8 @@ export const AddProblemProblemAddPostResponse = zod
 							'Whether the function expression is twice differentiable or not. Defaults to `False`'
 						),
 					id: zod.union([zod.number(), zod.null()]).optional(),
-					problem_id: zod.union([zod.number(), zod.null()]).optional()
+					problem_id: zod.union([zod.number(), zod.null()]).optional(),
+					scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 				})
 				.describe('The SQLModel equivalent to `Objective`.')
 		),
@@ -1971,7 +2096,6 @@ export const AddProblemProblemAddPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -2030,7 +2154,8 @@ export const AddProblemProblemAddPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constraint`.')
 			),
@@ -2041,7 +2166,6 @@ export const AddProblemProblemAddPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.array(zod.string()),
 						name: zod.string().describe('Name of the scalarization function.'),
 						symbol: zod
 							.union([zod.string(), zod.null()])
@@ -2068,7 +2192,8 @@ export const AddProblemProblemAddPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ScalarizationFunction`.')
 			),
@@ -2079,7 +2204,6 @@ export const AddProblemProblemAddPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -2129,7 +2253,8 @@ export const AddProblemProblemAddPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ExtraFunction`.')
 			),
@@ -2301,6 +2426,41 @@ export const AddProblemProblemAddPostResponse = zod
 								)
 						),
 						zod.null()
+					]),
+					solution_description_metadata: zod.union([
+						zod.array(
+							zod
+								.object({
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											addProblemProblemAddPostResponseProblemMetadataOneSolutionDescriptionMetadataOneItemMetadataTypeDefault
+										),
+									parts: zod.array(
+										zod
+											.object({
+												text: zod.union([zod.string(), zod.null()]).optional(),
+												label: zod.union([zod.string(), zod.null()]).optional(),
+												symbol: zod.union([zod.string(), zod.null()]).optional(),
+												expression: zod.union([zod.array(zod.unknown()), zod.null()]).optional(),
+												format_spec: zod.union([zod.string(), zod.null()]).optional(),
+												suffix: zod.union([zod.string(), zod.null()]).optional()
+											})
+											.describe(
+												'A single part of a solution description template.\n\nA part is either a static text string or a computed value derived from solver results.\nExactly one of `text`, `symbol`, or `expression` should be set.\n\n- `text`: included verbatim in the output.\n- `symbol`: looks up a key from `optimal_variables` or `optimal_objectives`.\n- `expression`: a MathJSON expression evaluated against the solver result values.\n\nWhen `symbol` or `expression` is used, `label` is prepended and `suffix` is appended.\n`format_spec` is a Python format spec string (e.g. `\".0f\"`, `\".2f\"`) applied to the value.'
+											)
+									),
+									separator: zod
+										.string()
+										.default(
+											addProblemProblemAddPostResponseProblemMetadataOneSolutionDescriptionMetadataOneItemSeparatorDefault
+										)
+								})
+								.describe('Metadata for generating a human-readable description of a solution.')
+						),
+						zod.null()
 					])
 				})
 				.describe('Response model for ProblemMetaData.'),
@@ -2446,6 +2606,9 @@ export const addProblemJsonProblemAddJsonPostResponseProblemMetadataOneForestMet
 export const addProblemJsonProblemAddJsonPostResponseProblemMetadataOneRepresentativeNdMetadataOneItemMetadataTypeDefault = `representative_non_dominated_solutions`;
 export const addProblemJsonProblemAddJsonPostResponseProblemMetadataOneSiteSelectionMetadataOneItemMetadataTypeDefault = `site_selection_metadata`;
 export const addProblemJsonProblemAddJsonPostResponseProblemMetadataOneSiteSelectionMetadataOneItemCoverageThresholdDefault = 15;
+export const addProblemJsonProblemAddJsonPostResponseProblemMetadataOneSolutionDescriptionMetadataOneItemMetadataTypeDefault = `solution_description_metadata`;
+export const addProblemJsonProblemAddJsonPostResponseProblemMetadataOneSolutionDescriptionMetadataOneItemSeparatorDefault = `
+`;
 
 export const AddProblemJsonProblemAddJsonPostResponse = zod
 	.object({
@@ -2454,7 +2617,6 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 		is_convex: zod.union([zod.boolean(), zod.null()]),
 		is_linear: zod.union([zod.boolean(), zod.null()]),
 		is_twice_differentiable: zod.union([zod.boolean(), zod.null()]),
-		scenario_keys: zod.union([zod.array(zod.string()), zod.null()]),
 		variable_domain: zod
 			.enum(['continuous', 'binary', 'integer', 'mixed'])
 			.describe('An enumerator for the possible variable type domains of a problem.'),
@@ -2476,7 +2638,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 							),
 						value: zod.number().describe('The value of the constant.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constant`.')
 			),
@@ -2507,7 +2670,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								"Symbol to represent the constant. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1."
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorConstant`.')
 			),
@@ -2543,7 +2707,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 							.optional()
 							.describe('Initial value of the variable. This is optional.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Variable`.')
 			),
@@ -2606,7 +2771,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								'Type of the variable. Can be real, integer, or binary. Note that each element of a TensorVariable is assumed to be of the same type.'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorVariable`.')
 			),
@@ -2616,7 +2782,6 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 			zod
 				.object({
 					func: zod.union([zod.array(zod.unknown()), zod.null()]),
-					scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					simulator_path: zod
 						.union([
@@ -2698,7 +2863,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 							'Whether the function expression is twice differentiable or not. Defaults to `False`'
 						),
 					id: zod.union([zod.number(), zod.null()]).optional(),
-					problem_id: zod.union([zod.number(), zod.null()]).optional()
+					problem_id: zod.union([zod.number(), zod.null()]).optional(),
+					scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 				})
 				.describe('The SQLModel equivalent to `Objective`.')
 		),
@@ -2707,7 +2873,6 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -2766,7 +2931,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constraint`.')
 			),
@@ -2777,7 +2943,6 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.array(zod.string()),
 						name: zod.string().describe('Name of the scalarization function.'),
 						symbol: zod
 							.union([zod.string(), zod.null()])
@@ -2808,7 +2973,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ScalarizationFunction`.')
 			),
@@ -2819,7 +2985,6 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -2869,7 +3034,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ExtraFunction`.')
 			),
@@ -3043,6 +3209,41 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								)
 						),
 						zod.null()
+					]),
+					solution_description_metadata: zod.union([
+						zod.array(
+							zod
+								.object({
+									id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+									metadata_type: zod
+										.string()
+										.default(
+											addProblemJsonProblemAddJsonPostResponseProblemMetadataOneSolutionDescriptionMetadataOneItemMetadataTypeDefault
+										),
+									parts: zod.array(
+										zod
+											.object({
+												text: zod.union([zod.string(), zod.null()]).optional(),
+												label: zod.union([zod.string(), zod.null()]).optional(),
+												symbol: zod.union([zod.string(), zod.null()]).optional(),
+												expression: zod.union([zod.array(zod.unknown()), zod.null()]).optional(),
+												format_spec: zod.union([zod.string(), zod.null()]).optional(),
+												suffix: zod.union([zod.string(), zod.null()]).optional()
+											})
+											.describe(
+												'A single part of a solution description template.\n\nA part is either a static text string or a computed value derived from solver results.\nExactly one of `text`, `symbol`, or `expression` should be set.\n\n- `text`: included verbatim in the output.\n- `symbol`: looks up a key from `optimal_variables` or `optimal_objectives`.\n- `expression`: a MathJSON expression evaluated against the solver result values.\n\nWhen `symbol` or `expression` is used, `label` is prepended and `suffix` is appended.\n`format_spec` is a Python format spec string (e.g. `\".0f\"`, `\".2f\"`) applied to the value.'
+											)
+									),
+									separator: zod
+										.string()
+										.default(
+											addProblemJsonProblemAddJsonPostResponseProblemMetadataOneSolutionDescriptionMetadataOneItemSeparatorDefault
+										)
+								})
+								.describe('Metadata for generating a human-readable description of a solution.')
+						),
+						zod.null()
 					])
 				})
 				.describe('Response model for ProblemMetaData.'),
@@ -3210,7 +3411,7 @@ export const SelectSolverProblemAssignSolverPostBody = zod
 		solver_string_representation: zod
 			.string()
 			.describe(
-				"One of the following: ['scipy_minimize', 'scipy_de', 'proximal', 'nevergrad', 'pyomo_bonmin', 'pyomo_cbc', 'pyomo_ipopt', 'pyomo_gurobi', 'gurobipy', 'gurobipy_persistent']"
+				"One of the following: ['scipy_minimize', 'scipy_de', 'proximal', 'nevergrad', 'pyomo_bonmin', 'pyomo_cbc', 'pyomo_ipopt', 'pyomo_gurobi', 'gurobipy', 'gurobipy_persistent', 'cvxpy']"
 			)
 	})
 	.describe('Model to request a specific solver for a problem.');
@@ -6149,6 +6350,1135 @@ export const GetMultipliersInfoMethodXnimbusGetMultipliersInfoPostResponse = zod
 	.describe('Response model for Lagrange multipliers and tradeoffs.');
 
 /**
+ * Solve the problem using the CUMULUS method.
+ * @summary Solve Solutions
+ */
+export const SolveSolutionsMethodCumulusSolvePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const solveSolutionsMethodCumulusSolvePostBodyPreferencePreferenceTypeDefault = `reference_point`;
+
+export const SolveSolutionsMethodCumulusSolvePostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+		scalarization_options: zod
+			.union([
+				zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
+				zod.null()
+			])
+			.optional(),
+		solver: zod.union([zod.string(), zod.null()]).optional(),
+		solver_options: zod
+			.union([
+				zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
+				zod.null()
+			])
+			.optional(),
+		preference: zod
+			.object({
+				preference_type: zod
+					.literal('reference_point')
+					.default(solveSolutionsMethodCumulusSolvePostBodyPreferencePreferenceTypeDefault),
+				aspiration_levels: zod.record(zod.string(), zod.number())
+			})
+			.optional()
+			.describe('Model for representing a reference point type of preference.'),
+		current_objectives: zod
+			.record(zod.string(), zod.number())
+			.describe('Current objective values for classification.'),
+		scalarizations: zod
+			.array(zod.string())
+			.optional()
+			.describe('List of CumulusScalarization enum values as strings.')
+	})
+	.describe('Request model for the CUMULUS solve endpoint.');
+
+export const solveSolutionsMethodCumulusSolvePostResponseResponseTypeDefault = `cumulus.classification`;
+export const solveSolutionsMethodCumulusSolvePostResponsePreviousPreferencePreferenceTypeDefault = `reference_point`;
+
+export const SolveSolutionsMethodCumulusSolvePostResponse = zod
+	.object({
+		response_type: zod
+			.literal('cumulus.classification')
+			.default(solveSolutionsMethodCumulusSolvePostResponseResponseTypeDefault),
+		state_id: zod.union([zod.number(), zod.null()]).describe('The newly created state id.'),
+		previous_preference: zod
+			.object({
+				preference_type: zod
+					.literal('reference_point')
+					.default(
+						solveSolutionsMethodCumulusSolvePostResponsePreviousPreferencePreferenceTypeDefault
+					),
+				aspiration_levels: zod.record(zod.string(), zod.number())
+			})
+			.describe('The preference used in this iteration.'),
+		previous_objectives: zod
+			.record(zod.string(), zod.number())
+			.describe('The current objectives used for iteration.'),
+		current_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('Solutions from the current CUMULUS iteration.'),
+		saved_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('Candidate solutions saved by the decision maker.'),
+		all_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('All solutions generated by CUMULUS across all iterations.')
+	})
+	.describe('Response from the CUMULUS solve endpoint.');
+
+/**
+ * Initialize the problem for the CUMULUS method.
+ * @summary Initialize
+ */
+export const InitializeMethodCumulusInitializePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const initializeMethodCumulusInitializePostBodyStartingPointOnePreferenceTypeDefault = `reference_point`;
+
+export const InitializeMethodCumulusInitializePostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+		starting_point: zod
+			.union([
+				zod
+					.object({
+						preference_type: zod
+							.literal('reference_point')
+							.default(
+								initializeMethodCumulusInitializePostBodyStartingPointOnePreferenceTypeDefault
+							),
+						aspiration_levels: zod.record(zod.string(), zod.number())
+					})
+					.describe('Model for representing a reference point type of preference.'),
+				zod
+					.object({
+						state_id: zod.number().describe('State of the desired solution.'),
+						solution_index: zod.number().describe('Index of the desired solution.'),
+						name: zod
+							.union([zod.string(), zod.null()])
+							.optional()
+							.describe('Name to be given to the solution. Optional.')
+					})
+					.describe(
+						'Used when we wish to reference a solution in some `StateDB` stored in the database.'
+					),
+				zod.null()
+			])
+			.optional(),
+		scalarization_options: zod
+			.union([
+				zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
+				zod.null()
+			])
+			.optional(),
+		solver: zod.union([zod.string(), zod.null()]).optional(),
+		solver_options: zod
+			.union([
+				zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
+				zod.null()
+			])
+			.optional()
+	})
+	.describe('Request model for the CUMULUS initialization endpoint.');
+
+export const initializeMethodCumulusInitializePostResponseResponseTypeDefault = `cumulus.initialization`;
+
+export const InitializeMethodCumulusInitializePostResponse = zod
+	.object({
+		response_type: zod
+			.literal('cumulus.initialization')
+			.default(initializeMethodCumulusInitializePostResponseResponseTypeDefault),
+		state_id: zod.union([zod.number(), zod.null()]).describe('The newly created state id.'),
+		current_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('The starting solution.'),
+		saved_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('Candidate solutions saved by the decision maker.'),
+		all_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('All solutions generated by CUMULUS across all iterations.')
+	})
+	.describe('Response from the CUMULUS initialization endpoint.');
+
+/**
+ * Save solutions.
+ * @summary Save
+ */
+export const SaveMethodCumulusSavePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const SaveMethodCumulusSavePostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+		solution_info: zod.array(
+			zod
+				.object({
+					state_id: zod.number().describe('State of the desired solution.'),
+					solution_index: zod.number().describe('Index of the desired solution.'),
+					name: zod
+						.union([zod.string(), zod.null()])
+						.optional()
+						.describe('Name to be given to the solution. Optional.')
+				})
+				.describe(
+					'Used when we wish to reference a solution in some `StateDB` stored in the database.'
+				)
+		)
+	})
+	.describe('Request model for saving CUMULUS solutions.');
+
+export const saveMethodCumulusSavePostResponseResponseTypeDefault = `cumulus.save`;
+
+export const SaveMethodCumulusSavePostResponse = zod
+	.object({
+		response_type: zod
+			.literal('cumulus.save')
+			.default(saveMethodCumulusSavePostResponseResponseTypeDefault),
+		state_id: zod.union([zod.number(), zod.null()]).describe('The id of the newest state.')
+	})
+	.describe('Response from the CUMULUS save endpoint.');
+
+/**
+ * Get the latest CUMULUS state if it exists, or initialize a new one if it doesn't.
+ * @summary Get Or Initialize
+ */
+export const GetOrInitializeMethodCumulusGetOrInitializePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const getOrInitializeMethodCumulusGetOrInitializePostBodyStartingPointOnePreferenceTypeDefault = `reference_point`;
+
+export const GetOrInitializeMethodCumulusGetOrInitializePostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+		starting_point: zod
+			.union([
+				zod
+					.object({
+						preference_type: zod
+							.literal('reference_point')
+							.default(
+								getOrInitializeMethodCumulusGetOrInitializePostBodyStartingPointOnePreferenceTypeDefault
+							),
+						aspiration_levels: zod.record(zod.string(), zod.number())
+					})
+					.describe('Model for representing a reference point type of preference.'),
+				zod
+					.object({
+						state_id: zod.number().describe('State of the desired solution.'),
+						solution_index: zod.number().describe('Index of the desired solution.'),
+						name: zod
+							.union([zod.string(), zod.null()])
+							.optional()
+							.describe('Name to be given to the solution. Optional.')
+					})
+					.describe(
+						'Used when we wish to reference a solution in some `StateDB` stored in the database.'
+					),
+				zod.null()
+			])
+			.optional(),
+		scalarization_options: zod
+			.union([
+				zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
+				zod.null()
+			])
+			.optional(),
+		solver: zod.union([zod.string(), zod.null()]).optional(),
+		solver_options: zod
+			.union([
+				zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
+				zod.null()
+			])
+			.optional()
+	})
+	.describe('Request model for the CUMULUS initialization endpoint.');
+
+export const getOrInitializeMethodCumulusGetOrInitializePostResponseOneResponseTypeDefault = `cumulus.initialization`;
+export const getOrInitializeMethodCumulusGetOrInitializePostResponseTwoResponseTypeDefault = `cumulus.classification`;
+export const getOrInitializeMethodCumulusGetOrInitializePostResponseTwoPreviousPreferencePreferenceTypeDefault = `reference_point`;
+export const getOrInitializeMethodCumulusGetOrInitializePostResponseThreeResponseTypeDefault = `cumulus.finalize`;
+
+export const GetOrInitializeMethodCumulusGetOrInitializePostResponse = zod.union([
+	zod
+		.object({
+			response_type: zod
+				.literal('cumulus.initialization')
+				.default(getOrInitializeMethodCumulusGetOrInitializePostResponseOneResponseTypeDefault),
+			state_id: zod.union([zod.number(), zod.null()]).describe('The newly created state id.'),
+			current_solutions: zod
+				.array(
+					zod
+						.object({
+							name: zod.union([zod.string(), zod.null()]).optional(),
+							solution_index: zod.union([zod.number(), zod.null()]),
+							state_id: zod.number(),
+							objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+							variable_values: zod.union([
+								zod.record(
+									zod.string(),
+									zod.union([
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.union([
+											zod.array(zod.unknown()),
+											zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+											zod.number(),
+											zod.number(),
+											zod.boolean(),
+											zod.literal('List'),
+											zod.null()
+										])
+									])
+								),
+								zod.null()
+							])
+						})
+						.describe(
+							'The response information provided when `SolutionReference` object are returned from the client.'
+						)
+				)
+				.describe('The starting solution.'),
+			saved_solutions: zod
+				.array(
+					zod
+						.object({
+							name: zod.union([zod.string(), zod.null()]).optional(),
+							solution_index: zod.union([zod.number(), zod.null()]),
+							state_id: zod.number(),
+							objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+							variable_values: zod.union([
+								zod.record(
+									zod.string(),
+									zod.union([
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.union([
+											zod.array(zod.unknown()),
+											zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+											zod.number(),
+											zod.number(),
+											zod.boolean(),
+											zod.literal('List'),
+											zod.null()
+										])
+									])
+								),
+								zod.null()
+							])
+						})
+						.describe(
+							'The response information provided when `SolutionReference` object are returned from the client.'
+						)
+				)
+				.describe('Candidate solutions saved by the decision maker.'),
+			all_solutions: zod
+				.array(
+					zod
+						.object({
+							name: zod.union([zod.string(), zod.null()]).optional(),
+							solution_index: zod.union([zod.number(), zod.null()]),
+							state_id: zod.number(),
+							objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+							variable_values: zod.union([
+								zod.record(
+									zod.string(),
+									zod.union([
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.union([
+											zod.array(zod.unknown()),
+											zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+											zod.number(),
+											zod.number(),
+											zod.boolean(),
+											zod.literal('List'),
+											zod.null()
+										])
+									])
+								),
+								zod.null()
+							])
+						})
+						.describe(
+							'The response information provided when `SolutionReference` object are returned from the client.'
+						)
+				)
+				.describe('All solutions generated by CUMULUS across all iterations.')
+		})
+		.describe('Response from the CUMULUS initialization endpoint.'),
+	zod
+		.object({
+			response_type: zod
+				.literal('cumulus.classification')
+				.default(getOrInitializeMethodCumulusGetOrInitializePostResponseTwoResponseTypeDefault),
+			state_id: zod.union([zod.number(), zod.null()]).describe('The newly created state id.'),
+			previous_preference: zod
+				.object({
+					preference_type: zod
+						.literal('reference_point')
+						.default(
+							getOrInitializeMethodCumulusGetOrInitializePostResponseTwoPreviousPreferencePreferenceTypeDefault
+						),
+					aspiration_levels: zod.record(zod.string(), zod.number())
+				})
+				.describe('The preference used in this iteration.'),
+			previous_objectives: zod
+				.record(zod.string(), zod.number())
+				.describe('The current objectives used for iteration.'),
+			current_solutions: zod
+				.array(
+					zod
+						.object({
+							name: zod.union([zod.string(), zod.null()]).optional(),
+							solution_index: zod.union([zod.number(), zod.null()]),
+							state_id: zod.number(),
+							objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+							variable_values: zod.union([
+								zod.record(
+									zod.string(),
+									zod.union([
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.union([
+											zod.array(zod.unknown()),
+											zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+											zod.number(),
+											zod.number(),
+											zod.boolean(),
+											zod.literal('List'),
+											zod.null()
+										])
+									])
+								),
+								zod.null()
+							])
+						})
+						.describe(
+							'The response information provided when `SolutionReference` object are returned from the client.'
+						)
+				)
+				.describe('Solutions from the current CUMULUS iteration.'),
+			saved_solutions: zod
+				.array(
+					zod
+						.object({
+							name: zod.union([zod.string(), zod.null()]).optional(),
+							solution_index: zod.union([zod.number(), zod.null()]),
+							state_id: zod.number(),
+							objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+							variable_values: zod.union([
+								zod.record(
+									zod.string(),
+									zod.union([
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.union([
+											zod.array(zod.unknown()),
+											zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+											zod.number(),
+											zod.number(),
+											zod.boolean(),
+											zod.literal('List'),
+											zod.null()
+										])
+									])
+								),
+								zod.null()
+							])
+						})
+						.describe(
+							'The response information provided when `SolutionReference` object are returned from the client.'
+						)
+				)
+				.describe('Candidate solutions saved by the decision maker.'),
+			all_solutions: zod
+				.array(
+					zod
+						.object({
+							name: zod.union([zod.string(), zod.null()]).optional(),
+							solution_index: zod.union([zod.number(), zod.null()]),
+							state_id: zod.number(),
+							objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+							variable_values: zod.union([
+								zod.record(
+									zod.string(),
+									zod.union([
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.union([
+											zod.array(zod.unknown()),
+											zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+											zod.number(),
+											zod.number(),
+											zod.boolean(),
+											zod.literal('List'),
+											zod.null()
+										])
+									])
+								),
+								zod.null()
+							])
+						})
+						.describe(
+							'The response information provided when `SolutionReference` object are returned from the client.'
+						)
+				)
+				.describe('All solutions generated by CUMULUS across all iterations.')
+		})
+		.describe('Response from the CUMULUS solve endpoint.'),
+	zod
+		.object({
+			response_type: zod
+				.literal('cumulus.finalize')
+				.default(getOrInitializeMethodCumulusGetOrInitializePostResponseThreeResponseTypeDefault),
+			state_id: zod.union([zod.number(), zod.null()]).describe('The newly created state id.'),
+			final_solution: zod
+				.object({
+					name: zod.union([zod.string(), zod.null()]).optional(),
+					solution_index: zod.union([zod.number(), zod.null()]),
+					state_id: zod.number(),
+					objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+					variable_values: zod.union([
+						zod.record(
+							zod.string(),
+							zod.union([
+								zod.number(),
+								zod.number(),
+								zod.boolean(),
+								zod.union([
+									zod.array(zod.unknown()),
+									zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.literal('List'),
+									zod.null()
+								])
+							])
+						),
+						zod.null()
+					])
+				})
+				.describe('The final selected solution.'),
+			saved_solutions: zod
+				.array(
+					zod
+						.object({
+							name: zod.union([zod.string(), zod.null()]).optional(),
+							solution_index: zod.union([zod.number(), zod.null()]),
+							state_id: zod.number(),
+							objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+							variable_values: zod.union([
+								zod.record(
+									zod.string(),
+									zod.union([
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.union([
+											zod.array(zod.unknown()),
+											zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+											zod.number(),
+											zod.number(),
+											zod.boolean(),
+											zod.literal('List'),
+											zod.null()
+										])
+									])
+								),
+								zod.null()
+							])
+						})
+						.describe(
+							'The response information provided when `SolutionReference` object are returned from the client.'
+						)
+				)
+				.describe('Candidate solutions saved by the decision maker.'),
+			all_solutions: zod
+				.array(
+					zod
+						.object({
+							name: zod.union([zod.string(), zod.null()]).optional(),
+							solution_index: zod.union([zod.number(), zod.null()]),
+							state_id: zod.number(),
+							objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+							variable_values: zod.union([
+								zod.record(
+									zod.string(),
+									zod.union([
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.union([
+											zod.array(zod.unknown()),
+											zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+											zod.number(),
+											zod.number(),
+											zod.boolean(),
+											zod.literal('List'),
+											zod.null()
+										])
+									])
+								),
+								zod.null()
+							])
+						})
+						.describe(
+							'The response information provided when `SolutionReference` object are returned from the client.'
+						)
+				)
+				.describe('All solutions generated by CUMULUS across all iterations.')
+		})
+		.describe('Response from the CUMULUS finalize endpoint.')
+]);
+
+/**
+ * Finalize the CUMULUS process by selecting a solution.
+ * @summary Finalize
+ */
+export const FinalizeMethodCumulusFinalizePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const FinalizeMethodCumulusFinalizePostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+		solution_info: zod
+			.object({
+				state_id: zod.number().describe('State of the desired solution.'),
+				solution_index: zod.number().describe('Index of the desired solution.'),
+				name: zod
+					.union([zod.string(), zod.null()])
+					.optional()
+					.describe('Name to be given to the solution. Optional.')
+			})
+			.describe(
+				'Used when we wish to reference a solution in some `StateDB` stored in the database.'
+			)
+	})
+	.describe('Request model for finalizing the CUMULUS procedure.');
+
+export const finalizeMethodCumulusFinalizePostResponseResponseTypeDefault = `cumulus.finalize`;
+
+export const FinalizeMethodCumulusFinalizePostResponse = zod
+	.object({
+		response_type: zod
+			.literal('cumulus.finalize')
+			.default(finalizeMethodCumulusFinalizePostResponseResponseTypeDefault),
+		state_id: zod.union([zod.number(), zod.null()]).describe('The newly created state id.'),
+		final_solution: zod
+			.object({
+				name: zod.union([zod.string(), zod.null()]).optional(),
+				solution_index: zod.union([zod.number(), zod.null()]),
+				state_id: zod.number(),
+				objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+				variable_values: zod.union([
+					zod.record(
+						zod.string(),
+						zod.union([
+							zod.number(),
+							zod.number(),
+							zod.boolean(),
+							zod.union([
+								zod.array(zod.unknown()),
+								zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+								zod.number(),
+								zod.number(),
+								zod.boolean(),
+								zod.literal('List'),
+								zod.null()
+							])
+						])
+					),
+					zod.null()
+				])
+			})
+			.describe('The final selected solution.'),
+		saved_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('Candidate solutions saved by the decision maker.'),
+		all_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('All solutions generated by CUMULUS across all iterations.')
+	})
+	.describe('Response from the CUMULUS finalize endpoint.');
+
+/**
+ * Solve intermediate solutions between two solutions using rpm_intermediate_solutions.
+ * @summary Solve Intermediate
+ */
+export const SolveIntermediateMethodCumulusIntermediatePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const solveIntermediateMethodCumulusIntermediatePostBodyNumDesiredDefault = 1;
+
+export const SolveIntermediateMethodCumulusIntermediatePostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+		context: zod.union([zod.string(), zod.null()]).optional(),
+		scalarization_options: zod
+			.union([
+				zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
+				zod.null()
+			])
+			.optional(),
+		solver: zod.union([zod.string(), zod.null()]).optional(),
+		solver_options: zod
+			.union([
+				zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
+				zod.null()
+			])
+			.optional(),
+		num_desired: zod
+			.union([zod.number(), zod.null()])
+			.default(solveIntermediateMethodCumulusIntermediatePostBodyNumDesiredDefault),
+		reference_solution_1: zod
+			.object({
+				state_id: zod.number().describe('State of the desired solution.'),
+				solution_index: zod.number().describe('Index of the desired solution.'),
+				name: zod
+					.union([zod.string(), zod.null()])
+					.optional()
+					.describe('Name to be given to the solution. Optional.')
+			})
+			.describe(
+				'Used when we wish to reference a solution in some `StateDB` stored in the database.'
+			),
+		reference_solution_2: zod
+			.object({
+				state_id: zod.number().describe('State of the desired solution.'),
+				solution_index: zod.number().describe('Index of the desired solution.'),
+				name: zod
+					.union([zod.string(), zod.null()])
+					.optional()
+					.describe('Name to be given to the solution. Optional.')
+			})
+			.describe(
+				'Used when we wish to reference a solution in some `StateDB` stored in the database.'
+			)
+	})
+	.describe('Model of the request to solve intermediate solutions between two solutions.');
+
+export const solveIntermediateMethodCumulusIntermediatePostResponseResponseTypeDefault = `cumulus.intermediate`;
+
+export const SolveIntermediateMethodCumulusIntermediatePostResponse = zod
+	.object({
+		response_type: zod
+			.literal('cumulus.intermediate')
+			.default(solveIntermediateMethodCumulusIntermediatePostResponseResponseTypeDefault),
+		state_id: zod.union([zod.number(), zod.null()]).describe('The newly created state id.'),
+		reference_solution_1: zod
+			.record(zod.string(), zod.number())
+			.describe('The first solution used when computing intermediate points.'),
+		reference_solution_2: zod
+			.record(zod.string(), zod.number())
+			.describe('The second solution used when computing intermediate points.'),
+		current_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('The intermediate solutions from this iteration.'),
+		saved_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('Candidate solutions saved by the decision maker.'),
+		all_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('All solutions generated by Cumulus across all iterations.')
+	})
+	.describe('Response from the Cumulus intermediate solutions endpoint.');
+
+/**
+ * Delete a saved CUMULUS solution.
+ * @summary Delete Save
+ */
+export const DeleteSaveMethodCumulusDeleteSavePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const DeleteSaveMethodCumulusDeleteSavePostBody = zod
+	.object({
+		state_id: zod.number().describe('The ID of the save state.'),
+		solution_index: zod.number().describe('The index of the solution within the above state.'),
+		problem_id: zod.number().describe('The ID of the problem.')
+	})
+	.describe('Request model for deletion of a saved CUMULUS solution.');
+
+export const deleteSaveMethodCumulusDeleteSavePostResponseResponseTypeDefault = `cumulus.delete_save`;
+
+export const DeleteSaveMethodCumulusDeleteSavePostResponse = zod
+	.object({
+		response_type: zod
+			.string()
+			.default(deleteSaveMethodCumulusDeleteSavePostResponseResponseTypeDefault),
+		message: zod.union([zod.string(), zod.null()]).optional()
+	})
+	.describe('Response from the CUMULUS delete-save endpoint.');
+
+/**
  * Solve intermediate solutions between given two solutions.
 
 Args:
@@ -7896,6 +9226,18 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostBody = zod
 							.describe(
 								'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
 							),
+						axis_colours: zod
+							.union([zod.record(zod.string(), zod.string()), zod.null()])
+							.optional()
+							.describe(
+								"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+							),
+						highlight_cluster: zod
+							.union([zod.number(), zod.null()])
+							.optional()
+							.describe(
+								'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+							),
 						clustering_algorithm: zod
 							.union([
 								zod
@@ -7987,7 +9329,7 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostBody = zod
 								getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmDefault
 							)
 							.describe(
-								'Clustering algorithm to use. Currently supported options: \"GMM\", \"DBSCAN\",\n    and \"KMeans\". Defaults to \"DBSCAN\".'
+								'Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'
 							),
 						distance_formula: zod
 							.union([zod.literal(1), zod.literal(2)])
@@ -8128,6 +9470,18 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 											.describe(
 												'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
 											),
+										axis_colours: zod
+											.union([zod.record(zod.string(), zod.string()), zod.null()])
+											.optional()
+											.describe(
+												"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+											),
+										highlight_cluster: zod
+											.union([zod.number(), zod.null()])
+											.optional()
+											.describe(
+												'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+											),
 										clustering_algorithm: zod
 											.union([
 												zod
@@ -8223,7 +9577,7 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 												getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsClusteringAlgorithmDefault
 											)
 											.describe(
-												'Clustering algorithm to use. Currently supported options: \"GMM\", \"DBSCAN\",\n    and \"KMeans\". Defaults to \"DBSCAN\".'
+												'Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'
 											),
 										distance_formula: zod
 											.union([zod.literal(1), zod.literal(2)])
@@ -8293,6 +9647,18 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 									.array(zod.number())
 									.describe(
 										'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
+									),
+								cluster_names: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'Optional dictionary mapping cluster IDs to descriptive names for display in the visualization.\nIf None, the cluster IDs themselves are used as names. Defaults to None.'
+									),
+								cluster_hover_info: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'Optional dictionary mapping cluster IDs to hover information for display in the visualization.\nIf None, no additional hover information is displayed. Defaults to None.'
 									),
 								axis_positions: zod
 									.record(zod.string(), zod.number())
@@ -8475,6 +9841,18 @@ export const ConfigureGdmGdmScoreBandsConfigurePostBody = zod
 					.describe(
 						'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
 					),
+				axis_colours: zod
+					.union([zod.record(zod.string(), zod.string()), zod.null()])
+					.optional()
+					.describe(
+						"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+					),
+				highlight_cluster: zod
+					.union([zod.number(), zod.null()])
+					.optional()
+					.describe(
+						'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+					),
 				clustering_algorithm: zod
 					.union([
 						zod
@@ -8565,9 +9943,7 @@ export const ConfigureGdmGdmScoreBandsConfigurePostBody = zod
 					.default(
 						configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigClusteringAlgorithmDefault
 					)
-					.describe(
-						'Clustering algorithm to use. Currently supported options: \"GMM\", \"DBSCAN\",\n    and \"KMeans\". Defaults to \"DBSCAN\".'
-					),
+					.describe('Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'),
 				distance_formula: zod
 					.union([zod.literal(1), zod.literal(2)])
 					.default(configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigDistanceFormulaDefault)
@@ -8715,6 +10091,47 @@ export const NavigateNavigatorNautilusNavigatePostResponse = zod
 			.describe('The computed navigation steps.')
 	})
 	.describe('Response from NAUTILUS Navigator navigation.');
+
+/**
+ * Generate a textual description of a solution based on problem-specific metadata.
+
+Args:
+    request: the problem and solution to describe.
+    context: current session context.
+
+Returns:
+    SolutionDescriptionResponse with the generated description, or available=False if
+    no description metadata exists for this problem.
+ * @summary Get Solution Description
+ */
+export const GetSolutionDescriptionSolutionDescriptionGetPostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const GetSolutionDescriptionSolutionDescriptionGetPostBody = zod
+	.object({
+		problem_id: zod.number(),
+		solution: zod
+			.object({
+				state_id: zod.number().describe('State of the desired solution.'),
+				solution_index: zod.number().describe('Index of the desired solution.'),
+				name: zod
+					.union([zod.string(), zod.null()])
+					.optional()
+					.describe('Name to be given to the solution. Optional.')
+			})
+			.describe(
+				'Used when we wish to reference a solution in some `StateDB` stored in the database.'
+			)
+	})
+	.describe('Request for a solution description.');
+
+export const GetSolutionDescriptionSolutionDescriptionGetPostResponse = zod
+	.object({
+		available: zod.boolean(),
+		description: zod.string()
+	})
+	.describe('Response containing a generated solution description.');
 
 /**
  * @summary Health

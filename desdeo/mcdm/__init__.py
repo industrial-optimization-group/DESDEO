@@ -1,25 +1,28 @@
 """Imports available from the desdeo-mcdm package."""
 
 __all__ = [
+    "CumulusError",
+    "CumulusScalarization",
     "ENautilusResult",
     "NimbusError",
-    "enautilus_get_representative_solutions",
-    "enautilus_step",
     "calculate_closeness",
     "calculate_intermediate_points",
     "calculate_lower_bounds",
     "calculate_reachable_subset",
+    "enautilus_get_representative_solutions",
+    "enautilus_step",
     "generate_starting_point",
     "infer_classifications",
     "prune_by_average_linkage",
+    "rpm_intermediate_solutions",
+    "rpm_solve_solutions",
+    "solve_group_sub_problems",
     "solve_intermediate_solutions",
     "solve_sub_problems",
-    "solve_group_sub_problems",
     "voting_procedure",
-    "rpm_solve_solutions",
-    "rpm_intermediate_solutions",
 ]
 
+from .cumulus import CumulusError, CumulusScalarization
 from .enautilus import (
     ENautilusResult,
     calculate_closeness,
@@ -30,6 +33,7 @@ from .enautilus import (
     enautilus_step,
     prune_by_average_linkage,
 )
+from .gnimbus import solve_group_sub_problems, voting_procedure
 from .nimbus import (
     NimbusError,
     generate_starting_point,
@@ -37,5 +41,4 @@ from .nimbus import (
     solve_intermediate_solutions,
     solve_sub_problems,
 )
-from .gnimbus import solve_group_sub_problems, voting_procedure
-from .reference_point_method import rpm_solve_solutions, rpm_intermediate_solutions
+from .reference_point_method import rpm_intermediate_solutions, rpm_solve_solutions

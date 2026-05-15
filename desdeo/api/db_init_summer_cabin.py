@@ -37,6 +37,23 @@ def objective_to_extra_function(obj: Objective) -> ExtraFunction:
     )
 
 
+def build_summer_cabin_problem_full():
+    """Build the summer cabin problem with all objectives kept intact."""
+    print("Building summer_cabin_battery_robust_ev_problem full (this may take a moment)...")
+    problem = summer_cabin_battery_robust_ev_problem()
+    return problem.model_copy(
+        update={
+            "name": "Summer cabin energy management full",
+            "description": (
+                "Robust multi-objective energy management for a summer cabin with battery storage, "
+                "solar panels, and an optional EV charger. "
+                "All original objectives are retained. "
+                "Scenario tree: 4 leaves covering grid outages in segments 2 and/or 3."
+            ),
+        }
+    )
+
+
 def build_summer_cabin_problem():
     """Build the summer cabin problem with demoted objectives."""
     print("Building summer_cabin_battery_robust_ev_problem (this may take a moment)...")
@@ -136,6 +153,14 @@ if __name__ == "__main__":
             session.commit()
             print("Standard test problems added.")
 
+            # Summer cabin problem with all objectives (unstripped)
+            cabin_full_problem = build_summer_cabin_problem_full()
+            cabin_full_db = ProblemDB.from_problem(cabin_full_problem, user_analyst)
+            session.add(cabin_full_db)
+            session.commit()
+            session.refresh(cabin_full_db)
+            print(f"Summer cabin full problem added (id={cabin_full_db.id}).")
+
             # Summer cabin problem with stripped objectives
             cabin_problem = build_summer_cabin_problem()
             cabin_db = ProblemDB.from_problem(cabin_problem, user_analyst)
@@ -144,7 +169,22 @@ if __name__ == "__main__":
             session.refresh(cabin_db)
             print(f"Summer cabin problem added (id={cabin_db.id}).")
 
-            # Solution description metadata
+            # Solution description metadata for full problem
+            metadata_full_db = ProblemMetaDataDB(problem_id=cabin_full_db.id, problem=cabin_full_db)
+            session.add(metadata_full_db)
+            session.commit()
+            session.refresh(metadata_full_db)
+
+            desc_metadata_full = SolutionDescriptionMetaData(
+                metadata_id=metadata_full_db.id,
+                parts=[p.model_dump() for p in DESCRIPTION_PARTS],
+                separator="\n",
+            )
+            session.add(desc_metadata_full)
+            session.commit()
+            print("Solution description metadata added for full problem.")
+
+            # Solution description metadata for stripped problem
             metadata_db = ProblemMetaDataDB(problem_id=cabin_db.id, problem=cabin_db)
             session.add(metadata_db)
             session.commit()
@@ -157,7 +197,7 @@ if __name__ == "__main__":
             )
             session.add(desc_metadata)
             session.commit()
-            print("Solution description metadata added.")
+            print("Solution description metadata added for stripped problem.")
 
         print("Done.")
 
