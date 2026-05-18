@@ -7,7 +7,16 @@ from functools import reduce
 import numpy as np
 import polars as pl
 
-from desdeo.problem import Problem, TensorConstant, TensorVariable, Variable
+from desdeo.problem import (
+    Constraint,
+    ConstraintTypeEnum,
+    Objective,
+    Problem,
+    TensorConstant,
+    TensorVariable,
+    Variable,
+    VariableTypeEnum,
+)
 
 
 class ProblemUtilsError(Exception):
@@ -243,3 +252,126 @@ def tensor_constant_from_dataframe(
     selected_values = [selected_df.to_dict()[col_name].to_list() for col_name in column_names]
 
     return TensorConstant(name=name, symbol=symbol, shape=[n_rows, len(column_names)], values=selected_values)
+
+
+def add_soft_constraint(
+    problem: Problem,
+    constraint: Constraint,
+    symbol: str = "constraint_violation",
+    lte_violation_symbol: str | None = None,
+    gte_violation_symbol: str | None = None,
+) -> tuple[Problem, str]:
+    """Add a constraint as a soft constraint by introducing violation slack variables.
+
+    Adds non-negative slack variables that absorb constraint violations and accumulates
+    their sum into a minimization objective (the constraint violation objective). For a
+    ``<=`` constraint ``g(x) <= 0`` the modified constraint becomes
+    ``g(x) - s_lte <= 0`` where ``s_lte >= 0``. For an ``=`` constraint
+    ``g(x) = 0`` the modified constraint becomes
+    ``g(x) - s_lte + s_gte = 0`` where both ``s_lte, s_gte >= 0``.
+
+    The constraint violation objective is created if it does not already exist in the
+    problem, or updated to include the new slack variables if it does.
+
+    Args:
+        problem (Problem): the problem to add the soft constraint to.
+        constraint (Constraint): the constraint to soften. Must have ``func`` defined.
+        symbol (str): symbol for the constraint violation objective. Defaults to
+            ``"constraint_violation"``.
+        lte_violation_symbol (str | None): symbol for the LTE slack variable. Defaults
+            to ``f"_{constraint.symbol}_lte_violation"``.
+        gte_violation_symbol (str | None): symbol for the GTE slack variable (only used
+            for ``=`` constraints). Defaults to
+            ``f"_{constraint.symbol}_gte_violation"``.
+
+    Raises:
+        ProblemUtilsError: if ``constraint.func`` is ``None``.
+
+    Returns:
+        tuple[Problem, str]: a copy of the problem with the soft constraint and
+            violation objective added (or updated), and the symbol of the violation
+            objective.
+    """
+    if constraint.func is None:
+        msg = f"Cannot soften constraint '{constraint.symbol}': its 'func' field is None."
+        raise ProblemUtilsError(msg)
+
+    if lte_violation_symbol is None:
+        lte_violation_symbol = f"_{constraint.symbol}_lte_violation"
+    if gte_violation_symbol is None:
+        gte_violation_symbol = f"_{constraint.symbol}_gte_violation"
+
+    # Build violation slack variables (continuous, lb=0, no upper bound)
+    lte_var = Variable(
+        name=f"LTE violation for constraint '{constraint.symbol}'",
+        symbol=lte_violation_symbol,
+        variable_type=VariableTypeEnum.real,
+        lowerbound=0,
+        upperbound=None,
+    )
+    new_variables = [*problem.variables, lte_var]
+    new_violation_symbols: list[str] = [lte_violation_symbol]
+
+    if constraint.cons_type == ConstraintTypeEnum.EQ:
+        gte_var = Variable(
+            name=f"GTE violation for constraint '{constraint.symbol}'",
+            symbol=gte_violation_symbol,
+            variable_type=VariableTypeEnum.real,
+            lowerbound=0,
+            upperbound=None,
+        )
+        new_variables = [*new_variables, gte_var]
+        new_violation_symbols.append(gte_violation_symbol)
+
+    # Build the modified constraint func with violation variables absorbed
+    if constraint.cons_type == ConstraintTypeEnum.LTE:
+        modified_func = ["Subtract", constraint.func, lte_violation_symbol]
+    else:  # EQ
+        modified_func = ["Add", ["Subtract", constraint.func, lte_violation_symbol], gte_violation_symbol]
+
+    modified_constraint = constraint.model_copy(update={"func": modified_func})
+
+    # Build the constraint violation objective func for this constraint's slack variables.
+    # Use Multiply(1, sym) for a single variable to avoid bare-string backend issues.
+    if len(new_violation_symbols) == 1:
+        violation_func: list = ["Multiply", 1, new_violation_symbols[0]]
+    else:
+        violation_func = ["Add", *new_violation_symbols]
+
+    # Update an existing violation objective or create a new one
+    existing_objectives = list(problem.objectives)
+    violation_obj_idx = next((i for i, obj in enumerate(existing_objectives) if obj.symbol == symbol), None)
+
+    if violation_obj_idx is not None:
+        existing_obj = existing_objectives[violation_obj_idx]
+        existing_func = existing_obj.func
+        # Extend the existing sum; if it already starts with Add, just append.
+        if isinstance(existing_func, list) and existing_func[0] == "Add":
+            new_violation_func = [*existing_func, *new_violation_symbols]
+        else:
+            new_violation_func = ["Add", existing_func, *new_violation_symbols]
+        updated_obj = existing_obj.model_copy(update={"func": new_violation_func})
+        existing_objectives[violation_obj_idx] = updated_obj
+        new_objectives = existing_objectives
+    else:
+        violation_objective = Objective(
+            name="Constraint violation",
+            symbol=symbol,
+            func=violation_func,
+            maximize=False,
+        )
+        new_objectives = [*existing_objectives, violation_objective]
+
+    # Append the modified constraint to the problem's constraint list
+    existing_constraints = list(problem.constraints) if problem.constraints is not None else []
+    new_constraints = [*existing_constraints, modified_constraint]
+
+    new_problem = problem.model_copy(
+        update={
+            "variables": new_variables,
+            "objectives": new_objectives,
+            "constraints": new_constraints,
+        }
+    )
+
+    return new_problem, symbol

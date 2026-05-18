@@ -17,6 +17,8 @@ from desdeo.api.models import (
     CumulusInitializationRequest,
     CumulusInitializationResponse,
     CumulusIntermediateSolutionResponse,
+    CumulusModificationRequest,
+    CumulusModificationResponse,
     CumulusSaveRequest,
     CumulusSaveResponse,
     EMOFetchRequest,
@@ -48,6 +50,7 @@ from desdeo.api.models import (
     ProblemSelectSolverRequest,
     ReferencePoint,
     RPMSolveRequest,
+    ScenarioModelDB,
     SolutionInfo,
     SolverSelectionMetadata,
     User,
@@ -63,6 +66,7 @@ from desdeo.emo.options.algorithms import rvea_options
 from desdeo.emo.options.templates import ReferencePointOptions
 from desdeo.gdm.score_bands import SCOREBandsGDMConfig
 from desdeo.problem import Problem
+from desdeo.problem.scenario import Scenario, ScenarioModel
 from desdeo.problem.testproblems import dtlz2, simple_knapsack_vectors
 from desdeo.tools.score_bands import KMeansOptions, SCOREBandsConfig
 from desdeo.tools.utils import available_solvers
@@ -1748,3 +1752,276 @@ def test_cumulus_intermediate(client: TestClient):
     assert result.state_id is not None
     assert len(result.current_solutions) == 2
     assert all(s.objective_values for s in result.current_solutions)
+
+
+def test_cumulus_modify_problem_replace_variable(client: TestClient):
+    """Replacing a variable with the same symbol should create a new problem and return is_ready=False."""
+    access_token = login(client)
+
+    # x_1 in dtlz2 has lowerbound=0, upperbound=1; narrow the bounds
+    request = CumulusModificationRequest(
+        problem_id=1,
+        original_problem_id=1,
+        modifications={
+            "variables": [
+                {
+                    "name": "x_1",
+                    "symbol": "x_1",
+                    "variable_type": "real",
+                    "lowerbound": 0.1,
+                    "upperbound": 0.9,
+                }
+            ]
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+
+    assert result.response_type == "cumulus.modify"
+    assert result.state_id is not None
+    assert result.problem_id != 1, "A new problem should have been created"
+    assert result.original_problem_id == 1
+    assert result.is_ready is False  # background task hasn't run against the test DB
+
+
+def test_cumulus_modify_problem_add_constraint(client: TestClient):
+    """Adding a new constraint should create a new problem."""
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        original_problem_id=1,
+        modifications={
+            "constraints": [
+                {
+                    "name": "x_1 upper",
+                    "symbol": "g_new",
+                    "func": "x_1 - 0.8",
+                    "cons_type": "<=",
+                }
+            ]
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+    assert result.problem_id != 1
+    assert result.is_ready is False
+
+
+def test_cumulus_modify_problem_cross_type_conflict(client: TestClient):
+    """Using a variable symbol for an objective should return 422."""
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "objectives": [
+                {
+                    "name": "bad objective",
+                    "symbol": "x_1",  # x_1 is a variable, not an objective
+                    "func": "x_1",
+                    "maximize": False,
+                }
+            ]
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert "x_1" in response.json()["detail"]
+
+
+def test_cumulus_modify_problem_invalid_element(client: TestClient):
+    """A malformed element (missing required fields) should return 422."""
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "variables": [{"symbol": "x_1"}]  # missing name and variable_type
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_cumulus_modify_problem_status(client: TestClient):
+    """Status endpoint should return the modification state including is_ready."""
+    access_token = login(client)
+
+    modify_request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "variables": [
+                {
+                    "name": "x_1",
+                    "symbol": "x_1",
+                    "variable_type": "real",
+                    "lowerbound": 0.05,
+                    "upperbound": 0.95,
+                }
+            ]
+        },
+    )
+    modify_response = post_json(client, "/method/cumulus/modify-problem", modify_request.model_dump(), access_token)
+    assert modify_response.status_code == status.HTTP_200_OK
+    state_id = json.loads(modify_response.content)["state_id"]
+
+    status_response = client.get(
+        f"/method/cumulus/modify-problem/status/{state_id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert status_response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(status_response.content))
+    assert result.state_id == state_id
+    assert result.problem_id != 1
+    assert result.original_problem_id == 1
+
+
+def test_cumulus_modify_problem_status_wrong_id(client: TestClient):
+    """Status endpoint with a non-existent state id should return 404."""
+    access_token = login(client)
+    response = client.get(
+        "/method/cumulus/modify-problem/status/99999",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_cumulus_modify_problem_soft_constraint(client: TestClient):
+    """Adding a new constraint and then softening it should succeed and create a new problem."""
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "constraints": [
+                {"name": "x_1 upper", "symbol": "g_soft", "func": "x_1 - 0.8", "cons_type": "<="},
+            ],
+            "soft_constraints": [
+                {"constraint_symbol": "g_soft"},
+            ],
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+    assert result.problem_id != 1, "A new problem should have been created"
+    assert result.is_ready is False
+
+
+def test_cumulus_modify_problem_soft_constraint_missing(client: TestClient):
+    """Softening a constraint that doesn't exist in the problem should return 422."""
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "soft_constraints": [
+                {"constraint_symbol": "nonexistent_g"},
+            ],
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert "nonexistent_g" in response.json()["detail"]
+
+
+def test_cumulus_modify_problem_uncertainty_expected_value(client: TestClient, session_and_user: dict):
+    """Adding an expected-value aggregate via a ScenarioModelDB should succeed."""
+    access_token = login(client)
+    session = session_and_user["session"]
+    user = session_and_user["user"]
+
+    # Build a minimal 2-scenario model backed by the DTLZ2 problem (problem_id=1)
+    base_problem = dtlz2(5, 3)
+    scenario_model = ScenarioModel(
+        scenario_tree={"ROOT": ["s1", "s2"], "s1": [], "s2": []},
+        base_problem=base_problem,
+        scenarios={"s1": Scenario(), "s2": Scenario()},
+    )
+    scenario_model_db = ScenarioModelDB.from_scenario_model(scenario_model, user=user, base_problem_id=1)
+    session.add(scenario_model_db)
+    session.commit()
+    session.refresh(scenario_model_db)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "uncertainty_measures": [
+                {
+                    "measure_type": "expected_value",
+                    "scenario_model_id": scenario_model_db.id,
+                    "symbols": ["f_1"],
+                }
+            ],
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+    assert result.problem_id != 1, "A new (combined) problem should have been created"
+    assert result.is_ready is False
+
+
+def test_cumulus_modify_problem_uncertainty_missing_scenario_model(client: TestClient):
+    """Referencing a nonexistent ScenarioModelDB should return 404."""
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "uncertainty_measures": [
+                {
+                    "measure_type": "expected_value",
+                    "scenario_model_id": 99999,
+                    "symbols": ["f_1"],
+                }
+            ],
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_cumulus_modify_problem_uncertainty_cvar_missing_alpha(client: TestClient, session_and_user: dict):
+    """Requesting CVaR without specifying alpha should return 422."""
+    access_token = login(client)
+    session = session_and_user["session"]
+    user = session_and_user["user"]
+
+    base_problem = dtlz2(5, 3)
+    scenario_model = ScenarioModel(
+        scenario_tree={"ROOT": ["s1", "s2"], "s1": [], "s2": []},
+        base_problem=base_problem,
+        scenarios={"s1": Scenario(), "s2": Scenario()},
+    )
+    scenario_model_db = ScenarioModelDB.from_scenario_model(scenario_model, user=user, base_problem_id=1)
+    session.add(scenario_model_db)
+    session.commit()
+    session.refresh(scenario_model_db)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "uncertainty_measures": [
+                {
+                    "measure_type": "conditional_value_at_risk",
+                    "scenario_model_id": scenario_model_db.id,
+                    "symbols": ["f_1"],
+                    # alpha intentionally omitted
+                }
+            ],
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert "alpha" in response.json()["detail"]

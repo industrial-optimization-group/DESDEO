@@ -21,6 +21,10 @@ from desdeo.problem import Tensor, VariableType
 from .nautilus_navigator import NautilusNavigatorInitializationState, NautilusNavigatorNavigationState
 from .state import (
     CumulusClassificationState,
+    CumulusFinalState,
+    CumulusInitializationState,
+    CumulusModificationState,
+    CumulusSaveState,
     EMOFetchState,
     EMOIterateState,
     EMOSaveState,
@@ -77,6 +81,7 @@ class StateKind(str, Enum):
     CUMULUS_SAVE = "cumulus.save_solutions"
     CUMULUS_INIT = "cumulus.initialize"
     CUMULUS_FINAL = "cumulus.final"
+    CUMULUS_MODIFY = "cumulus.modify"
 
 
 class State(SQLModel, table=True):
@@ -214,9 +219,10 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.XNIMBUS_INIT: NIMBUSInitializationState,
     StateKind.XNIMBUS_FINAL: NIMBUSFinalState,
     StateKind.CUMULUS_SOLVE: CumulusClassificationState,
-    StateKind.CUMULUS_SAVE: NIMBUSSaveState,
-    StateKind.CUMULUS_INIT: NIMBUSInitializationState,
-    StateKind.CUMULUS_FINAL: NIMBUSFinalState,
+    StateKind.CUMULUS_SAVE: CumulusSaveState,
+    StateKind.CUMULUS_INIT: CumulusInitializationState,
+    StateKind.CUMULUS_FINAL: CumulusFinalState,
+    StateKind.CUMULUS_MODIFY: CumulusModificationState,
 }
 
 SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
@@ -238,6 +244,10 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
     NautilusNavigatorNavigationState: StateKind.NAUTILUS_NAVIGATE,
     NautilusNavigatorInitializationState: StateKind.NAUTILUS_INITIALIZE,
     CumulusClassificationState: StateKind.CUMULUS_SOLVE,
+    CumulusInitializationState: StateKind.CUMULUS_INIT,
+    CumulusFinalState: StateKind.CUMULUS_FINAL,
+    CumulusSaveState: StateKind.CUMULUS_SAVE,
+    CumulusModificationState: StateKind.CUMULUS_MODIFY,
 }
 
 

@@ -2,17 +2,21 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import select
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from sqlmodel import Session, select
 
+from desdeo.api.db import engine, get_session
 from desdeo.api.models import (
+    CumulusFinalState,
+    CumulusInitializationState,
+    CumulusModificationState,
+    CumulusSaveState,
     IntermediateSolutionRequest,
     IntermediateSolutionState,
-    NIMBUSFinalState,
-    NIMBUSInitializationState,
-    NIMBUSSaveState,
     ReferencePoint,
+    ScenarioModelDB,
     StateDB,
+    User,
     UserSavedSolutionDB,
 )
 from desdeo.api.models.cumulus import (
@@ -25,18 +29,37 @@ from desdeo.api.models.cumulus import (
     CumulusInitializationRequest,
     CumulusInitializationResponse,
     CumulusIntermediateSolutionResponse,
+    CumulusModificationRequest,
+    CumulusModificationResponse,
     CumulusSaveRequest,
     CumulusSaveResponse,
 )
 from desdeo.api.models.generic import SolutionInfo
 from desdeo.api.models.generic_states import SolutionReference, SolutionReferenceResponse, StateKind
+from desdeo.api.models.problem import ProblemDB
 from desdeo.api.models.state import CumulusClassificationState
 from desdeo.api.routers.nimbus import collect_all_solutions, collect_saved_solutions
 from desdeo.api.routers.problem import check_solver
+from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.cumulus import CumulusScalarization, generate_starting_point, solve_sub_problems
 from desdeo.mcdm.reference_point_method import rpm_intermediate_solutions
 from desdeo.problem import Problem
-from desdeo.tools import SolverResults
+from desdeo.problem.schema import (
+    Constant,
+    Constraint,
+    ExtraFunction,
+    Objective,
+    ScalarizationFunction,
+    TensorConstant,
+    TensorVariable,
+    Variable,
+)
+from desdeo.problem.utils import ProblemUtilsError, add_soft_constraint
+from desdeo.tools import SolverResults, guess_best_solver
+from desdeo.tools.robust import add_weighted_scenarios, add_worst_case_robust
+from desdeo.tools.scenarios import build_combined_scenario_problem
+from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_value
+from desdeo.tools.utils import payoff_table_method
 
 from .utils import ContextField, SessionContext, SessionContextGuard
 
@@ -81,6 +104,7 @@ def solve_solutions(
         solver_results=solver_results,
         current_objectives=request.current_objectives,
         scalarizations=request.scalarizations,
+        original_problem_id=request.original_problem_id,
     )
 
     state = StateDB.create(
@@ -147,11 +171,14 @@ def initialize(
         solver_options=request.solver_options,
     )
 
-    initialization_state = NIMBUSInitializationState(
+    initialization_state = CumulusInitializationState(
         reference_point=starting_point,
         scalarization_options=request.scalarization_options,
         solver=request.solver,
         solver_results=start_result,
+        original_problem_id=request.original_problem_id
+        if request.original_problem_id is not None
+        else request.problem_id,
     )
 
     state = StateDB.create(
@@ -230,7 +257,10 @@ def save(
         db_session.commit()
         [db_session.refresh(row) for row in updated_solutions + new_solutions]
 
-    save_state = NIMBUSSaveState(solutions=updated_solutions + new_solutions)
+    save_state = CumulusSaveState(
+        solutions=updated_solutions + new_solutions,
+        original_problem_id=request.original_problem_id,
+    )
 
     state = StateDB.create(
         database_session=db_session,
@@ -300,7 +330,7 @@ def get_or_initialize(
                 all_solutions=all_solutions,
             )
 
-        if isinstance(latest_state.state, NIMBUSFinalState):
+        if isinstance(latest_state.state, CumulusFinalState):
             solution_index = latest_state.state.solution_result_index
             origin_state_id = latest_state.state.solution_origin_state_id
 
@@ -352,10 +382,11 @@ def finalize(
             status_code=status.HTTP_404_NOT_FOUND,
         )
 
-    final_state = NIMBUSFinalState(
+    final_state = CumulusFinalState(
         solution_origin_state_id=solution_state_id,
         solution_result_index=solution_index,
         solver_results=actual_state.solver_results[solution_index],
+        original_problem_id=request.original_problem_id,
     )
 
     state = StateDB.create(
@@ -515,3 +546,315 @@ def delete_save(
         )
 
     return CumulusDeleteSaveResponse(message="Save deleted.")
+
+
+def _run_payoff_table_background(new_problem_id: int, cumulus_state_id: int, solver_class) -> None:
+    """Background task: run payoff table on the newly created problem and update ideal/nadir + state."""
+    try:
+        with Session(engine) as session:
+            problem_db = session.get(ProblemDB, new_problem_id)
+            mod_state = session.get(CumulusModificationState, cumulus_state_id)
+            if problem_db is None or mod_state is None:
+                return
+
+            problem = Problem.from_problemdb(problem_db)
+            effective_solver = solver_class if solver_class is not None else guess_best_solver(problem)
+
+            error_msg = None
+            try:
+                estimated_ideal, estimated_nadir = payoff_table_method(problem, solver=effective_solver)
+                for obj_db in problem_db.objectives:
+                    if obj_db.symbol in estimated_ideal:
+                        obj_db.ideal = estimated_ideal[obj_db.symbol]
+                    if obj_db.symbol in estimated_nadir:
+                        obj_db.nadir = estimated_nadir[obj_db.symbol]
+                    session.add(obj_db)
+            except Exception as e:
+                error_msg = str(e)
+
+            mod_state.is_ready = True
+            mod_state.error = error_msg
+            session.add(mod_state)
+            session.commit()
+    except Exception:
+        # Background tasks cannot surface errors to the caller; is_ready stays False.
+        pass
+
+
+@router.post("/modify-problem")
+def modify_problem(
+    request: CumulusModificationRequest,
+    background_tasks: BackgroundTasks,
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
+) -> CumulusModificationResponse:
+    """Apply modifications to the current problem, verify feasibility, and save as a new problem."""
+    db_session = context.db_session
+    user = context.user
+    problem_db = context.problem_db
+    interactive_session = context.interactive_session
+    parent_state = context.parent_state
+
+    problem = Problem.from_problemdb(problem_db)
+    mods = request.modifications
+
+    symbol_to_type = problem.get_symbol_type_map()
+
+    def _parse_variable(d: dict) -> Variable | TensorVariable:
+        if "shape" in d:
+            return TensorVariable.model_validate(d, by_name=True)
+        return Variable.model_validate(d, by_name=True)
+
+    def _parse_constant(d: dict) -> Constant | TensorConstant:
+        if "shape" in d:
+            return TensorConstant.model_validate(d, by_name=True)
+        return Constant.model_validate(d, by_name=True)
+
+    type_parsers = {
+        "variables": _parse_variable,
+        "constants": _parse_constant,
+        "objectives": lambda d: Objective.model_validate(d, by_name=True),
+        "constraints": lambda d: Constraint.model_validate(d, by_name=True),
+        "extra_funcs": lambda d: ExtraFunction.model_validate(d, by_name=True),
+        "scalarization_funcs": lambda d: ScalarizationFunction.model_validate(d, by_name=True),
+    }
+
+    parsed_mods: dict[str, list] = {k: [] for k in type_parsers}
+    mod_fields = [
+        ("variables", mods.variables),
+        ("constants", mods.constants),
+        ("objectives", mods.objectives),
+        ("constraints", mods.constraints),
+        ("extra_funcs", mods.extra_funcs),
+        ("scalarization_funcs", mods.scalarization_funcs),
+    ]
+
+    for field_name, raw_list in mod_fields:
+        if not raw_list:
+            continue
+        for raw in raw_list:
+            raw_dict = raw if isinstance(raw, dict) else raw.model_dump()
+            try:
+                element = type_parsers[field_name](raw_dict)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Failed to parse '{field_name}' element: {e}",
+                ) from e
+
+            sym = element.symbol
+            if sym in symbol_to_type and symbol_to_type[sym] != field_name:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=(
+                        f"Symbol '{sym}' already exists as type '{symbol_to_type[sym]}';"
+                        f" cannot modify it as '{field_name}'."
+                    ),
+                )
+            parsed_mods[field_name].append(element)
+
+    def _merge(existing: list, new_elements: list) -> list:
+        by_symbol = {e.symbol: e for e in existing}
+        for elem in new_elements:
+            by_symbol[elem.symbol] = elem
+        return list(by_symbol.values())
+
+    new_variables = _merge(problem.variables, parsed_mods["variables"])
+    new_objectives = _merge(problem.objectives, parsed_mods["objectives"])
+
+    merged_constants = _merge(problem.constants or [], parsed_mods["constants"])
+    new_constants = merged_constants or None
+
+    merged_constraints = _merge(problem.constraints or [], parsed_mods["constraints"])
+    new_constraints = merged_constraints or None
+
+    merged_extra = _merge(problem.extra_funcs or [], parsed_mods["extra_funcs"])
+    new_extra_funcs = merged_extra or None
+
+    # Scalarization functions may have None symbols; only named ones are merged by symbol
+    existing_named_scal = {s.symbol: s for s in (problem.scalarization_funcs or []) if s.symbol is not None}
+    existing_unnamed_scal = [s for s in (problem.scalarization_funcs or []) if s.symbol is None]
+    for s in parsed_mods["scalarization_funcs"]:
+        if s.symbol is not None:
+            existing_named_scal[s.symbol] = s
+        else:
+            existing_unnamed_scal.append(s)
+    merged_scal = list(existing_named_scal.values()) + existing_unnamed_scal
+    new_scal_funcs = merged_scal or None
+
+    try:
+        modified_problem = problem.model_copy(
+            update={
+                "variables": new_variables,
+                "constants": new_constants,
+                "objectives": new_objectives,
+                "constraints": new_constraints,
+                "extra_funcs": new_extra_funcs,
+                "scalarization_funcs": new_scal_funcs,
+            }
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
+
+    # Apply soft constraints
+    for soft_spec in mods.soft_constraints or []:
+        constraint = next(
+            (c for c in (modified_problem.constraints or []) if c.symbol == soft_spec.constraint_symbol),
+            None,
+        )
+        if constraint is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Constraint '{soft_spec.constraint_symbol}' not found in the problem.",
+            )
+        try:
+            modified_problem, _ = add_soft_constraint(
+                modified_problem,
+                constraint,
+                symbol=soft_spec.violation_symbol,
+                lte_violation_symbol=soft_spec.lte_violation_symbol,
+                gte_violation_symbol=soft_spec.gte_violation_symbol,
+            )
+        except ProblemUtilsError as e:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
+
+    # Apply uncertainty measures (all must share the same scenario_model_id)
+    if mods.uncertainty_measures:
+        sm_ids = {spec.scenario_model_id for spec in mods.uncertainty_measures}
+        if len(sm_ids) > 1:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="All uncertainty measures in a single request must reference the same scenario_model_id.",
+            )
+        sm_id = next(iter(sm_ids))
+        scenario_model_db = db_session.get(ScenarioModelDB, sm_id)
+        if scenario_model_db is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ScenarioModelDB with id={sm_id} not found.",
+            )
+        scenario_model = scenario_model_db.to_scenario_model(base_problem=modified_problem)
+        combined, symbol_maps = build_combined_scenario_problem(scenario_model)
+        for spec in mods.uncertainty_measures:
+            try:
+                if spec.measure_type == "expected_value":
+                    combined, _ = add_expected_value(
+                        scenario_model,
+                        spec.symbols,
+                        prefix=spec.prefix or "E_",
+                        combined=combined,
+                        symbol_maps=symbol_maps,
+                    )
+                elif spec.measure_type == "worst_case_robust":
+                    combined, _ = add_worst_case_robust(
+                        scenario_model,
+                        spec.symbols,
+                        prefix=spec.prefix or "robust_",
+                        combined=combined,
+                        symbol_maps=symbol_maps,
+                    )
+                elif spec.measure_type == "conditional_value_at_risk":
+                    if spec.alpha is None:
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail="'alpha' is required for 'conditional_value_at_risk'.",
+                        )
+                    combined, _ = add_conditional_value_at_risk(
+                        scenario_model,
+                        spec.symbols,
+                        alpha=spec.alpha,
+                        cvar_prefix=spec.prefix or "CVAR_",
+                        combined=combined,
+                        symbol_maps=symbol_maps,
+                    )
+                elif spec.measure_type == "weighted_scenarios":
+                    if spec.leaf_weights is None:
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail="'leaf_weights' is required for 'weighted_scenarios'.",
+                        )
+                    combined, _ = add_weighted_scenarios(
+                        scenario_model,
+                        spec.symbols,
+                        weights=spec.leaf_weights,
+                        prefix=spec.prefix or "weighted_",
+                        combined=combined,
+                        symbol_maps=symbol_maps,
+                    )
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Failed to apply uncertainty measure '{spec.measure_type}': {e}",
+                ) from e
+        modified_problem = combined
+
+    # Save the modified problem immediately (ideal/nadir will be updated by the background task)
+    new_problem_db = ProblemDB.from_problem(modified_problem, user=user)
+    new_problem_db.parent_problem_id = problem_db.id
+    db_session.add(new_problem_db)
+    db_session.commit()
+    db_session.refresh(new_problem_db)
+
+    original_problem_id = request.original_problem_id if request.original_problem_id is not None else problem_db.id
+
+    modification_state = CumulusModificationState(
+        problem_id=new_problem_db.id,
+        original_problem_id=original_problem_id,
+        is_ready=False,
+    )
+
+    state = StateDB.create(
+        database_session=db_session,
+        problem_id=new_problem_db.id,
+        session_id=interactive_session.id if interactive_session is not None else None,
+        parent_id=parent_state.id if parent_state is not None else None,
+        state=modification_state,
+    )
+
+    db_session.add(state)
+    db_session.commit()
+    db_session.refresh(state)
+
+    solver_class = check_solver(problem_db=problem_db)
+
+    background_tasks.add_task(
+        _run_payoff_table_background,
+        new_problem_db.id,
+        state.base_state.id,
+        solver_class,
+    )
+
+    return CumulusModificationResponse(
+        state_id=state.id,
+        problem_id=new_problem_db.id,
+        original_problem_id=original_problem_id,
+        is_ready=False,
+    )
+
+
+@router.get("/modify-problem/status/{state_id}")
+def modify_problem_status(
+    state_id: int,
+    user: Annotated[User, Depends(get_current_user)],
+    db_session: Annotated[Session, Depends(get_session)],
+) -> CumulusModificationResponse:
+    """Poll the status of a pending modify-problem operation."""
+    state = db_session.exec(select(StateDB).where(StateDB.id == state_id)).first()
+    if state is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"State {state_id} not found.")
+
+    mod_state = state.state
+    if not isinstance(mod_state, CumulusModificationState):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"State {state_id} is not a Cumulus modification state.",
+        )
+
+    return CumulusModificationResponse(
+        state_id=state_id,
+        problem_id=mod_state.problem_id,
+        original_problem_id=mod_state.original_problem_id,
+        is_ready=mod_state.is_ready,
+        error=mod_state.error,
+    )

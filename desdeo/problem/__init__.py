@@ -32,6 +32,7 @@ __all__ = [
     "VariableDomainTypeEnum",
     "VariableType",
     "VariableTypeEnum",
+    "add_soft_constraint",
     "flatten_variable_dict",
     "get_ideal_dict",
     "get_nadir_dict",
@@ -78,6 +79,7 @@ from .schema import (
 from .simulator_evaluator import SimulatorEvaluator
 from .sympy_evaluator import SympyEvaluator
 from .utils import (
+    add_soft_constraint,
     flatten_variable_dict,
     get_ideal_dict,
     get_nadir_dict,

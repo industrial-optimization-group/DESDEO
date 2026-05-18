@@ -259,6 +259,7 @@ class CumulusClassificationState(ResultInterface, SQLModel, table=True):
     solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     current_objectives: dict[str, float] = Field(sa_column=Column(JSON), default_factory=dict)
     scalarizations: list[str] = Field(sa_column=Column(JSON), default_factory=list)
+    original_problem_id: int | None = Field(default=None)
 
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
@@ -277,6 +278,106 @@ class CumulusClassificationState(ResultInterface, SQLModel, table=True):
     def num_solutions(self) -> int:
         """Number of solutions in the result."""
         return len(self.solver_results)
+
+
+class CumulusInitializationState(ResultInterface, SQLModel, table=True):
+    """CUMULUS: initialization."""
+
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
+
+    reference_point: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
+    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    solver: str | None = None
+    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    original_problem_id: int | None = Field(default=None)
+
+    solver_results: "SolverResults" = Field(sa_column=Column(ResultsType), default_factory=list)
+
+    @property
+    def result_objective_values(self) -> list[dict[str, float]]:
+        """Objective values stored in the state."""
+        return [self.solver_results.optimal_objectives]
+
+    @property
+    def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        """Variable values stored in the state."""
+        return [self.solver_results.optimal_variables]
+
+    @property
+    def num_solutions(self) -> int:
+        """Number of solutions stored in the state."""
+        return 1
+
+
+class CumulusFinalState(ResultInterface, SQLModel, table=True):
+    """CUMULUS: The Final State."""
+
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
+
+    solution_origin_state_id: int = Field(description="The state from which the solution originates.")
+    solution_result_index: int = Field(description="The index within that state.")
+    original_problem_id: int | None = Field(default=None)
+
+    solver_results: "SolverResults" = Field(sa_column=Column(ResultsType), default_factory=list)
+
+    @property
+    def result_objective_values(self) -> list[dict[str, float]]:
+        """Objective values stored in the state."""
+        return [self.solver_results.optimal_objectives]
+
+    @property
+    def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        """Variable values stored in the state."""
+        return [self.solver_results.optimal_variables]
+
+    @property
+    def num_solutions(self) -> int:
+        """Number of solutions stored in the state."""
+        return 1
+
+
+class CumulusSaveState(ResultInterface, SQLModel, table=True):
+    """CUMULUS: save solutions."""
+
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
+
+    original_problem_id: int | None = Field(default=None)
+
+    solutions: list["UserSavedSolutionDB"] = Relationship(
+        sa_relationship_kwargs={
+            "foreign_keys": "[UserSavedSolutionDB.save_state_id]",
+            "primaryjoin": "CumulusSaveState.id == UserSavedSolutionDB.save_state_id",
+            "cascade": "all, delete-orphan",
+            "lazy": "selectin",
+            "overlaps": "solutions",
+        }
+    )
+
+    @property
+    def result_objective_values(self) -> list[dict[str, float]]:
+        """Objective values of the saved solutions."""
+        return [x.objective_values for x in self.solutions]
+
+    @property
+    def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        """Variable values of the saved solutions."""
+        return [x.variable_values for x in self.solutions]
+
+    @property
+    def num_solutions(self) -> int:
+        """Number of solutions in the result."""
+        return len(self.solutions)
+
+
+class CumulusModificationState(SQLModel, table=True):
+    """CUMULUS: problem modification — records the new problem created after a modification step."""
+
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
+
+    problem_id: int = Field(description="ID of the newly created modified problem.")
+    original_problem_id: int | None = Field(default=None)
+    is_ready: bool = Field(default=False, description="True once the background feasibility check has completed.")
+    error: str | None = Field(default=None, description="Error message if the feasibility check failed.")
 
 
 class GNIMBUSOptimizationState(ResultInterface, SQLModel, table=True):
