@@ -22,12 +22,55 @@ _parser = InfixExpressionParser()
 
 
 def find_base_elem(problem: "Problem", sym: str):
-    """Return the first element with the given symbol across objectives, extra_funcs, scalarization_funcs, and constraints."""
+    """Return the first matching element from objectives, extra_funcs, scalarization_funcs, or constraints."""
     for elems in [problem.objectives, problem.extra_funcs, problem.scalarization_funcs, problem.constraints]:
         elem = next((e for e in (elems or []) if e.symbol == sym), None)
         if elem is not None:
             return elem
     return None
+
+
+def _longest_common_name(names: "list[str]", fallback: str) -> str:
+    """Return the longest common substring across all names, stripped of edge separators.
+
+    Falls back to *fallback* when the list is empty or no non-empty common substring exists.
+    """
+    if not names:
+        return fallback
+    shortest = min(names, key=len)
+    for length in range(len(shortest), 0, -1):
+        for start in range(len(shortest) - length + 1):
+            candidate = shortest[start : start + length]
+            if all(candidate in name for name in names):
+                stripped = candidate.strip("_- .")
+                if stripped:
+                    return stripped
+    return fallback
+
+
+def _pool_names_for(
+    scenario_model: "ScenarioModel",
+    found_type: str,
+    sym: str,
+    per_leaf: "dict[str, str]",
+) -> "list[str]":
+    """Collect distinct pool-element names for *sym* across the leaves in *per_leaf*."""
+    pool: tuple = getattr(scenario_model, found_type, ())
+    seen: set[int] = set()
+    names: list[str] = []
+    for leaf_name in per_leaf:
+        scenario = scenario_model.scenarios.get(leaf_name)
+        if scenario is None:
+            continue
+        elem_map: dict[str, int] = getattr(scenario, found_type, {})
+        if sym in elem_map:
+            idx = elem_map[sym]
+            if idx not in seen and idx < len(pool):
+                seen.add(idx)
+                name = getattr(pool[idx], "name", None)
+                if name:
+                    names.append(name)
+    return names
 
 
 class _ElemResolution(NamedTuple):
@@ -90,7 +133,9 @@ def resolve_elem(
         is_convex=getattr(ref_elem, "is_convex", False),
         is_twice_diff=getattr(ref_elem, "is_twice_differentiable", False),
         maximize=getattr(ref_elem, "maximize", False),
-        elem_name=base_elem.name if base_elem is not None else sym,
+        elem_name=base_elem.name
+        if base_elem is not None
+        else _longest_common_name(_pool_names_for(scenario_model, found_type, sym, per_leaf), sym),
         elem_desc=getattr(base_elem, "description", None) if base_elem is not None else None,
     )
 
@@ -503,9 +548,13 @@ def build_combined_scenario_problem(
 
     def _name_update(elem, new_func, leaf):
         new_sym = elem.symbol if leaf is None else f"{leaf}_{elem.symbol}"
-        if leaf is None:
-            return {"symbol": new_sym, "func": new_func}
-        return {"symbol": new_sym, "name": f"{elem.name} ({leaf})", "func": new_func}
+        update = {"symbol": new_sym, "func": new_func}
+        if leaf is not None:
+            update["name"] = f"{elem.name} ({leaf})"
+        if isinstance(elem, Objective):
+            update["ideal"] = None
+            update["nadir"] = None
+        return update
 
     def _combine(get_list, extra_maps=None):
         return _combine_elements(

@@ -332,15 +332,24 @@ export async function get_solution_description(
 
 /**
  * Initializes a new CUMULUS state for a given problem, or retrieves the latest one.
+ *
+ * Pass `skip_scenarios = true` to bypass scenario detection and force plain initialization
+ * (used when the DM declines to build a combined scenario problem).
  */
-export async function initialize_cumulus_state(problem_id: number): Promise<Response | null> {
+export async function initialize_cumulus_state(
+	problem_id: number,
+	skip_scenarios = false
+): Promise<Response | null> {
 	isLoading.set(true);
 	errorMessage.set(null);
 
 	try {
-		const request: CumulusInitializationRequest = {
-			problem_id: problem_id
-		};
+		// uncertainty_measures will appear in the generated client after `npm run generate:client`.
+		const request = {
+			problem_id: problem_id,
+			// An empty array signals "skip scenario detection"; null triggers it.
+			uncertainty_measures: skip_scenarios ? [] : null
+		} as CumulusInitializationRequest;
 
 		const response = await getOrInitializeMethodCumulusGetOrInitializePost(request);
 
@@ -354,6 +363,57 @@ export async function initialize_cumulus_state(problem_id: number): Promise<Resp
 		const msg = error instanceof Error ? error.message : 'Unknown error';
 		errorMessage.set(msg);
 		console.error('Error in initialize_cumulus_state:', msg);
+		return null;
+	} finally {
+		isLoading.set(false);
+	}
+}
+
+export type MeasureType = 'expected_value' | 'worst_case_robust' | 'conditional_value_at_risk' | 'weighted_scenarios';
+
+export interface MeasureOptions {
+	cvar_alpha?: number;
+}
+
+/**
+ * Re-calls get-or-initialize with the DM-chosen uncertainty measures applied,
+ * building a combined multi-scenario problem before starting the method.
+ */
+export async function initialize_cumulus_state_with_scenarios(
+	problem_id: number,
+	scenario_model_id: number,
+	objective_symbols: string[],
+	selected_measures: MeasureType[],
+	measure_options: MeasureOptions = {},
+	name?: string
+): Promise<Response | null> {
+	isLoading.set(true);
+	errorMessage.set(null);
+
+	try {
+		const request = {
+			problem_id: problem_id,
+			name: name || null,
+			uncertainty_measures: selected_measures.map((measure_type) => ({
+				measure_type,
+				scenario_model_id,
+				symbols: objective_symbols,
+				...(measure_type === 'conditional_value_at_risk' && { alpha: measure_options.cvar_alpha ?? 0.95 })
+			}))
+		} as CumulusInitializationRequest;
+
+		const response = await getOrInitializeMethodCumulusGetOrInitializePost(request);
+
+		if (response.status !== 200) {
+			errorMessage.set(`Scenario initialization failed with status ${response.status}`);
+			return null;
+		}
+
+		return response.data as unknown as Response;
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : 'Unknown error';
+		errorMessage.set(msg);
+		console.error('Error in initialize_cumulus_state_with_scenarios:', msg);
 		return null;
 	} finally {
 		isLoading.set(false);

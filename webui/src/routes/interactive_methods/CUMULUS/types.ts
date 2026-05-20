@@ -12,17 +12,20 @@ export type Response = BaseMethodResponse & {
 		| 'cumulus.classification'
 		| 'cumulus.initialization'
 		| 'cumulus.intermediate'
-		| 'cumulus.finalize';
+		| 'cumulus.finalize'
+		| 'cumulus.scenario_setup';
 	previous_preference?: ReferencePoint;
 	previous_objectives?: ObjectiveValues;
 	reference_solution_1?: ObjectiveValues;
 	reference_solution_2?: ObjectiveValues;
-} & {
-	response_type: 'cumulus.finalize';
-	state_id: number | null;
-	final_solution: Solution;
-	saved_solutions: Solution[];
-	all_solutions: Solution[];
+	// initialization: actual problem used (may differ when a combined scenario problem was built)
+	problem_id?: number;
+	// scenario_setup fields
+	scenario_model_id?: number;
+	objective_symbols?: string[];
+	// finalize fields
+	state_id?: number | null;
+	final_solution?: Solution;
 };
 
 export type { ReferencePoint };

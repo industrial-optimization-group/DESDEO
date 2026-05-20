@@ -104,6 +104,19 @@
 	let show_objectives_dialog = $state(false);
 	let show_scalarizations_dialog = $state(false);
 
+	// Scenario setup dialog state
+	let show_scenario_setup_dialog = $state(false);
+	let pending_scenario_model_id = $state(0);
+	let pending_objective_symbols: string[] = $state([]);
+	const AVAILABLE_MEASURES: { value: MeasureType; label: string }[] = [
+		{ value: 'expected_value', label: 'Expected value (E_)' },
+		{ value: 'worst_case_robust', label: 'Worst-case robust (robust_)' },
+		{ value: 'conditional_value_at_risk', label: 'Conditional Value at Risk (CVaR, α = 95%)' },
+	];
+	let selected_measures: MeasureType[] = $state(['expected_value']);
+	let cvar_alpha = $state(0.95);
+	let combined_problem_name = $state('');
+
 	$effect(() => {
 		if (problem && active_objective_symbols.size === 0) {
 			active_objective_symbols = new Set(problem.objectives.map((o) => o.symbol));
@@ -188,6 +201,32 @@
 		}
 	}
 
+	async function confirm_scenario_setup() {
+		show_scenario_setup_dialog = false;
+		if (selected_measures.length === 0) {
+			// No measures chosen — treat as "use plain problem"
+			const plainResult = await initializeCumulusStateRequest(problem?.id!, true);
+			if (plainResult) await apply_initialization_result(plainResult);
+			return;
+		}
+		const measure_options: MeasureOptions = { cvar_alpha };
+		const scenarioResult = await initializeCumulusStateWithScenariosRequest(
+			problem?.id!,
+			pending_scenario_model_id,
+			pending_objective_symbols,
+			selected_measures,
+			measure_options,
+			combined_problem_name.trim() || undefined
+		);
+		if (scenarioResult) await apply_initialization_result(scenarioResult);
+	}
+
+	async function cancel_scenario_setup() {
+		show_scenario_setup_dialog = false;
+		const plainResult = await initializeCumulusStateRequest(problem?.id!, true);
+		if (plainResult) await apply_initialization_result(plainResult);
+	}
+
 	function confirm_finish() {
 		const selectedSolution = chosen_solutions[selectedIndexes[0]];
 		const final_solution = { ...selectedSolution };
@@ -223,8 +262,12 @@
 		handle_finish as handleFinishRequest,
 		get_maps as getMapsRequest,
 		get_solution_description as getSolutionDescriptionRequest,
-		initialize_cumulus_state as initializeCumulusStateRequest
+		initialize_cumulus_state as initializeCumulusStateRequest,
+		initialize_cumulus_state_with_scenarios as initializeCumulusStateWithScenariosRequest,
+		type MeasureType,
+		type MeasureOptions
 	} from './handlers';
+	import { getProblemProblemProblemIdGet } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import EndStateView from '../GNIMBUS/components/EndStateView.svelte';
 
 	async function handle_intermediate() {
@@ -491,31 +534,57 @@
 
 	async function initialize_cumulus_state(problem_id: number) {
 		const result = await initializeCumulusStateRequest(problem_id);
-		if (result) {
-			let current_solutions = result.current_solutions || [];
-			if (result.final_solution) {
-				current_solutions = [result.final_solution];
-			}
-			current_state = {
-				...result,
-				current_solutions: current_solutions
-			};
-			current_state.current_solutions = updateSolutionNames(
-				current_state.saved_solutions,
-				current_state.current_solutions
-			);
-			current_state.all_solutions = updateSolutionNames(
-				current_state.saved_solutions,
-				current_state.all_solutions
-			);
+		if (!result) return;
 
-			selected_iteration_index = [0];
-			update_iteration_selection(current_state);
-			update_preferences_from_state(current_state);
-			current_num_iteration_solutions = current_state.current_solutions.length;
-			if (current_state.response_type === 'cumulus.finalize') {
-				mode = 'final';
+		if (result.response_type === 'cumulus.scenario_setup') {
+			pending_scenario_model_id = result.scenario_model_id!;
+			pending_objective_symbols = result.objective_symbols!;
+			selected_measures = ['expected_value', 'worst_case_robust'];
+			cvar_alpha = 0.95;
+			combined_problem_name = problem ? `${problem.name} (combined)` : '';
+			show_scenario_setup_dialog = true;
+			return;
+		}
+
+		apply_initialization_result(result);
+	}
+
+	async function apply_initialization_result(result: Response) {
+		// If the backend built a combined scenario problem, switch to it so all subsequent
+		// requests (solve, save, finalize…) target the right problem and its objectives.
+		if (result.problem_id && problem && result.problem_id !== problem.id) {
+			const resp = await getProblemProblemProblemIdGet(result.problem_id);
+			if (resp.status === 200 && resp.data) {
+				problem = resp.data as typeof problem;
+				hasUtopiaMetadata = checkUtopiaMetadata(problem);
+				hasSolutionDescription = !hasUtopiaMetadata && checkSolutionDescription(problem);
+				active_objective_symbols = new Set(problem.objectives.map((o) => o.symbol));
 			}
+		}
+
+		let current_solutions = result.current_solutions || [];
+		if (result.final_solution) {
+			current_solutions = [result.final_solution];
+		}
+		current_state = {
+			...result,
+			current_solutions: current_solutions
+		};
+		current_state.current_solutions = updateSolutionNames(
+			current_state.saved_solutions,
+			current_state.current_solutions
+		);
+		current_state.all_solutions = updateSolutionNames(
+			current_state.saved_solutions,
+			current_state.all_solutions
+		);
+
+		selected_iteration_index = [0];
+		update_iteration_selection(current_state);
+		update_preferences_from_state(current_state);
+		current_num_iteration_solutions = current_state.current_solutions.length;
+		if (current_state.response_type === 'cumulus.finalize') {
+			mode = 'final';
 		}
 	}
 
@@ -816,6 +885,67 @@
 		</Dialog.Portal>
 	</Dialog.Root>
 {/if}
+
+<!-- Scenario setup dialog -->
+<Dialog.Root bind:open={show_scenario_setup_dialog}>
+	<Dialog.Portal>
+		<Dialog.Overlay />
+		<Dialog.Content class="max-w-sm">
+			<Dialog.Header>
+				<Dialog.Title>Scenario-based Problem Detected</Dialog.Title>
+				<Dialog.Description>
+					This problem has associated scenarios. Select which uncertainty measures to include in the
+					combined problem. At least one measure is recommended.
+				</Dialog.Description>
+			</Dialog.Header>
+			<div class="space-y-3 py-4">
+				<div class="flex flex-col gap-1">
+					<label for="combined-problem-name" class="text-sm font-medium">Problem name</label>
+					<input
+						id="combined-problem-name"
+						type="text"
+						bind:value={combined_problem_name}
+						class="rounded border px-2 py-1 text-sm"
+					/>
+				</div>
+				{#each AVAILABLE_MEASURES as measure}
+					{@const isChecked = selected_measures.includes(measure.value)}
+					{@const checkboxId = `measure-checkbox-${measure.value}`}
+					<div class="flex items-center gap-3">
+						<Checkbox
+							id={checkboxId}
+							checked={isChecked}
+							onCheckedChange={(checked) => {
+								selected_measures = checked
+									? [...selected_measures, measure.value]
+									: selected_measures.filter((m) => m !== measure.value);
+							}}
+						/>
+						<label for={checkboxId} class="cursor-pointer text-sm">{measure.label}</label>
+					</div>
+				{/each}
+				{#if selected_measures.includes('conditional_value_at_risk')}
+					<div class="flex items-center gap-3 pl-7">
+						<label for="cvar-alpha-input" class="text-sm text-muted-foreground">CVaR confidence level (α)</label>
+						<input
+							id="cvar-alpha-input"
+							type="number"
+							min="0.01"
+							max="0.99"
+							step="0.01"
+							bind:value={cvar_alpha}
+							class="w-20 rounded border px-2 py-1 text-sm"
+						/>
+					</div>
+				{/if}
+			</div>
+			<Dialog.Footer>
+				<Button variant="outline" onclick={cancel_scenario_setup}>Use problem as-is</Button>
+				<Button variant="default" onclick={confirm_scenario_setup}>Build combined problem</Button>
+			</Dialog.Footer>
+		</Dialog.Content>
+	</Dialog.Portal>
+</Dialog.Root>
 
 <!-- Scalarization dialog -->
 <Dialog.Root bind:open={show_scalarizations_dialog}>

@@ -40,10 +40,12 @@ class CumulusInitializationRequest(SQLModel):
     session_id: int | None = Field(default=None)
     parent_state_id: int | None = Field(default=None)
 
+    name: str | None = Field(default=None, description="Optional name for the combined scenario problem.")
     starting_point: ReferencePoint | SolutionInfo | None = Field(sa_column=Column(JSON), default=None)
     scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     solver: str | None = Field(default=None)
     solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    uncertainty_measures: list["UncertaintyMeasureSpec"] | None = Field(sa_column=Column(JSON), default=None)
 
 
 class CumulusSaveRequest(SQLModel):
@@ -104,6 +106,13 @@ class CumulusInitializationResponse(SQLModel):
     response_type: Literal["cumulus.initialization"] = "cumulus.initialization"
 
     state_id: int | None = Field(description="The newly created state id.")
+    problem_id: int | None = Field(
+        default=None,
+        description=(
+            "The problem ID actually used for initialization. "
+            "Differs from the requested problem_id when a combined scenario problem was built on the fly."
+        ),
+    )
     current_solutions: list[SolutionReferenceResponse] = Field(description="The starting solution.")
     saved_solutions: list[SolutionReferenceResponse] = Field(
         description="Candidate solutions saved by the decision maker."
@@ -225,6 +234,10 @@ class ProblemModification(BaseModel):
     constraints: list[Any] | None = None
     extra_funcs: list[Any] | None = None
     scalarization_funcs: list[Any] | None = None
+    remove: list[str] | None = Field(
+        default=None,
+        description="Symbols of elements to remove from the problem. The element type is inferred automatically.",
+    )
     soft_constraints: list[SoftConstraintSpec] | None = None
     uncertainty_measures: list[UncertaintyMeasureSpec] | None = None
 
@@ -236,6 +249,7 @@ class CumulusModificationRequest(SQLModel):
     original_problem_id: int | None = Field(default=None)
     session_id: int | None = Field(default=None)
     parent_state_id: int | None = Field(default=None)
+    name: str | None = Field(default=None, description="Optional name for the newly created modified problem.")
 
     modifications: ProblemModification = Field(sa_column=Column(JSON))
 
@@ -250,6 +264,19 @@ class CumulusModificationResponse(SQLModel):
     original_problem_id: int | None = Field(description="The ID of the original problem.")
     is_ready: bool = Field(
         default=False,
-        description="False immediately after the endpoint returns; True once the background feasibility check completes.",
+        description="False immediately after the endpoint returns; "
+        "True once the background feasibility check completes.",
     )
     error: str | None = Field(default=None, description="Set if the background feasibility check failed.")
+
+
+class CumulusScenarioSetupResponse(SQLModel):
+    """Response when the problem has scenarios but no uncertainty measures have been chosen yet.
+
+    The frontend should present this to the decision maker and let them choose which
+    uncertainty aggregates to include, then re-call get-or-initialize with the chosen measures.
+    """
+
+    response_type: Literal["cumulus.scenario_setup"] = "cumulus.scenario_setup"
+    scenario_model_id: int = Field(description="DB id of the ScenarioModelDB associated with this problem.")
+    objective_symbols: list[str] = Field(description="Symbols of the objectives available for aggregation.")

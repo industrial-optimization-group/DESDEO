@@ -19,10 +19,14 @@ from desdeo.api.config import ServerConfig, SettingsConfig
 from desdeo.api.db import engine
 from desdeo.api.models import ProblemDB, User, UserRole
 from desdeo.api.models.problem import DescriptionPart, ProblemMetaDataDB, SolutionDescriptionMetaData
+from desdeo.api.models.scenario import ScenarioModelDB
 from desdeo.api.routers.user_authentication import get_password_hash
 from desdeo.problem.schema import ExtraFunction, Objective
 from desdeo.problem.testproblems import dtlz2, river_pollution_problem, simple_knapsack
-from desdeo.problem.testproblems.summer_cabin_electricity import summer_cabin_battery_robust_ev_problem
+from desdeo.problem.testproblems.summer_cabin_electricity import (
+    summer_cabin_battery_problem_split_scenario,
+    summer_cabin_battery_robust_ev_problem,
+)
 
 
 def objective_to_extra_function(obj: Objective) -> ExtraFunction:
@@ -198,6 +202,50 @@ if __name__ == "__main__":
             session.add(desc_metadata)
             session.commit()
             print("Solution description metadata added for stripped problem.")
+
+            # Base summer cabin problem with its scenario model (for testing scenario detection in CUMULUS)
+            print("Building summer_cabin_battery_problem_split_scenario (this may take a moment)...")
+            scenario_model = summer_cabin_battery_problem_split_scenario()
+            base_problem = scenario_model.base_problem.model_copy(
+                update={
+                    "name": "Summer cabin energy management (with scenarios)",
+                    "description": (
+                        "Base summer cabin battery problem with an associated 4-leaf scenario model "
+                        "covering grid outages in segments 2 and/or 3. "
+                        "Use CUMULUS to optionally build a combined scenario problem with uncertainty measures."
+                    ),
+                }
+            )
+            cabin_scenario_base_db = ProblemDB.from_problem(base_problem, user_analyst)
+            session.add(cabin_scenario_base_db)
+            session.commit()
+            session.refresh(cabin_scenario_base_db)
+            print(f"Summer cabin base problem added (id={cabin_scenario_base_db.id}).")
+
+            scenario_model_db = ScenarioModelDB.from_scenario_model(
+                scenario_model, user=user_analyst, base_problem_id=cabin_scenario_base_db.id
+            )
+            session.add(scenario_model_db)
+            session.commit()
+            session.refresh(scenario_model_db)
+            print(
+                f"ScenarioModelDB added (id={scenario_model_db.id}) linked to problem id={cabin_scenario_base_db.id}."
+            )
+
+            metadata_scenario_db = ProblemMetaDataDB(
+                problem_id=cabin_scenario_base_db.id, problem=cabin_scenario_base_db
+            )
+            session.add(metadata_scenario_db)
+            session.commit()
+            session.refresh(metadata_scenario_db)
+
+            desc_metadata_scenario = SolutionDescriptionMetaData(
+                metadata_id=metadata_scenario_db.id,
+                parts=[p.model_dump() for p in DESCRIPTION_PARTS],
+                separator="\n",
+            )
+            session.add(desc_metadata_scenario)
+            session.commit()
 
         print("Done.")
 

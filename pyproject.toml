@@ -41,6 +41,7 @@ dependencies = [
     "moocore >= 0.1.7",
     "websockets>=15.0.1",
     "coco-experiment>=2.8.2",
+    "ruff>=0.15.13",
 ]
 
 [project.urls]

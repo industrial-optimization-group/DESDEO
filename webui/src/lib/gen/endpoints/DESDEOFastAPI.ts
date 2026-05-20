@@ -246,6 +246,7 @@ export type CumulusClassificationRequestCurrentObjectives = { [key: string]: num
  */
 export interface CumulusClassificationRequest {
 	problem_id: number;
+	original_problem_id?: number | null;
 	session_id?: number | null;
 	parent_state_id?: number | null;
 	scalarization_options?: CumulusClassificationRequestScalarizationOptions;
@@ -311,6 +312,8 @@ export interface CumulusDeleteSaveRequest {
 	solution_index: number;
 	/** The ID of the problem. */
 	problem_id: number;
+	/** The ID of the original problem. */
+	original_problem_id?: number | null;
 }
 
 /**
@@ -338,6 +341,7 @@ export interface SolutionInfo {
  */
 export interface CumulusFinalizeRequest {
 	problem_id: number;
+	original_problem_id?: number | null;
 	session_id?: number | null;
 	parent_state_id?: number | null;
 	solution_info: SolutionInfo;
@@ -367,16 +371,59 @@ export type CumulusInitializationRequestSolverOptions = {
 } | null;
 
 /**
+ * Which uncertainty aggregate to apply.
+ */
+export type UncertaintyMeasureSpecMeasureType =
+	(typeof UncertaintyMeasureSpecMeasureType)[keyof typeof UncertaintyMeasureSpecMeasureType];
+
+export const UncertaintyMeasureSpecMeasureType = {
+	expected_value: 'expected_value',
+	worst_case_robust: 'worst_case_robust',
+	conditional_value_at_risk: 'conditional_value_at_risk',
+	weighted_scenarios: 'weighted_scenarios'
+} as const;
+
+/**
+ * Leaf-name → weight mapping. Required for weighted_scenarios.
+ */
+export type UncertaintyMeasureSpecLeafWeights = { [key: string]: number } | null;
+
+/**
+ * Specification for adding a scenario-based uncertainty aggregate to the problem.
+
+All measures in a single request must reference the same ``scenario_model_id``.
+The resulting combined (multi-scenario) problem replaces the current problem.
+ */
+export interface UncertaintyMeasureSpec {
+	/** Which uncertainty aggregate to apply. */
+	measure_type: UncertaintyMeasureSpecMeasureType;
+	/** DB id of the ScenarioModelDB that defines the scenario structure. */
+	scenario_model_id: number;
+	/** Symbols of objectives or functions to aggregate. */
+	symbols: string[];
+	/** Prefix for the new aggregate symbols. Defaults vary by measure_type. */
+	prefix?: string | null;
+	/** Confidence level for CVaR, e.g. 0.95. Required for conditional_value_at_risk. */
+	alpha?: number | null;
+	/** Leaf-name → weight mapping. Required for weighted_scenarios. */
+	leaf_weights?: UncertaintyMeasureSpecLeafWeights;
+}
+
+/**
  * Request model for the CUMULUS initialization endpoint.
  */
 export interface CumulusInitializationRequest {
 	problem_id: number;
+	original_problem_id?: number | null;
 	session_id?: number | null;
 	parent_state_id?: number | null;
+	/** Optional name for the combined scenario problem. */
+	name?: string | null;
 	starting_point?: ReferencePoint | SolutionInfo | null;
 	scalarization_options?: CumulusInitializationRequestScalarizationOptions;
 	solver?: string | null;
 	solver_options?: CumulusInitializationRequestSolverOptions;
+	uncertainty_measures?: UncertaintyMeasureSpec[] | null;
 }
 
 /**
@@ -424,10 +471,80 @@ export interface CumulusIntermediateSolutionResponse {
 }
 
 /**
+ * Specification for converting a regular constraint into a soft penalty-based one.
+
+After standard element modifications are applied, any constraint listed here is passed
+to ``add_soft_constraint``, which introduces non-negative slack variables that absorb
+violations and accumulates them into a minimisation objective.
+ */
+export interface SoftConstraintSpec {
+	/** Symbol of the constraint to soften. Must exist in the problem after standard modifications. */
+	constraint_symbol: string;
+	/** Symbol for the aggregated constraint-violation objective. */
+	violation_symbol?: string;
+	/** Custom symbol for the LTE slack variable. */
+	lte_violation_symbol?: string | null;
+	/** Custom symbol for the GTE slack variable (EQ constraints only). */
+	gte_violation_symbol?: string | null;
+}
+
+/**
+ * Partial problem specification for modifying an existing problem.
+
+Each list entry is validated as the corresponding Problem element type.
+An element whose symbol matches an existing element of the same type replaces it.
+An element whose symbol matches an existing element of a *different* type is an error.
+Elements with a new symbol are added.
+ */
+export interface ProblemModification {
+	variables?: unknown[] | null;
+	constants?: unknown[] | null;
+	objectives?: unknown[] | null;
+	constraints?: unknown[] | null;
+	extra_funcs?: unknown[] | null;
+	scalarization_funcs?: unknown[] | null;
+	/** Symbols of elements to remove from the problem. The element type is inferred automatically. */
+	remove?: string[] | null;
+	soft_constraints?: SoftConstraintSpec[] | null;
+	uncertainty_measures?: UncertaintyMeasureSpec[] | null;
+}
+
+/**
+ * Request model for the CUMULUS modify-problem endpoint.
+ */
+export interface CumulusModificationRequest {
+	problem_id: number;
+	original_problem_id?: number | null;
+	session_id?: number | null;
+	parent_state_id?: number | null;
+	/** Optional name for the newly created modified problem. */
+	name?: string | null;
+	modifications: ProblemModification;
+}
+
+/**
+ * Response from the CUMULUS modify-problem endpoint.
+ */
+export interface CumulusModificationResponse {
+	response_type?: 'cumulus.modify';
+	/** The newly created modification state id. */
+	state_id: number;
+	/** The ID of the newly created modified problem. */
+	problem_id: number;
+	/** The ID of the original problem. */
+	original_problem_id: number | null;
+	/** False immediately after the endpoint returns; True once the background feasibility check completes. */
+	is_ready?: boolean;
+	/** Set if the background feasibility check failed. */
+	error?: string | null;
+}
+
+/**
  * Request model for saving CUMULUS solutions.
  */
 export interface CumulusSaveRequest {
 	problem_id: number;
+	original_problem_id?: number | null;
 	session_id?: number | null;
 	parent_state_id?: number | null;
 	solution_info: SolutionInfo[];
@@ -440,6 +557,20 @@ export interface CumulusSaveResponse {
 	response_type?: 'cumulus.save';
 	/** The id of the newest state. */
 	state_id: number | null;
+}
+
+/**
+ * Response when the problem has scenarios but no uncertainty measures have been chosen yet.
+
+The frontend should present this to the decision maker and let them choose which
+uncertainty aggregates to include, then re-call get-or-initialize with the chosen measures.
+ */
+export interface CumulusScenarioSetupResponse {
+	response_type?: 'cumulus.scenario_setup';
+	/** DB id of the ScenarioModelDB associated with this problem. */
+	scenario_model_id: number;
+	/** Symbols of the objectives available for aggregation. */
+	objective_symbols: string[];
 }
 
 /**
@@ -2192,6 +2323,15 @@ export interface Tokens {
 }
 
 /**
+ * Request to update the solution description metadata for a problem.
+ */
+export interface UpdateSolutionDescriptionMetaDataRequest {
+	problem_id: number;
+	parts: DescriptionPart[];
+	separator?: string;
+}
+
+/**
  * Possible user roles.
  */
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
@@ -2401,6 +2541,10 @@ export type DeleteSaveMethodCumulusDeleteSavePostParams = {
 	problem_id?: number | null;
 };
 
+export type ModifyProblemMethodCumulusModifyProblemPostParams = {
+	problem_id?: number | null;
+};
+
 export type SolveIntermediateMethodGenericIntermediatePostParams = {
 	problem_id?: number | null;
 };
@@ -2434,6 +2578,10 @@ export type NavigateNavigatorNautilusNavigatePostParams = {
 };
 
 export type GetSolutionDescriptionSolutionDescriptionGetPostParams = {
+	problem_id?: number | null;
+};
+
+export type UpdateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostParams = {
 	problem_id?: number | null;
 };
 
@@ -5176,10 +5324,19 @@ export const saveMethodCumulusSavePost = async (
 
 /**
  * Get the latest CUMULUS state if it exists, or initialize a new one if it doesn't.
+
+If the problem has associated scenarios and no uncertainty measures have been specified, a
+``CumulusScenarioSetupResponse`` is returned so the frontend can ask the decision maker which
+aggregates to include.  When the frontend re-calls with ``uncertainty_measures`` populated, a
+combined multi-scenario problem is built, saved to the database, and used for initialization.
  * @summary Get Or Initialize
  */
 export type getOrInitializeMethodCumulusGetOrInitializePostResponse200 = {
-	data: CumulusInitializationResponse | CumulusClassificationResponse | CumulusFinalizeResponse;
+	data:
+		| CumulusInitializationResponse
+		| CumulusClassificationResponse
+		| CumulusFinalizeResponse
+		| CumulusScenarioSetupResponse;
 	status: 200;
 };
 
@@ -5414,6 +5571,113 @@ export const deleteSaveMethodCumulusDeleteSavePost = async (
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
 			body: JSON.stringify(cumulusDeleteSaveRequest)
+		}
+	);
+};
+
+/**
+ * Apply modifications to the current problem, verify feasibility, and save as a new problem.
+ * @summary Modify Problem
+ */
+export type modifyProblemMethodCumulusModifyProblemPostResponse200 = {
+	data: CumulusModificationResponse;
+	status: 200;
+};
+
+export type modifyProblemMethodCumulusModifyProblemPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type modifyProblemMethodCumulusModifyProblemPostResponseSuccess =
+	modifyProblemMethodCumulusModifyProblemPostResponse200 & {
+		headers: Headers;
+	};
+export type modifyProblemMethodCumulusModifyProblemPostResponseError =
+	modifyProblemMethodCumulusModifyProblemPostResponse422 & {
+		headers: Headers;
+	};
+
+export type modifyProblemMethodCumulusModifyProblemPostResponse =
+	| modifyProblemMethodCumulusModifyProblemPostResponseSuccess
+	| modifyProblemMethodCumulusModifyProblemPostResponseError;
+
+export const getModifyProblemMethodCumulusModifyProblemPostUrl = (
+	params?: ModifyProblemMethodCumulusModifyProblemPostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/cumulus/modify-problem?${stringifiedParams}`
+		: `http://localhost:8000/method/cumulus/modify-problem`;
+};
+
+export const modifyProblemMethodCumulusModifyProblemPost = async (
+	cumulusModificationRequest: CumulusModificationRequest,
+	params?: ModifyProblemMethodCumulusModifyProblemPostParams,
+	options?: RequestInit
+): Promise<modifyProblemMethodCumulusModifyProblemPostResponse> => {
+	return customFetch<modifyProblemMethodCumulusModifyProblemPostResponse>(
+		getModifyProblemMethodCumulusModifyProblemPostUrl(params),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(cumulusModificationRequest)
+		}
+	);
+};
+
+/**
+ * Poll the status of a pending modify-problem operation.
+ * @summary Modify Problem Status
+ */
+export type modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetResponse200 = {
+	data: CumulusModificationResponse;
+	status: 200;
+};
+
+export type modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetResponseSuccess =
+	modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetResponse200 & {
+		headers: Headers;
+	};
+export type modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetResponseError =
+	modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetResponse422 & {
+		headers: Headers;
+	};
+
+export type modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetResponse =
+	| modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetResponseSuccess
+	| modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetResponseError;
+
+export const getModifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetUrl = (
+	stateId: number
+) => {
+	return `http://localhost:8000/method/cumulus/modify-problem/status/${stateId}`;
+};
+
+export const modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGet = async (
+	stateId: number,
+	options?: RequestInit
+): Promise<modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetResponse> => {
+	return customFetch<modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetResponse>(
+		getModifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetUrl(stateId),
+		{
+			...options,
+			method: 'GET'
 		}
 	);
 };
@@ -7234,6 +7498,78 @@ export const getSolutionDescriptionSolutionDescriptionGetPost = async (
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
 			body: JSON.stringify(solutionDescriptionRequest)
+		}
+	);
+};
+
+/**
+ * Add a new solution description metadata instance for a problem.
+
+Validates that all expressions in the parts are parseable, then appends the
+new metadata to the database. The most recent entry is used when generating
+descriptions, so this effectively updates what description is produced.
+
+Args:
+    request: the problem id and new description metadata.
+    context: current session context.
+
+Returns:
+    The newly created SolutionDescriptionMetaData instance.
+ * @summary Update Solution Description Metadata
+ */
+export type updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostResponse200 = {
+	data: SolutionDescriptionMetaData;
+	status: 200;
+};
+
+export type updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostResponseSuccess =
+	updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostResponse200 & {
+		headers: Headers;
+	};
+export type updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostResponseError =
+	updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostResponse422 & {
+		headers: Headers;
+	};
+
+export type updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostResponse =
+	| updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostResponseSuccess
+	| updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostResponseError;
+
+export const getUpdateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostUrl = (
+	params?: UpdateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/solution-description/update_metadata?${stringifiedParams}`
+		: `http://localhost:8000/solution-description/update_metadata`;
+};
+
+export const updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPost = async (
+	updateSolutionDescriptionMetaDataRequest: UpdateSolutionDescriptionMetaDataRequest,
+	params?: UpdateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostParams,
+	options?: RequestInit
+): Promise<updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostResponse> => {
+	return customFetch<updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostResponse>(
+		getUpdateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostUrl(params),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(updateSolutionDescriptionMetaDataRequest)
 		}
 	);
 };

@@ -3,7 +3,7 @@
 from typing import Annotated
 
 import sympy as sp
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import SQLModel, select
 
 from desdeo.api.models import (
@@ -26,6 +26,14 @@ class SolutionDescriptionRequest(SQLModel):
 
     problem_id: int
     solution: SolutionInfo
+
+
+class UpdateSolutionDescriptionMetaDataRequest(SQLModel):
+    """Request to update the solution description metadata for a problem."""
+
+    problem_id: int
+    parts: list[DescriptionPart]
+    separator: str = "\n"
 
 
 class SolutionDescriptionResponse(SQLModel):
@@ -158,3 +166,56 @@ def get_solution_description(
     description = desc_metadata.separator.join(parts_text)
 
     return SolutionDescriptionResponse(available=True, description=description)
+
+
+@router.post("/update_metadata")
+def update_solution_description_metadata(
+    request: UpdateSolutionDescriptionMetaDataRequest,
+    context: Annotated[SessionContext, Depends(SessionContextGuard().post)],
+) -> SolutionDescriptionMetaData:
+    """Add a new solution description metadata instance for a problem.
+
+    Validates that all expressions in the parts are parseable, then appends the
+    new metadata to the database. The most recent entry is used when generating
+    descriptions, so this effectively updates what description is produced.
+
+    Args:
+        request: the problem id and new description metadata.
+        context: current session context.
+
+    Returns:
+        The newly created SolutionDescriptionMetaData instance.
+    """
+    parser = MathParser(to_format="sympy")
+    for part in request.parts:
+        if part.expression is not None:
+            try:
+                parser.parse(part.expression)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Invalid expression in description part: {e}",
+                ) from e
+
+    session = context.db_session
+
+    problem_metadata = session.exec(
+        select(ProblemMetaDataDB).where(ProblemMetaDataDB.problem_id == request.problem_id)
+    ).first()
+    if problem_metadata is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No metadata record found for problem {request.problem_id}.",
+        )
+
+    new_metadata = SolutionDescriptionMetaData(
+        metadata_id=problem_metadata.id,
+        parts=[p.model_dump(exclude_none=True) for p in request.parts],
+        separator=request.separator,
+        metadata_instance=problem_metadata,
+    )
+    session.add(new_metadata)
+    session.commit()
+    session.refresh(new_metadata)
+
+    return new_metadata

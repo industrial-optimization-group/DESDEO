@@ -51,6 +51,7 @@ from desdeo.api.models import (
     ReferencePoint,
     RPMSolveRequest,
     ScenarioModelDB,
+    SolutionDescriptionMetaData,
     SolutionInfo,
     SolverSelectionMetadata,
     User,
@@ -61,13 +62,14 @@ from desdeo.api.models.nimbus import (
     NIMBUSMultiplierRequest,
     NIMBUSMultiplierResponse,
 )
+from desdeo.api.models.problem import ProblemMetaDataDB
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.emo.options.algorithms import rvea_options
 from desdeo.emo.options.templates import ReferencePointOptions
 from desdeo.gdm.score_bands import SCOREBandsGDMConfig
 from desdeo.problem import Problem
-from desdeo.problem.scenario import Scenario, ScenarioModel
 from desdeo.problem.testproblems import dtlz2, simple_knapsack_vectors
+from desdeo.problem.testproblems.simple_problem import simple_scenario_model
 from desdeo.tools.score_bands import KMeansOptions, SCOREBandsConfig
 from desdeo.tools.utils import available_solvers
 
@@ -1891,6 +1893,60 @@ def test_cumulus_modify_problem_status_wrong_id(client: TestClient):
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
+def test_cumulus_modify_problem_remove_element(client: TestClient):
+    """Removing an existing element by symbol should create a new problem without it."""
+    access_token = login(client)
+
+    # DTLZ2(5, 3) has variables x_1..x_5 and objectives f_1..f_3.
+    # Remove x_5 (a variable that appears in objective expressions but let's just verify the
+    # endpoint accepts it; the payoff table running in the background may fail, which is fine).
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={"remove": ["x_5"]},
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+    assert result.problem_id != 1
+    assert result.is_ready is False
+
+
+def test_cumulus_modify_problem_remove_nonexistent(client: TestClient):
+    """Trying to remove a symbol that doesn't exist should return 422."""
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={"remove": ["does_not_exist"]},
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert "does_not_exist" in response.json()["detail"]
+
+
+def test_cumulus_modify_problem_remove_and_replace(client: TestClient):
+    """Removing one element and replacing another in the same request should both apply."""
+    access_token = login(client)
+
+    # Add a new constraint and simultaneously remove x_5.
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "constraints": [
+                {"name": "x_1 upper", "symbol": "g_new", "func": "x_1 - 0.9", "cons_type": "<="},
+            ],
+            "remove": ["x_5"],
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+    assert result.problem_id != 1
+
+
 def test_cumulus_modify_problem_soft_constraint(client: TestClient):
     """Adding a new constraint and then softening it should succeed and create a new problem."""
     access_token = login(client)
@@ -1932,32 +1988,38 @@ def test_cumulus_modify_problem_soft_constraint_missing(client: TestClient):
     assert "nonexistent_g" in response.json()["detail"]
 
 
-def test_cumulus_modify_problem_uncertainty_expected_value(client: TestClient, session_and_user: dict):
-    """Adding an expected-value aggregate via a ScenarioModelDB should succeed."""
-    access_token = login(client)
+def _setup_simple_scenario(session_and_user: dict) -> tuple:
+    """Store simple_scenario_model's base problem and ScenarioModelDB; return (problem_db_id, sm_db_id)."""
     session = session_and_user["session"]
     user = session_and_user["user"]
 
-    # Build a minimal 2-scenario model backed by the DTLZ2 problem (problem_id=1)
-    base_problem = dtlz2(5, 3)
-    scenario_model = ScenarioModel(
-        scenario_tree={"ROOT": ["s1", "s2"], "s1": [], "s2": []},
-        base_problem=base_problem,
-        scenarios={"s1": Scenario(), "s2": Scenario()},
-    )
-    scenario_model_db = ScenarioModelDB.from_scenario_model(scenario_model, user=user, base_problem_id=1)
+    sm = simple_scenario_model()
+    base_problem_db = ProblemDB.from_problem(sm.base_problem, user=user)
+    session.add(base_problem_db)
+    session.commit()
+    session.refresh(base_problem_db)
+
+    scenario_model_db = ScenarioModelDB.from_scenario_model(sm, user=user, base_problem_id=base_problem_db.id)
     session.add(scenario_model_db)
     session.commit()
     session.refresh(scenario_model_db)
 
+    return base_problem_db.id, scenario_model_db.id
+
+
+def test_cumulus_modify_problem_uncertainty_expected_value(client: TestClient, session_and_user: dict):
+    """Adding an expected-value aggregate via a ScenarioModelDB should populate ideal/nadir and succeed."""
+    access_token = login(client)
+    problem_id, sm_id = _setup_simple_scenario(session_and_user)
+
     request = CumulusModificationRequest(
-        problem_id=1,
+        problem_id=problem_id,
         modifications={
             "uncertainty_measures": [
                 {
                     "measure_type": "expected_value",
-                    "scenario_model_id": scenario_model_db.id,
-                    "symbols": ["f_1"],
+                    "scenario_model_id": sm_id,
+                    "symbols": ["f_3"],
                 }
             ],
         },
@@ -1966,7 +2028,7 @@ def test_cumulus_modify_problem_uncertainty_expected_value(client: TestClient, s
 
     assert response.status_code == status.HTTP_200_OK
     result = CumulusModificationResponse.model_validate(json.loads(response.content))
-    assert result.problem_id != 1, "A new (combined) problem should have been created"
+    assert result.problem_id != problem_id, "A new combined problem should have been created"
     assert result.is_ready is False
 
 
@@ -1994,28 +2056,16 @@ def test_cumulus_modify_problem_uncertainty_missing_scenario_model(client: TestC
 def test_cumulus_modify_problem_uncertainty_cvar_missing_alpha(client: TestClient, session_and_user: dict):
     """Requesting CVaR without specifying alpha should return 422."""
     access_token = login(client)
-    session = session_and_user["session"]
-    user = session_and_user["user"]
-
-    base_problem = dtlz2(5, 3)
-    scenario_model = ScenarioModel(
-        scenario_tree={"ROOT": ["s1", "s2"], "s1": [], "s2": []},
-        base_problem=base_problem,
-        scenarios={"s1": Scenario(), "s2": Scenario()},
-    )
-    scenario_model_db = ScenarioModelDB.from_scenario_model(scenario_model, user=user, base_problem_id=1)
-    session.add(scenario_model_db)
-    session.commit()
-    session.refresh(scenario_model_db)
+    problem_id, sm_id = _setup_simple_scenario(session_and_user)
 
     request = CumulusModificationRequest(
-        problem_id=1,
+        problem_id=problem_id,
         modifications={
             "uncertainty_measures": [
                 {
                     "measure_type": "conditional_value_at_risk",
-                    "scenario_model_id": scenario_model_db.id,
-                    "symbols": ["f_1"],
+                    "scenario_model_id": sm_id,
+                    "symbols": ["f_3"],
                     # alpha intentionally omitted
                 }
             ],
@@ -2025,3 +2075,54 @@ def test_cumulus_modify_problem_uncertainty_cvar_missing_alpha(client: TestClien
 
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     assert "alpha" in response.json()["detail"]
+
+
+def test_cumulus_modify_problem_inherits_metadata(client: TestClient, session_and_user: dict):
+    """Modified problem should inherit all metadata (e.g. solver selection, solution description) from the original."""
+    access_token = login(client)
+    session = session_and_user["session"]
+    user = session_and_user["user"]  # noqa: F841
+
+    # Attach metadata to the default DTLZ2 problem (problem_id=1).
+    meta = ProblemMetaDataDB(problem_id=1)
+    session.add(meta)
+    session.commit()
+    session.refresh(meta)
+
+    session.add(
+        SolverSelectionMetadata(
+            metadata_id=meta.id,
+            solver_string_representation="scipy_minimize",
+        )
+    )
+    session.add(
+        SolutionDescriptionMetaData(
+            metadata_id=meta.id,
+            parts=[{"text": "test description"}],
+            separator="\n",
+        )
+    )
+    session.commit()
+
+    # Apply a trivial modification so a new problem is created.
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={"constants": [{"name": "dummy", "symbol": "dummy_c", "value": 42.0}]},
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    new_problem_id = CumulusModificationResponse.model_validate(json.loads(response.content)).problem_id
+
+    # Fetch the new problem's metadata directly from the DB.
+    new_problem_db = session.get(ProblemDB, new_problem_id)
+    session.refresh(new_problem_db)
+    new_meta = new_problem_db.problem_metadata
+    assert new_meta is not None, "Modified problem has no ProblemMetaDataDB row"
+
+    solver_meta = new_meta.solver_selection_metadata
+    assert len(solver_meta) == 1
+    assert solver_meta[0].solver_string_representation == "scipy_minimize"
+
+    desc_meta = new_meta.solution_description_metadata
+    assert len(desc_meta) == 1
+    assert desc_meta[0].separator == "\n"

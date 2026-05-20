@@ -11,7 +11,7 @@ from desdeo.problem.testproblems import (
 )
 from desdeo.tools import CVXPYSolver, GurobipySolver, PyomoBonminSolver, PyomoGurobiSolver, PyomoIpoptSolver
 from desdeo.tools.robust import add_worst_case_robust
-from desdeo.tools.scenarios import build_scenario_problem
+from desdeo.tools.scenarios import build_combined_scenario_problem, build_scenario_problem, resolve_elem
 from desdeo.tools.stochastic import add_expected_value
 from desdeo.tools.utils import payoff_table_method
 
@@ -314,6 +314,15 @@ def test_anticipation_stop_symbols_in_pool(scenario_model):
     for node, symbols in scenario_model.anticipation_stop.items():
         for sym in symbols:
             assert sym in all_syms, f"anticipation_stop[{node!r}] references unknown symbol {sym!r}"
+
+
+@pytest.mark.scenario
+def test_f3_elem_name_derived_from_scenario_names(scenario_model):
+    """resolve_elem for f_3 (scenario-only) should use the common scenario name, not the symbol."""
+    combined, symbol_maps = build_combined_scenario_problem(scenario_model)
+    info = resolve_elem("f_3", symbol_maps, combined, scenario_model)
+    assert info.elem_name == "Power outage"
+    assert info.elem_name != "f_3"
 
 
 @pytest.mark.scenario

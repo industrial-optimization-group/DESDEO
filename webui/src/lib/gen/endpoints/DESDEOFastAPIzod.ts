@@ -6362,6 +6362,7 @@ export const solveSolutionsMethodCumulusSolvePostBodyPreferencePreferenceTypeDef
 export const SolveSolutionsMethodCumulusSolvePostBody = zod
 	.object({
 		problem_id: zod.number(),
+		original_problem_id: zod.union([zod.number(), zod.null()]).optional(),
 		session_id: zod.union([zod.number(), zod.null()]).optional(),
 		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
 		scalarization_options: zod
@@ -6536,6 +6537,7 @@ export const initializeMethodCumulusInitializePostBodyStartingPointOnePreference
 export const InitializeMethodCumulusInitializePostBody = zod
 	.object({
 		problem_id: zod.number(),
+		original_problem_id: zod.union([zod.number(), zod.null()]).optional(),
 		session_id: zod.union([zod.number(), zod.null()]).optional(),
 		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
 		starting_point: zod
@@ -6575,6 +6577,47 @@ export const InitializeMethodCumulusInitializePostBody = zod
 		solver_options: zod
 			.union([
 				zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
+				zod.null()
+			])
+			.optional(),
+		uncertainty_measures: zod
+			.union([
+				zod.array(
+					zod
+						.object({
+							measure_type: zod
+								.enum([
+									'expected_value',
+									'worst_case_robust',
+									'conditional_value_at_risk',
+									'weighted_scenarios'
+								])
+								.describe('Which uncertainty aggregate to apply.'),
+							scenario_model_id: zod
+								.number()
+								.describe('DB id of the ScenarioModelDB that defines the scenario structure.'),
+							symbols: zod
+								.array(zod.string())
+								.describe('Symbols of objectives or functions to aggregate.'),
+							prefix: zod
+								.union([zod.string(), zod.null()])
+								.optional()
+								.describe('Prefix for the new aggregate symbols. Defaults vary by measure_type.'),
+							alpha: zod
+								.union([zod.number(), zod.null()])
+								.optional()
+								.describe(
+									'Confidence level for CVaR, e.g. 0.95. Required for conditional_value_at_risk.'
+								),
+							leaf_weights: zod
+								.union([zod.record(zod.string(), zod.number()), zod.null()])
+								.optional()
+								.describe('Leaf-name → weight mapping. Required for weighted_scenarios.')
+						})
+						.describe(
+							'Specification for adding a scenario-based uncertainty aggregate to the problem.\n\nAll measures in a single request must reference the same ``scenario_model_id``.\nThe resulting combined (multi-scenario) problem replaces the current problem.'
+						)
+				),
 				zod.null()
 			])
 			.optional()
@@ -6705,6 +6748,7 @@ export const SaveMethodCumulusSavePostQueryParams = zod.object({
 export const SaveMethodCumulusSavePostBody = zod
 	.object({
 		problem_id: zod.number(),
+		original_problem_id: zod.union([zod.number(), zod.null()]).optional(),
 		session_id: zod.union([zod.number(), zod.null()]).optional(),
 		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
 		solution_info: zod.array(
@@ -6737,6 +6781,11 @@ export const SaveMethodCumulusSavePostResponse = zod
 
 /**
  * Get the latest CUMULUS state if it exists, or initialize a new one if it doesn't.
+
+If the problem has associated scenarios and no uncertainty measures have been specified, a
+``CumulusScenarioSetupResponse`` is returned so the frontend can ask the decision maker which
+aggregates to include.  When the frontend re-calls with ``uncertainty_measures`` populated, a
+combined multi-scenario problem is built, saved to the database, and used for initialization.
  * @summary Get Or Initialize
  */
 export const GetOrInitializeMethodCumulusGetOrInitializePostQueryParams = zod.object({
@@ -6748,6 +6797,7 @@ export const getOrInitializeMethodCumulusGetOrInitializePostBodyStartingPointOne
 export const GetOrInitializeMethodCumulusGetOrInitializePostBody = zod
 	.object({
 		problem_id: zod.number(),
+		original_problem_id: zod.union([zod.number(), zod.null()]).optional(),
 		session_id: zod.union([zod.number(), zod.null()]).optional(),
 		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
 		starting_point: zod
@@ -6789,6 +6839,47 @@ export const GetOrInitializeMethodCumulusGetOrInitializePostBody = zod
 				zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
 				zod.null()
 			])
+			.optional(),
+		uncertainty_measures: zod
+			.union([
+				zod.array(
+					zod
+						.object({
+							measure_type: zod
+								.enum([
+									'expected_value',
+									'worst_case_robust',
+									'conditional_value_at_risk',
+									'weighted_scenarios'
+								])
+								.describe('Which uncertainty aggregate to apply.'),
+							scenario_model_id: zod
+								.number()
+								.describe('DB id of the ScenarioModelDB that defines the scenario structure.'),
+							symbols: zod
+								.array(zod.string())
+								.describe('Symbols of objectives or functions to aggregate.'),
+							prefix: zod
+								.union([zod.string(), zod.null()])
+								.optional()
+								.describe('Prefix for the new aggregate symbols. Defaults vary by measure_type.'),
+							alpha: zod
+								.union([zod.number(), zod.null()])
+								.optional()
+								.describe(
+									'Confidence level for CVaR, e.g. 0.95. Required for conditional_value_at_risk.'
+								),
+							leaf_weights: zod
+								.union([zod.record(zod.string(), zod.number()), zod.null()])
+								.optional()
+								.describe('Leaf-name → weight mapping. Required for weighted_scenarios.')
+						})
+						.describe(
+							'Specification for adding a scenario-based uncertainty aggregate to the problem.\n\nAll measures in a single request must reference the same ``scenario_model_id``.\nThe resulting combined (multi-scenario) problem replaces the current problem.'
+						)
+				),
+				zod.null()
+			])
 			.optional()
 	})
 	.describe('Request model for the CUMULUS initialization endpoint.');
@@ -6797,6 +6888,7 @@ export const getOrInitializeMethodCumulusGetOrInitializePostResponseOneResponseT
 export const getOrInitializeMethodCumulusGetOrInitializePostResponseTwoResponseTypeDefault = `cumulus.classification`;
 export const getOrInitializeMethodCumulusGetOrInitializePostResponseTwoPreviousPreferencePreferenceTypeDefault = `reference_point`;
 export const getOrInitializeMethodCumulusGetOrInitializePostResponseThreeResponseTypeDefault = `cumulus.finalize`;
+export const getOrInitializeMethodCumulusGetOrInitializePostResponseFourResponseTypeDefault = `cumulus.scenario_setup`;
 
 export const GetOrInitializeMethodCumulusGetOrInitializePostResponse = zod.union([
 	zod
@@ -7135,7 +7227,22 @@ export const GetOrInitializeMethodCumulusGetOrInitializePostResponse = zod.union
 				)
 				.describe('All solutions generated by CUMULUS across all iterations.')
 		})
-		.describe('Response from the CUMULUS finalize endpoint.')
+		.describe('Response from the CUMULUS finalize endpoint.'),
+	zod
+		.object({
+			response_type: zod
+				.literal('cumulus.scenario_setup')
+				.default(getOrInitializeMethodCumulusGetOrInitializePostResponseFourResponseTypeDefault),
+			scenario_model_id: zod
+				.number()
+				.describe('DB id of the ScenarioModelDB associated with this problem.'),
+			objective_symbols: zod
+				.array(zod.string())
+				.describe('Symbols of the objectives available for aggregation.')
+		})
+		.describe(
+			'Response when the problem has scenarios but no uncertainty measures have been chosen yet.\n\nThe frontend should present this to the decision maker and let them choose which\nuncertainty aggregates to include, then re-call get-or-initialize with the chosen measures.'
+		)
 ]);
 
 /**
@@ -7149,6 +7256,7 @@ export const FinalizeMethodCumulusFinalizePostQueryParams = zod.object({
 export const FinalizeMethodCumulusFinalizePostBody = zod
 	.object({
 		problem_id: zod.number(),
+		original_problem_id: zod.union([zod.number(), zod.null()]).optional(),
 		session_id: zod.union([zod.number(), zod.null()]).optional(),
 		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
 		solution_info: zod
@@ -7463,7 +7571,11 @@ export const DeleteSaveMethodCumulusDeleteSavePostBody = zod
 	.object({
 		state_id: zod.number().describe('The ID of the save state.'),
 		solution_index: zod.number().describe('The index of the solution within the above state.'),
-		problem_id: zod.number().describe('The ID of the problem.')
+		problem_id: zod.number().describe('The ID of the problem.'),
+		original_problem_id: zod
+			.union([zod.number(), zod.null()])
+			.optional()
+			.describe('The ID of the original problem.')
 	})
 	.describe('Request model for deletion of a saved CUMULUS solution.');
 
@@ -7477,6 +7589,184 @@ export const DeleteSaveMethodCumulusDeleteSavePostResponse = zod
 		message: zod.union([zod.string(), zod.null()]).optional()
 	})
 	.describe('Response from the CUMULUS delete-save endpoint.');
+
+/**
+ * Apply modifications to the current problem, verify feasibility, and save as a new problem.
+ * @summary Modify Problem
+ */
+export const ModifyProblemMethodCumulusModifyProblemPostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const modifyProblemMethodCumulusModifyProblemPostBodyModificationsSoftConstraintsOneItemViolationSymbolDefault = `constraint_violation`;
+
+export const ModifyProblemMethodCumulusModifyProblemPostBody = zod
+	.object({
+		problem_id: zod.number(),
+		original_problem_id: zod.union([zod.number(), zod.null()]).optional(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+		name: zod
+			.union([zod.string(), zod.null()])
+			.optional()
+			.describe('Optional name for the newly created modified problem.'),
+		modifications: zod
+			.object({
+				variables: zod.union([zod.array(zod.unknown()), zod.null()]).optional(),
+				constants: zod.union([zod.array(zod.unknown()), zod.null()]).optional(),
+				objectives: zod.union([zod.array(zod.unknown()), zod.null()]).optional(),
+				constraints: zod.union([zod.array(zod.unknown()), zod.null()]).optional(),
+				extra_funcs: zod.union([zod.array(zod.unknown()), zod.null()]).optional(),
+				scalarization_funcs: zod.union([zod.array(zod.unknown()), zod.null()]).optional(),
+				remove: zod
+					.union([zod.array(zod.string()), zod.null()])
+					.optional()
+					.describe(
+						'Symbols of elements to remove from the problem. The element type is inferred automatically.'
+					),
+				soft_constraints: zod
+					.union([
+						zod.array(
+							zod
+								.object({
+									constraint_symbol: zod
+										.string()
+										.describe(
+											'Symbol of the constraint to soften. Must exist in the problem after standard modifications.'
+										),
+									violation_symbol: zod
+										.string()
+										.default(
+											modifyProblemMethodCumulusModifyProblemPostBodyModificationsSoftConstraintsOneItemViolationSymbolDefault
+										)
+										.describe('Symbol for the aggregated constraint-violation objective.'),
+									lte_violation_symbol: zod
+										.union([zod.string(), zod.null()])
+										.optional()
+										.describe('Custom symbol for the LTE slack variable.'),
+									gte_violation_symbol: zod
+										.union([zod.string(), zod.null()])
+										.optional()
+										.describe('Custom symbol for the GTE slack variable (EQ constraints only).')
+								})
+								.describe(
+									'Specification for converting a regular constraint into a soft penalty-based one.\n\nAfter standard element modifications are applied, any constraint listed here is passed\nto ``add_soft_constraint``, which introduces non-negative slack variables that absorb\nviolations and accumulates them into a minimisation objective.'
+								)
+						),
+						zod.null()
+					])
+					.optional(),
+				uncertainty_measures: zod
+					.union([
+						zod.array(
+							zod
+								.object({
+									measure_type: zod
+										.enum([
+											'expected_value',
+											'worst_case_robust',
+											'conditional_value_at_risk',
+											'weighted_scenarios'
+										])
+										.describe('Which uncertainty aggregate to apply.'),
+									scenario_model_id: zod
+										.number()
+										.describe('DB id of the ScenarioModelDB that defines the scenario structure.'),
+									symbols: zod
+										.array(zod.string())
+										.describe('Symbols of objectives or functions to aggregate.'),
+									prefix: zod
+										.union([zod.string(), zod.null()])
+										.optional()
+										.describe(
+											'Prefix for the new aggregate symbols. Defaults vary by measure_type.'
+										),
+									alpha: zod
+										.union([zod.number(), zod.null()])
+										.optional()
+										.describe(
+											'Confidence level for CVaR, e.g. 0.95. Required for conditional_value_at_risk.'
+										),
+									leaf_weights: zod
+										.union([zod.record(zod.string(), zod.number()), zod.null()])
+										.optional()
+										.describe('Leaf-name → weight mapping. Required for weighted_scenarios.')
+								})
+								.describe(
+									'Specification for adding a scenario-based uncertainty aggregate to the problem.\n\nAll measures in a single request must reference the same ``scenario_model_id``.\nThe resulting combined (multi-scenario) problem replaces the current problem.'
+								)
+						),
+						zod.null()
+					])
+					.optional()
+			})
+			.describe(
+				'Partial problem specification for modifying an existing problem.\n\nEach list entry is validated as the corresponding Problem element type.\nAn element whose symbol matches an existing element of the same type replaces it.\nAn element whose symbol matches an existing element of a \*different\* type is an error.\nElements with a new symbol are added.'
+			)
+	})
+	.describe('Request model for the CUMULUS modify-problem endpoint.');
+
+export const modifyProblemMethodCumulusModifyProblemPostResponseResponseTypeDefault = `cumulus.modify`;
+export const modifyProblemMethodCumulusModifyProblemPostResponseIsReadyDefault = false;
+
+export const ModifyProblemMethodCumulusModifyProblemPostResponse = zod
+	.object({
+		response_type: zod
+			.literal('cumulus.modify')
+			.default(modifyProblemMethodCumulusModifyProblemPostResponseResponseTypeDefault),
+		state_id: zod.number().describe('The newly created modification state id.'),
+		problem_id: zod.number().describe('The ID of the newly created modified problem.'),
+		original_problem_id: zod
+			.union([zod.number(), zod.null()])
+			.describe('The ID of the original problem.'),
+		is_ready: zod
+			.boolean()
+			.default(modifyProblemMethodCumulusModifyProblemPostResponseIsReadyDefault)
+			.describe(
+				'False immediately after the endpoint returns; True once the background feasibility check completes.'
+			),
+		error: zod
+			.union([zod.string(), zod.null()])
+			.optional()
+			.describe('Set if the background feasibility check failed.')
+	})
+	.describe('Response from the CUMULUS modify-problem endpoint.');
+
+/**
+ * Poll the status of a pending modify-problem operation.
+ * @summary Modify Problem Status
+ */
+export const ModifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetParams = zod.object({
+	state_id: zod.number()
+});
+
+export const modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetResponseResponseTypeDefault = `cumulus.modify`;
+export const modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetResponseIsReadyDefault = false;
+
+export const ModifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetResponse = zod
+	.object({
+		response_type: zod
+			.literal('cumulus.modify')
+			.default(
+				modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetResponseResponseTypeDefault
+			),
+		state_id: zod.number().describe('The newly created modification state id.'),
+		problem_id: zod.number().describe('The ID of the newly created modified problem.'),
+		original_problem_id: zod
+			.union([zod.number(), zod.null()])
+			.describe('The ID of the original problem.'),
+		is_ready: zod
+			.boolean()
+			.default(modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGetResponseIsReadyDefault)
+			.describe(
+				'False immediately after the endpoint returns; True once the background feasibility check completes.'
+			),
+		error: zod
+			.union([zod.string(), zod.null()])
+			.optional()
+			.describe('Set if the background feasibility check failed.')
+	})
+	.describe('Response from the CUMULUS modify-problem endpoint.');
 
 /**
  * Solve intermediate solutions between given two solutions.
@@ -10132,6 +10422,89 @@ export const GetSolutionDescriptionSolutionDescriptionGetPostResponse = zod
 		description: zod.string()
 	})
 	.describe('Response containing a generated solution description.');
+
+/**
+ * Add a new solution description metadata instance for a problem.
+
+Validates that all expressions in the parts are parseable, then appends the
+new metadata to the database. The most recent entry is used when generating
+descriptions, so this effectively updates what description is produced.
+
+Args:
+    request: the problem id and new description metadata.
+    context: current session context.
+
+Returns:
+    The newly created SolutionDescriptionMetaData instance.
+ * @summary Update Solution Description Metadata
+ */
+export const UpdateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostQueryParams =
+	zod.object({
+		problem_id: zod.union([zod.number(), zod.null()]).optional()
+	});
+
+export const updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostBodySeparatorDefault = `
+`;
+
+export const UpdateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostBody = zod
+	.object({
+		problem_id: zod.number(),
+		parts: zod.array(
+			zod
+				.object({
+					text: zod.union([zod.string(), zod.null()]).optional(),
+					label: zod.union([zod.string(), zod.null()]).optional(),
+					symbol: zod.union([zod.string(), zod.null()]).optional(),
+					expression: zod.union([zod.array(zod.unknown()), zod.null()]).optional(),
+					format_spec: zod.union([zod.string(), zod.null()]).optional(),
+					suffix: zod.union([zod.string(), zod.null()]).optional()
+				})
+				.describe(
+					'A single part of a solution description template.\n\nA part is either a static text string or a computed value derived from solver results.\nExactly one of `text`, `symbol`, or `expression` should be set.\n\n- `text`: included verbatim in the output.\n- `symbol`: looks up a key from `optimal_variables` or `optimal_objectives`.\n- `expression`: a MathJSON expression evaluated against the solver result values.\n\nWhen `symbol` or `expression` is used, `label` is prepended and `suffix` is appended.\n`format_spec` is a Python format spec string (e.g. `\".0f\"`, `\".2f\"`) applied to the value.'
+				)
+		),
+		separator: zod
+			.string()
+			.default(
+				updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostBodySeparatorDefault
+			)
+	})
+	.describe('Request to update the solution description metadata for a problem.');
+
+export const updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostResponseMetadataTypeDefault = `solution_description_metadata`;
+export const updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostResponseSeparatorDefault = `
+`;
+
+export const UpdateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostResponse = zod
+	.object({
+		id: zod.union([zod.number(), zod.null()]).optional(),
+		metadata_id: zod.union([zod.number(), zod.null()]).optional(),
+		metadata_type: zod
+			.string()
+			.default(
+				updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostResponseMetadataTypeDefault
+			),
+		parts: zod.array(
+			zod
+				.object({
+					text: zod.union([zod.string(), zod.null()]).optional(),
+					label: zod.union([zod.string(), zod.null()]).optional(),
+					symbol: zod.union([zod.string(), zod.null()]).optional(),
+					expression: zod.union([zod.array(zod.unknown()), zod.null()]).optional(),
+					format_spec: zod.union([zod.string(), zod.null()]).optional(),
+					suffix: zod.union([zod.string(), zod.null()]).optional()
+				})
+				.describe(
+					'A single part of a solution description template.\n\nA part is either a static text string or a computed value derived from solver results.\nExactly one of `text`, `symbol`, or `expression` should be set.\n\n- `text`: included verbatim in the output.\n- `symbol`: looks up a key from `optimal_variables` or `optimal_objectives`.\n- `expression`: a MathJSON expression evaluated against the solver result values.\n\nWhen `symbol` or `expression` is used, `label` is prepended and `suffix` is appended.\n`format_spec` is a Python format spec string (e.g. `\".0f\"`, `\".2f\"`) applied to the value.'
+				)
+		),
+		separator: zod
+			.string()
+			.default(
+				updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostResponseSeparatorDefault
+			)
+	})
+	.describe('Metadata for generating a human-readable description of a solution.');
 
 /**
  * @summary Health
