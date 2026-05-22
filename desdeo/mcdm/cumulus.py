@@ -10,13 +10,16 @@ import numpy as np
 import polars as pl
 
 from desdeo.problem import (
+    ConstraintTypeEnum,
     PolarsEvaluator,
     Problem,
+    ScalarizationFunction,
     Variable,
     VariableType,
     flatten_variable_dict,
     unflatten_variable_array,
 )
+from desdeo.problem.schema import Constraint
 from desdeo.tools import (
     BaseSolver,
     SolverOptions,
@@ -254,6 +257,87 @@ def infer_classifications(
     return classifications
 
 
+def _apply_scalarization(
+    problem: Problem,
+    sf: "CumulusScalarization",
+    scalarization_options: dict | None,
+    current_objectives: dict[str, float],
+    reference_point: dict[str, float],
+) -> tuple[Problem, str]:
+    """Apply one CUMULUS scalarization to *problem* and return the augmented problem and target symbol."""
+    match sf:
+        case CumulusScalarization.CUMULONIMBUS:
+            classifications = infer_classifications(problem, current_objectives, reference_point)
+            return add_cumulonimbus_diff(
+                problem, "cumulonimbus_sf", classifications, current_objectives, **(scalarization_options or {})
+            )
+        case CumulusScalarization.ASF_PARTIAL_DIFF:
+            return add_asf_partial_diff(problem, "asf_partial_sf", reference_point, **(scalarization_options or {}))
+        case CumulusScalarization.ASF_PARTIAL_NONDIFF:
+            return add_asf_partial_nondiff(
+                problem, "asf_partial_nondiff_sf", reference_point, **(scalarization_options or {})
+            )
+
+
+def _minimize_soft_constraint_violations(
+    problem: Problem,
+    hard_constraints: list[Constraint] | None,
+    soft_constraints: list[Constraint],
+    init_solver,
+    solver_options,
+) -> tuple[list[Variable], list[Constraint], list, float]:
+    """Minimizes total soft-constraint violation and returns the relaxation artefacts.
+
+    Adds a non-negative slack variable for each soft constraint so that
+    ``g_i(x) - s_i <= 0`` replaces the original ``g_i(x) <= 0``.  The sum of
+    all slack variables is then minimized subject to the hard constraints and
+    the slackened soft constraints.
+
+    Args:
+        problem: the base problem (no constraints already attached).
+        hard_constraints: constraints that must always hold.
+        soft_constraints: constraints that may be relaxed.
+        init_solver: solver class or factory.
+        solver_options: options forwarded to the solver (or ``None``).
+
+    Returns:
+        A 4-tuple ``(slack_vars, modified_soft_constraints, violation_sum_func, optimal_violation)``
+        where *slack_vars* are the new :class:`Variable` objects, *modified_soft_constraints* are
+        the slackened :class:`Constraint` objects, *violation_sum_func* is the MathJSON expression
+        for the sum of slacks, and *optimal_violation* is the minimized total violation value.
+    """
+    slack_vars: list[Variable] = []
+    modified_soft: list[Constraint] = []
+    for sc in soft_constraints:
+        slack_sym = f"_slack_{sc.symbol}"
+        slack_vars.append(Variable(name=f"Slack for {sc.name}", symbol=slack_sym, lowerbound=0.0, initial_value=0.0))
+        modified_soft.append(sc.model_copy(update={"func": ["Subtract", sc.func, slack_sym]}))
+
+    if len(slack_vars) == 1:
+        violation_sum_func: list = ["Multiply", 1, slack_vars[0].symbol]
+    else:
+        violation_sum_func = ["Add", *[sv.symbol for sv in slack_vars]]
+
+    viol_problem = problem
+    if hard_constraints:
+        viol_problem = viol_problem.add_constraints(hard_constraints)
+    viol_problem = viol_problem.add_variables(slack_vars)
+    viol_problem = viol_problem.add_constraints(modified_soft)
+    viol_problem = viol_problem.add_scalarization_func(
+        ScalarizationFunction(
+            name="Total soft constraint violation",
+            symbol="_total_violation",
+            func=violation_sum_func,
+        )
+    )
+
+    viol_inst = init_solver(viol_problem, solver_options) if solver_options else init_solver(viol_problem)
+    viol_result = viol_inst.solve("_total_violation")
+    optimal_violation: float = viol_result.scalarization_values["_total_violation"]
+
+    return slack_vars, modified_soft, violation_sum_func, optimal_violation
+
+
 def solve_sub_problems(
     problem: Problem,
     current_objectives: dict[str, float],
@@ -262,7 +346,9 @@ def solve_sub_problems(
     scalarization_options: dict | None = None,
     solver: BaseSolver | None = None,
     solver_options: SolverOptions | None = None,
-) -> list[SolverResults]:
+    hard_constraints: list[Constraint] | None = None,
+    soft_constraints: list[Constraint] | None = None,
+) -> dict[CumulusScalarization, SolverResults | None]:
     r"""Solves one sub-problem per requested scalarization using a partial reference point.
 
     Unlike the NIMBUS method, CUMULUS does not require the reference point to cover all
@@ -279,6 +365,12 @@ def solve_sub_problems(
     - :attr:`CumulusScalarization.ASF_PARTIAL_NONDIFF`: solves a non-differentiable partial
       ASF (``Max`` form) directly from ``reference_point``.
 
+    When ``hard_constraints`` and/or ``soft_constraints`` are supplied, the function first
+    attempts to solve with all constraints enforced.  If every sub-problem is infeasible,
+    the soft constraints are relaxed via slack variables, the minimum total violation is
+    computed, that value is locked in as an additional constraint, and all sub-problems are
+    re-solved on the relaxed formulation.
+
     Raises:
         CumulusError: ``scalarizations`` is empty.
         CumulusError: ``reference_point`` contains keys that are not objective symbols.
@@ -294,17 +386,25 @@ def solve_sub_problems(
         reference_point (dict[str, float]): partial objective dict with reference point
             values.  Only the objectives listed here participate in the scalarizations.
         scalarizations (list[CumulusScalarization]): ordered list of scalarizations to solve.
-            One :class:`SolverResults` is returned per entry.
+            One entry is returned per unique scalarization type.
         scalarization_options (dict | None, optional): optional kwargs forwarded to every
             scalarization function.  Defaults to None.
         solver (BaseSolver | None, optional): solver class to use.  If not given, an
             appropriate solver is determined automatically.  Defaults to None.
         solver_options (SolverOptions | None, optional): options passed to the solver.
             Ignored when ``solver`` is ``None``.  Defaults to None.
+        hard_constraints (list[Constraint] | None, optional): constraints that must always
+            hold.  Never relaxed.  Defaults to None.
+        soft_constraints (list[Constraint] | None, optional): constraints that are attempted
+            first as hard constraints but may be relaxed if the problem is infeasible.
+            Defaults to None.
 
     Returns:
-        list[SolverResults]: one :class:`SolverResults` per entry in ``scalarizations``,
-            in the same order.
+        dict[CumulusScalarization, SolverResults | None]: maps each scalarization type to
+            its result.  A value of ``None`` means the sub-problem was infeasible even after
+            any applicable relaxation; a :class:`SolverResults` instance means the solver
+            returned a result (check :attr:`~SolverResults.success` for whether it is
+            optimal).
     """
     if not scalarizations:
         msg = "scalarizations must contain at least one CumulusScalarization value."
@@ -319,28 +419,53 @@ def solve_sub_problems(
     init_solver = solver if solver is not None else guess_best_solver(problem)
     _solver_options = solver_options if solver_options is not None else None
 
-    solutions = []
+    def _solve(base: Problem, sf: CumulusScalarization) -> SolverResults | None:
+        p, target = _apply_scalarization(base, sf, scalarization_options, current_objectives, reference_point)
+        inst = init_solver(p, _solver_options) if _solver_options else init_solver(p)
+        result = inst.solve(target)
+        return result if result.success else None
 
-    for sf in scalarizations:
-        match sf:
-            case CumulusScalarization.CUMULONIMBUS:
-                classifications = infer_classifications(problem, current_objectives, reference_point)
-                problem_w_sf, target = add_cumulonimbus_diff(
-                    problem, "cumulonimbus_sf", classifications, current_objectives, **(scalarization_options or {})
-                )
-            case CumulusScalarization.ASF_PARTIAL_DIFF:
-                problem_w_sf, target = add_asf_partial_diff(
-                    problem, "asf_partial_sf", reference_point, **(scalarization_options or {})
-                )
-            case CumulusScalarization.ASF_PARTIAL_NONDIFF:
-                problem_w_sf, target = add_asf_partial_nondiff(
-                    problem, "asf_partial_nondiff_sf", reference_point, **(scalarization_options or {})
-                )
+    # Add all constraints to get the base problem.
+    base_problem = problem
+    if hard_constraints:
+        base_problem = base_problem.add_constraints(hard_constraints)
+    if soft_constraints:
+        base_problem = base_problem.add_constraints(soft_constraints)
 
-        _solver_instance = init_solver(problem_w_sf, _solver_options) if _solver_options else init_solver(problem_w_sf)
-        solutions.append(_solver_instance.solve(target))
+    solutions: dict[CumulusScalarization, SolverResults | None] = {
+        sf: _solve(base_problem, sf) for sf in scalarizations
+    }
 
-    return solutions
+    # If at least one sub-problem succeeded the constraint set is feasible; any remaining
+    # failures are caused by the scalarization itself (not by the soft constraints), so we
+    # do not relax.  We also cannot relax if there are no soft constraints to loosen.
+    if any(r is not None for r in solutions.values()) or not soft_constraints:
+        return solutions
+
+    # Every sub-problem was infeasible, which suggests the combined constraint set is
+    # infeasible.  Relax soft constraints by introducing slack variables, minimize total
+    # violation, lock that minimum in as a budget constraint, then re-solve all scalarizations.
+    slack_vars, modified_soft, violation_sum_func, optimal_violation = _minimize_soft_constraint_violations(
+        problem, hard_constraints, soft_constraints, init_solver, _solver_options
+    )
+
+    relaxed_problem = problem
+    if hard_constraints:
+        relaxed_problem = relaxed_problem.add_constraints(hard_constraints)
+    relaxed_problem = relaxed_problem.add_variables(slack_vars)
+    relaxed_problem = relaxed_problem.add_constraints(modified_soft)
+    relaxed_problem = relaxed_problem.add_constraints(
+        [
+            Constraint(
+                name="Soft constraint violation budget",
+                symbol="_violation_budget",
+                cons_type=ConstraintTypeEnum.LTE,
+                func=["Subtract", violation_sum_func, optimal_violation],
+            )
+        ]
+    )
+
+    return {sf: _solve(relaxed_problem, sf) for sf in scalarizations}
 
 
 def generate_starting_point(

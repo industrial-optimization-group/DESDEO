@@ -135,6 +135,131 @@ def add_worst_case_robust(
     ), added_symbols
 
 
+def add_single_objective_worst_case_regret(
+    scenario_model: "ScenarioModel",
+    symbols: list[str],
+    ideals: "dict[str, dict[str, float]]",
+    prefix: str = "regret_wc_",
+    combined: "Problem | None" = None,
+    symbol_maps: "dict[str, dict[str, dict[str, str]]] | None" = None,
+) -> "tuple[Problem, dict[str, str]]":
+    """Add worst-case regret aggregations for selected symbols to the combined scenario problem.
+
+    For each symbol, the per-scenario regret is the difference between the objective
+    value in that scenario and its ideal (best achievable) value in that scenario:
+
+    * **Minimise** objectives: ``regret_s = f_s - ideal_s``  (ideal is the minimum).
+    * **Maximise** objectives: ``regret_s = ideal_s - f_s``  (ideal is the maximum).
+
+    The worst-case regret across all scenarios is then expressed via the standard
+    epigraph reformulation: minimise ``t`` subject to ``regret_s - t <= 0`` for
+    every leaf scenario ``s``.  The resulting element is always a **minimise**
+    objective (or extra function / scalarization function matching the original type)
+    regardless of the original optimisation direction.
+
+    Args:
+        scenario_model: the ScenarioModel to expand.
+        symbols: original symbols whose worst-case regret should be added.
+        ideals: mapping ``{symbol -> {leaf -> ideal_value}}`` giving the ideal
+            (best achievable) value of each symbol in each leaf scenario.  Every
+            leaf returned by ``scenario_model.leaf_scenarios`` must have an entry
+            for each symbol.
+        prefix: prefix prepended to each original symbol to form the new symbol.
+            Defaults to ``'regret_wc_'``.
+        combined: pre-built combined Problem.  If provided together with
+            ``symbol_maps``, ``build_combined_scenario_problem`` is not called.
+            Must match ``scenario_model``.
+        symbol_maps: pre-built symbol maps from ``build_combined_scenario_problem``.
+            Must be provided together with ``combined``; ignored otherwise.
+
+    Returns:
+        A tuple of the combined Problem with worst-case regret elements appended,
+        and a dict mapping each original symbol to its regret symbol.
+
+    Raises:
+        ValueError: if a requested symbol is not found in the combined problem.
+        ValueError: if ``ideals`` is missing a leaf entry for any requested symbol.
+    """
+    if combined is None or symbol_maps is None:
+        combined, symbol_maps = build_combined_scenario_problem(scenario_model)
+
+    new_variables = list(combined.variables)
+    new_objectives = list(combined.objectives or [])
+    new_scal_funcs = list(combined.scalarization_funcs or [])
+    new_extra_funcs = list(combined.extra_funcs or [])
+    new_constraints = list(combined.constraints or [])
+    added_symbols: dict[str, str] = {}
+
+    for sym in symbols:
+        info = resolve_elem(sym, symbol_maps, combined, scenario_model)
+        regret_sym = f"{prefix}{sym}"
+        t_sym = f"_t_{regret_sym}"
+        added_symbols[sym] = regret_sym
+
+        sym_ideals = ideals.get(sym, {})
+        missing_leaves = set(info.per_leaf) - set(sym_ideals)
+        if missing_leaves:
+            raise ValueError(f"ideals is missing entries for symbol '{sym}' in leaves: {missing_leaves}")
+
+        new_variables.append(
+            Variable(
+                name=f"Worst-case regret epigraph variable for {info.elem_name}",
+                symbol=t_sym,
+                variable_type=VariableTypeEnum.real,
+                lowerbound=None,
+                upperbound=None,
+                initial_value=0.0,
+            )
+        )
+
+        for leaf, leaf_sym in info.per_leaf.items():
+            ideal_val = sym_ideals[leaf]
+            # Minimise: regret_s = f_s - ideal_s  →  f_s - ideal_s - t <= 0
+            # Maximise: regret_s = ideal_s - f_s  →  ideal_s - f_s - t <= 0
+            if info.maximize:
+                con_func = ["Add", ideal_val, ["Negate", leaf_sym], ["Negate", t_sym]]
+            else:
+                con_func = ["Add", leaf_sym, -ideal_val, ["Negate", t_sym]]
+            new_constraints.append(
+                Constraint(
+                    name=f"Worst-case regret bound for {info.elem_name} in {leaf}",
+                    symbol=f"{leaf}_{regret_sym}_con",
+                    func=con_func,
+                    cons_type=ConstraintTypeEnum.LTE,
+                    is_linear=info.is_linear,
+                    is_convex=info.is_convex,
+                    is_twice_differentiable=info.is_twice_diff,
+                )
+            )
+
+        append_aggregated_elem(
+            info.found_type,
+            new_objectives,
+            new_scal_funcs,
+            new_extra_funcs,
+            name=f"Worst-case regret {info.elem_name}",
+            description=f"Worst-case regret of {info.elem_desc}"
+            if info.elem_desc
+            else f"Worst-case regret of {info.elem_name}",
+            symbol=regret_sym,
+            func=t_sym,
+            maximize=False,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+        )
+
+    return combined.model_copy(
+        update={
+            "variables": new_variables,
+            "objectives": new_objectives or None,
+            "scalarization_funcs": new_scal_funcs or None,
+            "extra_funcs": new_extra_funcs or None,
+            "constraints": new_constraints or None,
+        }
+    ), added_symbols
+
+
 def add_weighted_scenarios(
     scenario_model: "ScenarioModel",
     symbols: list[str],

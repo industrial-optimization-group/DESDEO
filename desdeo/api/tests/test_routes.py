@@ -19,6 +19,8 @@ from desdeo.api.models import (
     CumulusIntermediateSolutionResponse,
     CumulusModificationRequest,
     CumulusModificationResponse,
+    CumulusObjectiveConstraintRequest,
+    CumulusObjectiveConstraintResponse,
     CumulusSaveRequest,
     CumulusSaveResponse,
     EMOFetchRequest,
@@ -2126,3 +2128,187 @@ def test_cumulus_modify_problem_inherits_metadata(client: TestClient, session_an
     desc_meta = new_meta.solution_description_metadata
     assert len(desc_meta) == 1
     assert desc_meta[0].separator == "\n"
+
+
+# ---------------------------------------------------------------------------
+# Cumulus objective-constraint tests
+# All tests use problem 1 (dtlz2, minimised objectives f_1/f_2/f_3).
+# Constraint dicts use ConstraintDB-compatible format: name, symbol, cons_type, func.
+# func is MathJSON; cons_type "<=" means func(x) <= 0.
+# ---------------------------------------------------------------------------
+
+_HARD_CONSTRAINT = {
+    "name": "f1 upper bound",
+    "symbol": "oc_hard_1",
+    "cons_type": "<=",
+    "func": ["Subtract", "f_1", 0.5],
+}
+_SOFT_CONSTRAINT = {
+    "name": "f2 upper bound",
+    "symbol": "oc_soft_1",
+    "cons_type": "<=",
+    "func": ["Subtract", "f_2", 0.6],
+}
+
+
+def test_cumulus_objective_constraint_hard_only(client: TestClient):
+    """Setting only hard constraints should persist them and return their DB ids."""
+    access_token = login(client)
+
+    request = CumulusObjectiveConstraintRequest(
+        problem_id=1,
+        hard_constraints=[_HARD_CONSTRAINT],
+    )
+    response = post_json(client, "/method/cumulus/objective-constraint", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusObjectiveConstraintResponse.model_validate(json.loads(response.content))
+
+    assert result.response_type == "cumulus.objective_constraint"
+    assert result.state_id is not None
+    assert len(result.hard_constraint_ids) == 1
+    assert len(result.soft_constraint_ids) == 0
+
+
+def test_cumulus_objective_constraint_soft_only(client: TestClient):
+    """Setting only soft constraints should persist them and return their DB ids."""
+    access_token = login(client)
+
+    request = CumulusObjectiveConstraintRequest(
+        problem_id=1,
+        soft_constraints=[_SOFT_CONSTRAINT],
+    )
+    response = post_json(client, "/method/cumulus/objective-constraint", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusObjectiveConstraintResponse.model_validate(json.loads(response.content))
+
+    assert len(result.hard_constraint_ids) == 0
+    assert len(result.soft_constraint_ids) == 1
+
+
+def test_cumulus_objective_constraint_hard_and_soft(client: TestClient):
+    """Setting both hard and soft constraints in one call should persist both lists."""
+    access_token = login(client)
+
+    request = CumulusObjectiveConstraintRequest(
+        problem_id=1,
+        hard_constraints=[_HARD_CONSTRAINT],
+        soft_constraints=[_SOFT_CONSTRAINT],
+    )
+    response = post_json(client, "/method/cumulus/objective-constraint", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusObjectiveConstraintResponse.model_validate(json.loads(response.content))
+
+    assert len(result.hard_constraint_ids) == 1
+    assert len(result.soft_constraint_ids) == 1
+    # The two IDs must be distinct DB rows
+    assert result.hard_constraint_ids[0] != result.soft_constraint_ids[0]
+
+
+def test_cumulus_objective_constraint_empty_lists(client: TestClient):
+    """Sending empty lists should succeed and return an empty-id state."""
+    access_token = login(client)
+
+    request = CumulusObjectiveConstraintRequest(problem_id=1)
+    response = post_json(client, "/method/cumulus/objective-constraint", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusObjectiveConstraintResponse.model_validate(json.loads(response.content))
+
+    assert result.state_id is not None
+    assert result.hard_constraint_ids == []
+    assert result.soft_constraint_ids == []
+
+
+def test_cumulus_objective_constraint_replace_semantics(client: TestClient):
+    """A second call should create a new state with the new constraint list."""
+    access_token = login(client)
+
+    first = CumulusObjectiveConstraintRequest(
+        problem_id=1,
+        hard_constraints=[_HARD_CONSTRAINT],
+    )
+    r1 = post_json(client, "/method/cumulus/objective-constraint", first.model_dump(), access_token)
+    assert r1.status_code == status.HTTP_200_OK
+    result1 = CumulusObjectiveConstraintResponse.model_validate(json.loads(r1.content))
+
+    second = CumulusObjectiveConstraintRequest(
+        problem_id=1,
+        hard_constraints=[],
+        soft_constraints=[_SOFT_CONSTRAINT],
+    )
+    r2 = post_json(client, "/method/cumulus/objective-constraint", second.model_dump(), access_token)
+    assert r2.status_code == status.HTTP_200_OK
+    result2 = CumulusObjectiveConstraintResponse.model_validate(json.loads(r2.content))
+
+    # A new state is created for each call
+    assert result2.state_id != result1.state_id
+    # Second call has no hard and one soft
+    assert result2.hard_constraint_ids == []
+    assert len(result2.soft_constraint_ids) == 1
+
+
+def test_cumulus_initialize_includes_constraint_ids_after_set(client: TestClient):
+    """After setting constraints, initialize should reflect the current constraint IDs."""
+    access_token = login(client)
+
+    # Set constraints before initialization
+    constraint_request = CumulusObjectiveConstraintRequest(
+        problem_id=1,
+        hard_constraints=[_HARD_CONSTRAINT],
+        soft_constraints=[_SOFT_CONSTRAINT],
+    )
+    post_json(client, "/method/cumulus/objective-constraint", constraint_request.model_dump(), access_token)
+
+    # Initialize — response should carry the active constraint IDs
+    init_request = CumulusInitializationRequest(problem_id=1)
+    init_response = post_json(client, "/method/cumulus/initialize", init_request.model_dump(), access_token)
+    assert init_response.status_code == status.HTTP_200_OK
+    init_result = CumulusInitializationResponse.model_validate(json.loads(init_response.content))
+
+    assert len(init_result.hard_constraint_ids) == 1
+    assert len(init_result.soft_constraint_ids) == 1
+
+
+def test_cumulus_get_or_initialize_includes_constraint_ids(client: TestClient):
+    """get-or-initialize should include constraint IDs from the latest constraint state."""
+    access_token = login(client)
+
+    # Set constraints
+    constraint_request = CumulusObjectiveConstraintRequest(
+        problem_id=1,
+        hard_constraints=[_HARD_CONSTRAINT],
+    )
+    post_json(client, "/method/cumulus/objective-constraint", constraint_request.model_dump(), access_token)
+
+    # get-or-initialize (first call — creates a new init state)
+    init_request = CumulusInitializationRequest(problem_id=1)
+    response = post_json(client, "/method/cumulus/get-or-initialize", init_request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusInitializationResponse.model_validate(json.loads(response.content))
+
+    assert len(result.hard_constraint_ids) == 1
+    assert len(result.soft_constraint_ids) == 0
+
+    # get-or-initialize (second call — returns existing init state) should also carry the IDs
+    response2 = post_json(client, "/method/cumulus/get-or-initialize", init_request.model_dump(), access_token)
+    assert response2.status_code == status.HTTP_200_OK
+    result2 = CumulusInitializationResponse.model_validate(json.loads(response2.content))
+
+    assert len(result2.hard_constraint_ids) == 1
+    assert len(result2.soft_constraint_ids) == 0
+
+
+def test_cumulus_initialize_no_constraints_returns_empty_ids(client: TestClient):
+    """When no constraints have been set, initialize should return empty constraint ID lists."""
+    access_token = login(client)
+
+    init_request = CumulusInitializationRequest(problem_id=1)
+    response = post_json(client, "/method/cumulus/initialize", init_request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusInitializationResponse.model_validate(json.loads(response.content))
+
+    assert result.hard_constraint_ids == []
+    assert result.soft_constraint_ids == []

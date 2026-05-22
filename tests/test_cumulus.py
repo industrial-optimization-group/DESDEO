@@ -39,7 +39,7 @@ def river_current():
 
 
 # ---------------------------------------------------------------------------
-# infer_classifications – structure
+# infer_classifications - structure
 # ---------------------------------------------------------------------------
 
 
@@ -110,7 +110,7 @@ def test_infer_classifications_maximized_objective(river_current):
 
 
 # ---------------------------------------------------------------------------
-# infer_classifications – error paths
+# infer_classifications - error paths
 # ---------------------------------------------------------------------------
 
 
@@ -161,13 +161,13 @@ def test_infer_classifications_error_missing_current_objectives(river_current):
 
 
 # ---------------------------------------------------------------------------
-# solve_sub_problems – structure
+# solve_sub_problems - structure
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.cumulus
 def test_solve_sub_problems_returns_one_result_per_scalarization(river_current):
-    """The number of returned SolverResults should match len(scalarizations)."""
+    """The number of returned entries should match len(scalarizations)."""
     problem, current = river_current
     rp = {"f_1": -6.0, "f_5": 8.0}
     scals = [CumulusScalarization.CUMULONIMBUS, CumulusScalarization.ASF_PARTIAL_DIFF]
@@ -175,6 +175,7 @@ def test_solve_sub_problems_returns_one_result_per_scalarization(river_current):
     results = solve_sub_problems(problem, current, rp, scals, solver=ScipyMinimizeSolver)
 
     assert len(results) == len(scals)
+    assert set(results.keys()) == set(scals)
 
 
 @pytest.mark.cumulus
@@ -191,8 +192,8 @@ def test_solve_sub_problems_cumulonimbus(river_current):
         solver=ScipyMinimizeSolver,
     )
 
-    assert len(results) == 1
-    assert results[0].success
+    assert results[CumulusScalarization.CUMULONIMBUS] is not None
+    assert results[CumulusScalarization.CUMULONIMBUS].success
 
 
 @pytest.mark.cumulus
@@ -209,8 +210,8 @@ def test_solve_sub_problems_asf_partial_diff(river_current):
         solver=ScipyMinimizeSolver,
     )
 
-    assert len(results) == 1
-    assert results[0].success
+    assert results[CumulusScalarization.ASF_PARTIAL_DIFF] is not None
+    assert results[CumulusScalarization.ASF_PARTIAL_DIFF].success
 
 
 @pytest.mark.cumulus
@@ -227,8 +228,8 @@ def test_solve_sub_problems_asf_partial_nondiff(river_current):
         solver=ScipyDeSolver,
     )
 
-    assert len(results) == 1
-    assert results[0].success
+    assert results[CumulusScalarization.ASF_PARTIAL_NONDIFF] is not None
+    assert results[CumulusScalarization.ASF_PARTIAL_NONDIFF].success
 
 
 @pytest.mark.cumulus
@@ -245,7 +246,8 @@ def test_solve_sub_problems_all_scalarizations(river_current):
     )
 
     assert len(results) == 3
-    for res in results:
+    for res in results.values():
+        assert res is not None
         assert res.success
 
 
@@ -278,11 +280,14 @@ def test_solve_sub_problems_partial_leaves_other_objectives_free(river_current):
         solver=ScipyMinimizeSolver,
     )
 
-    assert results_partial[0].success
-    assert results_pinned[0].success
+    res_partial = results_partial[CumulusScalarization.CUMULONIMBUS]
+    res_pinned = results_pinned[CumulusScalarization.CUMULONIMBUS]
 
-    f2_partial = results_partial[0].optimal_objectives["f_2"]
-    f2_pinned = results_pinned[0].optimal_objectives["f_2"]
+    assert res_partial is not None and res_partial.success
+    assert res_pinned is not None and res_pinned.success
+
+    f2_partial = res_partial.optimal_objectives["f_2"]
+    f2_pinned = res_pinned.optimal_objectives["f_2"]
 
     # The pinned solution must satisfy f_2 >= current (stay as good or better in min-space).
     # In practice the two solutions should differ.
@@ -303,13 +308,14 @@ def test_solve_sub_problems_all_results_have_all_objectives(river_current):
         solver=ScipyMinimizeSolver,
     )
 
-    for res in results:
+    for res in results.values():
+        assert res is not None
         for obj in problem.objectives:
             assert obj.symbol in res.optimal_objectives
 
 
 # ---------------------------------------------------------------------------
-# solve_sub_problems – error paths
+# solve_sub_problems - error paths
 # ---------------------------------------------------------------------------
 
 

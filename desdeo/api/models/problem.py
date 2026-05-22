@@ -6,7 +6,7 @@ from types import UnionType
 from typing import TYPE_CHECKING
 
 from fastapi import UploadFile
-from pydantic import BaseModel, ConfigDict, create_model
+from pydantic import BaseModel, ConfigDict, create_model, field_validator
 from sqlalchemy.types import JSON, String, TypeDecorator
 from sqlmodel import Column, Field, Relationship, SQLModel
 
@@ -27,6 +27,7 @@ from desdeo.problem.schema import (
     Variable,
     VariableDomainTypeEnum,
     VariableType,
+    parse_infix_to_func,
 )
 from desdeo.tools.utils import available_solvers
 
@@ -694,6 +695,8 @@ class _Constraint(SQLModel):
     func: list = Field(sa_column=Column(JSON))
     surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
     simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
+
+    _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
 
 
 _ConstraintDB = from_pydantic(

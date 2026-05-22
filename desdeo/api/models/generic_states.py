@@ -24,6 +24,7 @@ from .state import (
     CumulusFinalState,
     CumulusInitializationState,
     CumulusModificationState,
+    CumulusObjectiveConstraintState,
     CumulusSaveState,
     EMOFetchState,
     EMOIterateState,
@@ -82,6 +83,7 @@ class StateKind(str, Enum):
     CUMULUS_INIT = "cumulus.initialize"
     CUMULUS_FINAL = "cumulus.final"
     CUMULUS_MODIFY = "cumulus.modify"
+    CUMULUS_OBJ_CONSTRAINT = "cumulus.objective_constraint"
 
 
 class State(SQLModel, table=True):
@@ -223,6 +225,7 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.CUMULUS_INIT: CumulusInitializationState,
     StateKind.CUMULUS_FINAL: CumulusFinalState,
     StateKind.CUMULUS_MODIFY: CumulusModificationState,
+    StateKind.CUMULUS_OBJ_CONSTRAINT: CumulusObjectiveConstraintState,
 }
 
 SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
@@ -248,6 +251,7 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
     CumulusFinalState: StateKind.CUMULUS_FINAL,
     CumulusSaveState: StateKind.CUMULUS_SAVE,
     CumulusModificationState: StateKind.CUMULUS_MODIFY,
+    CumulusObjectiveConstraintState: StateKind.CUMULUS_OBJ_CONSTRAINT,
 }
 
 

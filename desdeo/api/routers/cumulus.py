@@ -10,6 +10,7 @@ from desdeo.api.models import (
     CumulusFinalState,
     CumulusInitializationState,
     CumulusModificationState,
+    CumulusObjectiveConstraintState,
     CumulusSaveState,
     IntermediateSolutionRequest,
     IntermediateSolutionState,
@@ -30,6 +31,8 @@ from desdeo.api.models.cumulus import (
     CumulusIntermediateSolutionResponse,
     CumulusModificationRequest,
     CumulusModificationResponse,
+    CumulusObjectiveConstraintRequest,
+    CumulusObjectiveConstraintResponse,
     CumulusSaveRequest,
     CumulusSaveResponse,
     CumulusScenarioSetupResponse,
@@ -37,9 +40,8 @@ from desdeo.api.models.cumulus import (
 )
 from desdeo.api.models.generic import SolutionInfo
 from desdeo.api.models.generic_states import SolutionReference, SolutionReferenceResponse, StateKind
-from desdeo.api.models.problem import ProblemDB
+from desdeo.api.models.problem import ConstraintDB, ProblemDB
 from desdeo.api.models.state import CumulusClassificationState
-from desdeo.api.routers.nimbus import collect_all_solutions, collect_saved_solutions
 from desdeo.api.routers.problem import check_solver
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.cumulus import CumulusScalarization, generate_starting_point, solve_sub_problems
@@ -48,9 +50,36 @@ from desdeo.problem import Problem
 from desdeo.tools import SolverResults, guess_best_solver
 from desdeo.tools.utils import payoff_table_method
 
-from .utils import ContextField, SessionContext, SessionContextGuard, apply_problem_modifications, copy_problem_metadata
+from .utils import (
+    ContextField,
+    SessionContext,
+    SessionContextGuard,
+    apply_problem_modifications,
+    collect_all_solutions,
+    collect_saved_solutions,
+    copy_problem_metadata,
+)
 
 router = APIRouter(prefix="/method/cumulus")
+
+
+def _get_objective_constraint_ids(
+    problem_id: int,
+    session_id: int | None,
+    db_session: Session,
+) -> tuple[list[int], list[int]]:
+    """Return (hard_constraint_ids, soft_constraint_ids) from the latest objective-constraint state."""
+    statement = (
+        select(StateDB)
+        .where(StateDB.problem_id == problem_id, StateDB.session_id == session_id)
+        .order_by(StateDB.id.desc())
+    )
+    for state_db in db_session.exec(statement).all():
+        if state_db.base_state is not None and state_db.base_state.kind == StateKind.CUMULUS_OBJ_CONSTRAINT:
+            obj_state = state_db.state
+            if isinstance(obj_state, CumulusObjectiveConstraintState):
+                return obj_state.hard_constraint_ids, obj_state.soft_constraint_ids
+    return [], []
 
 
 @router.post("/solve")
@@ -73,7 +102,7 @@ def solve_solutions(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
 
-    solver_results: list[SolverResults] = solve_sub_problems(
+    results_by_scalarization = solve_sub_problems(
         problem=problem,
         current_objectives=request.current_objectives,
         reference_point=request.preference.aspiration_levels,
@@ -82,6 +111,8 @@ def solve_solutions(
         solver=solver,
         solver_options=request.solver_options,
     )
+    # Filter out infeasible scalarizations (None values); store only valid results.
+    solver_results: list[SolverResults] = [r for r in results_by_scalarization.values() if r is not None]
 
     cumulus_state = CumulusClassificationState(
         preferences=request.preference,
@@ -184,6 +215,8 @@ def initialize(
     current_solutions = [SolutionReference(state=state, solution_index=0)]
     saved_solutions = collect_saved_solutions(user, request.problem_id, db_session)
     all_solutions = collect_all_solutions(user, request.problem_id, db_session)
+    session_id = interactive_session.id if interactive_session is not None else None
+    hard_ids, soft_ids = _get_objective_constraint_ids(problem_db.id, session_id, db_session)
 
     return CumulusInitializationResponse(
         state_id=state.id,
@@ -191,6 +224,8 @@ def initialize(
         current_solutions=current_solutions,
         saved_solutions=saved_solutions,
         all_solutions=all_solutions,
+        hard_constraint_ids=hard_ids,
+        soft_constraint_ids=soft_ids,
     )
 
 
@@ -349,11 +384,15 @@ def get_or_initialize(  # noqa: C901
             )
 
         # CumulusInitializationState or CumulusSaveState
+        _session_id = interactive_session.id if interactive_session is not None else user.active_session_id
+        hard_ids, soft_ids = _get_objective_constraint_ids(request.problem_id, _session_id, db_session)
         return CumulusInitializationResponse(
             state_id=latest_state.id,
             current_solutions=current_solutions,
             saved_solutions=saved_solutions,
             all_solutions=all_solutions,
+            hard_constraint_ids=hard_ids,
+            soft_constraint_ids=soft_ids,
         )
 
     # No existing state — check whether the problem has associated scenarios.
@@ -625,6 +664,73 @@ def delete_save(
         )
 
     return CumulusDeleteSaveResponse(message="Save deleted.")
+
+
+@router.post("/objective-constraint")
+def set_objective_constraints(
+    request: CumulusObjectiveConstraintRequest,
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
+) -> CumulusObjectiveConstraintResponse:
+    """Set (replace) the list of objective constraints for the current CUMULUS session.
+
+    Creates ConstraintDB rows in the database without adding them to the active problem.
+    A new state records the IDs of the current constraint list.
+    """
+    db_session = context.db_session
+    interactive_session = context.interactive_session
+    parent_state = context.parent_state
+    problem_db = context.problem_db
+
+    hard_constraints: list[ConstraintDB] = []
+    for raw in request.hard_constraints:
+        try:
+            constraint_db = ConstraintDB.model_validate(raw)
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
+        constraint_db.id = None
+        constraint_db.problem_id = None
+        db_session.add(constraint_db)
+        hard_constraints.append(constraint_db)
+
+    soft_constraints: list[ConstraintDB] = []
+    for raw in request.soft_constraints:
+        try:
+            constraint_db = ConstraintDB.model_validate(raw)
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
+        constraint_db.id = None
+        constraint_db.problem_id = None
+        db_session.add(constraint_db)
+        soft_constraints.append(constraint_db)
+
+    db_session.flush()
+    hard_constraint_ids = [c.id for c in hard_constraints]
+    soft_constraint_ids = [c.id for c in soft_constraints]
+
+    obj_constraint_state = CumulusObjectiveConstraintState(
+        problem_id=problem_db.id,
+        original_problem_id=request.original_problem_id,
+        hard_constraint_ids=hard_constraint_ids,
+        soft_constraint_ids=soft_constraint_ids,
+    )
+
+    state = StateDB.create(
+        database_session=db_session,
+        problem_id=problem_db.id,
+        session_id=interactive_session.id if interactive_session is not None else None,
+        parent_id=parent_state.id if parent_state is not None else None,
+        state=obj_constraint_state,
+    )
+
+    db_session.add(state)
+    db_session.commit()
+    db_session.refresh(state)
+
+    return CumulusObjectiveConstraintResponse(
+        state_id=state.id,
+        hard_constraint_ids=hard_constraint_ids,
+        soft_constraint_ids=soft_constraint_ids,
+    )
 
 
 def _run_payoff_table_background(new_problem_id: int, cumulus_state_id: int, solver_class) -> None:

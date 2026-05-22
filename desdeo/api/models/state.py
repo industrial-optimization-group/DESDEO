@@ -380,6 +380,30 @@ class CumulusModificationState(SQLModel, table=True):
     error: str | None = Field(default=None, description="Error message if the feasibility check failed.")
 
 
+class CumulusObjectiveConstraintState(ResultInterface, SQLModel, table=True):
+    """CUMULUS: objective constraints — stores the current set of objective-space constraints."""
+
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
+
+    problem_id: int | None = Field(default=None, description="Problem these constraints are associated with.")
+    original_problem_id: int | None = Field(default=None)
+    hard_constraint_ids: list[int] = Field(
+        sa_column=Column(JSON),
+        default_factory=list,
+        description="DB ids of the hard ConstraintDB rows in the current objective constraint list.",
+    )
+    soft_constraint_ids: list[int] = Field(
+        sa_column=Column(JSON),
+        default_factory=list,
+        description="DB ids of the soft ConstraintDB rows in the current objective constraint list.",
+    )
+
+    @property
+    def num_solutions(self) -> int:
+        """Objective constraint states hold no solutions."""
+        return 0
+
+
 class GNIMBUSOptimizationState(ResultInterface, SQLModel, table=True):
     """GNIMBUS: classification / solving."""
 

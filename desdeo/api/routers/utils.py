@@ -9,6 +9,7 @@ from enum import StrEnum
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
+from numpy import allclose
 from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
@@ -19,10 +20,13 @@ from desdeo.api.models import (
     NautilusNavigatorNavigateRequest,
     ProblemDB,
     RPMSolveRequest,
+    SavedSolutionReference,
     ScenarioModelDB,
+    SolutionReference,
     StateDB,
     User,
     UserRole,
+    UserSavedSolutionDB,
 )
 from desdeo.api.models.cumulus import ProblemModification
 from desdeo.api.models.problem import (
@@ -718,3 +722,48 @@ class SessionContextGuard:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"{field} context missing.",
                 )
+
+
+def filter_duplicates(solutions: list[SavedSolutionReference]) -> list[SavedSolutionReference]:
+    """Filters out the duplicate values of objectives."""
+    if len(solutions) < 2:  # noqa: PLR2004
+        return solutions
+
+    objective_values_list = [sol.objective_values for sol in solutions]
+    objective_keys = list(objective_values_list[0])
+    valuelists = [[dictionary[key] for key in objective_keys] for dictionary in objective_values_list]
+    duplicate_indices = []
+    for i in range(len(solutions) - 1):
+        for j in range(i + 1, len(solutions)):
+            if allclose(valuelists[i], valuelists[j]):  # TODO: "similarity tolerance" from problem metadata
+                duplicate_indices.append(i)
+
+    return [sol for i, sol in enumerate(solutions) if i not in duplicate_indices]
+
+
+def collect_saved_solutions(user: User, problem_id: int, session: Session) -> list[SavedSolutionReference]:
+    """Collects all saved solutions for the user and problem."""
+    user_saved_solutions = session.exec(
+        select(UserSavedSolutionDB).where(
+            UserSavedSolutionDB.problem_id == problem_id, UserSavedSolutionDB.user_id == user.id
+        )
+    ).all()
+
+    saved_solutions = [SavedSolutionReference(saved_solution=saved_solution) for saved_solution in user_saved_solutions]
+    return filter_duplicates(saved_solutions)
+
+
+def collect_all_solutions(user: User, problem_id: int, session: Session) -> list[SolutionReference]:
+    """Collects all solutions for the user and problem."""
+    statement = (
+        select(StateDB)
+        .where(StateDB.problem_id == problem_id, StateDB.session_id == user.active_session_id)
+        .order_by(StateDB.id.desc())
+    )
+    states = session.exec(statement).all()
+    all_solutions = []
+    for state in states:
+        for i in range(state.state.num_solutions):
+            all_solutions.append(SolutionReference(state=state, solution_index=i))
+
+    return filter_duplicates(all_solutions)

@@ -3,8 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from numpy import allclose
-from sqlmodel import Session, select
+from sqlmodel import select
 
 from desdeo.api.models import (
     IntermediateSolutionRequest,
@@ -24,11 +23,9 @@ from desdeo.api.models import (
     NIMBUSSaveResponse,
     NIMBUSSaveState,
     ReferencePoint,
-    SavedSolutionReference,
     SolutionReference,
     SolutionReferenceResponse,
     StateDB,
-    User,
     UserSavedSolutionDB,
 )
 from desdeo.api.models.generic import SolutionInfo
@@ -47,70 +44,9 @@ from desdeo.mcdm.nimbus import generate_starting_point, solve_sub_problems
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
 
-from .utils import ContextField, SessionContext, SessionContextGuard
+from .utils import ContextField, SessionContext, SessionContextGuard, collect_all_solutions, collect_saved_solutions
 
 router = APIRouter(prefix="/method/nimbus")
-
-
-# helper for collecting solutions
-def filter_duplicates(solutions: list[SavedSolutionReference]) -> list[SavedSolutionReference]:
-    """Filters out the duplicate values of objectives."""
-    # No solutions or only one solution. There can not be any duplicates.
-    if len(solutions) < 2:  # noqa: PLR2004
-        return solutions
-
-    # Get the objective values
-    objective_values_list = [sol.objective_values for sol in solutions]
-    # Get the function symbols
-    objective_keys = list(objective_values_list[0])
-    # Get the corresponding values for functions into a list of lists of values
-    valuelists = [[dictionary[key] for key in objective_keys] for dictionary in objective_values_list]
-    # Check duplicate indices
-    duplicate_indices = []
-    for i in range(len(solutions) - 1):
-        for j in range(i + 1, len(solutions)):
-            # If all values of the objective functions are (nearly) identical, that's a duplicate
-            if allclose(valuelists[i], valuelists[j]):  # TODO: "similarity tolerance" from problem metadata
-                duplicate_indices.append(i)
-
-    # Quite the memory hell. See If there's a smarter way to do this
-    new_solutions = []
-    for i in range(len(solutions)):
-        if i not in duplicate_indices:
-            new_solutions.append(solutions[i])
-
-    return new_solutions
-
-
-# for collecting solutions for responses in iterate and initialize endpoints
-def collect_saved_solutions(user: User, problem_id: int, session: Session) -> list[SavedSolutionReference]:
-    """Collects all saved solutions for the user and problem."""
-    user_saved_solutions = session.exec(
-        select(UserSavedSolutionDB).where(
-            UserSavedSolutionDB.problem_id == problem_id, UserSavedSolutionDB.user_id == user.id
-        )
-    ).all()
-
-    saved_solutions = [SavedSolutionReference(saved_solution=saved_solution) for saved_solution in user_saved_solutions]
-
-    return filter_duplicates(saved_solutions)
-
-
-# for collecting solutions for responses in iterate and initialize endpoints
-def collect_all_solutions(user: User, problem_id: int, session: Session) -> list[SolutionReference]:
-    """Collects all solutions for the user and problem."""
-    statement = (
-        select(StateDB)
-        .where(StateDB.problem_id == problem_id, StateDB.session_id == user.active_session_id)
-        .order_by(StateDB.id.desc())
-    )
-    states = session.exec(statement).all()
-    all_solutions = []
-    for state in states:
-        for i in range(state.state.num_solutions):
-            all_solutions.append(SolutionReference(state=state, solution_index=i))
-
-    return filter_duplicates(all_solutions)
 
 
 @router.post("/solve")

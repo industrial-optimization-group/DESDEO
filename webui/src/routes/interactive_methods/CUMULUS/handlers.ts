@@ -4,7 +4,7 @@
  * NOTE: The Orval-generated functions used here require running
  * `npm run generate:client` after the backend endpoints are available.
  */
-import { customFetch } from '$lib/api/new-client';
+
 import {
 	solveSolutionsMethodCumulusSolvePost,
 	getOrInitializeMethodCumulusGetOrInitializePost,
@@ -12,7 +12,9 @@ import {
 	deleteSaveMethodCumulusDeleteSavePost,
 	finalizeMethodCumulusFinalizePost,
 	solveIntermediateMethodCumulusIntermediatePost,
-	getUtopiaDataUtopiaPost
+	getUtopiaDataUtopiaPost,
+	setObjectiveConstraintsMethodCumulusObjectiveConstraintPost,
+	getSolutionDescriptionSolutionDescriptionGetPost
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type {
 	CumulusClassificationRequest,
@@ -21,7 +23,10 @@ import type {
 	CumulusDeleteSaveRequest,
 	CumulusFinalizeRequest,
 	IntermediateSolutionRequest,
-	SolutionInfo
+	SolutionInfo,
+	CumulusObjectiveConstraintRequest,
+	SolutionDescriptionRequest,
+	ConstraintTypeEnum
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type { ProblemInfo, Solution } from '$lib/types';
 import type { Response, ReferencePoint } from './types';
@@ -311,17 +316,11 @@ export async function get_solution_description(
 	solution: Solution
 ): Promise<string | null> {
 	try {
-		const response = await customFetch<{
-			status: number;
-			data: { available: boolean; description: string };
-		}>('http://localhost:8000/solution-description/get', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				problem_id: problem.id,
-				solution: toSolutionInfo(solution)
-			})
-		});
+		const request: SolutionDescriptionRequest = {
+			problem_id: problem.id,
+			solution: toSolutionInfo(solution)
+		};
+		const response = await getSolutionDescriptionSolutionDescriptionGetPost(request);
 
 		if (response.status !== 200 || !response.data.available) return null;
 		return response.data.description;
@@ -414,6 +413,68 @@ export async function initialize_cumulus_state_with_scenarios(
 		const msg = error instanceof Error ? error.message : 'Unknown error';
 		errorMessage.set(msg);
 		console.error('Error in initialize_cumulus_state_with_scenarios:', msg);
+		return null;
+	} finally {
+		isLoading.set(false);
+	}
+}
+
+type UIConstraintType = '<=0' | '=0' | '<=0 (soft)' | '=0 (soft)';
+
+interface UIConstraint {
+	func: string;
+	type: UIConstraintType;
+}
+
+interface ObjectiveConstraintResult {
+	state_id: number;
+	hard_constraint_ids: number[];
+	soft_constraint_ids: number[];
+}
+
+function toConstraintDB(constraints: UIConstraint[], soft: boolean, offset: number) {
+	return constraints
+		.filter((c) => c.type.includes('soft') === soft)
+		.map((c, i) => ({
+			name: c.func,
+			symbol: `oc_${offset + i + 1}`,
+			func: c.func,
+			cons_type: (c.type.startsWith('<=') ? '<=' : '=') as ConstraintTypeEnum
+		}));
+}
+
+export async function set_objective_constraints(
+	problem: ProblemInfo,
+	parent_state_id: number | null,
+	constraints: UIConstraint[]
+): Promise<ObjectiveConstraintResult | null> {
+	isLoading.set(true);
+	errorMessage.set(null);
+
+	const hard = toConstraintDB(constraints, false, 0);
+	const soft = toConstraintDB(constraints, true, hard.length);
+
+	const request: CumulusObjectiveConstraintRequest = {
+		problem_id: problem.id,
+		parent_state_id: parent_state_id ?? null,
+		hard_constraints: hard,
+		soft_constraints: soft
+	};
+
+	try {
+		const response = await setObjectiveConstraintsMethodCumulusObjectiveConstraintPost(request);
+
+		if (response.status !== 200) {
+			const detail = (response.data as unknown as { detail?: string })?.detail;
+			errorMessage.set(detail ?? `Setting objective constraints failed with status ${response.status}`);
+			return null;
+		}
+
+		return response.data;
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : 'Unknown error';
+		errorMessage.set(msg);
+		console.error('Error in set_objective_constraints:', msg);
 		return null;
 	} finally {
 		isLoading.set(false);

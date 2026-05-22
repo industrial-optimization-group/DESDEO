@@ -16,6 +16,8 @@
 	import { openConfirmDialog, openInputDialog } from '$lib/components/custom/dialogs/dialogs';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import Checkbox from '$lib/components/ui/checkbox/checkbox.svelte';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
 
 	// Shared components (reused from NIMBUS)
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
@@ -103,6 +105,42 @@
 	let active_objective_symbols = $state(new Set<string>());
 	let show_objectives_dialog = $state(false);
 	let show_scalarizations_dialog = $state(false);
+
+	// Objective constraint dialog state
+	type ConstraintType = '<=0' | '=0' | '<=0 (soft)' | '=0 (soft)';
+	interface ObjectiveConstraint {
+		id: number;
+		func: string;
+		type: ConstraintType;
+	}
+	const CONSTRAINT_TYPES: ConstraintType[] = ['<=0', '=0', '<=0 (soft)', '=0 (soft)'];
+	let show_constraint_dialog = $state(false);
+	let constraint_obj_filter: 'active' | 'all' = $state('active');
+	let pending_constraints: ObjectiveConstraint[] = $state([]);
+	let next_constraint_id = $state(0);
+
+	function add_constraint() {
+		pending_constraints = [...pending_constraints, { id: next_constraint_id++, func: '', type: '<=0' }];
+	}
+
+	function remove_constraint(id: number) {
+		pending_constraints = pending_constraints.filter((c) => c.id !== id);
+	}
+
+	async function apply_constraints() {
+		if (!problem) return;
+		const result = await setObjectiveConstraintsRequest(
+			problem,
+			current_state.state_id ?? null,
+			pending_constraints
+		);
+		if (result) show_constraint_dialog = false;
+	}
+
+	function cancel_constraints() {
+		pending_constraints = [];
+		show_constraint_dialog = false;
+	}
 
 	// Scenario setup dialog state
 	let show_scenario_setup_dialog = $state(false);
@@ -264,6 +302,7 @@
 		get_solution_description as getSolutionDescriptionRequest,
 		initialize_cumulus_state as initializeCumulusStateRequest,
 		initialize_cumulus_state_with_scenarios as initializeCumulusStateWithScenariosRequest,
+		set_objective_constraints as setObjectiveConstraintsRequest,
 		type MeasureType,
 		type MeasureOptions
 	} from './handlers';
@@ -761,6 +800,25 @@
 					Finish
 				</Button>
 			</span>
+
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button {...props} variant="outline" class="ml-2 px-2">
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<line x1="4" y1="6" x2="20" y2="6" />
+								<line x1="4" y1="12" x2="20" y2="12" />
+								<line x1="4" y1="18" x2="20" y2="18" />
+							</svg>
+						</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="end">
+					<DropdownMenu.Item onclick={() => (show_constraint_dialog = true)}>Add objective constraint</DropdownMenu.Item>
+					<DropdownMenu.Item>Add uncertainty measures</DropdownMenu.Item>
+					<DropdownMenu.Item>Modify problem</DropdownMenu.Item>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
 		{/snippet}
 
 		{#snippet visualizationArea()}
@@ -946,6 +1004,124 @@
 		</Dialog.Content>
 	</Dialog.Portal>
 </Dialog.Root>
+
+<!-- Objective constraint dialog -->
+{#if problem}
+	<Dialog.Root bind:open={show_constraint_dialog}>
+		<Dialog.Portal>
+			<Dialog.Overlay />
+			<Dialog.Content class="flex max-h-[85vh] w-[95vw] max-w-[95vw] sm:max-w-[95vw] flex-col gap-0 p-0">
+				<Dialog.Header class="shrink-0 border-b px-6 py-4">
+					<Dialog.Title>Add Objective Constraints</Dialog.Title>
+					<Dialog.Description>
+						Define constraints on the objective functions. Changes take effect only when you press Apply.
+					</Dialog.Description>
+				</Dialog.Header>
+
+				<div class="grid min-h-0 flex-1 grid-cols-2 divide-x overflow-hidden">
+					<!-- Left: objectives list -->
+					<div class="flex flex-col overflow-hidden">
+						<div class="flex shrink-0 items-center justify-between border-b px-4 py-2">
+							<p class="text-sm font-medium text-muted-foreground">Objectives</p>
+							<SegmentedControl
+								bind:value={constraint_obj_filter}
+								options={[
+									{ value: 'active', label: 'Active' },
+									{ value: 'all', label: 'All' }
+								]}
+							/>
+						</div>
+						<div class="overflow-y-auto p-4">
+							<table class="w-full text-sm">
+								<thead>
+									<tr class="border-b text-left text-xs text-muted-foreground">
+										<th class="pb-2 pr-3 font-medium">Symbol</th>
+										<th class="pb-2 pr-3 font-medium">Name</th>
+										<th class="pb-2 pr-3 font-medium">Ideal</th>
+										<th class="pb-2 font-medium">Nadir</th>
+									</tr>
+								</thead>
+								<tbody class="divide-y">
+									{#each (constraint_obj_filter === 'active' ? problem.objectives.filter((o) => active_objective_symbols.has(o.symbol)) : problem.objectives) as obj}
+										<tr class="align-top">
+											<td class="py-2 pr-3 font-mono text-xs">{obj.symbol}</td>
+											<td class="py-2 pr-3">
+												<p class="font-medium">{obj.name}</p>
+												{#if obj.description}
+													<p class="mt-0.5 text-xs text-muted-foreground">{obj.description}</p>
+												{/if}
+											</td>
+											<td class="py-2 pr-3 text-xs">
+												{obj.ideal != null ? obj.ideal.toPrecision(4) : '—'}
+											</td>
+											<td class="py-2 text-xs">
+												{obj.nadir != null ? obj.nadir.toPrecision(4) : '—'}
+											</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					</div>
+
+					<!-- Right: constraints list -->
+					<div class="flex flex-col overflow-hidden">
+						<p class="shrink-0 border-b px-4 py-2 text-sm font-medium text-muted-foreground">Constraints</p>
+						<div class="flex-1 overflow-y-auto p-4">
+							{#if pending_constraints.length === 0}
+								<p class="text-sm text-muted-foreground">No constraints added yet.</p>
+							{/if}
+							<div class="flex flex-col gap-3">
+								{#each pending_constraints as constraint (constraint.id)}
+									<div class="flex items-center gap-2">
+										<input
+											type="text"
+											bind:value={constraint.func}
+											placeholder="e.g. f_1 - 100"
+											class="min-w-[20ch] flex-1 rounded border px-2 py-1 font-mono text-sm"
+										/>
+										<Select.Root
+											type="single"
+											value={constraint.type}
+											onValueChange={(v) => (constraint.type = v as ConstraintType)}
+										>
+											<Select.Trigger class="w-36 shrink-0 text-xs">
+												{constraint.type}
+											</Select.Trigger>
+											<Select.Content>
+												{#each CONSTRAINT_TYPES as ct}
+													<Select.Item value={ct} class="text-xs">{ct}</Select.Item>
+												{/each}
+											</Select.Content>
+										</Select.Root>
+										<Button
+											variant="ghost"
+											size="icon"
+											class="shrink-0 text-destructive hover:text-destructive"
+											onclick={() => remove_constraint(constraint.id)}
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+											</svg>
+										</Button>
+									</div>
+								{/each}
+							</div>
+						</div>
+						<div class="shrink-0 border-t px-4 py-3">
+							<Button variant="outline" size="sm" onclick={add_constraint}>+ Add constraint</Button>
+						</div>
+					</div>
+				</div>
+
+				<Dialog.Footer class="shrink-0 border-t px-6 py-4">
+					<Button variant="outline" onclick={cancel_constraints}>Cancel</Button>
+					<Button variant="default" onclick={apply_constraints}>Apply</Button>
+				</Dialog.Footer>
+			</Dialog.Content>
+		</Dialog.Portal>
+	</Dialog.Root>
+{/if}
 
 <!-- Scalarization dialog -->
 <Dialog.Root bind:open={show_scalarizations_dialog}>
