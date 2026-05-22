@@ -41,12 +41,14 @@ from desdeo.api.models.cumulus import (
 from desdeo.api.models.generic import SolutionInfo
 from desdeo.api.models.generic_states import SolutionReference, SolutionReferenceResponse, StateKind
 from desdeo.api.models.problem import ConstraintDB, ProblemDB
+from desdeo.api.models.scenario import ScenarioModelDB
 from desdeo.api.models.state import CumulusClassificationState
 from desdeo.api.routers.problem import check_solver
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.cumulus import CumulusScalarization, generate_starting_point, solve_sub_problems
 from desdeo.mcdm.reference_point_method import rpm_intermediate_solutions
-from desdeo.problem import Problem
+from desdeo.problem import Problem, ScenarioModel
+from desdeo.problem.schema import Constraint
 from desdeo.tools import SolverResults, guess_best_solver
 from desdeo.tools.utils import payoff_table_method
 
@@ -58,9 +60,36 @@ from .utils import (
     collect_all_solutions,
     collect_saved_solutions,
     copy_problem_metadata,
+    iter_states_of_kinds,
 )
 
 router = APIRouter(prefix="/method/cumulus")
+
+
+def _get_scenario_model_id(
+    problem_id: int,
+    session_id: int | None,
+    db_session: Session,
+) -> int | None:
+    """Return the scenario_model_id from the most recent CUMULUS init or solve state that has one."""
+    for state in iter_states_of_kinds(
+        problem_id, session_id, db_session, (StateKind.CUMULUS_INIT, StateKind.CUMULUS_SOLVE)
+    ):
+        sm_id = getattr(state, "scenario_model_id", None)
+        if sm_id is not None:
+            return sm_id
+    return None
+
+
+def _load_scenario_model(
+    scenario_model_id: int,
+    db_session: Session,
+) -> ScenarioModel | None:
+    """Load a :class:`ScenarioModel` from the DB given its id."""
+    sm_db = db_session.get(ScenarioModelDB, scenario_model_id)
+    if sm_db is None or sm_db.base_problem is None:
+        return None
+    return sm_db.to_scenario_model(base_problem=Problem.from_problemdb(sm_db.base_problem))
 
 
 def _get_objective_constraint_ids(
@@ -69,16 +98,9 @@ def _get_objective_constraint_ids(
     db_session: Session,
 ) -> tuple[list[int], list[int]]:
     """Return (hard_constraint_ids, soft_constraint_ids) from the latest objective-constraint state."""
-    statement = (
-        select(StateDB)
-        .where(StateDB.problem_id == problem_id, StateDB.session_id == session_id)
-        .order_by(StateDB.id.desc())
-    )
-    for state_db in db_session.exec(statement).all():
-        if state_db.base_state is not None and state_db.base_state.kind == StateKind.CUMULUS_OBJ_CONSTRAINT:
-            obj_state = state_db.state
-            if isinstance(obj_state, CumulusObjectiveConstraintState):
-                return obj_state.hard_constraint_ids, obj_state.soft_constraint_ids
+    for state in iter_states_of_kinds(problem_id, session_id, db_session, (StateKind.CUMULUS_OBJ_CONSTRAINT,)):
+        if isinstance(state, CumulusObjectiveConstraintState):
+            return state.hard_constraint_ids, state.soft_constraint_ids
     return [], []
 
 
@@ -102,6 +124,22 @@ def solve_solutions(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
 
+    hard_ids, soft_ids = _get_objective_constraint_ids(
+        problem_db.id, interactive_session.id if interactive_session else None, db_session
+    )
+    hard_constraints = [
+        Constraint.model_validate(row, from_attributes=True)
+        for row in db_session.exec(select(ConstraintDB).where(ConstraintDB.id.in_(hard_ids))).all()
+    ] or None
+    soft_constraints = [
+        Constraint.model_validate(row, from_attributes=True)
+        for row in db_session.exec(select(ConstraintDB).where(ConstraintDB.id.in_(soft_ids))).all()
+    ] or None
+
+    session_id = interactive_session.id if interactive_session else None
+    scenario_model_id = _get_scenario_model_id(problem_db.id, session_id, db_session)
+    scenario_model = _load_scenario_model(scenario_model_id, db_session) if scenario_model_id is not None else None
+
     results_by_scalarization = solve_sub_problems(
         problem=problem,
         current_objectives=request.current_objectives,
@@ -110,9 +148,25 @@ def solve_solutions(
         scalarization_options=request.scalarization_options,
         solver=solver,
         solver_options=request.solver_options,
+        hard_constraints=hard_constraints,
+        soft_constraints=soft_constraints,
+        scenario_model=scenario_model,
     )
     # Filter out infeasible scalarizations (None values); store only valid results.
     solver_results: list[SolverResults] = [r for r in results_by_scalarization.values() if r is not None]
+
+    warnings: list[str] = []
+    if (
+        CumulusScalarization.CUMULONIMBUS in scalarizations
+        and results_by_scalarization.get(CumulusScalarization.CUMULONIMBUS) is None
+        and (hard_ids or soft_ids)
+    ):
+        kinds = ([f"{len(hard_ids)} hard"] if hard_ids else []) + ([f"{len(soft_ids)} soft"] if soft_ids else [])
+        warnings.append(
+            f"Cumulonimbus scalarization failed to find a feasible solution. "
+            f"You have {' and '.join(kinds)} active objective constraint(s) that may conflict "
+            f"with the current reference point. Consider loosening or removing the constraints."
+        )
 
     cumulus_state = CumulusClassificationState(
         preferences=request.preference,
@@ -123,6 +177,7 @@ def solve_solutions(
         current_objectives=request.current_objectives,
         scalarizations=request.scalarizations,
         original_problem_id=request.original_problem_id,
+        scenario_model_id=scenario_model_id,
     )
 
     state = StateDB.create(
@@ -145,11 +200,13 @@ def solve_solutions(
 
     return CumulusClassificationResponse(
         state_id=state.id,
+        scenario_model_id=scenario_model_id,
         previous_preference=request.preference,
         previous_objectives=request.current_objectives,
         current_solutions=current_solutions,
         saved_solutions=saved_solutions,
         all_solutions=all_solutions,
+        warnings=warnings,
     )
 
 
@@ -189,14 +246,25 @@ def initialize(
         solver_options=request.solver_options,
     )
 
+    effective_original_problem_id = (
+        request.original_problem_id if request.original_problem_id is not None else request.problem_id
+    )
+
+    # Only associate a scenario model when a combined problem was actually built from one,
+    # i.e., when the problem being initialized differs from the original problem.
+    _scenario_model_id: int | None = None
+    if effective_original_problem_id != request.problem_id:
+        _orig_db = db_session.get(ProblemDB, effective_original_problem_id)
+        if _orig_db is not None and _orig_db.scenario_models:
+            _scenario_model_id = _orig_db.scenario_models[0].id
+
     initialization_state = CumulusInitializationState(
         reference_point=starting_point,
         scalarization_options=request.scalarization_options,
         solver=request.solver,
         solver_results=start_result,
-        original_problem_id=request.original_problem_id
-        if request.original_problem_id is not None
-        else request.problem_id,
+        original_problem_id=effective_original_problem_id,
+        scenario_model_id=_scenario_model_id,
     )
 
     state = StateDB.create(
@@ -799,9 +867,13 @@ def modify_problem(
 
     original_problem_id = request.original_problem_id if request.original_problem_id is not None else problem_db.id
 
+    mod_session_id = interactive_session.id if interactive_session else None
+    mod_scenario_model_id = _get_scenario_model_id(problem_db.id, mod_session_id, db_session)
+
     modification_state = CumulusModificationState(
         problem_id=new_problem_db.id,
         original_problem_id=original_problem_id,
+        scenario_model_id=mod_scenario_model_id,
         is_ready=False,
     )
 
@@ -830,6 +902,7 @@ def modify_problem(
         state_id=state.id,
         problem_id=new_problem_db.id,
         original_problem_id=original_problem_id,
+        scenario_model_id=mod_scenario_model_id,
         is_ready=False,
     )
 
@@ -854,6 +927,7 @@ def modify_problem_status(
 
     return CumulusModificationResponse(
         state_id=state_id,
+        scenario_model_id=mod_state.scenario_model_id,
         problem_id=mod_state.problem_id,
         original_problem_id=mod_state.original_problem_id,
         is_ready=mod_state.is_ready,

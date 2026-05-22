@@ -3,11 +3,13 @@
 # ruff: noqa: N806
 import pytest
 
+from desdeo.mcdm.cumulus import _scenario_aug_weights
 from desdeo.problem.schema import ConstraintTypeEnum, TensorVariable
 from desdeo.problem.testproblems import (
     summer_cabin_battery_problem,
     summer_cabin_battery_problem_split,
     summer_cabin_battery_problem_split_scenario,
+    summer_cabin_battery_robust_ev_problem,
 )
 from desdeo.tools import CVXPYSolver, GurobipySolver, PyomoBonminSolver, PyomoGurobiSolver, PyomoIpoptSolver
 from desdeo.tools.robust import add_worst_case_robust
@@ -333,6 +335,55 @@ def test_build_scenario_problem_works_for_all_leaves(scenario_model):
         assert prob is not None
         obj_syms = [o.symbol for o in prob.objectives]
         assert "f_3" in obj_syms, f"Scenario {name} problem missing f_3"
+
+
+# ---------------------------------------------------------------------------
+# CUMULUS augmentation weights for scenario problems
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(name="robust_ev_problem")
+def robust_ev_problem_fixture():
+    """Return summer_cabin_battery_robust_ev_problem with real ideal/nadir from the payoff table."""
+    return summer_cabin_battery_robust_ev_problem()
+
+
+@pytest.mark.cvxpy
+@pytest.mark.scenario
+@pytest.mark.slow
+@pytest.mark.githubskip(reason="Gurobi license issues")
+def test_cumulus_scenario_aug_weights_structure(robust_ev_problem, scenario_model):
+    """_scenario_aug_weights zeros aggregation objectives and assigns |nadir-ideal| to per-scenario ones."""
+    _, symbol_maps = build_combined_scenario_problem(scenario_model)
+
+    # Reference point over the EV (aggregation) objectives as a DM would use.
+    reference_point = {"E_f_1": 5.0, "E_f_2": 5.0, "E_f_3": 0.5}
+
+    weights_aug = _scenario_aug_weights(robust_ev_problem, scenario_model, reference_point)
+
+    # Aggregation objectives in reference_point must have weight 0.
+    for sym in reference_point:
+        assert weights_aug[sym] == pytest.approx(0.0), f"{sym} (aggregation) should have weight 0"
+
+    # Every per-scenario / shared objective must appear with its real |nadir - ideal|.
+    per_scenario_syms = {
+        combined_sym for leaf_map in symbol_maps.get("objectives", {}).values() for combined_sym in leaf_map.values()
+    }
+    obj_by_sym = {obj.symbol: obj for obj in robust_ev_problem.objectives}
+    for sym in per_scenario_syms:
+        obj = obj_by_sym.get(sym)
+        assert obj is not None and obj.ideal is not None and obj.nadir is not None, (
+            f"{sym} is missing ideal/nadir on the robust_ev_problem"
+        )
+        assert sym in weights_aug, f"{sym} missing from weights_aug"
+        assert weights_aug[sym] == pytest.approx(abs(obj.nadir - obj.ideal)), (
+            f"{sym}: expected {abs(obj.nadir - obj.ideal)}, got {weights_aug[sym]}"
+        )
+
+    # Objectives outside both groups must be absent.
+    all_obj_syms = {obj.symbol for obj in robust_ev_problem.objectives}
+    for sym in all_obj_syms - per_scenario_syms - set(reference_point):
+        assert sym not in weights_aug, f"Unexpected objective {sym} in weights_aug"
 
 
 # ---------------------------------------------------------------------------

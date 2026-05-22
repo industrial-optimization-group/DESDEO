@@ -14,6 +14,7 @@ from desdeo.problem import (
     PolarsEvaluator,
     Problem,
     ScalarizationFunction,
+    ScenarioModel,
     Variable,
     VariableType,
     flatten_variable_dict,
@@ -29,6 +30,7 @@ from desdeo.tools import (
     add_asf_partial_diff,
     add_asf_partial_nondiff,
     add_cumulonimbus_diff,
+    build_combined_scenario_problem,
     guess_best_solver,
 )
 
@@ -55,19 +57,14 @@ class CumulusScalarization(Enum):
     every objective present in the reference point.
     """
 
-    ASF_PARTIAL_DIFF = "asf_partial_diff"
-    """Partial differentiable ASF (:func:`~desdeo.tools.add_asf_partial_diff`).
+    ASF_PARTIAL = "asf_partial"
+    """Partial ASF (:func:`~desdeo.tools.add_asf_partial_diff` or :func:`~desdeo.tools.add_asf_partial_nondiff`).
 
-    Minimizes a differentiable achievement scalarizing function over the subset
-    of objectives in the reference point.  No classification step is performed.
-    """
-
-    ASF_PARTIAL_NONDIFF = "asf_partial_nondiff"
-    """Partial non-differentiable ASF (:func:`~desdeo.tools.add_asf_partial_nondiff`).
-
-    Same as :attr:`ASF_PARTIAL_DIFF` but uses an explicit ``Max`` operator in
-    the objective function instead of an auxiliary variable, making it suitable
-    for derivative-free solvers.
+    Minimizes an achievement scalarizing function over the subset of objectives
+    in the reference point.  No classification step is performed.  The
+    differentiable variant is used unless the problem is non-differentiable
+    *and* has no constraints, in which case the non-differentiable variant is
+    used automatically.
     """
 
 
@@ -257,6 +254,50 @@ def infer_classifications(
     return classifications
 
 
+def _scenario_aug_weights(
+    problem: Problem,
+    scenario_model: ScenarioModel,
+    reference_point: dict[str, float],
+) -> dict[str, float]:
+    """Compute ``weights_aug`` that restricts augmentation to per-scenario objectives.
+
+    When the combined problem contains both per-scenario objectives (e.g. ``s0_f_1``,
+    ``s1_f_1``) and aggregation objectives (e.g. ``E_f_1``), the default augmentation
+    would include whichever objectives appear in ``reference_point`` — usually the
+    aggregation ones.  This is undesirable: the augmentation should pull on the
+    per-scenario realizations so the solver is guided towards good outcomes across all
+    scenarios, not just the aggregate.
+
+    This function returns a ``weights_aug`` dict where:
+
+    - every objective in ``reference_point`` receives weight ``0`` (excluded from
+      augmentation);
+    - every per-scenario objective that has both ``ideal`` and ``nadir`` defined receives
+      weight ``|nadir - ideal|`` (included in augmentation);
+    - per-scenario objectives missing ``ideal`` or ``nadir`` are omitted (no augmentation
+      contribution, avoiding division-by-zero).
+
+    Args:
+        problem: the combined scenario problem being solved.
+        scenario_model: the scenario model used to build ``problem``.
+        reference_point: the partial reference point passed to the scalarization.
+
+    Returns:
+        dict[str, float]: augmentation weights keyed by objective symbol.
+    """
+    _, symbol_maps = build_combined_scenario_problem(scenario_model)
+    per_scenario_syms: set[str] = {
+        combined_sym for leaf_map in symbol_maps.get("objectives", {}).values() for combined_sym in leaf_map.values()
+    }
+    obj_by_sym = {obj.symbol: obj for obj in problem.objectives}
+    weights_aug: dict[str, float] = dict.fromkeys(reference_point, 0.0)
+    for sym in per_scenario_syms:
+        obj = obj_by_sym.get(sym)
+        if obj is not None and obj.ideal is not None and obj.nadir is not None:
+            weights_aug[sym] = abs(obj.nadir - obj.ideal)
+    return weights_aug
+
+
 def _apply_scalarization(
     problem: Problem,
     sf: "CumulusScalarization",
@@ -271,12 +312,65 @@ def _apply_scalarization(
             return add_cumulonimbus_diff(
                 problem, "cumulonimbus_sf", classifications, current_objectives, **(scalarization_options or {})
             )
-        case CumulusScalarization.ASF_PARTIAL_DIFF:
+        case CumulusScalarization.ASF_PARTIAL:
+            use_nondiff = not problem.is_twice_differentiable and not problem.constraints
+            if use_nondiff:
+                return add_asf_partial_nondiff(
+                    problem, "asf_partial_sf", reference_point, **(scalarization_options or {})
+                )
             return add_asf_partial_diff(problem, "asf_partial_sf", reference_point, **(scalarization_options or {}))
-        case CumulusScalarization.ASF_PARTIAL_NONDIFF:
-            return add_asf_partial_nondiff(
-                problem, "asf_partial_nondiff_sf", reference_point, **(scalarization_options or {})
+
+
+def _solve_with_constraints(
+    problem: Problem,
+    scalarizations: list["CumulusScalarization"],
+    hard_constraints: list[Constraint] | None,
+    soft_constraints: list[Constraint] | None,
+    solve_one,
+    init_solver,
+    solver_options,
+) -> "dict[CumulusScalarization, SolverResults | None]":
+    """Solve all scalarizations with optional soft-constraint relaxation.
+
+    Builds the base problem with hard and soft constraints attached, solves every
+    scalarization, and returns immediately if at least one succeeded.  When every
+    sub-problem is infeasible, relaxes the soft constraints via slack variables,
+    locks in the minimum total violation as a budget constraint, and re-solves.
+    """
+    base_problem = problem
+    if hard_constraints:
+        base_problem = base_problem.add_constraints(hard_constraints)
+    if soft_constraints:
+        base_problem = base_problem.add_constraints(soft_constraints)
+
+    solutions: dict[CumulusScalarization, SolverResults | None] = {
+        sf: solve_one(base_problem, sf) for sf in scalarizations
+    }
+
+    if any(r is not None for r in solutions.values()) or not soft_constraints:
+        return solutions
+
+    slack_vars, modified_soft, violation_sum_func, optimal_violation = _minimize_soft_constraint_violations(
+        problem, hard_constraints, soft_constraints, init_solver, solver_options
+    )
+
+    relaxed_problem = problem
+    if hard_constraints:
+        relaxed_problem = relaxed_problem.add_constraints(hard_constraints)
+    relaxed_problem = relaxed_problem.add_variables(slack_vars)
+    relaxed_problem = relaxed_problem.add_constraints(modified_soft)
+    relaxed_problem = relaxed_problem.add_constraints(
+        [
+            Constraint(
+                name="Soft constraint violation budget",
+                symbol="_violation_budget",
+                cons_type=ConstraintTypeEnum.LTE,
+                func=["Subtract", violation_sum_func, optimal_violation],
             )
+        ]
+    )
+
+    return {sf: solve_one(relaxed_problem, sf) for sf in scalarizations}
 
 
 def _minimize_soft_constraint_violations(
@@ -348,6 +442,7 @@ def solve_sub_problems(
     solver_options: SolverOptions | None = None,
     hard_constraints: list[Constraint] | None = None,
     soft_constraints: list[Constraint] | None = None,
+    scenario_model: ScenarioModel | None = None,
 ) -> dict[CumulusScalarization, SolverResults | None]:
     r"""Solves one sub-problem per requested scalarization using a partial reference point.
 
@@ -360,10 +455,9 @@ def solve_sub_problems(
     - :attr:`CumulusScalarization.CUMULONIMBUS`: derives classifications from
       ``reference_point`` and ``current_objectives``, then solves a partial NIMBUS
       scalarization.  Requires ideal and nadir to be defined for every active objective.
-    - :attr:`CumulusScalarization.ASF_PARTIAL_DIFF`: solves a differentiable partial ASF
-      directly from ``reference_point``.
-    - :attr:`CumulusScalarization.ASF_PARTIAL_NONDIFF`: solves a non-differentiable partial
-      ASF (``Max`` form) directly from ``reference_point``.
+    - :attr:`CumulusScalarization.ASF_PARTIAL`: solves a partial ASF directly from
+      ``reference_point``.  Automatically selects the differentiable variant unless
+      the problem is non-differentiable and has no constraints.
 
     When ``hard_constraints`` and/or ``soft_constraints`` are supplied, the function first
     attempts to solve with all constraints enforced.  If every sub-problem is infeasible,
@@ -398,6 +492,12 @@ def solve_sub_problems(
         soft_constraints (list[Constraint] | None, optional): constraints that are attempted
             first as hard constraints but may be relaxed if the problem is infeasible.
             Defaults to None.
+        scenario_model (ScenarioModel | None, optional): when provided, the augmentation
+            weights are automatically set so that only the per-scenario versions of the
+            original objectives contribute to the augmentation term.  Aggregation/uncertainty
+            objectives present in ``reference_point`` receive weight 0.  Always overrides
+            any ``"weights_aug"`` already present in ``scalarization_options``.
+            Defaults to None.
 
     Returns:
         dict[CumulusScalarization, SolverResults | None]: maps each scalarization type to
@@ -419,53 +519,22 @@ def solve_sub_problems(
     init_solver = solver if solver is not None else guess_best_solver(problem)
     _solver_options = solver_options if solver_options is not None else None
 
+    effective_scalarization_options = dict(scalarization_options or {})
+    if scenario_model is not None:
+        effective_scalarization_options["weights_aug"] = _scenario_aug_weights(problem, scenario_model, reference_point)
+
     def _solve(base: Problem, sf: CumulusScalarization) -> SolverResults | None:
-        p, target = _apply_scalarization(base, sf, scalarization_options, current_objectives, reference_point)
+        p, target = _apply_scalarization(base, sf, effective_scalarization_options, current_objectives, reference_point)
         inst = init_solver(p, _solver_options) if _solver_options else init_solver(p)
         result = inst.solve(target)
         return result if result.success else None
 
-    # Add all constraints to get the base problem.
-    base_problem = problem
-    if hard_constraints:
-        base_problem = base_problem.add_constraints(hard_constraints)
-    if soft_constraints:
-        base_problem = base_problem.add_constraints(soft_constraints)
+    if hard_constraints or soft_constraints:
+        return _solve_with_constraints(
+            problem, scalarizations, hard_constraints, soft_constraints, _solve, init_solver, _solver_options
+        )
 
-    solutions: dict[CumulusScalarization, SolverResults | None] = {
-        sf: _solve(base_problem, sf) for sf in scalarizations
-    }
-
-    # If at least one sub-problem succeeded the constraint set is feasible; any remaining
-    # failures are caused by the scalarization itself (not by the soft constraints), so we
-    # do not relax.  We also cannot relax if there are no soft constraints to loosen.
-    if any(r is not None for r in solutions.values()) or not soft_constraints:
-        return solutions
-
-    # Every sub-problem was infeasible, which suggests the combined constraint set is
-    # infeasible.  Relax soft constraints by introducing slack variables, minimize total
-    # violation, lock that minimum in as a budget constraint, then re-solve all scalarizations.
-    slack_vars, modified_soft, violation_sum_func, optimal_violation = _minimize_soft_constraint_violations(
-        problem, hard_constraints, soft_constraints, init_solver, _solver_options
-    )
-
-    relaxed_problem = problem
-    if hard_constraints:
-        relaxed_problem = relaxed_problem.add_constraints(hard_constraints)
-    relaxed_problem = relaxed_problem.add_variables(slack_vars)
-    relaxed_problem = relaxed_problem.add_constraints(modified_soft)
-    relaxed_problem = relaxed_problem.add_constraints(
-        [
-            Constraint(
-                name="Soft constraint violation budget",
-                symbol="_violation_budget",
-                cons_type=ConstraintTypeEnum.LTE,
-                func=["Subtract", violation_sum_func, optimal_violation],
-            )
-        ]
-    )
-
-    return {sf: _solve(relaxed_problem, sf) for sf in scalarizations}
+    return {sf: _solve(problem, sf) for sf in scalarizations}
 
 
 def generate_starting_point(

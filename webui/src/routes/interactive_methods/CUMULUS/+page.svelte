@@ -78,8 +78,7 @@
 	let selected_iteration_index: number[] = $state([0]);
 	const AVAILABLE_SCALARIZATIONS = [
 		{ value: 'cumulonimbus', label: 'Cumulonimbus' },
-		{ value: 'asf_partial_diff', label: 'ASF (differentiable)' },
-		{ value: 'asf_partial_nondiff', label: 'ASF (non-differentiable)' }
+		{ value: 'asf_partial', label: 'ASF (partial)' }
 	];
 
 	let current_num_iteration_solutions: number = $state(1);
@@ -105,6 +104,8 @@
 	let active_objective_symbols = $state(new Set<string>());
 	let show_objectives_dialog = $state(false);
 	let show_scalarizations_dialog = $state(false);
+
+	let warning_message: string | null = $state(null);
 
 	// Objective constraint dialog state
 	type ConstraintType = '<=0' | '=0' | '<=0 (soft)' | '=0 (soft)';
@@ -256,7 +257,10 @@
 			measure_options,
 			combined_problem_name.trim() || undefined
 		);
-		if (scenarioResult) await apply_initialization_result(scenarioResult);
+		if (scenarioResult) {
+			await apply_initialization_result(scenarioResult);
+			show_objectives_dialog = true;
+		}
 	}
 
 	async function cancel_scenario_setup() {
@@ -407,7 +411,7 @@
 		}
 	}
 
-	async function handle_iterate(data: {
+	async function handle_iterate(_data: {
 		numSolutions: number;
 		typePreferences: string;
 		preferenceValues: number[];
@@ -435,17 +439,26 @@
 		);
 
 		if (result) {
+			const prev_current_solutions = current_state.current_solutions;
 			current_state = result;
+
+			if (current_state.current_solutions.length === 0) {
+				current_state = { ...current_state, current_solutions: prev_current_solutions };
+				const base = result.warnings?.length ? result.warnings.join('\n') : 'No feasible solutions were found.';
+				warning_message = base + '\nPrevious solutions are still shown.';
+			} else {
+				warning_message = result.warnings?.length ? result.warnings.join('\n') : null;
+				selected_iteration_index = [0];
+				change_solution_type_updating_selections('current');
+				current_num_iteration_solutions = current_state.current_solutions.length;
+			}
 
 			current_state.all_solutions = updateSolutionNames(
 				current_state.saved_solutions,
 				current_state.all_solutions
 			);
 
-			selected_iteration_index = [0];
-			change_solution_type_updating_selections('current');
 			update_preferences_from_state(current_state);
-			current_num_iteration_solutions = current_state.current_solutions.length;
 		}
 	}
 
@@ -661,6 +674,15 @@
 		title="Error"
 		message={$errorMessage}
 		variant='destructive'
+	/>
+{/if}
+
+{#if warning_message}
+	<Alert
+		title="Warning"
+		message={warning_message}
+		variant='default'
+		onClose={() => (warning_message = null)}
 	/>
 {/if}
 

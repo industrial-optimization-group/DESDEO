@@ -1417,8 +1417,8 @@ def test_cumulus_initialize(client: TestClient):
     assert len(result.all_solutions) == 1
 
 
-def test_cumulus_solve_asf_partial_diff(client: TestClient):
-    """Solve with ASF_PARTIAL_DIFF and a partial reference point should succeed."""
+def test_cumulus_solve_asf_partial(client: TestClient):
+    """Solve with ASF_PARTIAL and a partial reference point should succeed."""
     access_token = login(client)
 
     init_request = CumulusInitializationRequest(problem_id=1)
@@ -1435,7 +1435,7 @@ def test_cumulus_solve_asf_partial_diff(client: TestClient):
         problem_id=1,
         preference=preference,
         current_objectives=current_objectives,
-        scalarizations=["asf_partial_diff"],
+        scalarizations=["asf_partial"],
         parent_state_id=init_result.state_id,
     )
 
@@ -1499,7 +1499,7 @@ def test_cumulus_solve_multiple_scalarizations(client: TestClient):
         problem_id=1,
         preference=preference,
         current_objectives=current_objectives,
-        scalarizations=["cumulonimbus", "asf_partial_diff"],
+        scalarizations=["cumulonimbus", "asf_partial"],
         parent_state_id=init_result.state_id,
     )
 
@@ -1528,7 +1528,7 @@ def test_cumulus_save_and_delete(client: TestClient):
         problem_id=1,
         preference=ReferencePoint(aspiration_levels={"f_1": aspiration_f1}),
         current_objectives=current_objectives,
-        scalarizations=["asf_partial_diff"],
+        scalarizations=["asf_partial"],
         parent_state_id=init_result.state_id,
     )
     solve_response = post_json(client, "/method/cumulus/solve", solve_request.model_dump(), access_token)
@@ -1551,7 +1551,7 @@ def test_cumulus_save_and_delete(client: TestClient):
         problem_id=1,
         preference=ReferencePoint(aspiration_levels={"f_1": aspiration_f1}),
         current_objectives=current_objectives,
-        scalarizations=["asf_partial_diff"],
+        scalarizations=["asf_partial"],
         parent_state_id=save_result.state_id,
     )
     solve_response2 = post_json(client, "/method/cumulus/solve", solve_request2.model_dump(), access_token)
@@ -1588,7 +1588,7 @@ def test_cumulus_finalize(client: TestClient):
         problem_id=1,
         preference=ReferencePoint(aspiration_levels={"f_1": aspiration_f1}),
         current_objectives=current_objectives,
-        scalarizations=["asf_partial_diff"],
+        scalarizations=["asf_partial"],
         parent_state_id=init_result.state_id,
     )
     solve_response = post_json(client, "/method/cumulus/solve", solve_request.model_dump(), access_token)
@@ -1651,7 +1651,7 @@ def test_cumulus_get_or_initialize_after_finalize(client: TestClient):
         problem_id=1,
         preference=ReferencePoint(aspiration_levels={"f_1": aspiration_f1}),
         current_objectives=current_objectives,
-        scalarizations=["asf_partial_diff"],
+        scalarizations=["asf_partial"],
     )
     solve_response = post_json(client, "/method/cumulus/solve", solve_request.model_dump(), access_token)
     solve_result = CumulusClassificationResponse.model_validate(json.loads(solve_response.content))

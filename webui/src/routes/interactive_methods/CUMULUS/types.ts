@@ -26,6 +26,7 @@ export type Response = BaseMethodResponse & {
 	// finalize fields
 	state_id?: number | null;
 	final_solution?: Solution;
+	warnings?: string[];
 };
 
 export type { ReferencePoint };

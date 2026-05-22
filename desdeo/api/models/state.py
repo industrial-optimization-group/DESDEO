@@ -260,6 +260,7 @@ class CumulusClassificationState(ResultInterface, SQLModel, table=True):
     current_objectives: dict[str, float] = Field(sa_column=Column(JSON), default_factory=dict)
     scalarizations: list[str] = Field(sa_column=Column(JSON), default_factory=list)
     original_problem_id: int | None = Field(default=None)
+    scenario_model_id: int | None = Field(default=None)
 
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
@@ -290,6 +291,7 @@ class CumulusInitializationState(ResultInterface, SQLModel, table=True):
     solver: str | None = None
     solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     original_problem_id: int | None = Field(default=None)
+    scenario_model_id: int | None = Field(default=None)
 
     solver_results: "SolverResults" = Field(sa_column=Column(ResultsType), default_factory=list)
 
@@ -376,6 +378,7 @@ class CumulusModificationState(SQLModel, table=True):
 
     problem_id: int = Field(description="ID of the newly created modified problem.")
     original_problem_id: int | None = Field(default=None)
+    scenario_model_id: int | None = Field(default=None)
     is_ready: bool = Field(default=False, description="True once the background feasibility check has completed.")
     error: str | None = Field(default=None, description="Error message if the feasibility check failed.")
 

@@ -170,7 +170,7 @@ def test_solve_sub_problems_returns_one_result_per_scalarization(river_current):
     """The number of returned entries should match len(scalarizations)."""
     problem, current = river_current
     rp = {"f_1": -6.0, "f_5": 8.0}
-    scals = [CumulusScalarization.CUMULONIMBUS, CumulusScalarization.ASF_PARTIAL_DIFF]
+    scals = [CumulusScalarization.CUMULONIMBUS, CumulusScalarization.ASF_PARTIAL]
 
     results = solve_sub_problems(problem, current, rp, scals, solver=ScipyMinimizeSolver)
 
@@ -197,8 +197,8 @@ def test_solve_sub_problems_cumulonimbus(river_current):
 
 
 @pytest.mark.cumulus
-def test_solve_sub_problems_asf_partial_diff(river_current):
-    """ASF_PARTIAL_DIFF scalarization should solve successfully."""
+def test_solve_sub_problems_asf_partial(river_current):
+    """ASF_PARTIAL scalarization should solve successfully (uses diff variant for differentiable problem)."""
     problem, current = river_current
     rp = {"f_1": -6.0, "f_5": 8.0}
 
@@ -206,35 +206,17 @@ def test_solve_sub_problems_asf_partial_diff(river_current):
         problem,
         current,
         rp,
-        [CumulusScalarization.ASF_PARTIAL_DIFF],
+        [CumulusScalarization.ASF_PARTIAL],
         solver=ScipyMinimizeSolver,
     )
 
-    assert results[CumulusScalarization.ASF_PARTIAL_DIFF] is not None
-    assert results[CumulusScalarization.ASF_PARTIAL_DIFF].success
-
-
-@pytest.mark.cumulus
-def test_solve_sub_problems_asf_partial_nondiff(river_current):
-    """ASF_PARTIAL_NONDIFF scalarization should solve successfully."""
-    problem, current = river_current
-    rp = {"f_1": -6.0, "f_5": 8.0}
-
-    results = solve_sub_problems(
-        problem,
-        current,
-        rp,
-        [CumulusScalarization.ASF_PARTIAL_NONDIFF],
-        solver=ScipyDeSolver,
-    )
-
-    assert results[CumulusScalarization.ASF_PARTIAL_NONDIFF] is not None
-    assert results[CumulusScalarization.ASF_PARTIAL_NONDIFF].success
+    assert results[CumulusScalarization.ASF_PARTIAL] is not None
+    assert results[CumulusScalarization.ASF_PARTIAL].success
 
 
 @pytest.mark.cumulus
 def test_solve_sub_problems_all_scalarizations(river_current):
-    """All three scalarizations in one call should each produce a successful result."""
+    """All scalarizations in one call should each produce a successful result."""
     problem, current = river_current
     rp = {"f_1": -6.0, "f_5": 8.0}
 
@@ -245,7 +227,7 @@ def test_solve_sub_problems_all_scalarizations(river_current):
         list(CumulusScalarization),
     )
 
-    assert len(results) == 3
+    assert len(results) == 2
     for res in results.values():
         assert res is not None
         assert res.success
@@ -304,7 +286,7 @@ def test_solve_sub_problems_all_results_have_all_objectives(river_current):
         problem,
         current,
         rp,
-        [CumulusScalarization.CUMULONIMBUS, CumulusScalarization.ASF_PARTIAL_DIFF],
+        [CumulusScalarization.CUMULONIMBUS, CumulusScalarization.ASF_PARTIAL],
         solver=ScipyMinimizeSolver,
     )
 
@@ -336,7 +318,7 @@ def test_solve_sub_problems_error_invalid_reference_point_key(river_current):
             problem,
             current,
             {"bad": 1.0},
-            [CumulusScalarization.ASF_PARTIAL_DIFF],
+            [CumulusScalarization.ASF_PARTIAL],
         )
 
 

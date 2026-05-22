@@ -51,6 +51,7 @@ __all__ = [  # noqa: RUF022
     "summer_cabin_battery_problem",
     "summer_cabin_battery_problem_split",
     "summer_cabin_battery_problem_split_scenario",
+    "summer_cabin_battery_robust_ev_problem",
 ]
 
 
@@ -94,5 +95,12 @@ from .spanish_sustainability_problem import (
     spanish_sustainability_problem,
     spanish_sustainability_problem_discrete,
 )
-from .summer_cabin_electricity import generate_solar_profile, generate_summer_cabin_electricity_data, summer_cabin_battery_problem, summer_cabin_battery_problem_split, summer_cabin_battery_problem_split_scenario
+from .summer_cabin_electricity import (
+    generate_solar_profile,
+    generate_summer_cabin_electricity_data,
+    summer_cabin_battery_problem,
+    summer_cabin_battery_problem_split,
+    summer_cabin_battery_problem_split_scenario,
+    summer_cabin_battery_robust_ev_problem,
+)
 from .zdt_problem import zdt1, zdt2, zdt3

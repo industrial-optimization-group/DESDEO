@@ -29,6 +29,7 @@ from desdeo.api.models import (
     UserSavedSolutionDB,
 )
 from desdeo.api.models.cumulus import ProblemModification
+from desdeo.api.models.generic_states import StateKind
 from desdeo.api.models.problem import (
     ForestProblemMetaData,
     ProblemMetaDataDB,
@@ -580,6 +581,23 @@ def fetch_parent_state(
         )
 
     return parent_state
+
+
+def iter_states_of_kinds(
+    problem_id: int,
+    session_id: int | None,
+    db_session: Session,
+    kinds: tuple[StateKind, ...],
+):
+    """Yield resolved substates (newest first) for *problem_id*/*session_id* whose kind is in *kinds*."""
+    statement = (
+        select(StateDB)
+        .where(StateDB.problem_id == problem_id, StateDB.session_id == session_id)
+        .order_by(StateDB.id.desc())
+    )
+    for state_db in db_session.exec(statement).all():
+        if state_db.base_state is not None and state_db.base_state.kind in kinds:
+            yield state_db.state
 
 
 class ContextField(StrEnum):
