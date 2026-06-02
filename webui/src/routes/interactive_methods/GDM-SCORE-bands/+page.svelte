@@ -87,6 +87,31 @@
 	} from './helper-functions';
 	import { json } from 'd3';
 
+	type LearningNote = {
+		id: string;
+		targetType: 'band' | 'sub-band' | 'solution';
+		targetId: string;
+		text: string;
+		createdAt: string;
+	};
+
+	type LearningSubBand = {
+		id: string;
+		parentClusterId: number;
+		label: string;
+		solutionIndices: number[];
+		color: string;
+	};
+
+	let learningState = $state({
+		selectedBand: null as number | null,
+		savedBands: [] as number[],
+		comparedBands: [] as number[],
+		notes: [] as LearningNote[],
+		zoomedBand: null as number | null,
+		subBands: [] as LearningSubBand[]
+	});
+
 	const { data } = $props<{
 		data: {
 			refreshToken: string;
@@ -203,7 +228,14 @@ function getConsensusClasses(axisName: string): string {
 		| GDMSCOREBandsResponse
 		| GDMSCOREBandsDecisionResponse
 	)[] = $state([]);
-	let phase = $state('Consensus Reaching Phase'); // 'Consensus reaching phase' or 'Decision phase'
+	//let phase = $state('Consensus Reaching Phase'); // 'Consensus reaching phase' or 'Decision phase'
+	let phase = $state('Learning Phase');
+
+	let isLearningPhase = $derived(phase === 'Learning Phase');
+	let isDecisionPhase = $derived(phase === 'Decision Phase');
+	let isConsensusPhase = $derived(phase === 'Consensus Reaching Phase');
+
+	
 	let iteration_id = $state(0); // for header and fetch_score_bands
 	// current iteration data for consensus reaching phase, when bands exist
 	let scoreBandsResult: SCOREBandsResult | null = $state(null);
@@ -226,8 +258,8 @@ function getConsensusClasses(axisName: string): string {
 	let decisionResult: GDMSCOREBandFinalSelection | null = $state(null);
 
 	// Derived state to determine which phase we're in, for conditional component rendering
-	let isDecisionPhase = $derived(phase === 'Decision Phase');
-	let isConsensusPhase = $derived(phase === 'Consensus Reaching Phase');
+	//let isDecisionPhase = $derived(phase === 'Decision Phase');
+	//let isConsensusPhase = $derived(phase === 'Consensus Reaching Phase');
 
 	// Map raw objective keys to display labels for SCORE-bands axes.
 	// Prefer objective.name for readability, but keep robust fallbacks.
@@ -394,7 +426,7 @@ function getConsensusClasses(axisName: string): string {
 
 	let clusterBandRows = $derived.by(() => {
 		if (
-			!isConsensusPhase ||
+			!(isLearningPhase || isConsensusPhase) ||
 			!SCOREBands.clusterIds.length ||
 			!SCOREBands.scales ||
 			!SCOREBands.bands ||
@@ -450,6 +482,56 @@ function getConsensusClasses(axisName: string): string {
 	let selected_solution: number | null = $state(null); // for decision phase
 
 	// Selection handlers
+	function selectLearningBand(clusterId: number | null) {
+		learningState.selectedBand = clusterId;
+	}
+
+	function toggleSavedBand(clusterId: number) {
+		learningState.savedBands = learningState.savedBands.includes(clusterId)
+			? learningState.savedBands.filter((id) => id !== clusterId)
+			: [...learningState.savedBands, clusterId];
+	}
+
+	function toggleCompareBand(clusterId: number) {
+		if (learningState.comparedBands.includes(clusterId)) {
+			learningState.comparedBands = learningState.comparedBands.filter((id) => id !== clusterId);
+			return;
+		}
+
+		if (learningState.comparedBands.length >= 3) return;
+
+		learningState.comparedBands = [...learningState.comparedBands, clusterId];
+	}
+
+	function zoomIntoBand(clusterId: number) {
+		learningState.zoomedBand = clusterId;
+		learningState.selectedBand = clusterId;
+	}
+
+	function exitBandZoom() {
+		learningState.zoomedBand = null;
+		learningState.subBands = [];
+	}
+
+	function createPersonalSubBands(numberOfSubBands = 3) {
+		if (learningState.zoomedBand === null || !scoreBandsResult) return;
+
+		const visibleIndices = scoreBandsResult.clusters
+			.map((clusterId, index) => ({ clusterId, index }))
+			.filter((item) => item.clusterId === learningState.zoomedBand)
+			.map((item) => item.index);
+
+		const chunkSize = Math.ceil(visibleIndices.length / numberOfSubBands);
+		const colors = ['#8b5cf6', '#06b6d4', '#f97316', '#22c55e'];
+
+		learningState.subBands = Array.from({ length: numberOfSubBands }, (_, i) => ({
+			id: `${learningState.zoomedBand}-${i + 1}`,
+			parentClusterId: learningState.zoomedBand!,
+			label: `Sub-band ${learningState.zoomedBand}.${i + 1}`,
+			solutionIndices: visibleIndices.slice(i * chunkSize, (i + 1) * chunkSize),
+			color: colors[i % colors.length]
+		}));
+	}
 	function handle_band_select(clusterId: number | null) {
 		selected_band = clusterId;
 	}
@@ -1041,17 +1123,227 @@ function getConsensusClasses(axisName: string): string {
 			</div>
 		</div>
 
-		<!-- Parameter Controls -->
-		<ConfigPanel
-			currentConfig={scoreBandsResult?.options || null}
-			{latestIteration}
-			{totalVoters}
-			onRecalculate={configure}
-			isVisible={isOwner && isConsensusPhase}
-		/>
+		{#if isLearningPhase}
+	<div class="grid grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_340px]">
+		<aside class="space-y-4">
+			<div class="rounded-lg border bg-card shadow-sm">
+				<div class="border-b px-4 py-3">
+					<h2 class="text-sm font-semibold">How to explore</h2>
+				</div>
 
-		{#if isConsensusPhase}
-			{#if isConsensusPhase}
+				<div class="space-y-4 p-4 text-sm">
+					<div>
+						<div class="font-medium">1. Explore bands</div>
+						<p class="text-muted-foreground">Click a band to inspect it.</p>
+					</div>
+
+					<div>
+						<div class="font-medium">2. Save preferences</div>
+						<p class="text-muted-foreground">Bookmark interesting bands privately.</p>
+					</div>
+
+					<div>
+						<div class="font-medium">3. Explore inside a band</div>
+						<p class="text-muted-foreground">Zoom in and optionally create personal sub-bands.</p>
+					</div>
+				</div>
+			</div>
+
+			<div class="rounded-lg border bg-card shadow-sm">
+				<div class="border-b px-4 py-3">
+					<h2 class="text-sm font-semibold">Filters</h2>
+				</div>
+
+				<div class="space-y-3 p-4">
+					<div class="text-sm font-medium">Visible clusters</div>
+
+					{#each SCOREBands.clusterIds as clusterId}
+						<label class="flex items-center justify-between gap-2 text-sm">
+							<span class="flex items-center gap-2">
+								<span
+									class="h-3 w-3 rounded-full"
+									style={`background-color: ${cluster_colors[clusterId] || '#64748b'};`}
+								></span>
+								Cluster {clusterId}
+							</span>
+
+							<input
+								type="checkbox"
+								bind:checked={cluster_visibility_map[clusterId]}
+								class="checkbox checkbox-primary checkbox-sm"
+							/>
+						</label>
+					{/each}
+				</div>
+			</div>
+		</aside>
+
+		<main class="space-y-4">
+			<div class="rounded-lg border bg-card shadow-sm">
+				<div class="flex items-center justify-between border-b px-4 py-3">
+					<div>
+						<h2 class="text-sm font-semibold">Explore the solution space</h2>
+						<p class="mt-1 text-xs text-muted-foreground">
+							Your exploration is private and does not affect the group.
+						</p>
+					</div>
+				</div>
+
+				<div class="h-[520px] p-4">
+					<ScoreBands
+						data={SCOREBands.data}
+						axisNames={SCOREBands.axisNames}
+						axisPositions={SCOREBands.axisPositions}
+						axisSigns={SCOREBands.axisSigns}
+						groups={SCOREBands.clusterIds}
+						{options}
+						bands={SCOREBands.bands}
+						medians={SCOREBands.medians}
+						scales={SCOREBands.scales}
+						clusterVisibility={cluster_visibility_map}
+						clusterColors={cluster_colors}
+						axisOptions={axis_options}
+						axisOrder={effective_axis_order}
+						onBandSelect={selectLearningBand}
+						onAxisSelect={handle_axis_select}
+						selectedBand={learningState.selectedBand}
+						selectedAxis={selected_axis}
+					/>
+				</div>
+			</div>
+
+			<ClusterBandTable
+				axisNames={SCOREBands.axisNames}
+				bands={clusterBandRows}
+				selectedBand={learningState.selectedBand}
+				onBandSelect={selectLearningBand}
+			/>
+		</main>
+
+		<aside class="space-y-4">
+			<div class="rounded-lg border bg-card shadow-sm">
+				<div class="border-b px-4 py-3">
+					<h2 class="text-sm font-semibold">My exploration</h2>
+					<p class="mt-1 text-xs text-muted-foreground">Visible only to you.</p>
+				</div>
+
+				<div class="space-y-3 p-4">
+					{#if learningState.selectedBand !== null}
+						<div class="rounded-md border p-3 text-sm">
+							<div class="font-medium">Cluster {learningState.selectedBand}</div>
+							<div class="text-muted-foreground">
+								{SCOREBands.solutions_per_cluster[learningState.selectedBand] ?? 0} solutions
+							</div>
+						</div>
+
+						<Button
+							class="w-full"
+							onclick={() => toggleSavedBand(learningState.selectedBand!)}
+						>
+							{learningState.savedBands.includes(learningState.selectedBand)
+								? 'Remove saved band'
+								: 'Save band'}
+						</Button>
+
+						<Button
+							class="w-full"
+							variant="outline"
+							onclick={() => toggleCompareBand(learningState.selectedBand!)}
+						>
+							Compare band ({learningState.comparedBands.length}/3)
+						</Button>
+
+						<Button
+							class="w-full"
+							variant="outline"
+							onclick={() => zoomIntoBand(learningState.selectedBand!)}
+						>
+							Explore inside band
+						</Button>
+					{:else}
+						<p class="text-sm text-muted-foreground">
+							Select a band to save, compare, or explore it.
+						</p>
+					{/if}
+				</div>
+			</div>
+
+			{#if learningState.savedBands.length > 0}
+				<div class="rounded-lg border bg-card shadow-sm">
+					<div class="border-b px-4 py-3">
+						<h2 class="text-sm font-semibold">Saved bands</h2>
+					</div>
+
+					<div class="space-y-2 p-4">
+						{#each learningState.savedBands as clusterId}
+							<div class="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+								<span>Cluster {clusterId}</span>
+								<button
+									type="button"
+									class="text-muted-foreground hover:text-foreground"
+									onclick={() => toggleSavedBand(clusterId)}
+								>
+									Remove
+								</button>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
+			{#if learningState.zoomedBand !== null}
+				<div class="rounded-lg border bg-card shadow-sm">
+					<div class="border-b px-4 py-3">
+						<h2 class="text-sm font-semibold">
+							Explore inside Cluster {learningState.zoomedBand}
+						</h2>
+						<p class="mt-1 text-xs text-muted-foreground">
+							Private zoomed-in exploration.
+						</p>
+					</div>
+
+					<div class="space-y-3 p-4">
+						<Button class="w-full" onclick={() => createPersonalSubBands(3)}>
+							Create personal sub-bands
+						</Button>
+
+						{#each learningState.subBands as subBand}
+							<div class="rounded-md border p-3 text-sm">
+								<div class="font-medium">{subBand.label}</div>
+								<div class="text-muted-foreground">
+									{subBand.solutionIndices.length} solutions
+								</div>
+							</div>
+						{/each}
+
+						<Button class="w-full" variant="outline" onclick={exitBandZoom}>
+							Back to all bands
+						</Button>
+					</div>
+				</div>
+			{/if}
+
+			<div class="rounded-lg border bg-card shadow-sm">
+				<div class="border-b px-4 py-3">
+					<h2 class="text-sm font-semibold">What’s next?</h2>
+				</div>
+
+				<div class="space-y-3 p-4 text-sm text-muted-foreground">
+					<p>
+						Once you are familiar with the solution space, you will move to the consensus
+						phase and vote for a preferred band.
+					</p>
+
+					{#if isOwner}
+						<Button class="w-full">
+							Continue to consensus phase
+						</Button>
+					{/if}
+				</div>
+			</div>
+		</aside>
+	</div>
+		{:else if isConsensusPhase}
 	<div class="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)_360px]">
 		<!-- LEFT: Data & Settings -->
 		<aside class="space-y-4">
@@ -1280,7 +1572,6 @@ function getConsensusClasses(axisName: string): string {
 			</div>
 		</aside>
 	</div>
-{/if}
 		{:else if isDecisionPhase}
 			<!-- DECISION PHASE: Solution Selection Content -->
 			<div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
