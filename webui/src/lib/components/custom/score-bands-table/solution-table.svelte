@@ -80,9 +80,9 @@
 
 <div class="rounded-lg border bg-card shadow-sm">
 	<div class="border-b px-4 py-3">
-		<h3 class="text-sm font-semibold">Current bands (filtered)</h3>
+		<h3 class="text-sm font-semibold">Current bands</h3>
 		<p class="mt-1 text-xs text-muted-foreground">
-			Each row is a band/cluster. Objective cells show the band range and median.
+			Each row is a band/cluster. Objective cells show the band median.
 		</p>
 	</div>
 
@@ -90,15 +90,15 @@
 		<Table.Header>
 			<Table.Row>
 				<Table.Head class="w-[220px]">Band / Cluster</Table.Head>
-
+				<Table.Head class="text-right"># Solutions</Table.Head>
+				<Table.Head class="text-right">% of total</Table.Head>
 				{#each axisNames as axisName}
-					<Table.Head class="min-w-[150px] text-center">
+					<Table.Head class="min-w-[100px] text-right">
 						{axisName}
 					</Table.Head>
 				{/each}
 
-				<Table.Head class="text-right"># Solutions</Table.Head>
-				<Table.Head class="text-right">% of total</Table.Head>
+				
 			</Table.Row>
 		</Table.Header>
 
@@ -108,7 +108,7 @@
 					class="cursor-pointer hover:bg-muted/50 {selectedBand === band.id ? 'bg-muted' : ''}"
 					onclick={() => onBandSelect(band.id)}
 				>
-					<Table.Cell
+									<Table.Cell
 						class="border-l-4"
 						style={`border-left-color: ${selectedBand === band.id ? band.color : 'transparent'};`}
 					>
@@ -120,20 +120,10 @@
 
 							<div>
 								<div class="font-medium">{band.label}</div>
-								<div class="text-xs text-muted-foreground">Click to select</div>
-							</div>
+<!-- 								<div class="text-xs text-muted-foreground">Click to select</div>
+ -->							</div>
 						</div>
 					</Table.Cell>
-
-					{#each axisNames as axisName}
-						<Table.Cell>
-							{@render RangeCell({
-								range: band.objectiveRanges[axisName],
-								color: band.color
-							})}
-						</Table.Cell>
-					{/each}
-
 					<Table.Cell class="text-right">
 						{band.numSolutions}
 					</Table.Cell>
@@ -145,6 +135,20 @@
 							—
 						{/if}
 					</Table.Cell>
+
+
+					{#each axisNames as axisName}
+						<Table.Cell class="text-right">
+							<!-- 
+							{@render RangeCell({
+								range: band.objectiveRanges[axisName],
+								color: band.color
+							})} -->
+							{formatNumber(band.objectiveRanges[axisName].median, 2)}
+						</Table.Cell>
+					{/each}
+
+
 				</Table.Row>
 			{:else}
 				<Table.Row>
@@ -156,9 +160,9 @@
 		</Table.Body>
 	</Table.Root>
 
-	<div class="flex gap-6 border-t px-4 py-2 text-xs text-muted-foreground">
+<!-- 	<div class="flex gap-6 border-t px-4 py-2 text-xs text-muted-foreground">
 		<span>Line = objective scale</span>
 		<span>Colored segment = band range</span>
 		<span>Dot = median</span>
-	</div>
+	</div> -->
 </div>

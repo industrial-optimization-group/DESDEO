@@ -77,6 +77,7 @@
 	import { createObjectiveDimensions } from '$lib/helpers/visualization-data-transform';
 
 	import { WebSocketService } from './websocket-store';
+	import Users from "@lucide/svelte/icons/users";
 
 	import {
 		drawVotesChart,
@@ -486,6 +487,11 @@ function getConsensusClasses(axisName: string): string {
 		learningState.selectedBand = clusterId;
 	}
 
+	function isBandVisible(clusterId: number | null): boolean {
+		if (clusterId === null) return true;
+		return cluster_visibility_map[clusterId] !== false;
+	}
+
 	function toggleSavedBand(clusterId: number) {
 		learningState.savedBands = learningState.savedBands.includes(clusterId)
 			? learningState.savedBands.filter((id) => id !== clusterId)
@@ -533,7 +539,11 @@ function getConsensusClasses(axisName: string): string {
 		}));
 	}
 	function handle_band_select(clusterId: number | null) {
+		if (!isBandVisible(clusterId)) {
+			return;
+		}
 		selected_band = clusterId;
+		
 	}
 
 	function handle_axis_select(axisIndex: number | null) {
@@ -547,10 +557,20 @@ function getConsensusClasses(axisName: string): string {
 
 	// Check if group decision is reached
 	let isGroupDecisionReached = $derived.by(() => {
-		return (
+		return !!(
 			decisionResult?.winner_solution_objectives &&
 			Object.keys(decisionResult.winner_solution_objectives).length > 0
 		);
+	});
+
+	$effect(() => {
+		if (learningState.selectedBand !== null && !isBandVisible(learningState.selectedBand)) {
+			learningState.selectedBand = null;
+		}
+
+		if (selected_band !== null && !isBandVisible(selected_band)) {
+			selected_band = null;
+		}
 	});
 
 	// Get the index of the winning solution
@@ -1063,20 +1083,29 @@ function getConsensusClasses(axisName: string): string {
 		</div>
 	{:else}
 		<!-- Header and Instructions -->
-		<div class="card bg-base-100 mb-6 shadow-xl">
-			<div class="card-body">
-				<div class="">
-					<!-- Header Section -->
-					<div class="font-semibold">
-						Group SCORE Bands / {phase}, Iteration {iteration_id}
+		<div>
+			<div class="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-5">
+				<div class="flex gap-4">
+					<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-100">
+						<Users class="h-6 w-6 text-blue-600" />
 					</div>
+					<div class="flex-1">
+						<h2 class="text-md font-semibold text-slate-900">
+							Consensus-reaching phase
+						</h2>
+					<!-- Header Section -->
 					{#if isDecisionMaker}
 						<!-- Instructions Section -->
 						{#if isConsensusPhase && usersVote === null}
-							<div>
-								Click a cluster on the graph and vote with the button. When all votes are received,
-								you can continue by confirming your vote.
-							</div>
+
+
+										<p class="mt-2 text-sm text-slate-600">
+											Select one band that best matches your preferred objective ranges, then click
+											Vote. Your vote helps the group narrow the solution space toward a shared
+											region of interest. You can change your selection and vote again until you
+											confirm your vote.
+										</p>
+
 						{:else if isDecisionPhase && usersVote === null && !isGroupDecisionReached}
 							<div>Select the best solution from the solutions shown below and vote for it.</div>
 						{/if}
@@ -1119,6 +1148,8 @@ function getConsensusClasses(axisName: string): string {
 								: ''}
 						</div>
 					{/if}
+					</div>
+					
 				</div>
 			</div>
 		</div>
@@ -1301,9 +1332,17 @@ function getConsensusClasses(axisName: string): string {
 							Private zoomed-in exploration.
 						</p>
 					</div>
-
 					<div class="space-y-3 p-4">
-						<Button class="w-full" onclick={() => createPersonalSubBands(3)}>
+						<Button
+							class="w-full"
+							variant="outline"
+							onclick={() => createPersonalSubBands(3)}
+							disabled={
+								vote_confirmed ||
+								learningState.zoomedBand === null ||
+								!isBandVisible(learningState.zoomedBand)
+							}
+						>
 							Create personal sub-bands
 						</Button>
 
