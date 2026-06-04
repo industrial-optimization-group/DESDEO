@@ -25,7 +25,7 @@ def scatter_plot_comparison(
         names: List of names for each data set to display in the legend.
 
     Returns:
-        go.Figure: Figure instance that shows the data.
+        go.Figure: A Plotly Figure containing the scatter plot.
     """
     traces = []
     is_3d = z_key is not None and all(z_key in result.outputs for result in results)
