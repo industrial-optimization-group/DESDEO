@@ -1316,10 +1316,10 @@ we do not know where to start, we can check the
 [open issues](https://github.com/industrial-optimization-group/DESDEO/issues)
 found on DESDEO's GitHub repository.
 
-For further support, feel free to join the MCDM Community's Discord server.
-It has dedicated channels for DESDEO as well. There, you may ask for further assistance
+For further support, feel free to join our Discord server.
+There, you may ask for further assistance
 and discuss DESDEO and its development in general.
 
-To join the Discord server, [click here!](https://discord.gg/TgSnUmzv5M)
+To join the Discord server, [click here!](https://discord.gg/uGCEgQTJyY)
 
 Happy coding!

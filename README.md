@@ -117,8 +117,8 @@ Be sure to check it out!
 
 For additional support for contributing to DESDEO,
 be sure to check out the DESDEO channels
-in the MCDM Community's Discord server. You may join the server
-[through this invite](https://discord.gg/TgSnUmzv5M).
+on our Discord server. You may join the server
+[through this invite](https://discord.gg/uGCEgQTJyY).
 
 ## License
 
