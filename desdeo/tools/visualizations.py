@@ -15,7 +15,7 @@ def scatter_plot_comparison(
 ) -> go.Figure:
     """Plots multiple sets of data in a scatter plot (2D or 3D depending on the data).
 
-    Parameters:
+    Arguments:
         *results: Variable number of result objects, each containing outputs with keys for x, y, and optionally z.
         x_key: Key for the x-axis data in the outputs.
         y_key: Key for the y-axis data in the outputs.
