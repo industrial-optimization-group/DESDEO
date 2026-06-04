@@ -1,13 +1,15 @@
 """Learning-mode operator for the XLEMOO method.
 
-The operator inspects an :class:`~desdeo.emo.hooks.archivers.Archive`,
-trains a SkopeRulesClassifier on the best/worst split of past evaluations,
-and uses the learned rules to instantiate a fresh batch of decision vectors.
+The operator subscribes to the same ``VERBOSE_OUTPUTS`` stream the archive
+listens to, and maintains its own bounded H-group (best-by-target) and
+L-group (worst-by-target) of unique decision vectors seen so far. When
+:meth:`do` is called, it trains a :class:`~imodels.SkopeRulesClassifier`
+on those groups and returns a fresh batch of decision vectors
+instantiated from the extracted rules.
 
-It is a :class:`~desdeo.tools.patterns.Subscriber` so it participates in the
-pub/sub consistency check, but it currently neither subscribes to nor
-publishes any messages: the algorithm template invokes :meth:`do` directly
-and decides what to do with the returned candidates.
+Keeping only the H/L groups (rather than the unbounded archive) makes the
+per-generation ``unique()`` cost proportional to the population size,
+independent of run length.
 """
 
 from collections.abc import Sequence
@@ -16,32 +18,37 @@ import numpy as np
 import polars as pl
 from imodels import SkopeRulesClassifier
 
-from desdeo.emo.hooks.archivers import Archive
 from desdeo.emo.operators.scalar_selection import ElitistSelection
 from desdeo.explanations.rules import (
     extract_skoped_rules,
     instantiate_from_ruleset,
 )
 from desdeo.problem import Problem
-from desdeo.tools.message import Message, MessageTopics
+from desdeo.tools.message import EvaluatorMessageTopics, GeneratorMessageTopics, Message, MessageTopics
 from desdeo.tools.patterns import Publisher, Subscriber
 
 
 class LearningModeOperator(Subscriber):
     """Performs the learning mode step of the XLEMOO method.
 
-    Trains a SkopeRulesClassifier on the H/L split of unique past
-    evaluations stored in the archive and returns a fresh batch of
-    decision vectors instantiated from the extracted rules. The caller
-    (typically :func:`~desdeo.emo.methods.templates.template_xlemoo`) is
-    responsible for evaluating the returned candidates and integrating
-    them with the current population through its own selection step.
+    The operator subscribes to ``VERBOSE_OUTPUTS`` from the evaluator and
+    generator and maintains its own bounded H-group / L-group of the
+    best- and worst-by-target unique decision vectors seen so far.
+    :meth:`do` trains a SkopeRulesClassifier on those groups and returns
+    a fresh batch of decision vectors instantiated from the extracted
+    rules. The caller (typically
+    :func:`~desdeo.emo.methods.templates.template_xlemoo`) evaluates the
+    returned candidates and integrates them with the current population
+    through its own selection step.
     """
 
     @property
     def interested_topics(self) -> Sequence[MessageTopics]:
-        """No subscriptions: the operator reads from the archive directly."""
-        return []
+        """Subscribe to verbose outputs from the evaluator and generator."""
+        return [
+            EvaluatorMessageTopics.VERBOSE_OUTPUTS,
+            GeneratorMessageTopics.VERBOSE_OUTPUTS,
+        ]
 
     @property
     def provided_topics(self) -> dict[int, Sequence[MessageTopics]]:
@@ -51,7 +58,6 @@ class LearningModeOperator(Subscriber):
     def __init__(
         self,
         problem: Problem,
-        archive: Archive,
         selector: ElitistSelection,
         publisher: Publisher,
         verbosity: int = 2,
@@ -65,17 +71,19 @@ class LearningModeOperator(Subscriber):
 
         Args:
             problem (Problem): The optimization problem.
-            archive (Archive): Archive of all evaluated solutions so far.
             selector (ElitistSelection): The selector used by the surrounding
-                algorithm. Only its ``winner_size`` is read here, to size the
-                instantiated batch.
+                algorithm. Its ``target_column`` decides which scalar fitness
+                column ranks H vs L, and its ``winner_size`` sets both the
+                H/L group budget and the size of the instantiated batch.
             publisher (Publisher): The pub/sub publisher for the current run.
             verbosity (int, optional): Verbosity level, passed to the Subscriber
                 base class. Defaults to ``2``.
-            h_split (float, optional): Fraction of unique individuals placed in the
-                H-group. Must be in ``(0, 1]``. Defaults to ``0.2``.
-            l_split (float, optional): Fraction of unique individuals placed in the
-                L-group. Must be in ``(0, 1]``. Defaults to ``0.2``.
+            h_split (float, optional): Fraction of ``selector.winner_size``
+                kept as the H-group budget (top-by-target). Must be in
+                ``(0, 1]``. Defaults to ``0.2``.
+            l_split (float, optional): Fraction of ``selector.winner_size``
+                kept as the L-group budget (bottom-by-target). Must be in
+                ``(0, 1]``. Defaults to ``0.2``.
             instantiation_factor (float, optional): Multiplier on ``selector.winner_size``
                 deciding how many candidates to instantiate from the rules. Defaults to ``10.0``.
             ml_model (SkopeRulesClassifier | None, optional): A pre-built classifier. If
@@ -90,7 +98,6 @@ class LearningModeOperator(Subscriber):
             raise ValueError(f"l_split must be in (0, 1]; got {l_split}.")
 
         self.problem = problem
-        self.archive = archive
         self.selector = selector
         self.h_split = h_split
         self.l_split = l_split
@@ -103,6 +110,11 @@ class LearningModeOperator(Subscriber):
             (float(v.lowerbound), float(v.upperbound)) for v in problem.get_flattened_variables()
         ]
 
+        self.h_size: int = max(1, round(h_split * selector.winner_size))
+        self.l_size: int = max(1, round(l_split * selector.winner_size))
+        self.h_group: pl.DataFrame | None = None
+        self.l_group: pl.DataFrame | None = None
+
         if ml_model is None:
             ml_model = SkopeRulesClassifier(
                 precision_min=0.1,
@@ -114,40 +126,64 @@ class LearningModeOperator(Subscriber):
         self.ml_model = ml_model
         self.current_ml_model: SkopeRulesClassifier | None = None
 
+    def _ingest(self, data: pl.DataFrame) -> None:
+        """Fold a new evaluation batch into the H- and L-groups.
+
+        Concatenates ``data`` with the current ``h_group`` and ``l_group``, deduplicates
+        on the decision-variable columns, sorts by ``selector.target_column``, and keeps
+        the top ``h_size`` and bottom ``l_size`` rows.
+        """
+        target_column = self.selector.target_column
+        if target_column not in data.columns:
+            return
+
+        columns = [*self.variable_symbols, target_column]
+        frames = [data.select(columns)]
+        if self.h_group is not None:
+            frames.append(self.h_group)
+        if self.l_group is not None:
+            frames.append(self.l_group)
+
+        combined = pl.concat(frames, how="vertical_relaxed")
+        combined = combined.unique(subset=self.variable_symbols, maintain_order=True)
+        combined = combined.sort(target_column)
+
+        self.h_group = combined.head(self.h_size)
+        self.l_group = combined.tail(self.l_size)
+
+    def update(self, message: Message) -> None:
+        """Fold each ``VERBOSE_OUTPUTS`` message into the H- and L-groups."""
+        if message.topic not in (
+            EvaluatorMessageTopics.VERBOSE_OUTPUTS,
+            GeneratorMessageTopics.VERBOSE_OUTPUTS,
+        ):
+            return
+        data = message.value
+        if not isinstance(data, pl.DataFrame) or data.height == 0:
+            return
+        self._ingest(data)
+
     def do(self) -> pl.DataFrame | None:
         """Run one learning mode iteration.
 
-        Pulls all past evaluations from the archive, trains a SkopeRulesClassifier
-        on the H/L split, and returns a fresh batch of decision vectors instantiated
-        from the extracted rules.
+        Trains a SkopeRulesClassifier on the maintained H- and L-groups and returns
+        a fresh batch of decision vectors instantiated from the extracted rules.
 
         Returns:
             pl.DataFrame | None: The instantiated decision-variable DataFrame
                 (one row per candidate), or ``None`` when no usable rules can
-                be extracted (e.g. the archive is empty for one of the groups,
-                or SkopeRules returned an empty ruleset). The caller should
-                fall back to the existing population in that case.
+                be extracted (the operator has not yet observed any evaluation,
+                one of the groups is still empty, or SkopeRules returned an
+                empty ruleset). The caller should fall back to the existing
+                population in that case.
         """
-        target_column = self.selector.target_column
-
-        all_solutions = self.archive.solutions
-        if all_solutions is None or all_solutions.height == 0:
+        if self.h_group is None or self.l_group is None:
+            return None
+        if self.h_group.height == 0 or self.l_group.height == 0:
             return None
 
-        unique = all_solutions.unique(subset=self.variable_symbols, maintain_order=True)
-        sorted_unique = unique.sort(target_column)
-
-        n_total = sorted_unique.height
-        h_size = int(self.h_split * n_total)
-        l_size = int(self.l_split * n_total)
-        if h_size == 0 or l_size == 0:
-            return None
-
-        h_group = sorted_unique.head(h_size)
-        l_group = sorted_unique.tail(l_size)
-
-        h_vars = h_group[self.variable_symbols].to_numpy()
-        l_vars = l_group[self.variable_symbols].to_numpy()
+        h_vars = self.h_group[self.variable_symbols].to_numpy()
+        l_vars = self.l_group[self.variable_symbols].to_numpy()
 
         x_train = np.vstack((h_vars, l_vars))
         y_train = np.hstack((np.ones(len(h_vars), dtype=int), np.zeros(len(l_vars), dtype=int)))
@@ -169,9 +205,6 @@ class LearningModeOperator(Subscriber):
         )
 
         return pl.DataFrame(instantiated, schema=self.variable_symbols)
-
-    def update(self, message: Message) -> None:
-        """No-op: the operator subscribes to nothing."""
 
     def state(self) -> Sequence[Message]:
         """No outgoing messages; learning results are exposed via the return value of :meth:`do`."""

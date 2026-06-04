@@ -9,7 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from desdeo.emo.hooks.archivers import Archive, NonDominatedArchive
+from desdeo.emo.hooks.archivers import NonDominatedArchive
 from desdeo.emo.methods.templates import EMOResult, template1, template2, template_xlemoo
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.learning_mode import LearningModeOperator
@@ -450,11 +450,8 @@ def emo_constructor(
     if template.name == "TemplateXLEMOO":
         if not isinstance(selector, ElitistSelection):
             raise InvalidTemplateError("XLEMOO requires an ElitistSelection scalar selector.")
-        learning_archive = Archive(problem=problem_, publisher=publisher)
-        components["learning_archive"] = learning_archive
         learning_operator = LearningModeOperator(
             problem=problem_,
-            archive=learning_archive,
             selector=selector,
             publisher=publisher,
             verbosity=template.verbosity,
@@ -473,7 +470,6 @@ def emo_constructor(
     if not consistency[0]:
         raise InvalidTemplateError(f"Inconsistent template configuration. See details:\n {consistency[1]}")
     archive = components.pop("archive", None)
-    components.pop("learning_archive", None)
     template_funcs = {
         "Template1": template1,
         "Template2": template2,

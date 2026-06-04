@@ -51,7 +51,6 @@ def _build_components(
 
     learning_operator = LearningModeOperator(
         problem=problem,
-        archive=archive,
         selector=selector,
         publisher=publisher,
         seed=0,

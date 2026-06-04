@@ -6,6 +6,7 @@ import numpy as np
 import polars as pl
 import pytest
 
+from desdeo.emo.hooks.archivers import Archive
 from desdeo.emo.options.algorithms import emo_constructor, xlemoo_options
 from desdeo.emo.options.templates import EMOOptions, ReferencePointOptions
 from desdeo.explanations.rules import extract_skoped_rules
@@ -34,6 +35,23 @@ def _build_xlemoo_runner(seed: int, max_generations: int = 200):
     runner, extras = emo_constructor(emo_options=options, problem=vehicle_crashworthiness())
     learning_operator = runner.keywords["learning_operator"]
     return runner, extras, learning_operator
+
+
+def _attach_full_archive(extras) -> Archive:
+    """Attach an Archive that retains every evaluation, for tests that need the full history.
+
+    The learning operator no longer holds its own unbounded archive (only H/L groups),
+    so tests asking convergence questions about the whole run need to hook one in
+    themselves. We attach it post-`emo_constructor`; the publisher dispatches messages
+    to whoever's subscribed at notify-time, regardless of when they joined.
+    """
+    archive = Archive(problem=extras.problem, publisher=extras.publisher)
+    extras.publisher.auto_subscribe(archive)
+    extras.publisher.register_topics(
+        topics=archive.provided_topics[archive.verbosity],
+        source=archive.__class__.__name__,
+    )
+    return archive
 
 
 @pytest.mark.slow
@@ -101,17 +119,17 @@ def test_xlemoo_convergence_vehicle_crash():
     """The best ASF improves between the early and late stages of the run.
 
     XLEMOO is stochastic, so the test only requires improvement in 2 of 3 seeds.
-    Reads the learning operator's full Archive (every evaluation kept) rather than
-    the NonDominatedArchive exposed via ``extras``, which evicts early solutions as
-    later ones dominate them.
+    Attaches a test-only ``Archive`` (every evaluation kept) so we can split early
+    vs late generations cleanly — neither the operator's bounded H/L groups nor the
+    NonDominatedArchive exposed via ``extras`` retain the full history needed here.
     """
     improved = 0
     for seed in (0, 1, 2):
-        runner, _extras, learning_operator = _build_xlemoo_runner(seed=seed)
+        runner, extras, _ = _build_xlemoo_runner(seed=seed)
+        archive = _attach_full_archive(extras)
         runner()
 
-        archive = learning_operator.archive
-        assert archive is not None and archive.solutions is not None
+        assert archive.solutions is not None
 
         all_solutions: pl.DataFrame = archive.solutions
         asf_column = next(c for c in all_solutions.columns if c.startswith("asf"))

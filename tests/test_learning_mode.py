@@ -4,7 +4,6 @@ import numpy as np
 import polars as pl
 import pytest
 
-from desdeo.emo.hooks.archivers import Archive
 from desdeo.emo.operators.crossover import SimulatedBinaryCrossover
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.generator import LHSGenerator
@@ -18,7 +17,7 @@ from desdeo.tools.scalarization import add_asf_nondiff
 
 
 def _build_components(population_size: int = 30):
-    """Construct a DTLZ2 problem with ASF and the components needed to warm up an archive."""
+    """Construct a DTLZ2 problem with ASF and the operators needed to warm up the learning operator."""
     problem = dtlz2(n_variables=5, n_objectives=3)
     reference_point = {"f_1": 0.5, "f_2": 0.5, "f_3": 0.5}
     problem, asf_symbol = add_asf_nondiff(problem, symbol="asf", reference_point=reference_point)
@@ -41,7 +40,6 @@ def _build_components(population_size: int = 30):
         winner_size=population_size,
         target_column=asf_symbol,
     )
-    archive = Archive(problem=problem, publisher=publisher)
 
     return {
         "problem": problem,
@@ -51,14 +49,27 @@ def _build_components(population_size: int = 30):
         "crossover": crossover,
         "mutation": mutation,
         "selector": selector,
-        "archive": archive,
         "asf_symbol": asf_symbol,
         "population_size": population_size,
     }
 
 
-def _run_darwinian(components: dict, generations: int) -> None:
-    """Wire the publisher, then run ``generations`` Darwinian iterations of an ElitistSelection EA."""
+def _build_operator(components: dict) -> LearningModeOperator:
+    """Construct a `LearningModeOperator` from the test components."""
+    return LearningModeOperator(
+        problem=components["problem"],
+        selector=components["selector"],
+        publisher=components["publisher"],
+        seed=0,
+    )
+
+
+def _run_darwinian(components: dict, operator: LearningModeOperator, generations: int) -> None:
+    """Wire publisher subscriptions, then run ``generations`` Darwinian iterations of an ElitistSelection EA.
+
+    The ``operator`` is subscribed before the loop runs so it receives the same VERBOSE_OUTPUTS messages
+    that an archive would, populating its H- and L-groups as the population evolves.
+    """
     terminator = MaxGenerationsTerminator(generations, publisher=components["publisher"])
     subs: list[Subscriber] = [
         components["evaluator"],
@@ -66,7 +77,7 @@ def _run_darwinian(components: dict, generations: int) -> None:
         components["crossover"],
         components["mutation"],
         components["selector"],
-        components["archive"],
+        operator,
         terminator,
     ]
     [components["publisher"].auto_subscribe(s) for s in subs]
@@ -91,24 +102,13 @@ def _run_darwinian(components: dict, generations: int) -> None:
         solutions, outputs = selector.do((combined_decvars, combined_outputs))
 
 
-def _build_operator(components: dict) -> LearningModeOperator:
-    """Construct a `LearningModeOperator` from the test components."""
-    return LearningModeOperator(
-        problem=components["problem"],
-        archive=components["archive"],
-        selector=components["selector"],
-        publisher=components["publisher"],
-        seed=0,
-    )
-
-
 @pytest.mark.ea
 def test_learning_mode_returns_decision_dataframe():
     """`LearningModeOperator.do()` returns just the instantiated decision-variable DataFrame."""
     components = _build_components()
-    _run_darwinian(components, generations=20)
-
     operator = _build_operator(components)
+    _run_darwinian(components, operator, generations=20)
+
     result = operator.do()
 
     assert isinstance(result, pl.DataFrame)
@@ -120,9 +120,9 @@ def test_learning_mode_returns_decision_dataframe():
 def test_learning_mode_returns_expected_row_count():
     """The instantiated DataFrame is sized according to ``instantiation_factor * winner_size``."""
     components = _build_components(population_size=30)
-    _run_darwinian(components, generations=20)
-
     operator = _build_operator(components)
+    _run_darwinian(components, operator, generations=20)
+
     decision_vars = operator.do()
 
     expected = int(operator.instantiation_factor * components["selector"].winner_size)
@@ -134,38 +134,43 @@ def test_learning_mode_returns_expected_row_count():
 def test_learning_mode_stores_ml_model():
     """`current_ml_model` is set after a successful learning iteration."""
     components = _build_components()
-    _run_darwinian(components, generations=20)
-
     operator = _build_operator(components)
+    _run_darwinian(components, operator, generations=20)
+
     assert operator.current_ml_model is None
     operator.do()
     assert operator.current_ml_model is not None
 
 
 @pytest.mark.ea
-def test_learning_mode_returns_none_on_empty_archive():
-    """If the archive has no solutions, the operator returns ``None`` instead of crashing."""
+def test_learning_mode_returns_none_before_any_update():
+    """Before any VERBOSE_OUTPUTS has been observed, the operator returns ``None`` instead of crashing."""
     components = _build_components()
     operator = _build_operator(components)
+    # Subscribe but never publish anything to the operator.
+    components["publisher"].auto_subscribe(operator)
+    components["publisher"].register_topics(
+        topics=operator.provided_topics[operator.verbosity],
+        source=operator.__class__.__name__,
+    )
+
     assert operator.do() is None
 
 
 @pytest.mark.ea
-def test_hl_split_best_in_h_group():
+def test_hl_groups_separated_by_target():
     """Every individual in the H-group has a strictly better (lower) ASF than every L-group individual."""
     components = _build_components()
-    _run_darwinian(components, generations=20)
+    operator = _build_operator(components)
+    _run_darwinian(components, operator, generations=20)
 
-    archive = components["archive"]
     asf = components["asf_symbol"]
-    variable_symbols = [v.symbol for v in components["problem"].get_flattened_variables()]
 
-    unique = archive.solutions.unique(subset=variable_symbols, maintain_order=True).sort(asf)
-    h_size = int(0.2 * unique.height)
-    l_size = int(0.2 * unique.height)
+    assert operator.h_group is not None and operator.h_group.height > 0
+    assert operator.l_group is not None and operator.l_group.height > 0
 
-    h_vals = unique.head(h_size)[asf].to_numpy()
-    l_vals = unique.tail(l_size)[asf].to_numpy()
+    h_vals = operator.h_group[asf].to_numpy()
+    l_vals = operator.l_group[asf].to_numpy()
 
     assert h_vals.max() <= l_vals.min()
 
@@ -174,9 +179,9 @@ def test_hl_split_best_in_h_group():
 def test_learning_mode_instantiated_within_bounds():
     """All decision-variable values returned by the operator stay inside the problem bounds."""
     components = _build_components()
-    _run_darwinian(components, generations=20)
-
     operator = _build_operator(components)
+    _run_darwinian(components, operator, generations=20)
+
     decision_vars = operator.do()
     assert decision_vars is not None
     values = decision_vars.to_numpy()
@@ -187,41 +192,13 @@ def test_learning_mode_instantiated_within_bounds():
 
 
 @pytest.mark.ea
-def test_learning_mode_reads_from_archive():
-    """The operator reads the current archive on every call, picking up new generations."""
-    components = _build_components()
-    _run_darwinian(components, generations=20)
-
+def test_learning_mode_groups_bounded_by_budget():
+    """H- and L-groups never exceed their declared budgets, even after many generations."""
+    components = _build_components(population_size=30)
     operator = _build_operator(components)
-    operator.do()
-    rows_before = components["archive"].solutions.height
+    _run_darwinian(components, operator, generations=50)
 
-    # Run more Darwinian iterations to grow the archive.
-    publisher = components["publisher"]
-    extra_terminator = MaxGenerationsTerminator(10, publisher=publisher)
-    publisher.auto_subscribe(extra_terminator)
-    publisher.register_topics(
-        topics=extra_terminator.provided_topics[extra_terminator.verbosity],
-        source=extra_terminator.__class__.__name__,
-    )
-
-    evaluator = components["evaluator"]
-    generator = components["generator"]
-    crossover = components["crossover"]
-    mutation = components["mutation"]
-    selector = components["selector"]
-    solutions, outputs = generator.do()
-    while not extra_terminator.check():
-        offspring = crossover.do(population=solutions)
-        offspring = mutation.do(offspring, solutions)
-        offspring_outputs = evaluator.evaluate(offspring)
-        combined_decvars = solutions.vstack(offspring)
-        combined_outputs = outputs.vstack(offspring_outputs)
-        solutions, outputs = selector.do((combined_decvars, combined_outputs))
-
-    rows_after = components["archive"].solutions.height
-    assert rows_after > rows_before
-
-    operator.do()
-    # The operator must observe the additional rows added after the first call.
-    assert components["archive"].solutions.height >= rows_after
+    assert operator.h_group is not None
+    assert operator.l_group is not None
+    assert operator.h_group.height <= operator.h_size
+    assert operator.l_group.height <= operator.l_size

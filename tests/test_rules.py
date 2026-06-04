@@ -434,9 +434,7 @@ def test_format_rule_table_after_xlemoo_run():
     selector = ElitistSelection(publisher=publisher, verbosity=2, winner_size=population_size, target_column=asf_symbol)
     terminator = MaxGenerationsTerminator(60, publisher=publisher)
     archive = Archive(problem=problem, publisher=publisher)
-    learning_operator = LearningModeOperator(
-        problem=problem, archive=archive, selector=selector, publisher=publisher, seed=0
-    )
+    learning_operator = LearningModeOperator(problem=problem, selector=selector, publisher=publisher, seed=0)
 
     components: list[Subscriber] = [
         evaluator,

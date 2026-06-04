@@ -111,8 +111,7 @@ class ReferenceVectorOptions(BaseModel):
     """The method for normalizing the reference vectors. Defaults to "spherical"."""
     lattice_resolution: int | None = None
     """Number of divisions along an axis when creating the simplex lattice. This is not required/used for the "s_energy"
-    method. If not specified, the lattice resolution is calculated based on the `number_of_vectors`. If "spherical" is
-    selected as the `vector_type`, this value overrides the `number_of_vectors`.
+    method. If not specified, the lattice resolution is calculated based on the `number_of_vectors`.
     """
     number_of_vectors: int = 200
     """Number of reference vectors to be created. If "simplex" is selected as the `creation_type`, then the closest
