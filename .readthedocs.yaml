@@ -43,19 +43,3 @@ build:
         && tar -xzf "$HOME/tmp/notebook_cache.tgz" -C .cache
         && echo "Seeded mkdocs-jupyter cache at $(pwd)/.cache/mkdocs-jupyter: $(ls -1 .cache/mkdocs-jupyter | wc -l) entries"
         || echo "No notebook_cache.tgz asset found yet — notebooks will execute this build."
-
-    # TEMPORARY DIAGNOSTIC: the build hangs inside mkdocs-jupyter's on_files
-    # (jupytext.read) on RTD only. Send SIGABRT after 240s so faulthandler dumps
-    # the exact Python stack where it is stuck, then print that traceback.
-    build:
-      html:
-        - >-
-          PYTHONFAULTHANDLER=1 PYTHONUNBUFFERED=1
-          timeout -s ABRT 240 python -X faulthandler -m mkdocs build --clean --verbose
-          --site-dir "${READTHEDOCS_OUTPUT}/html" --config-file mkdocs.rtd.yml
-          > /tmp/mkbuild.log 2>&1;
-          echo "=== exit: $? (134 = SIGABRT, faulthandler dumped a stack) ===";
-          echo "=== python stack at hang point ===";
-          sed -n '/Fatal Python error/,$p' /tmp/mkbuild.log | head -80;
-          echo "=== last 20 log lines ===";
-          tail -20 /tmp/mkbuild.log

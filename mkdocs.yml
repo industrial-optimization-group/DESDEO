@@ -117,6 +117,9 @@ plugins:
   - include-markdown
   - mkdocs-jupyter:
       execute: false # locally, see mkdocs.rtd.yml for RTD conf
+      # Only treat notebooks as notebooks; skips a slow jupytext.read() on every .md.
+      ignore:
+        - "*.md"
       include_requirejs: true
       custom_mathjax_url: "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML-full,Safe"
       remove_tag_config:

@@ -28,6 +28,10 @@ plugins:
     execute: true # RTD executes, but the cache is pre-seeded so this is ~all hits
     cache: true
     cache_dir: .cache/mkdocs-jupyter
+    # Only treat notebooks as notebooks. Without this, the plugin runs
+    # jupytext.read() on every .md during on_files, which hangs on RTD.
+    ignore:
+      - "*.md"
     # execute_ignore:       # OPTIONAL safety net for a single very-heavy notebook
     #   - "docs/howtoguides/ea.ipynb" (example, not heavy)
     include_requirejs: true
