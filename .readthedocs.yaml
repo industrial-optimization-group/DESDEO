@@ -35,7 +35,7 @@ build:
     # Seed the mkdocs-jupyter render cache from the published asset.
     # If the asset is missing (first run), continue and let notebooks execute.
     pre_build:
-      - echo "pre_build cwd: $(pwd)"
+      - 'echo "pre_build cwd: $(pwd)"'
       - mkdir -p .cache
       - >
         wget https://github.com/industrial-optimization-group/DESDEO/releases/download/supplementary/notebook_cache.tgz
