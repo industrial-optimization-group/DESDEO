@@ -1,3 +1,5 @@
+"""Contains DTLZ problems."""
+
 import numpy as np
 
 from desdeo.problem.schema import (
@@ -7,6 +9,7 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
+
 
 def dtlz2(n_variables: int, n_objectives: int) -> Problem:
     r"""Defines the DTLZ2 test problem.
@@ -56,7 +59,7 @@ def dtlz2(n_variables: int, n_objectives: int) -> Problem:
         # function f_m
         prod_expr = " * ".join([f"Cos(0.5 * {np.pi} * x_{i})" for i in range(1, n_objectives - m + 1)])
         if m > 1:
-            prod_expr += f"{' * ' if prod_expr != "" else ""}Sin(0.5 * {np.pi} * x_{n_objectives - m + 1})"
+            prod_expr += f"{' * ' if prod_expr != '' else ''}Sin(0.5 * {np.pi} * x_{n_objectives - m + 1})"
         if prod_expr == "":
             prod_expr = "1"  # When m == n_objectives, the product is empty, implying f_M = g.
         f_m_expr = f"({g_symbol}) * ({prod_expr})"
@@ -96,6 +99,79 @@ def dtlz2(n_variables: int, n_objectives: int) -> Problem:
     return Problem(
         name="dtlz2",
         description="The DTLZ2 test problem.",
+        variables=variables,
+        objectives=objectives,
+        extra_funcs=extras,
+    )
+
+
+def dtlz4(n_variables: int, n_objectives: int, alpha: float = 100.0) -> Problem:
+    """Defines the DTLZ4 test problem.
+
+    Args:
+        n_variables: number of variables
+        n_objectives: number of objective functions
+        alpha: exponent
+
+    Returns:
+        Problem: an instance of a DTLZ4 problem `n_variables` variables and `n_objectives`
+        objective functions and an alpha of `alpha`.
+
+    References:
+        Deb, K., Thiele, L., Laumanns, M., & Zitzler, E. (2005).
+        Scalable test problems for evolutionary multiobjective optimization.
+        In Evolutionary Multiobjective Optimization (pp. 105-145). Springer.
+    """
+    # function g
+    g_symbol = "g"
+    g_expr = " + ".join([f"(x_{i} - 0.5)**2" for i in range(n_objectives, n_variables + 1)])
+    g_expr = "1 + " + g_expr
+
+    objectives = []
+    for m in range(1, n_objectives + 1):
+        # function f_m
+        prod_expr = " * ".join([f"Cos(0.5 * {np.pi} * x_{i}**{alpha})" for i in range(1, n_objectives - m + 1)])
+        if m > 1:
+            prod_expr += f"{' * ' if prod_expr != '' else ''}Sin(0.5 * {np.pi} * x_{n_objectives - m + 1}**{alpha})"
+        if prod_expr == "":
+            prod_expr = "1"  # When m == n_objectives, the product is empty, implying f_M = g.
+        f_m_expr = f"({g_symbol}) * ({prod_expr})"
+
+        objectives.append(
+            Objective(
+                name=f"f_{m}",
+                symbol=f"f_{m}",
+                func=f_m_expr,
+                maximize=False,
+                ideal=0,
+                nadir=1,  # Assuming the range of g and the trigonometric functions
+                is_convex=False,
+                is_linear=False,
+                is_twice_differentiable=True,
+            )
+        )
+
+    variables = [
+        Variable(
+            name=f"x_{i}",
+            symbol=f"x_{i}",
+            variable_type=VariableTypeEnum.real,
+            lowerbound=0,
+            upperbound=1,
+            initial_value=1.0,
+        )
+        for i in range(1, n_variables + 1)
+    ]
+
+    extras = [
+        ExtraFunction(
+            name="g", symbol=g_symbol, func=g_expr, is_convex=False, is_linear=False, is_twice_differentiable=True
+        ),
+    ]
+
+    return Problem(
+        name="dtlz4",
+        description="The DTLZ4 test problem.",
         variables=variables,
         objectives=objectives,
         extra_funcs=extras,
