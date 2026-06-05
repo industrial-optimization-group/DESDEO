@@ -44,8 +44,19 @@ build:
         && echo "Seeded mkdocs-jupyter cache at $(pwd)/.cache/mkdocs-jupyter: $(ls -1 .cache/mkdocs-jupyter | wc -l) entries"
         || echo "No notebook_cache.tgz asset found yet — notebooks will execute this build."
 
-    # Override RTD's default mkdocs invocation to add --verbose, so the build log
-    # shows per-notebook "Cache hit" / "Cache miss" decisions from mkdocs-jupyter.
+    # TEMPORARY DIAGNOSTIC: time limit the build so it self-terminates before RTD's
+    # 15-min limit (which discards output). Log to a file, then print the cache.
     build:
       html:
-        - python -m mkdocs build --clean --verbose --site-dir "${READTHEDOCS_OUTPUT}/html" --config-file mkdocs.rtd.yml
+        - >-
+          timeout 600 python -m mkdocs build --clean --verbose
+          --site-dir "${READTHEDOCS_OUTPUT}/html" --config-file mkdocs.rtd.yml
+          > /tmp/mkbuild.log 2>&1;
+          echo "=== mkdocs exit: $? (124 = timed out) ===";
+          echo "=== cache hit/miss tally ===";
+          grep -c "Cache hit:" /tmp/mkbuild.log;
+          grep -c "Cache miss" /tmp/mkbuild.log;
+          echo "=== cache/exec/error lines ===";
+          grep -nE "Cache (hit|miss)|Executing|Converting|rror" /tmp/mkbuild.log | tail -100;
+          echo "=== last 60 log lines ===";
+          tail -60 /tmp/mkbuild.log
