@@ -44,19 +44,18 @@ build:
         && echo "Seeded mkdocs-jupyter cache at $(pwd)/.cache/mkdocs-jupyter: $(ls -1 .cache/mkdocs-jupyter | wc -l) entries"
         || echo "No notebook_cache.tgz asset found yet — notebooks will execute this build."
 
-    # TEMPORARY DIAGNOSTIC: time limit the build so it self-terminates before RTD's
-    # 15-min limit (which discards output). Log to a file, then print the cache.
+    # TEMPORARY DIAGNOSTIC: the build hangs inside mkdocs-jupyter's on_files
+    # (jupytext.read) on RTD only. Send SIGABRT after 240s so faulthandler dumps
+    # the exact Python stack where it is stuck, then print that traceback.
     build:
       html:
         - >-
-          timeout 600 python -m mkdocs build --clean --verbose
+          PYTHONFAULTHANDLER=1 PYTHONUNBUFFERED=1
+          timeout -s ABRT 240 python -X faulthandler -m mkdocs build --clean --verbose
           --site-dir "${READTHEDOCS_OUTPUT}/html" --config-file mkdocs.rtd.yml
           > /tmp/mkbuild.log 2>&1;
-          echo "=== mkdocs exit: $? (124 = timed out) ===";
-          echo "=== cache hit/miss tally ===";
-          grep -c "Cache hit:" /tmp/mkbuild.log;
-          grep -c "Cache miss" /tmp/mkbuild.log;
-          echo "=== cache/exec/error lines ===";
-          grep -nE "Cache (hit|miss)|Executing|Converting|rror" /tmp/mkbuild.log | tail -100;
-          echo "=== last 60 log lines ===";
-          tail -60 /tmp/mkbuild.log
+          echo "=== exit: $? (134 = SIGABRT, faulthandler dumped a stack) ===";
+          echo "=== python stack at hang point ===";
+          sed -n '/Fatal Python error/,$p' /tmp/mkbuild.log | head -80;
+          echo "=== last 20 log lines ===";
+          tail -20 /tmp/mkbuild.log
