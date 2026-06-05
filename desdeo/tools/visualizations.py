@@ -21,7 +21,7 @@ def scatter_plot_comparison(
         y_key: Key for the y-axis data in the outputs.
         z_key: Key for the z-axis data in the outputs (optional, for 3D plots).
         reference_point: A dictionary with keys matching x_key, y_key, and optionally z_key,
-        representing the reference point to plot.
+            representing the reference point to plot.
         names: List of names for each data set to display in the legend.
 
     Returns:
