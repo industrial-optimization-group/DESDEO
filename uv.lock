@@ -860,7 +860,7 @@ all-dev = [
     { name = "jupytext", specifier = ">=1.16.4" },
     { name = "mkdocs", specifier = ">=1.0" },
     { name = "mkdocs-include-markdown-plugin", extras = ["cache"], specifier = ">=7.0.0" },
-    { name = "mkdocs-jupyter", git = "https://github.com/gialmisi/mkdocs-jupyter.git?rev=build" },
+    { name = "mkdocs-jupyter", specifier = ">=0.26.3" },
     { name = "mkdocs-llmstxt", specifier = ">=0.5.0" },
     { name = "mkdocs-macros-plugin", specifier = ">=1.0.5" },
     { name = "mkdocs-material", specifier = ">=9.5.12" },
@@ -901,7 +901,7 @@ docs = [
     { name = "griffe", specifier = ">=1.4.1" },
     { name = "mkdocs", specifier = ">=1.0" },
     { name = "mkdocs-include-markdown-plugin", extras = ["cache"], specifier = ">=7.0.0" },
-    { name = "mkdocs-jupyter", git = "https://github.com/gialmisi/mkdocs-jupyter.git?rev=build" },
+    { name = "mkdocs-jupyter", specifier = ">=0.26.3" },
     { name = "mkdocs-llmstxt", specifier = ">=0.5.0" },
     { name = "mkdocs-macros-plugin", specifier = ">=1.0.5" },
     { name = "mkdocs-material", specifier = ">=9.5.12" },
@@ -2091,8 +2091,8 @@ cache = [
 
 [[package]]
 name = "mkdocs-jupyter"
-version = "0.25.1"
-source = { git = "https://github.com/gialmisi/mkdocs-jupyter.git?rev=build#ecae39c556eb9430a9b2776243e45842de211fd0" }
+version = "0.26.3"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ipykernel" },
     { name = "jupytext" },
@@ -2100,6 +2100,10 @@ dependencies = [
     { name = "mkdocs-material" },
     { name = "nbconvert" },
     { name = "pygments" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/00/aa/f8d15409a9a3112486994a80d5a975694c7d145c4f8b5b484aeb383420ef/mkdocs_jupyter-0.26.3.tar.gz", hash = "sha256:e1e8bd48a1b96542e84e3028e3066112bac7b94d95ab69f8b91305c84003ca26", size = 1628353, upload-time = "2026-04-17T18:56:31.517Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/13/95/cf3f7fe4910cf0365fa8ea0c731f4b8a624d97cd76ea777913ac8d0868e2/mkdocs_jupyter-0.26.3-py3-none-any.whl", hash = "sha256:cd6644fb578131157194d750fd4d10fc2fd8f1e84e00036ee62df3b5b4b84c82", size = 1459740, upload-time = "2026-04-17T18:56:30.031Z" },
 ]
 
 [[package]]
