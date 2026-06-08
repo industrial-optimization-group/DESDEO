@@ -21,6 +21,9 @@ from desdeo.problem.testproblems import (
     re24,
     river_pollution_scenario,
     spanish_sustainability_problem,
+    zdt1,
+    zdt2,
+    zdt3,
 )
 from desdeo.tools import GurobipySolver, payoff_table_method
 
@@ -359,7 +362,7 @@ def test_river_scenario():
     assert len(model.scenario_tree["ROOT"]) == 6
 
     for i in range(6):
-        problem_scenario = model.get_scenario_problem(f"scenario_{i+1}")
+        problem_scenario = model.get_scenario_problem(f"scenario_{i + 1}")
         assert len(problem_scenario.objectives) == 4
 
     problem_scenario_2 = model.get_scenario_problem("scenario_2")
@@ -458,3 +461,66 @@ def test_mcwb_ragsdell1976_problem():
     # these are the values we are getting now, are they even correct?
     assert np.isclose(f1, 0.02511625)
     assert np.isclose(f2, 1.2e-06, rtol=1e-3, atol=1e-9)
+
+
+def test_zdt1():
+    """Test that ZDT1 problem evaluates correctly."""
+    n = 3
+    val = 0.5
+    problem = zdt1(n)
+
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [val] for var in problem.variables}
+
+    res = evaluator.evaluate(xs)
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    g = res["g"][0]
+    h = res["h"][0]
+
+    assert np.isclose(f1, 0.5)
+    assert np.isclose(f2, 3.8416876048223)
+    assert np.isclose(g, 5.5)
+    assert np.isclose(h, 0.6984886554222364)
+
+
+def test_zdt2():
+    """Test that ZDT2 problem evaluates correctly."""
+    n = 3
+    val = 0.5
+    problem = zdt2(n)
+
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [val] for var in problem.variables}
+
+    res = evaluator.evaluate(xs)
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    g = res["g"][0]
+    h = res["h"][0]
+
+    assert np.isclose(f1, 0.5)
+    assert np.isclose(f2, 5.454545454545455)
+    assert np.isclose(g, 5.5)
+    assert np.isclose(h, 0.9917355371900827)
+
+
+def test_zdt3():
+    """Test that ZDT3 problem evaluates correctly."""
+    n = 3
+    val = 0.5
+    problem = zdt3(n)
+
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [val] for var in problem.variables}
+
+    res = evaluator.evaluate(xs)
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    g = res["g"][0]
+    h = res["h"][0]
+
+    assert np.isclose(f1, 0.5)
+    assert np.isclose(f2, 3.8416876048223)
+    assert np.isclose(g, 5.5)
+    assert np.isclose(h, 0.6984886554222363)
