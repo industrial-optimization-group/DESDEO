@@ -24,6 +24,7 @@ from desdeo.problem.testproblems import (
     zdt1,
     zdt2,
     zdt3,
+    zdt6,
 )
 from desdeo.tools import GurobipySolver, payoff_table_method
 
@@ -463,6 +464,7 @@ def test_mcwb_ragsdell1976_problem():
     assert np.isclose(f2, 1.2e-06, rtol=1e-3, atol=1e-9)
 
 
+@pytest.mark.testproblem
 def test_zdt1():
     """Test that ZDT1 problem evaluates correctly."""
     n = 3
@@ -484,6 +486,7 @@ def test_zdt1():
     assert np.isclose(h, 0.6984886554222364)
 
 
+@pytest.mark.testproblem
 def test_zdt2():
     """Test that ZDT2 problem evaluates correctly."""
     n = 3
@@ -505,6 +508,7 @@ def test_zdt2():
     assert np.isclose(h, 0.9917355371900827)
 
 
+@pytest.mark.testproblem
 def test_zdt3():
     """Test that ZDT3 problem evaluates correctly."""
     n = 3
@@ -524,3 +528,23 @@ def test_zdt3():
     assert np.isclose(f2, 3.8416876048223)
     assert np.isclose(g, 5.5)
     assert np.isclose(h, 0.6984886554222363)
+
+
+@pytest.mark.testproblem
+def test_zdt6():
+    """Test that ZDT6 problem evaluates correctly."""
+    n = 3
+    val = 0.5
+    problem = zdt6(n)
+
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [val] for var in problem.variables}
+
+    res = evaluator.evaluate(xs)
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    g = res["g"][0]
+
+    assert np.isclose(f1, 1.0)
+    assert np.isclose(f2, 8.45135530798638410874)
+    assert np.isclose(g, 8.568067737283432)

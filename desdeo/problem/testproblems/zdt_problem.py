@@ -1,3 +1,5 @@
+"""Contains implementations of ZDT problems."""
+
 from math import pi
 
 from desdeo.problem.schema import (
@@ -269,6 +271,69 @@ def zdt3(
         objectives=objectives,
         extra_funcs=extras,
         is_convex=False,
+        is_linear=False,
+        is_twice_differentiable=True,
+    )
+
+
+def zdt6(number_of_variables: int) -> Problem:
+    """Defines the ZDT6 test problem."""
+    n = number_of_variables
+
+    f1_symbol = "f_1"
+    f1_expr = f"1 - Exp(-4*x_1)*Sin(6*{pi}*x_1)**6"
+
+    g_symbol = "g"
+    g_expr_1 = " + ".join([f"x_{i}" for i in range(2, n + 1)])
+    g_expr_2 = f"({g_expr_1}) / ({n} - 1)" if n - 1 > 1 else "0"
+    g_expr = f"1 + 9 * ({g_expr_2}) ** 0.25"
+
+    f2_symbol = "f_2"
+    f2_expr = f"{g_symbol} * (1 - ({f1_symbol} / {g_symbol})**2)"
+
+    variables = [
+        Variable(name=f"x_{i}", symbol=f"x_{i}", variable_type="real", lowerbound=0, upperbound=1, initial_value=0.5)
+        for i in range(1, n + 1)
+    ]
+
+    objectives = [
+        Objective(
+            name="f_1",
+            symbol=f1_symbol,
+            func=f1_expr,
+            maximize=False,
+            ideal=0,
+            nadir=1,
+            is_convex=True,
+            is_linear=False,
+            is_twice_differentiable=True,
+        ),
+        Objective(
+            name="f_2",
+            symbol=f2_symbol,
+            func=f2_expr,
+            maximize=False,
+            ideal=0,
+            nadir=1,
+            is_convex=True,
+            is_linear=False,
+            is_twice_differentiable=True,
+        ),
+    ]
+
+    extras = [
+        ExtraFunction(
+            name="g", symbol=g_symbol, func=g_expr, is_convex=True, is_linear=True, is_twice_differentiable=True
+        ),
+    ]
+
+    return Problem(
+        name="zdt6",
+        description="The ZDT6 test problem.",
+        variables=variables,
+        objectives=objectives,
+        extra_funcs=extras,
+        is_convex=True,
         is_linear=False,
         is_twice_differentiable=True,
     )
