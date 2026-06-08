@@ -277,16 +277,31 @@ def zdt3(
 
 
 def zdt6(number_of_variables: int) -> Problem:
-    """Defines the ZDT6 test problem."""
+    r"""Defines the ZDT6 test problem.
+    
+    The problem has a variable number of decision variables and two objective functions to be minimized as 
+    follows:
+
+    \begin{align*}
+        \min\quad f_1(x) &= 1 - \exp(-4\cdot x_1)\cdot\sin(6\cdot\pi\cdot x_1)^{6} \\
+        \min\quad f_2(x) &= g * (1 - (f_1 / g)^{0.25})
+    \end{align*}
+
+    where $f_1$ and f$2$ are objective functions, $x_1,\dots,x_n$ are decision variables, $n$
+    and $g$ are auxillary functions.
+
+    """
     n = number_of_variables
 
+    if n < 2:
+        raise ValueError("ZDT6 requires at least 2 variables")
+
     f1_symbol = "f_1"
-    f1_expr = f"1 - Exp(-4*x_1)*Sin(6*{pi}*x_1)**6"
+    f1_expr = f"1 - Exp(-4*x_1)*(Sin(6*{pi}*x_1))**6"
 
     g_symbol = "g"
     g_expr_1 = " + ".join([f"x_{i}" for i in range(2, n + 1)])
-    g_expr_2 = f"({g_expr_1}) / ({n} - 1)" if n - 1 > 1 else "0"
-    g_expr = f"1 + 9 * ({g_expr_2}) ** 0.25"
+    g_expr = f"1 + 9 * ((({g_expr_1}) / ({n} -  1)) ** 0.25)"
 
     f2_symbol = "f_2"
     f2_expr = f"{g_symbol} * (1 - ({f1_symbol} / {g_symbol})**2)"
@@ -304,7 +319,7 @@ def zdt6(number_of_variables: int) -> Problem:
             maximize=False,
             ideal=0,
             nadir=1,
-            is_convex=True,
+            is_convex=False,
             is_linear=False,
             is_twice_differentiable=True,
         ),
@@ -315,7 +330,7 @@ def zdt6(number_of_variables: int) -> Problem:
             maximize=False,
             ideal=0,
             nadir=1,
-            is_convex=True,
+            is_convex=False,
             is_linear=False,
             is_twice_differentiable=True,
         ),
@@ -323,7 +338,7 @@ def zdt6(number_of_variables: int) -> Problem:
 
     extras = [
         ExtraFunction(
-            name="g", symbol=g_symbol, func=g_expr, is_convex=True, is_linear=True, is_twice_differentiable=True
+            name="g", symbol=g_symbol, func=g_expr, is_convex=False, is_linear=False, is_twice_differentiable=True
         ),
     ]
 
@@ -333,7 +348,4 @@ def zdt6(number_of_variables: int) -> Problem:
         variables=variables,
         objectives=objectives,
         extra_funcs=extras,
-        is_convex=True,
-        is_linear=False,
-        is_twice_differentiable=True,
     )

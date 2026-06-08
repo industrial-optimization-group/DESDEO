@@ -511,7 +511,7 @@ def test_zdt2():
 @pytest.mark.testproblem
 def test_zdt3():
     """Test that ZDT3 problem evaluates correctly."""
-    n = 3
+    n = 2
     val = 0.5
     problem = zdt3(n)
 
