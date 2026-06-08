@@ -52,6 +52,35 @@ def test_dtlz2():
     assert sum(res[obj.symbol][0] ** 2 for obj in problem.objectives) != 1.0
 
 
+# @pytest.mark.testproblem
+# def test_dtlz4():
+#     """Test that the DTLZ4 problem initializes and evaluates correctly."""
+#     test_variables = [3, 5, 10, 50]
+#     test_objectives = [2, 4, 5, 7]
+
+#     for n_variables, n_objectives in zip(test_variables, test_objectives, strict=True):
+#         problem = dtlz4(n_variables=n_variables, n_objectives=n_objectives)
+
+#         assert len(problem.variables) == n_variables
+#         assert len(problem.objectives) == n_objectives
+
+#         xs = {f"{var.symbol}": [0.5] for var in problem.variables}
+
+#         evaluator = PolarsEvaluator(problem)
+
+#         res = evaluator.evaluate(xs)
+
+#         assert np.isclose(sum(res[obj.symbol][0] ** 2 for obj in problem.objectives), 1.0)
+
+#     problem = dtlz4(n_variables=5, n_objectives=3)
+
+#     xs = {f"{var.symbol}": [0.55] for var in problem.variables}
+#     evaluator = PolarsEvaluator(problem)
+#     res = evaluator.evaluate(xs)
+
+#     assert not np.isclose(sum(res[obj.symbol][0] ** 2 for obj in problem.objectives), 1.0)
+
+
 @pytest.mark.testproblem
 def test_re21():
     """Test that the four bar truss design problem evaluates correctly."""
@@ -359,7 +388,7 @@ def test_river_scenario():
     assert len(model.scenario_tree["ROOT"]) == 6
 
     for i in range(6):
-        problem_scenario = model.get_scenario_problem(f"scenario_{i+1}")
+        problem_scenario = model.get_scenario_problem(f"scenario_{i + 1}")
         assert len(problem_scenario.objectives) == 4
 
     problem_scenario_2 = model.get_scenario_problem("scenario_2")
