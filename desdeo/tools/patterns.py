@@ -38,6 +38,7 @@ This decoupling allows for a more modular design and easier extensibility of the
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from typing import Literal
 
 from desdeo.tools.message import AllowedMessagesAtVerbosity, Message, MessageTopics
 
@@ -117,11 +118,11 @@ class Publisher:
 
     def __init__(self) -> None:
         """Initialize a blank publisher."""
-        self.subscribers = {}
-        self.global_subscribers = []
+        self.subscribers: dict[MessageTopics, list[Subscriber]] = {}
+        self.global_subscribers: list[Subscriber] = []
         self.registered_topics: dict[MessageTopics, list[str]] = {}
 
-    def subscribe(self, subscriber: Subscriber, topic: MessageTopics) -> None:
+    def subscribe(self, subscriber: Subscriber, topic: MessageTopics | Literal["ALL"]) -> None:
         """Store a subscriber for a given message key.
 
         Whenever the publisher receives a message with the given key, it will notify the subscriber. This method can
@@ -151,7 +152,7 @@ class Publisher:
         for topic in subscriber.interested_topics:
             self.subscribe(subscriber, topic)
 
-    def unsubscribe(self, subscriber: Subscriber, topic: str) -> None:
+    def unsubscribe(self, subscriber: Subscriber, topic: MessageTopics | Literal["ALL"]) -> None:
         """Remove a subscriber from a given message key.
 
         Args:
@@ -164,7 +165,7 @@ class Publisher:
         if topic in self.subscribers:
             self.subscribers[topic].remove(subscriber)
 
-    def unsubscribe_multiple(self, subscriber: Subscriber, topics: list[str]) -> None:
+    def unsubscribe_multiple(self, subscriber: Subscriber, topics: Sequence[MessageTopics | Literal["ALL"]]) -> None:
         """Remove a subscriber from multiple message keys.
 
         Args:
