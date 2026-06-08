@@ -3,6 +3,7 @@
 from pydantic import BaseModel, Field
 
 
+# ruff: noqa: T201
 class Interaction(BaseModel):
     """The tree-like structure to represent the interactions of the user."""
 
@@ -11,9 +12,11 @@ class Interaction(BaseModel):
     result: dict = Field(
         description="The result of the iteration."
     )  # In the database, this should be a foreign key to the result table
-    next_interaction: list["Interaction"] | None = Field(
-        "The next interaction in the tree. This is a list of 'interactions' as the user can choose to go back to a"
-        " previous iteration and change the preference information. If the user chooses to go back, just append the"
+    next_interaction: list["Interaction"] = Field(
+        description="The next interaction in the tree. This is a list of 'interactions' as the user can choose to go"
+        " back to a"
+        " previous iteration and change the preference information. If the user"
+        " chooses to go back, just append the"
         " new interactions to the list in the order they were made."
     )  # In the database, this should be a foreign key to the interactions table
 
@@ -29,7 +32,7 @@ if __name__ == "__main__":
                 method_name="iRVEA",
                 preference_information={"b": [1, 2]},
                 result={"baz": [9, 1, 0]},
-                next_interaction=None,
+                next_interaction=[],
             )
         ],
     )
