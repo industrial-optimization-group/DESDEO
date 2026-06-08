@@ -8,6 +8,7 @@ from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem import PolarsEvaluator, PyomoEvaluator
 from desdeo.problem.testproblems import (
     dtlz2,
+    dtlz4,
     forest_problem,
     mcwb_equilateral_tbeam_problem,
     mcwb_hollow_rectangular_problem,
@@ -52,33 +53,25 @@ def test_dtlz2():
     assert sum(res[obj.symbol][0] ** 2 for obj in problem.objectives) != 1.0
 
 
-# @pytest.mark.testproblem
-# def test_dtlz4():
-#     """Test that the DTLZ4 problem initializes and evaluates correctly."""
-#     test_variables = [3, 5, 10, 50]
-#     test_objectives = [2, 4, 5, 7]
+@pytest.mark.testproblem
+def test_dtlz4():
+    """Test that the DTLZ4 problem initializes and evaluates correctly."""
+    test_variables = [3, 5, 10, 50]
+    test_objectives = [2, 4, 5, 7]
 
-#     for n_variables, n_objectives in zip(test_variables, test_objectives, strict=True):
-#         problem = dtlz4(n_variables=n_variables, n_objectives=n_objectives)
+    for n_variables, n_objectives in zip(test_variables, test_objectives, strict=True):
+        problem = dtlz4(n_variables=n_variables, n_objectives=n_objectives)
 
-#         assert len(problem.variables) == n_variables
-#         assert len(problem.objectives) == n_objectives
+        assert len(problem.variables) == n_variables
+        assert len(problem.objectives) == n_objectives
 
-#         xs = {f"{var.symbol}": [0.5] for var in problem.variables}
+        xs = {f"{var.symbol}": [0.5] for var in problem.variables}
 
-#         evaluator = PolarsEvaluator(problem)
+        evaluator = PolarsEvaluator(problem)
 
-#         res = evaluator.evaluate(xs)
+        res = evaluator.evaluate(xs)
 
-#         assert np.isclose(sum(res[obj.symbol][0] ** 2 for obj in problem.objectives), 1.0)
-
-#     problem = dtlz4(n_variables=5, n_objectives=3)
-
-#     xs = {f"{var.symbol}": [0.55] for var in problem.variables}
-#     evaluator = PolarsEvaluator(problem)
-#     res = evaluator.evaluate(xs)
-
-#     assert not np.isclose(sum(res[obj.symbol][0] ** 2 for obj in problem.objectives), 1.0)
+        assert np.isclose(sum(res[obj.symbol][0] ** 2 for obj in problem.objectives), 1.0)
 
 
 @pytest.mark.testproblem
