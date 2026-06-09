@@ -201,7 +201,7 @@ def zdt3(
          h(f_1, g) &= 1 - \sqrt{\frac{f_1}{g}} - \frac{f_1}{g} \sin(10\pi f_1)), \\
     \end{align*}
 
-    where $f_2$ and $f_2$ are objective functions, $x_1,\dots,x_n$ are decision variable, $n$
+    where $f_1$ and $f_2$ are objective functions, $x_1,\dots,x_n$ are decision variables, $n$
     is the number of decision variables,
     and $g$ and $h$ are auxiliary functions.
     """
@@ -278,23 +278,20 @@ def zdt3(
 
 def zdt6(number_of_variables: int) -> Problem:
     r"""Defines the ZDT6 test problem.
-    
-    The problem has a variable number of decision variables and two objective functions to be minimized as 
+
+    The problem has a variable number of decision variables and two objective functions to be minimized as
     follows:
 
     \begin{align*}
-        \min\quad f_1(x) &= 1 - \exp(-4\cdot x_1)\cdot\sin(6\cdot\pi\cdot x_1)^{6} \\
-        \min\quad f_2(x) &= g * (1 - (f_1 / g)^{0.25})
+        \min\quad f_1(x) &= 1 -\exp(-4x_1)\sin^{6}(6\pi x_1) \\
+        \min\quad f_2(x) &= g(x)(1 - \left(\frac{f_1(x)}{g(x)}\right)^{0.25}) \\
+        g(x) &= 1 + 9\left(\frac{\sum_{i=2}^{n} x_i}{n-1}\right)^{2}
     \end{align*}
 
-    where $f_1$ and f$2$ are objective functions, $x_1,\dots,x_n$ are decision variables, $n$
-    and $g$ are auxillary functions.
-
+    where $f_1$ and f$f_2$ are objective functions, $x_1,\dots,x_n$ are decision variables,
+    $n$ is the number of decision variables, and  $g$ is the auxillary function.
     """
     n = number_of_variables
-
-    if n < 2:
-        raise ValueError("ZDT6 requires at least 2 variables")
 
     f1_symbol = "f_1"
     f1_expr = f"1 - Exp(-4*x_1)*(Sin(6*{pi}*x_1))**6"
