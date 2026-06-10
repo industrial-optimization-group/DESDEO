@@ -284,8 +284,8 @@ def zdt6(number_of_variables: int) -> Problem:
 
     \begin{align*}
         \min\quad f_1(x) &= 1 -\exp(-4x_1)\sin^{6}(6\pi x_1) \\
-        \min\quad f_2(x) &= g(x)(1 - \left(\frac{f_1(x)}{g(x)}\right)^{0.25}) \\
-        g(x) &= 1 + 9\left(\frac{\sum_{i=2}^{n} x_i}{n-1}\right)^{2}
+        \min\quad f_2(x) &= g(x)\left(1 - \left(\frac{f_1(x)}{g(x)}\right)^{2}\right) \\
+        g(x) &= 1 + 9\left(\frac{\sum_{i=2}^{n} x_i}{n-1}\right)^{0.25}
     \end{align*}
 
     where $f_1$ and f$f_2$ are objective functions, $x_1,\dots,x_n$ are decision variables,
