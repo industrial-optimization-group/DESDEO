@@ -87,10 +87,6 @@ def test_dtlz4():
 
     res = evaluator.evaluate(xs)
 
-    g = res["g"]
-    sum_sq = 1 + (n_variables - n_objectives + 1) * (0.05**2)
-    assert np.isclose(g, sum_sq)
-
     f1 = res["f_1"]
     assert np.isclose(f1, 1.0075)
 

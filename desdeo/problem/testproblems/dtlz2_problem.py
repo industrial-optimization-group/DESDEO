@@ -111,10 +111,10 @@ def dtlz4(n_variables: int, n_objectives: int, alpha: float = 100.0) -> Problem:
 
     \begin{equation}
         \underset{\mathbf{x}}{\operatorname{min}}
-        f_i(\mathbf{x}) = (1+g(\mathbf{x}_M)) \prod_{j=1}^{M-i} \cos\left(x_j^{a} \frac{\pi}{2}\right) \times
+        f_i(\mathbf{x}) = (1+g(\mathbf{x}_M)) \prod_{j=1}^{M-i} \cos\left(x_j^{\alpha} \frac{\pi}{2}\right) \times
         \begin{cases}
         1 & \text{if } i=1 \\
-        \sin\left(x_{(M-i+1)}^{a}\frac{\pi}{2}\right) & \text{otherwise},
+        \sin\left(x_{(M-i+1)}^{\alpha}\frac{\pi}{2}\right) & \text{otherwise},
         \end{cases}
     \end{equation}
 
@@ -155,7 +155,7 @@ def dtlz4(n_variables: int, n_objectives: int, alpha: float = 100.0) -> Problem:
         if prod_expr == "":
             prod_expr = "1"  # When m == n_objectives, the product is empty, implying f_M = g.
         f_m_expr = f"(1 + {g_symbol}) * ({prod_expr})"
-        # here
+
         objectives.append(
             Objective(
                 name=f"f_{m}",
