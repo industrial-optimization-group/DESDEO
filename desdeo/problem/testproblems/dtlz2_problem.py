@@ -52,7 +52,6 @@ def dtlz2(n_variables: int, n_objectives: int) -> Problem:
     # function g
     g_symbol = "g"
     g_expr = " + ".join([f"(x_{i} - 0.5)**2" for i in range(n_objectives, n_variables + 1)])
-    g_expr = "1 + " + g_expr
 
     objectives = []
     for m in range(1, n_objectives + 1):
@@ -62,7 +61,7 @@ def dtlz2(n_variables: int, n_objectives: int) -> Problem:
             prod_expr += f"{' * ' if prod_expr != '' else ''}Sin(0.5 * {np.pi} * x_{n_objectives - m + 1})"
         if prod_expr == "":
             prod_expr = "1"  # When m == n_objectives, the product is empty, implying f_M = g.
-        f_m_expr = f"({g_symbol}) * ({prod_expr})"
+        f_m_expr = f"(1 + {g_symbol}) * ({prod_expr})"
 
         objectives.append(
             Objective(
@@ -146,7 +145,6 @@ def dtlz4(n_variables: int, n_objectives: int, alpha: float = 100.0) -> Problem:
     # function g
     g_symbol = "g"
     g_expr = " + ".join([f"(x_{i} - 0.5)**2" for i in range(n_objectives, n_variables + 1)])
-    g_expr = "1 + " + g_expr
 
     objectives = []
     for m in range(1, n_objectives + 1):
@@ -156,8 +154,8 @@ def dtlz4(n_variables: int, n_objectives: int, alpha: float = 100.0) -> Problem:
             prod_expr += f"{' * ' if prod_expr != '' else ''}Sin(0.5 * {np.pi} * x_{n_objectives - m + 1}**{alpha})"
         if prod_expr == "":
             prod_expr = "1"  # When m == n_objectives, the product is empty, implying f_M = g.
-        f_m_expr = f"({g_symbol}) * ({prod_expr})"
-
+        f_m_expr = f"(1+ {g_symbol}) * ({prod_expr})"
+        # here
         objectives.append(
             Objective(
                 name=f"f_{m}",
