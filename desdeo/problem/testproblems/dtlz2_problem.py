@@ -136,7 +136,7 @@ def dtlz4(n_variables: int, n_objectives: int, alpha: float = 100.0) -> Problem:
 
     Returns:
         Problem: an instance of a DTLZ4 problem `n_variables` variables and `n_objectives`
-        objective functions and an alpha of `alpha`.
+        objective functions.
 
     References:
         Deb, K., Thiele, L., Laumanns, M., & Zitzler, E. (2005).
