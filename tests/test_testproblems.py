@@ -50,6 +50,10 @@ def test_dtlz2():
 
     xs = {f"{var.symbol}": [0.55] for var in problem.variables}
 
+    evaluator = PolarsEvaluator(problem)
+
+    res = evaluator.evaluate(xs)
+
     assert sum(res[obj.symbol][0] ** 2 for obj in problem.objectives) != 1.0
 
 
@@ -72,6 +76,23 @@ def test_dtlz4():
         res = evaluator.evaluate(xs)
 
         assert np.isclose(sum(res[obj.symbol][0] ** 2 for obj in problem.objectives), 1.0)
+
+    n_variables = 5
+    n_objectives = 3
+    problem = dtlz4(n_variables, n_objectives)
+
+    xs = {f"{var.symbol}": [0.55] for var in problem.variables}
+
+    evaluator = PolarsEvaluator(problem)
+
+    res = evaluator.evaluate(xs)
+
+    g = res["g"]
+    sum_sq = 1 + (n_variables - n_objectives + 1) * (0.05**2)
+    assert np.isclose(g, sum_sq)
+
+    f1 = res["f_1"]
+    assert np.isclose(f1, 1.0075)
 
 
 @pytest.mark.testproblem
