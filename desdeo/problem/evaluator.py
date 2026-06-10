@@ -463,7 +463,7 @@ class PolarsEvaluator:
                 # construct the tensor variable
 
                 unflattened_xs = unflattened_xs.with_columns(
-                    xs.select(pl.concat_arr(f"^{var.symbol}_.*$").alias(var.symbol).reshape((1, *var.shape)))
+                    xs.select(pl.concat_arr(f"^{var.symbol}_.*$").alias(var.symbol).reshape((-1, *var.shape)))
                 )
 
             else:

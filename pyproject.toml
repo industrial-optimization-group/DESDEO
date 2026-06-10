@@ -1,6 +1,6 @@
 [project]
 name = "desdeo"
-version = "2.4.0"
+version = "2.5.0"
 description = "DESDEO is a modular and open source framework for interactive multiobjective optimization."
 authors = [
     { name = "Giovanni Misitano", email = "giovanni.a.misitano@jyu.fi" },
@@ -18,9 +18,9 @@ keywords = [
 ]
 requires-python = ">=3.12,<3.14"
 dependencies = [
-    "numpy >= 2.2.0",
+    "numpy >= 2.2.0, < 2.4", # nevergrad 1.0.12 metamodel does float(model.predict(...)); numpy>=2.4 rejects size-1 ndim>0 -> scalar conversion
     "scipy >= 1.11.4",
-    "polars == 1.30",
+    "polars >= 1.41",
     "pyarrow >= 20.0.0",
     "numba >= 0.61.0",
     "pydantic >= 2.9",
@@ -29,7 +29,7 @@ dependencies = [
     "plotly>=6.0",
     "pyparsing >= 3.0",
     "nevergrad >= 1.0.12",
-    "bayesian-optimization >= 1.0", # They recently released v2 which breaks compatibility with nevergrad
+    "bayesian-optimization >= 1.0", # effectively held at 1.4.0: nevergrad 1.0.12 hard-pins bayesian-optimization==1.4.0, so v2/v3 cannot be installed until nevergrad relaxes it
     "pyomo >= 6.8",
     "gurobipy >= 12.0.0",
     "tsp-solver >= 0.1",
@@ -37,7 +37,7 @@ dependencies = [
     "pymoo >= 0.6.1.2",
     "shap >= 0.47.0",
     "requests >= 2.32.0",
-    "cvxpy[scip]>=1.8.0",
+    "cvxpy[scip]>=1.8.0,<1.9", # 1.9 regresses solver precision apparently?
     "moocore >= 0.1.7",
     "websockets>=15.0.1",
     "coco-experiment>=2.8.2",
@@ -67,7 +67,7 @@ docs = [
     "mkdocs-material>=9.5.12",
     "mkdocstrings-python>=1.0",
     "mkdocs-macros-plugin>=1.0.5",
-    "mkdocs-jupyter @ git+https://github.com/gialmisi/mkdocs-jupyter.git@build",
+    "mkdocs-jupyter>=0.26.3",
     "mkdocs-include-markdown-plugin[cache]>=7.0.0",
     "neoteroi-mkdocs>=1.1.2",
     "griffe>=1.4.1",
@@ -119,6 +119,8 @@ optional = true
 
 [tool.uv]
 default-groups = ["dev", "docs", "jupyter", "web", "viz", "tools"]
+# Pin the cma version: 4.4.2+ regresses NGOpt's stochastic stability?
+constraint-dependencies = ["cma==4.4.1"]
 
 [tool.ruff]
 # Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.

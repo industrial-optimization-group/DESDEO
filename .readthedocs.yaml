@@ -31,3 +31,15 @@ build:
       - cp -a "$HOME/tmp/custom_binaries"/. "${READTHEDOCS_VIRTUALENV_PATH}/bin/"
 
       - bash -lc 'command -v ipopt && command -v bonmin'
+
+    # Seed the mkdocs-jupyter render cache from the published asset.
+    # If the asset is missing (first run), continue and let notebooks execute.
+    pre_build:
+      - 'echo "pre_build cwd: $(pwd)"'
+      - mkdir -p .cache
+      - >
+        wget https://github.com/industrial-optimization-group/DESDEO/releases/download/supplementary/notebook_cache.tgz
+        -O "$HOME/tmp/notebook_cache.tgz"
+        && tar -xzf "$HOME/tmp/notebook_cache.tgz" -C .cache
+        && echo "Seeded mkdocs-jupyter cache at $(pwd)/.cache/mkdocs-jupyter: $(ls -1 .cache/mkdocs-jupyter | wc -l) entries"
+        || echo "No notebook_cache.tgz asset found yet — notebooks will execute this build."

@@ -36,7 +36,7 @@ DESDEO has been an ongoing project driven forward by the Multiobjective
 Optimization group at the University of Jyväskylä in Finland.
 Many current and past members of the team have contributed to DESDEO.
 
-To lean mor about the research team behind DESDEO, feel free
+To learn more about the research team behind DESDEO, feel free
 to visit [their website](https://optgroup.it.jyu.fi).
 
 

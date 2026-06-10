@@ -49,7 +49,7 @@ we can visit [GitHub](https://github.com/) to setup a new account.
 Here, we assume to be operating in a **powershell** environment. The first step
 is to install Python on the system, unless it is already installed. To check
 which version of Python are supported, check the section
-[Requirements](../index.md#installation-instructions-core-logic). If utilizing the `.exe`
+[Requirements](https://desdeo.readthedocs.io/en/latest/howtoguides/installing/). If utilizing the `.exe`
 installer for installing Python, we should ensure that the installer also sets the
 necessary `Path` environment variables. There should be a check-box for this
 during the installation. Python binaries for Windows platforms can be found [on
@@ -75,7 +75,7 @@ instructions are provided on scoop's webpage. Using scoop is optional, but we
 will assume that it has been installed for the remainder of this section.
 
 To install poetry, we will follow the [recommended way and use _pipx_](https://python-poetry.org/docs/#installation).
-To install pipx, in a powershell, we run [the commands](https://pipx.pypa.io/stable/installation/)
+To install pipx, in a powershell, we run [the commands](https://pipx.pypa.io/stable/how-to/install-pipx/#on-windows)
 
 ```shell
 $ scoop install pipx
@@ -1316,10 +1316,10 @@ we do not know where to start, we can check the
 [open issues](https://github.com/industrial-optimization-group/DESDEO/issues)
 found on DESDEO's GitHub repository.
 
-For further support, feel free to join the MCDM Community's Discord server.
-It has dedicated channels for DESDEO as well. There, you may ask for further assistance
+For further support, feel free to join our Discord server.
+There, you may ask for further assistance
 and discuss DESDEO and its development in general.
 
-To join the Discord server, [click here!](https://discord.gg/TgSnUmzv5M)
+To join the Discord server, [click here!](https://discord.gg/uGCEgQTJyY)
 
 Happy coding!
