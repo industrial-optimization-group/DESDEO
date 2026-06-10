@@ -1,8 +1,5 @@
 """Define popular MOEAs as Pydantic models."""
 
-from collections.abc import Callable
-from functools import partial
-
 from desdeo.emo.options.crossover import SimulatedBinaryCrossoverOptions, UniformMixedIntegerCrossoverOptions
 from desdeo.emo.options.generator import LHSGeneratorOptions, RandomMixedIntegerGeneratorOptions
 from desdeo.emo.options.mutation import BoundedPolynomialMutationOptions, MixedIntegerRandomMutationOptions
@@ -15,17 +12,14 @@ from desdeo.emo.options.selection import (
     ParameterAdaptationStrategy,
     ReferenceVectorOptions,
     RVEASelectorOptions,
+    SMSEMOASelectorOptions,
 )
 from desdeo.emo.options.templates import (
-    ConstructorExtras,
     EMOOptions,
-    EMOResult,
     Template1Options,
     Template2Options,
-    emo_constructor,
 )
-from desdeo.emo.options.termination import MaxGenerationsTerminatorOptions
-from desdeo.problem import Problem
+from desdeo.emo.options.termination import MaxEvaluationsTerminatorOptions, MaxGenerationsTerminatorOptions
 
 
 def rvea_options() -> EMOOptions:
@@ -259,6 +253,90 @@ def nsga2_options() -> EMOOptions:
     )
 
 
+def smsemoa_options(
+    population_size: int = 100,
+    n_offspring: int = 100,
+    max_evaluations: int = 20000,
+    use_dominating_points: bool = True,
+    greedy_reduction: bool = True,
+    seed: int = 42,
+) -> EMOOptions:
+    """Get default S-Metric Selection EMOA (SMS-EMOA) options as a Pydantic model.
+
+    SMS-EMOA is a steady-state evolutionary multiobjective algorithm whose selection (Reduce) operator combines
+    non-dominated sorting with the contributing hypervolume, thereby steering the population towards a
+    well-distributed approximation of the Pareto front that maximizes the dominated hypervolume. This
+    implementation creates ``n_offspring`` offspring per generation (a (mu + n_offspring) scheme) and reduces the
+    population back to ``population_size`` by repeatedly discarding the worst individual of the worst-ranked
+    front. Termination is based on the number of function evaluations.
+
+    Reference:
+        Beume, N., Naujoks, B., & Emmerich, M. (2007). SMS-EMOA: Multiobjective selection based on dominated
+        hypervolume. European Journal of Operational Research, 181(3), 1653-1669.
+        https://doi.org/10.1016/j.ejor.2006.08.008
+
+    Args:
+        population_size (int, optional): The (constant) size of the population. Defaults to 100.
+        n_offspring (int, optional): The number of offspring generated each generation. Must be greater than 1.
+            Smaller values are closer to the original steady-state SMS-EMOA (one offspring per generation) and give
+            marginally higher quality, while larger values amortize per-iteration overhead and run faster. The
+            default of 100 (a (mu + mu) scheme) is a good balance. Defaults to 100.
+        max_evaluations (int, optional): The function evaluation budget. Defaults to 20000.
+        use_dominating_points (bool, optional): Whether to use the cheaper "dominating points" variant when the
+            population is not yet fully non-dominated. Defaults to True.
+        greedy_reduction (bool, optional): If True, remove individuals one at a time, recomputing hypervolume
+            contributions after each removal (faithful, best quality). If False, remove the least contributors in a
+            single batch per generation, which is dramatically faster for four or more objectives at a small
+            quality cost. Defaults to True.
+        seed (int, optional): The random seed. Defaults to 42.
+
+    Returns:
+        EMOOptions: The default SMS-EMOA options as a Pydantic model.
+    """
+    return EMOOptions(
+        preference=None,
+        template=Template2Options(
+            algorithm_name="SMS-EMOA",
+            crossover=SimulatedBinaryCrossoverOptions(
+                name="SimulatedBinaryCrossover",
+                xover_distribution=15,
+                xover_probability=0.9,
+            ),
+            mutation=BoundedPolynomialMutationOptions(
+                name="BoundedPolynomialMutation",
+                distribution_index=20,
+                mutation_probability=None,
+            ),
+            selection=SMSEMOASelectorOptions(
+                name="SMSEMOASelector",
+                population_size=population_size,
+                reference_point_offset=1.0,
+                use_dominating_points=use_dominating_points,
+                greedy_reduction=greedy_reduction,
+            ),
+            mate_selection=TournamentSelectionOptions(
+                name="TournamentSelection",
+                tournament_size=2,
+                winner_size=n_offspring,
+            ),
+            generator=LHSGeneratorOptions(
+                name="LHSGenerator",
+                n_points=population_size,
+            ),
+            repair=NoRepairOptions(
+                name="NoRepair",
+            ),
+            termination=MaxEvaluationsTerminatorOptions(
+                name="MaxEvaluationsTerminator",
+                max_evaluations=max_evaluations,
+            ),
+            use_archive=True,
+            verbosity=2,
+            seed=seed,
+        ),
+    )
+
+
 def rvea_mixed_integer_options() -> EMOOptions:
     """Get default RVEA options for mixed integer problems as a Pydantic model.
 
@@ -414,11 +492,12 @@ if __name__ == "__main__":
     json_dump_path = current_dir.parent.parent.parent.parent / "datasets" / "emoTemplates"
 
     for algo_name, algo in zip(
-        ["rvea", "nsga3", "ibea", "rvea_mixed_integer", "nsga3_mixed_integer", "ibea_mixed_integer"],
+        ["rvea", "nsga3", "ibea", "smsemoa", "rvea_mixed_integer", "nsga3_mixed_integer", "ibea_mixed_integer"],
         [
             rvea_options,
             nsga3_options,
             ibea_options,
+            smsemoa_options,
             rvea_mixed_integer_options,
             nsga3_mixed_integer_options,
             ibea_mixed_integer_options,
