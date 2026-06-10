@@ -135,7 +135,7 @@ def dtlz4(n_variables: int, n_objectives: int, alpha: float = 100.0) -> Problem:
         alpha: exponent
 
     Returns:
-        Problem: an instance of a DTLZ4 problem `n_variables` variables and `n_objectives`
+        Problem: an instance of a DTLZ4 problem with `n_variables` variables and `n_objectives`
         objective functions.
 
     References:
