@@ -284,8 +284,8 @@ def zdt6(number_of_variables: int) -> Problem:
 
     \begin{align*}
         \min\quad f_1(\textbf{x}) &= 1 -\exp(-4x_1)\sin^{6}(6\pi x_1) \\
-        \min\quad f_2(\textbf{x}) &= g(\textbf{x})\left(1-\left(\frac{f_1(\textbf{x})}
-        {g(\textbf{x})}\right)^{2}\right) \\
+        \min\quad f_2(\textbf{x}) &= g(\textbf{x})\left[1-\left(\frac{f_1(\textbf{x})}
+        {g(\textbf{x})}\right)^{2}\right] \\
         g(\textbf{x}) &= 1 + \frac{9}{n-1}\left(\sum_{i=2}^{n} x_i\right)^{0.25}
     \end{align*}
 
