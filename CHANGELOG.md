@@ -54,6 +54,113 @@ This project follows **Keep a Changelog** and **Semantic Versioning**:
 
 ---
 
+## [2.5.0] - 9.6.2026
+
+### Core logic
+
+#### Added
+
+- Added **scenario-based optimization** support: a new `ScenarioModel`/`Scenario`
+  model (`desdeo/problem/scenario.py`) that references pooled
+  constants/variables/constraints/objectives by index, and tools in
+  `desdeo/tools/scenarios.py` for constructing and solving scenario problems
+  (`build_scenario_problem`, `build_combined_scenario_problem`,
+  `solve_scenario`, `solve_all_scenarios`) (#472).
+- Added **stochastic optimization** tools (`desdeo/tools/stochastic.py`):
+  `add_expected_asf`, `add_expected_value`, and `add_weighted_scenarios` for
+  aggregating objectives over probability-weighted scenarios (#472).
+- Added **worst-case robust optimization** (`desdeo/tools/robust.py`):
+  `add_worst_case_robust`, using the standard epigraph reformulation over a
+  combined scenario problem (#472).
+- Added **partial scalarization** (`desdeo/tools/partial_scalarization.py`):
+  `add_asf_partial_diff`, a differentiable ASF that scalarizes only the subset
+  of objectives present in the reference point (#472).
+- Added a **summer cabin electricity** test problem family
+  (`summer_cabin_electricity.py`): `summer_cabin_battery_problem`,
+  `summer_cabin_battery_problem_split`,
+  `summer_cabin_battery_problem_split_scenario`, plus
+  `generate_solar_profile` and `generate_summer_cabin_electricity_data`
+  helpers (#472).
+- Added native **polars vector operations** to the math parser: matrix/array
+  random access (extract/exclude with 1-based and end-relative indices),
+  matmul, summation, and unary UDFs, with a new
+  `tests/test_json_parser_vectors.py` suite (#472).
+- Added matrix random access to gurobipy expression parsing (#472).
+
+#### Changed
+
+- Refactored scenario handling: replaced the legacy
+  `scenario_keys`/`get_scenario_problem` mechanism in `schema.py` with the new
+  `ScenarioModel`, which adds per-scenario probabilities and anticipation info
+  for scenario variables (#472).
+- Changed evaluator ordering so **scalarization functions are evaluated before
+  constraints**, allowing scalarization symbols to be used inside constraints
+  (useful when aggregating over multiple scenarios) (#472).
+- Updated the math parser and evaluators to support **polars >= 1.41**: native
+  polars arithmetic for `+`, `-`, `*`, `/`; `pow` via a unary UDF for constant
+  exponents; matmul/extract/exclude/summation/unary via `map_batches`;
+  reshape-based tensor unflattening; and a `_safe_hstack` that tolerates an
+  empty frame in the simulator evaluator.
+- Updated **SCORE Bands** visualization (`desdeo/tools/score_bands.py`):
+  scaling now based on `score_json` instead of the raw data, added axis-color
+  and cluster-name customization, support for visualizing individual
+  solutions, and a new tick value/position calculation.
+
+#### Removed
+
+- Removed the legacy `scenario_keys` handling from the problem schema,
+  including `parse_scenario_key_singleton_to_list` and
+  `Problem.get_scenario_problem`, superseded by `ScenarioModel` (#472).
+
+#### Fixed
+
+- Fixed type hints and minor issues in `interaction_schema.py`.
+- Fixed the Metallurgical application JSON problem file (`MetallAppl.json`).
+
+### Web GUI
+
+#### Added
+
+- Added **automatic breadcrumbs** to the topbar (`topbar-breadcrumbs`
+  component), driven by a path-to-label map and shown across the groups,
+  interactive-methods, manage-users, methods, and problems layouts.
+- Added a **Solution Comparison Table** component
+  (`solution-comparison.svelte`) that highlights whether each candidate
+  objective value is better than the reference solution.
+
+### Documentation
+
+#### Added
+
+- Added a **scenario-based optimization** explanation guide
+  (`docs/explanation/scenarios.md`) and a standalone scenarios notebook,
+  inlined/fetched to avoid a heavy notebook in the docs build (#476, #477,
+  #478).
+
+#### Changed
+
+- Fixed broken and incorrect links and various typos across the tutorials and
+  documentation, and reordered the Explanation navigation (Models/schema,
+  Group decision making, Websockets) to match the index order.
+- Updated the Discord invite links, which were incorrect.
+
+### Tooling, CI, and deployment
+
+#### Added
+
+- Added an optional **`stochastic`** dependency group (`mpi-sppy`), kept out of
+  the default install so the automated tests keep working, at least for now.
+
+#### Changed
+
+- Bumped dependencies: `cvxpy[scip]` to `>= 1.8.0, < 1.9`, pinned `numpy`
+  (`>= 2.2.0, < 2.4`) and `cma` for compatibility, and refreshed `uv.lock`.
+- Set the notebook `execute` option to `false` in `mkdocs.rtd.yml`, moved the
+  scenarios notebook out of the docs build, cleaned notebook outputs, and
+  updated `pre-commit`.
+
+---
+
 ## [2.4.0] - 14.4.2026
 
 ### Core logic

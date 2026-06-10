@@ -7,6 +7,7 @@ import pytest
 from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem import PolarsEvaluator, PyomoEvaluator
 from desdeo.problem.testproblems import (
+    binh_and_korn,
     dtlz2,
     forest_problem,
     mcwb_equilateral_tbeam_problem,
@@ -19,6 +20,7 @@ from desdeo.problem.testproblems import (
     re22,
     re23,
     re24,
+    river_pollution_problem,
     river_pollution_scenario,
     spanish_sustainability_problem,
     zdt1,
@@ -356,6 +358,7 @@ def test_solve_spanish_sustainability_problem():
             npt.assert_array_less(res[i].constraint_values[con.symbol], 1e-5)
 
 
+@pytest.mark.testproblem
 def test_river_scenario():
     """Test that the scenario-based river pollution problem works."""
     model = river_pollution_scenario()
@@ -363,6 +366,7 @@ def test_river_scenario():
     assert len(model.scenario_tree["ROOT"]) == 6
 
     for i in range(6):
+        problem_scenario = model.get_scenario_problem(f"scenario_{i + 1}")
         problem_scenario = model.get_scenario_problem(f"scenario_{i + 1}")
         assert len(problem_scenario.objectives) == 4
 
@@ -374,6 +378,7 @@ def test_river_scenario():
     assert len(nadir_2) == 4
 
 
+@pytest.mark.testproblem
 def test_mcwb_solid_rectangular_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
     problem = mcwb_solid_rectangular_problem()
@@ -389,6 +394,7 @@ def test_mcwb_solid_rectangular_problem():
     assert np.isclose(f2, 0.0000012)
 
 
+@pytest.mark.testproblem
 def test_mcwb_hollow_rectangular_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
     problem = mcwb_hollow_rectangular_problem()
@@ -404,6 +410,7 @@ def test_mcwb_hollow_rectangular_problem():
     assert np.isclose(f2, float("inf"))
 
 
+@pytest.mark.testproblem
 def test_mcwb_equilateral_tbeam_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
     problem = mcwb_equilateral_tbeam_problem()
@@ -419,6 +426,7 @@ def test_mcwb_equilateral_tbeam_problem():
     assert np.isclose(f2, 1.2e-6, rtol=1e-9)
 
 
+@pytest.mark.testproblem
 def test_mcwb_square_channel_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
     problem = mcwb_square_channel_problem()
@@ -434,6 +442,7 @@ def test_mcwb_square_channel_problem():
     assert np.isclose(f2, 1.2e-6, rtol=1e-9)
 
 
+@pytest.mark.testproblem
 def test_mcwb_tapered_channel_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
     problem = mcwb_tapered_channel_problem()
@@ -449,6 +458,7 @@ def test_mcwb_tapered_channel_problem():
     assert np.isnan(f2)
 
 
+@pytest.mark.testproblem
 def test_mcwb_ragsdell1976_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
     problem = mcwb_ragsdell1976_problem()
@@ -462,6 +472,27 @@ def test_mcwb_ragsdell1976_problem():
     # these are the values we are getting now, are they even correct?
     assert np.isclose(f1, 0.02511625)
     assert np.isclose(f2, 1.2e-06, rtol=1e-3, atol=1e-9)
+
+
+@pytest.mark.testproblem
+def test_river_pollution_problem():
+    """Test that the river pollution problem initializes and evaluates correctly."""
+    problem = river_pollution_problem()
+    evaluator = PolarsEvaluator(problem)
+    xs = {"x_1": [0.3, 0.4, 1], "x_2": [0.3, 0.5, 1]}
+    expected_result = np.array(
+        [
+            [4.751, 2.853461, 7.5, 0, 0.35],
+            [4.978, 2.893287, 7.446559, -0.182857, 0.25],
+            [6.34, 3.444871, 0.321111, -9.70, 0.35],
+        ]
+    )
+
+    res = evaluator.evaluate(xs)
+
+    for i in range(len(res)):
+        obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
+        assert np.allclose(obj_values, expected_result[i], rtol=1e-3, atol=1e-6)
 
 
 @pytest.mark.testproblem
@@ -484,6 +515,21 @@ def test_zdt1():
     assert np.isclose(f2, 3.8416876048223)
     assert np.isclose(g, 5.5)
     assert np.isclose(h, 0.6984886554222364)
+
+
+def test_binh_and_korn_problem():
+    """Test that the Binh and Korn problem initializes and evaluates correctly."""
+    problem = binh_and_korn()
+    evaluator = PolarsEvaluator(problem)
+
+    xs = {"x_1": [0, 2.5, 5], "x_2": [0, 1.5, 3]}
+    expected_result = np.array([[0, 50], [34, 18.5], [136, 4]])
+
+    res = evaluator.evaluate(xs)
+
+    for i in range(len(res)):
+        obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
+        assert np.allclose(obj_values, expected_result[i])
 
 
 @pytest.mark.testproblem

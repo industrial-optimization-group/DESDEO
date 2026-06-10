@@ -1,27 +1,28 @@
-"""Contains a function for the visualization of results."""
+"""Provides some visualization functions."""
+
+from typing import Any
 
 import plotly.graph_objects as go
 
 
 def scatter_plot_comparison(
-    *results: tuple,
+    *results: Any,
     x_key: str = "f_1",
     y_key: str = "f_2",
     z_key: str | None = None,
-    reference_point: dict | None = None,
-    names: list | None = None,
+    reference_point: dict[str, float] | None = None,
+    names: list[str] | None = None,
 ) -> go.Figure:
     """Plots multiple sets of data in a scatter plot (2D or 3D depending on the data).
 
     Arguments:
-        *results (tuple): Variable number of result objects, each containing outputs with
-            keys for x, y, and optionally z.
-        x_key (str): Key for the x-axis data in the outputs.
-        y_key (str): Key for the y-axis data in the outputs.
-        z_key (str): Key for the z-axis data in the outputs (optional, for 3D plots).
-        reference_point (dict): A dictionary with keys matching x_key, y_key, and optionally z_key,
+        *results: Variable number of result objects, each containing outputs with keys for x, y, and optionally z.
+        x_key: Key for the x-axis data in the outputs.
+        y_key: Key for the y-axis data in the outputs.
+        z_key: Key for the z-axis data in the outputs (optional, for 3D plots).
+        reference_point: A dictionary with keys matching x_key, y_key, and optionally z_key,
             representing the reference point to plot.
-        names (list): List of names for each data set to display in the legend.
+        names: List of names for each data set to display in the legend.
 
     Returns:
         go.Figure: A Plotly Figure containing the scatter plot.
@@ -54,7 +55,7 @@ def scatter_plot_comparison(
         traces.append(trace)
 
     if reference_point:
-        if is_3d:
+        if is_3d and z_key:
             ref_trace = go.Scatter3d(
                 x=[reference_point[x_key]],
                 y=[reference_point[y_key]],

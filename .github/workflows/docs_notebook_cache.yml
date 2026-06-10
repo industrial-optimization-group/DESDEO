@@ -1,0 +1,59 @@
+name: Rebuild docs notebook cache
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [master]
+    paths:
+      - "docs/**"
+      - "desdeo/**"
+      - "mkdocs.yml"
+      - "mkdocs.rtd.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+
+permissions:
+  contents: write   # needed to upload the release asset
+
+jobs:
+  build-cache:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install project (same as RTD)
+        run: uv sync --frozen --all-extras
+
+      - name: Fetch solver binaries (same source as RTD)
+        run: |
+          mkdir -p "$HOME/tmp/custom_binaries"
+          wget https://github.com/industrial-optimization-group/DESDEO/releases/download/supplementary/solver_binaries.tgz -O "$HOME/tmp/binaries.tgz"
+          tar --strip-components=1 -xzf "$HOME/tmp/binaries.tgz" -C "$HOME/tmp/custom_binaries"
+          chmod +x "$HOME/tmp/custom_binaries"/*
+          # uv's default project venv is ./.venv — mirror RTD by putting binaries on its bin.
+          cp -a "$HOME/tmp/custom_binaries"/. ".venv/bin/"
+          bash -lc 'command -v ipopt && command -v bonmin' || ( ./.venv/bin/ipopt --version; ./.venv/bin/bonmin --version )
+
+      - name: Build docs with fresh execution (populates cache)
+        run: |
+          rm -rf .cache/mkdocs-jupyter        # force a cold cache so every notebook executes
+          uv run mkdocs build -f mkdocs.rtd.yml
+
+      - name: Package cache
+        run: |
+          test -d .cache/mkdocs-jupyter
+          tar -czf notebook_cache.tgz -C .cache mkdocs-jupyter
+          echo "Cached notebooks: $(ls -1 .cache/mkdocs-jupyter | wc -l)"
+
+      - name: Upload to the 'supplementary' release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view supplementary >/dev/null 2>&1 \
+            || gh release create supplementary --title supplementary --notes "Supplementary build assets"
+          gh release upload supplementary notebook_cache.tgz --clobber
