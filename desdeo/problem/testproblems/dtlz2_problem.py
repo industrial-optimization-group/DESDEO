@@ -106,7 +106,28 @@ def dtlz2(n_variables: int, n_objectives: int) -> Problem:
 
 
 def dtlz4(n_variables: int, n_objectives: int, alpha: float = 100.0) -> Problem:
-    """Defines the DTLZ4 test problem.
+    r"""Defines the DTLZ4 test problem.
+
+    The objective functions for DTLZ4 are defined as follows, for $i = 1$ to $M$:
+
+    \begin{equation}
+        \underset{\mathbf{x}}{\operatorname{min}}
+        f_i(\mathbf{x}) = (1+g(\mathbf{x}_M)) \prod_{j=1}^{M-i} \cos\left(x_j^{a} \frac{\pi}{2}\right) \times
+        \begin{cases}
+        1 & \text{if } i=1 \\
+        \sin\left(x_{(M-i+1)}^{a}\frac{\pi}{2}\right) & \text{otherwise},
+        \end{cases}
+    \end{equation}
+
+    where
+
+    \begin{equation}
+    g(\mathbf{x}_M) = \sum_{x_i \in \mathbf{x}_M} \left( x_i - 0.5 \right)^2,
+    \end{equation}
+
+    and $\mathbf{x}_M$ represents the last $n-k$ dimensions of the decision vector.
+    Pareto optimal solutions to the DTLZ4 problem consist of $x_i = 0.5$ for
+    all $x_i \in\mathbf{x}_{M}$, and $\sum{i=1}^{M} f_i^2 = 1$.
 
     Args:
         n_variables: number of variables
