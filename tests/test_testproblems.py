@@ -23,6 +23,7 @@ from desdeo.problem.testproblems import (
     river_pollution_problem,
     river_pollution_scenario,
     spanish_sustainability_problem,
+    zdt4,
 )
 from desdeo.tools import GurobipySolver, payoff_table_method
 
@@ -467,6 +468,28 @@ def test_mcwb_ragsdell1976_problem():
     # these are the values we are getting now, are they even correct?
     assert np.isclose(f1, 0.02511625)
     assert np.isclose(f2, 1.2e-06, rtol=1e-3, atol=1e-9)
+
+
+@pytest.mark.testproblem
+def test_zdt4():
+    """Test that ZDT4 problem evaluates correctly."""
+    n = 4
+    val = [0.5, 0, 0, 0]
+    problem = zdt4(n)
+
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{problem.variables[i].symbol}": [val[i]] for i in range(n)}
+
+    res = evaluator.evaluate(xs)
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    g = res["g"][0]
+    h = res["h"][0]
+
+    assert np.allclose(f1, 0.5)
+    assert np.allclose(f2, 0.292893218)
+    assert np.allclose(g, 1.0)
+    assert np.allclose(h, 0.292893218)
 
 
 @pytest.mark.testproblem
