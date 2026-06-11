@@ -135,12 +135,13 @@ def dtlz4(n_variables: int, n_objectives: int, alpha: float = 100.0) -> Problem:
 
     Returns:
         Problem: an instance of a DTLZ4 problem with `n_variables` variables and `n_objectives`
-        objective functions.
+            objective functions.
 
     References:
-        Deb, K., Thiele, L., Laumanns, M., & Zitzler, E. (2005).
-        Scalable test problems for evolutionary multiobjective optimization.
-        In Evolutionary Multiobjective Optimization (pp. 105-145). Springer.
+        Deb, K., Thiele, L., Laumanns, M., Zitzler, E. (2005). Scalable Test
+            Problems for Evolutionary Multiobjective Optimization. In: Abraham, A.,
+            Jain, L., Goldberg, R. (eds) Evolutionary Multiobjective Optimization.
+            Advanced Information and Knowledge Processing. Springer.
     """
     # function g
     g_symbol = "g"
