@@ -10,6 +10,7 @@ from desdeo.problem.testproblems import (
     binh_and_korn,
     dtlz1,
     dtlz2,
+    dtlz4,
     forest_problem,
     mcwb_equilateral_tbeam_problem,
     mcwb_hollow_rectangular_problem,
@@ -24,6 +25,11 @@ from desdeo.problem.testproblems import (
     river_pollution_problem,
     river_pollution_scenario,
     spanish_sustainability_problem,
+    zdt1,
+    zdt2,
+    zdt3,
+    zdt4,
+    zdt6,
 )
 from desdeo.tools import GurobipySolver, payoff_table_method
 
@@ -73,7 +79,45 @@ def test_dtlz2():
 
     xs = {f"{var.symbol}": [0.55] for var in problem.variables}
 
+    evaluator = PolarsEvaluator(problem)
+
+    res = evaluator.evaluate(xs)
+
     assert sum(res[obj.symbol][0] ** 2 for obj in problem.objectives) != 1.0
+
+
+@pytest.mark.testproblem
+def test_dtlz4():
+    """Test that the DTLZ4 problem initializes and evaluates correctly."""
+    test_variables = [3, 5, 10, 50]
+    test_objectives = [2, 4, 5, 7]
+
+    for n_variables, n_objectives in zip(test_variables, test_objectives, strict=True):
+        problem = dtlz4(n_variables=n_variables, n_objectives=n_objectives)
+
+        assert len(problem.variables) == n_variables
+        assert len(problem.objectives) == n_objectives
+
+        xs = {f"{var.symbol}": [0.5] for var in problem.variables}
+
+        evaluator = PolarsEvaluator(problem)
+
+        res = evaluator.evaluate(xs)
+
+        assert np.isclose(sum(res[obj.symbol][0] ** 2 for obj in problem.objectives), 1.0)
+
+    n_variables = 5
+    n_objectives = 3
+    problem = dtlz4(n_variables, n_objectives)
+
+    xs = {f"{var.symbol}": [0.55] for var in problem.variables}
+
+    evaluator = PolarsEvaluator(problem)
+
+    res = evaluator.evaluate(xs)
+
+    f1 = res["f_1"]
+    assert np.isclose(f1, 1.0075)
 
 
 @pytest.mark.testproblem
@@ -385,6 +429,7 @@ def test_river_scenario():
 
     for i in range(6):
         problem_scenario = model.get_scenario_problem(f"scenario_{i + 1}")
+        problem_scenario = model.get_scenario_problem(f"scenario_{i + 1}")
         assert len(problem_scenario.objectives) == 4
 
     problem_scenario_2 = model.get_scenario_problem("scenario_2")
@@ -492,19 +537,25 @@ def test_mcwb_ragsdell1976_problem():
 
 
 @pytest.mark.testproblem
-def test_binh_and_korn_problem():
-    """Test that the Binh and Korn problem initializes and evaluates correctly."""
-    problem = binh_and_korn()
-    evaluator = PolarsEvaluator(problem)
+def test_zdt4():
+    """Test that ZDT4 problem evaluates correctly."""
+    n = 4
+    val = [0.5, 0, 0, 0]
+    problem = zdt4(n)
 
-    xs = {"x_1": [0, 2.5, 5], "x_2": [0, 1.5, 3]}
-    expected_result = np.array([[0, 50], [34, 18.5], [136, 4]])
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{problem.variables[i].symbol}": [val[i]] for i in range(n)}
 
     res = evaluator.evaluate(xs)
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    g = res["g"][0]
+    h = res["h"][0]
 
-    for i in range(len(res)):
-        obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
-        assert np.allclose(obj_values, expected_result[i])
+    assert np.allclose(f1, 0.5)
+    assert np.allclose(f2, 0.292893218)
+    assert np.allclose(g, 1.0)
+    assert np.allclose(h, 0.292893218)
 
 
 @pytest.mark.testproblem
@@ -526,3 +577,105 @@ def test_river_pollution_problem():
     for i in range(len(res)):
         obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
         assert np.allclose(obj_values, expected_result[i], rtol=1e-3, atol=1e-6)
+
+
+@pytest.mark.testproblem
+def test_zdt1():
+    """Test that ZDT1 problem evaluates correctly."""
+    n = 3
+    val = 0.5
+    problem = zdt1(n)
+
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [val] for var in problem.variables}
+
+    res = evaluator.evaluate(xs)
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    g = res["g"][0]
+    h = res["h"][0]
+
+    assert np.isclose(f1, 0.5)
+    assert np.isclose(f2, 3.8416876048223)
+    assert np.isclose(g, 5.5)
+    assert np.isclose(h, 0.6984886554222364)
+
+
+@pytest.mark.testproblem
+def test_binh_and_korn_problem():
+    """Test that the Binh and Korn problem initializes and evaluates correctly."""
+    problem = binh_and_korn()
+    evaluator = PolarsEvaluator(problem)
+
+    xs = {"x_1": [0, 2.5, 5], "x_2": [0, 1.5, 3]}
+    expected_result = np.array([[0, 50], [34, 18.5], [136, 4]])
+
+    res = evaluator.evaluate(xs)
+
+    for i in range(len(res)):
+        obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
+        assert np.allclose(obj_values, expected_result[i])
+
+
+@pytest.mark.testproblem
+def test_zdt2():
+    """Test that ZDT2 problem evaluates correctly."""
+    n = 3
+    val = 0.5
+    problem = zdt2(n)
+
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [val] for var in problem.variables}
+
+    res = evaluator.evaluate(xs)
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    g = res["g"][0]
+    h = res["h"][0]
+
+    assert np.isclose(f1, 0.5)
+    assert np.isclose(f2, 5.454545454545455)
+    assert np.isclose(g, 5.5)
+    assert np.isclose(h, 0.9917355371900827)
+
+
+@pytest.mark.testproblem
+def test_zdt3():
+    """Test that ZDT3 problem evaluates correctly."""
+    n = 2
+    val = 0.5
+    problem = zdt3(n)
+
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [val] for var in problem.variables}
+
+    res = evaluator.evaluate(xs)
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    g = res["g"][0]
+    h = res["h"][0]
+
+    assert np.isclose(f1, 0.5)
+    assert np.isclose(f2, 3.8416876048223)
+    assert np.isclose(g, 5.5)
+    assert np.isclose(h, 0.6984886554222363)
+
+
+@pytest.mark.testproblem
+def test_zdt6():
+    """Test that ZDT6 problem evaluates correctly."""
+    n = 5
+    val = 0.5
+    problem = zdt6(n)
+
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [val] for var in problem.variables}
+
+    res = evaluator.evaluate(xs)
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    g = res["g"][0]
+
+    assert np.isclose(f1, 1.0)
+    assert np.isclose(f2, 8.45135530798638410874)
+    assert np.isclose(g, 8.568067737283432)

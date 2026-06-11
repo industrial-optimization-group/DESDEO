@@ -8,6 +8,7 @@ __all__ = [  # noqa: RUF022
     "binh_and_korn",
     "dtlz1",
     "dtlz2",
+    "dtlz4",
     "forest_problem",
     "forest_problem_discrete",
     "mcwb_equilateral_tbeam_problem",
@@ -45,6 +46,8 @@ __all__ = [  # noqa: RUF022
     "zdt1",
     "zdt2",
     "zdt3",
+    "zdt4",
+    "zdt6",
     "best_cake_problem",
     "dmitry_forest_problem_disc",
     "generate_solar_profile",
@@ -58,7 +61,7 @@ __all__ = [  # noqa: RUF022
 from .binh_and_korn_problem import binh_and_korn
 from .cake_problem import best_cake_problem
 from .dmitry_forest_problem_discrete import dmitry_forest_problem_disc
-from .dtlz2_problem import dtlz1, dtlz2
+from .dtlz_problems import dtlz1, dtlz2, dtlz4
 from .forest_problem import forest_problem, forest_problem_discrete
 from .knapsack_problem import simple_knapsack, simple_knapsack_vectors
 from .mcwb_problem import (
@@ -102,4 +105,4 @@ from .summer_cabin_electricity import (
     summer_cabin_battery_problem_split,
     summer_cabin_battery_problem_split_scenario,
 )
-from .zdt_problem import zdt1, zdt2, zdt3
+from .zdt_problem import zdt1, zdt2, zdt3, zdt4, zdt6
