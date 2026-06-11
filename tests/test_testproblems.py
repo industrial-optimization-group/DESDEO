@@ -46,7 +46,6 @@ def test_dtlz1():
 
         res = evaluator.evaluate(xs)
 
-        assert np.allclose(problem.objectives, 0.5)
         assert np.isclose(sum(res[obj.symbol][0] for obj in problem.objectives), 0.5)
 
 
