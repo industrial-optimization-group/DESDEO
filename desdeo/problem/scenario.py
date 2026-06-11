@@ -229,7 +229,9 @@ class ScenarioModel(BaseModel):
                     )
         return v
 
-    def with_base_problem(self, problem: "Problem | None" = None, validate: bool = False, **updates) -> "ScenarioModel":
+    def with_base_problem(
+        self, problem: "Problem | None" = None, validate: bool = False, **updates: dict[str, any]
+    ) -> "ScenarioModel":
         """Return a new ScenarioModel with the base_problem updated.
 
         By default uses model_copy, so validators are NOT re-run. Pass

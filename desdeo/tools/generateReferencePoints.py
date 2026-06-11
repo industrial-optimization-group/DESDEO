@@ -30,15 +30,14 @@ def householder(vector):
     v = vector[np.newaxis]
     denominator = np.matmul(v, v.T)
     numerator = np.matmul(v.T, v)
-    rot_mat = identity_mat - (2 * numerator / denominator)
-    return rot_mat
+    return identity_mat - (2 * numerator / denominator)
 
 
 def rotate(initial_vector, rotated_vector, other_vectors):
     """Calculate the rotation matrix that rotates the initial_vector to the
     rotated_vector. Apply that rotation on other_vectors and return.
-    Uses Householder reflections twice to achieve this."""
-
+    Uses Householder reflections twice to achieve this.
+    """
     init_vec_norm = normalize(initial_vector)
     rot_vec_norm = normalize(np.asarray(rotated_vector))
     middle_vec_norm = normalize(init_vec_norm + rot_vec_norm)
@@ -47,11 +46,10 @@ def rotate(initial_vector, rotated_vector, other_vectors):
     Q1 = householder(first_reflector)
     Q2 = householder(second_reflector)
     reflection_matrix = np.matmul(Q2, Q1)
-    rotated_vectors = np.matmul(other_vectors, np.transpose(reflection_matrix))
-    return rotated_vectors
+    return np.matmul(other_vectors, np.transpose(reflection_matrix))
 
 
-def get_reference_hull(num_dims):
+def get_reference_hull(num_dims) -> tuple[np.ndarray, np.ndarray, np.ndarray, ConvexHull]:
     """Get the convex hull of the valid reference points for IPA.
 
     This algorithm generates the vertices of the unit hypercube in the (num_dims)-dimensional space.
@@ -101,8 +99,7 @@ def rotate_in(vertices: np.ndarray) -> np.ndarray:
     """
     num_dims = len(vertices[0])
     rotated_vertices = rotate([1] * num_dims, ([0] * (num_dims - 1) + [1]), vertices)
-    rotated_vertices = rotated_vertices[:, :-1]
-    return rotated_vertices
+    return rotated_vertices[:, :-1]
 
 
 def rotate_out(points: np.ndarray) -> np.ndarray:
@@ -115,12 +112,11 @@ def rotate_out(points: np.ndarray) -> np.ndarray:
         np.ndarray: The projected points.
     """
     points = np.atleast_2d(points)
-    num_points, num_dims = points.shape
+    num_dims = points.shape[1]
     points_rotated = np.hstack((points, np.ones((len(points), 1))))
     points_rotated = rotate(([0] * (num_dims) + [1]), [1] * (num_dims + 1), points_rotated)
     # Move (along nadir-ideal direction) the plane of these points such that it passes through nadir
-    points_rotated = points_rotated + 1 - 1 / np.sqrt(num_dims + 1)
-    return points_rotated
+    return points_rotated + 1 - 1 / np.sqrt(num_dims + 1)
 
 
 def get_hull_equations(hull: ConvexHull) -> tuple[np.ndarray, np.ndarray]:
@@ -196,7 +192,7 @@ def numba_random_gen(num_points: int, bounding_box: np.ndarray, A: np.ndarray, b
         point = np.zeros(num_dims_)
         for i in range(num_dims_):
             # Generate a random point within the bounding box
-            point[i] = np.random.uniform(bounding_box[0, i], bounding_box[1, i])
+            point[i] = np.random.Generator.uniform(bounding_box[0, i], bounding_box[1, i])
         if np.all(point @ A + b < eps):
             # If the point is inside the convex hull, add it to the list of points
             points[counter] = point

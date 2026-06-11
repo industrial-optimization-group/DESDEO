@@ -435,11 +435,11 @@ class CVXPYEvaluator:
         self.objective_expr = objective
         self.problem_model = cp.Problem(objective, list(self.constraints.values()))
 
-    def solve(self, **kwargs):
+    def solve(self, **kwargs: dict[str, any]):
         """Solve the CVXPY problem.
 
         Args:
-            **kwargs: additional arguments to pass to cp.Problem.solve().
+            **kwargs (dict[str, any]): additional arguments to pass to cp.Problem.solve().
         """
         if self.problem_model is None:
             msg = "No optimization target has been set. Call set_optimization_target() first."

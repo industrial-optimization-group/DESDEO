@@ -52,7 +52,7 @@ def add_group_asf(
         problem (Problem): the problem to which the scalarization function should be added.
         symbol (str): the symbol to reference the added scalarization function.
         reference_points (list[dict[str, float]]): a list of reference points as objective dicts.
-        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
+        agg_bounds (dict[str, float]): a dictionary of bounds not to violate.
         ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
             to calculate ideal point from problem.
         nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
@@ -178,7 +178,8 @@ def add_group_asf_agg(
     Args:
         problem (Problem): the problem to which the scalarization function should be added.
         symbol (str): the symbol to reference the added scalarization function.
-        reference_points (list[dict[str, float]]): a list of reference points as objective dicts.
+        agg_aspirations (dict[str, float]): a dictionary of aggregated aspiration levels (min aspirations).
+        agg_bounds (dict[str, float]): a dictionary of aggregated bounds (max bounds).
         ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
             to calculate ideal point from problem.
         nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
@@ -299,7 +300,7 @@ def add_group_asf_diff(
         problem (Problem): the problem to which the scalarization function should be added.
         symbol (str): the symbol to reference the added scalarization function.
         reference_points (list[dict[str, float]]): a list of reference points as objective dicts.
-        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
+        agg_bounds (dict[str, float]): a dictionary of bounds not to violate.
         ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
             to calculate ideal point from problem.
         nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
@@ -454,8 +455,8 @@ def add_group_asf_agg_diff(
     Args:
         problem (Problem): the problem to which the scalarization function should be added.
         symbol (str): the symbol to reference the added scalarization function.
-        reference_points (list[dict[str, float]]): a list of reference points as objective dicts.
-        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
+        agg_aspirations (dict[str, float]): a dictionary of aggregated aspiration levels (min aspirations).
+        agg_bounds (dict[str, float]): a dictionary of bounds not to violate.
         ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
             to calculate ideal point from problem.
         nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
@@ -580,7 +581,7 @@ def add_group_asf_agg_diff(
     return _problem.add_constraints(constraints), symbol
 
 
-def add_group_nimbus(  # noqa: PLR0913
+def add_group_nimbus(
     problem: Problem,
     symbol: str,
     classifications_list: list[dict[str, tuple[str, float | None]]],
@@ -641,7 +642,7 @@ def add_group_nimbus(  # noqa: PLR0913
         current_objective_vector (dict[str, float]): the current objective vector that corresponds to
             a Pareto optimal solution. The classifications are assumed to been given in respect to
             this vector.
-        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
+        agg_bounds (dict[str, float]): a dictionary of bounds not to violate.
         ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
             to calculate ideal point from problem.
         nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
@@ -706,8 +707,6 @@ def add_group_nimbus(  # noqa: PLR0913
     max_args = []
     constraints = []
 
-    print(classifications_list)
-
     for i in range(len(classifications_list)):
         classifications = classifications_list[i]
         for obj in problem.objectives:
@@ -752,7 +751,7 @@ def add_group_nimbus(  # noqa: PLR0913
                     # not relevant for this group scalarization
                     pass
 
-                case (">=", reservation):
+                case ">=":
                     con_expr = f"{_symbol}_min - {bounds[_symbol]} "
                     constraints.append(
                         Constraint(
@@ -796,7 +795,7 @@ def add_group_nimbus(  # noqa: PLR0913
     return _problem.add_constraints(constraints), symbol
 
 
-def add_group_nimbus_compromise(  # noqa: PLR0913
+def add_group_nimbus_compromise(
     problem: Problem,
     symbol: str,
     group_classification: dict[str, tuple[Literal["improve", "worsen", "conflict"], list[float]]],
@@ -955,8 +954,6 @@ def add_group_nimbus_compromise(  # noqa: PLR0913
     # max term and constraints
     max_args = []
     constraints = []
-
-    print(group_classification)
 
     # Derive the group classifications
 
@@ -1037,7 +1034,8 @@ def add_group_nimbus_compromise(  # noqa: PLR0913
                     )
             case _:
                 msg = (
-                    f"Warning! The classification {group_classification[_symbol]} was supplied, but it is not supported."
+                    f"Warning! The classification {group_classification[_symbol]} was "
+                    "supplied, but it is not supported. "
                     "Must be one of ['improve', 'worsen', 'conflict']"
                 )
     max_expr = f"Max({','.join(max_args)})"
@@ -1059,7 +1057,7 @@ def add_group_nimbus_compromise(  # noqa: PLR0913
     return _problem.add_constraints(constraints), symbol
 
 
-def add_group_nimbus_compromise_diff(  # noqa: PLR0913
+def add_group_nimbus_compromise_diff(
     problem: Problem,
     symbol: str,
     group_classification: dict[str, tuple[Literal["improve", "worsen", "conflict"], list[float]]],
@@ -1217,8 +1215,6 @@ def add_group_nimbus_compromise_diff(  # noqa: PLR0913
 
     # max term and constraints
     constraints = []
-
-    print(group_classification)
 
     # define the auxiliary variable
     alpha = Variable(
@@ -1329,7 +1325,8 @@ def add_group_nimbus_compromise_diff(  # noqa: PLR0913
                     )
             case _:
                 msg = (
-                    f"Warning! The classification {group_classification[_symbol]} was supplied, but it is not supported."
+                    f"Warning! The classification {group_classification[_symbol]} was "
+                    "supplied, but it is not supported."
                     "Must be one of ['improve', 'worsen', 'conflict']"
                 )
 
@@ -1351,7 +1348,7 @@ def add_group_nimbus_compromise_diff(  # noqa: PLR0913
     return _problem.add_constraints(constraints), symbol
 
 
-def add_group_nimbus_sf(  # noqa: PLR0913
+def add_group_nimbus_sf(
     problem: Problem,
     symbol: str,
     classifications_list: list[dict[str, tuple[str, float | None]]],
@@ -1361,7 +1358,8 @@ def add_group_nimbus_sf(  # noqa: PLR0913
     delta: float = 0.000001,
     rho: float = 0.000001,
 ) -> tuple[Problem, str]:
-    r"""Implements the multiple decision maker variant of the NIMBUS scalarization function. Variant without aggregated bounds.
+    r"""Implements the multiple decision maker variant of the NIMBUS scalarization function.
+        Variant without aggregated bounds.
 
     The scalarization function is defined as follows:
 
@@ -1576,7 +1574,7 @@ def add_group_nimbus_sf(  # noqa: PLR0913
     return _problem.add_constraints(constraints), symbol
 
 
-def add_group_nimbus_diff(  # noqa: PLR0913
+def add_group_nimbus_diff(
     problem: Problem,
     symbol: str,
     classifications_list: list[dict[str, tuple[str, float | None]]],
@@ -1641,7 +1639,7 @@ def add_group_nimbus_diff(  # noqa: PLR0913
         current_objective_vector (dict[str, float]): the current objective vector that corresponds to
             a Pareto optimal solution. The classifications are assumed to been given in respect to
             this vector.
-        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
+        agg_bounds (dict[str, float]): a dictionary of bounds not to violate.
         ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
             to calculate ideal point from problem.
         nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
@@ -1776,7 +1774,7 @@ def add_group_nimbus_diff(  # noqa: PLR0913
                 case ("=", _):
                     # not relevant for this group scalarization
                     pass
-                case (">=", reservation):
+                case ">=":
                     con_expr = f"{_symbol}_min - {bounds[_symbol]}"
                     constraints.append(
                         Constraint(
@@ -1846,7 +1844,7 @@ def add_group_stom(
         reference_points (list[dict[str, float]]): a list of dicts with keys corresponding to objective
             function symbols and values to reference point components, i.e.,
             aspiration levels.
-        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
+        agg_bounds (dict[str, float]): a dictionary of bounds not to violate.
         ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
             to calculate ideal point from problem.
         rho (float, optional): a small scalar value to scale the sum in the objective
@@ -1973,10 +1971,8 @@ def add_group_stom_agg(
     Args:
         problem (Problem): the problem the scalarization is added to.
         symbol (str): the symbol given to the added scalarization.
-        reference_points (list[dict[str, float]]): a list of dicts with keys corresponding to objective
-            function symbols and values to reference point components, i.e.,
-            aspiration levels.
-        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
+        agg_aspirations (dict[str, float]): a dictionary of aggregated aspiration levels, i.e., min aspirations.
+        agg_bounds (dict[str, float]): a dictionary of bounds not to violate.
         ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
             to calculate ideal point from problem.
         rho (float, optional): a small scalar value to scale the sum in the objective
@@ -1990,7 +1986,6 @@ def add_group_stom_agg(
         tuple[Problem, str]: a tuple with the copy of the problem with the added
             scalarization and the symbol of the added scalarization.
     """
-
     # check if ideal point is specified
     # if not specified, try to calculate corrected ideal point
     if ideal is not None:
@@ -2097,7 +2092,7 @@ def add_group_stom_diff(
             aspiration levels.
         ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
             to calculate ideal point from problem.
-        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
+        agg_bounds (dict[str, float]): a dictionary of bounds not to violate.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
         delta (float, optional): a small scalar value to define the utopian point. Defaults to 1e-6.
@@ -2161,7 +2156,8 @@ def add_group_stom_diff(
         for obj in problem.objectives:
             if type(delta) is dict:
                 rp[obj.symbol] = (
-                    f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta[obj.symbol]}) - _alpha"
+                    f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal_point[obj.symbol] - delta[obj.symbol]})"
+                    " - _alpha"
                 )
             else:
                 rp[obj.symbol] = (
@@ -2250,12 +2246,10 @@ def add_group_stom_agg_diff(
     Args:
         problem (Problem): the problem the scalarization is added to.
         symbol (str): the symbol given to the added scalarization.
-        reference_points (list[dict[str, float]]): a list of dicts with keys corresponding to objective
-            function symbols and values to reference point components, i.e.,
-            aspiration levels.
+        agg_aspirations (dict[str, float]): a dictionary of aggregated aspiration levels, i.e., min aspirations.
         ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
             to calculate ideal point from problem.
-        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
+        agg_bounds (dict[str, float]): a dictionary of bounds not to violate.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
         delta (float, optional): a small scalar value to define the utopian point. Defaults to 1e-6.
@@ -2267,7 +2261,6 @@ def add_group_stom_agg_diff(
         tuple[Problem, str]: a tuple with the copy of the problem with the added
             scalarization and the symbol of the added scalarization.
     """
-
     # check if ideal point is specified
     # if not specified, try to calculate corrected ideal point
     if ideal is not None:
@@ -2400,7 +2393,7 @@ def add_group_guess(
         reference_points (list[dict[str, float]]): a list of dicts with keys corresponding to objective
             function symbols and values to reference point components, i.e.,
             aspiration levels.
-        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
+        agg_bounds (dict[str, float]): a dictionary of bounds not to violate.
         nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
             to calculate nadir point from problem.
         rho (float, optional): a small scalar value to scale the sum in the objective
@@ -2528,11 +2521,11 @@ def add_group_guess_agg(
     Args:
         problem (Problem): the problem the scalarization is added to.
         symbol (str): the symbol given to the added scalarization.
-        reference_points (list[dict[str, float]]): a list of dicts with keys corresponding to objective
-            function symbols and values to reference point components, i.e.,
-            aspiration levels.
+        agg_aspirations (dict[str, float]): a dictionary of aggregated aspiration levels, i.e., min aspirations.
+        agg_bounds (dict[str, float]): a dictionary of bounds not to violate.
         ideal (dict[str, float], optional): ideal point values. If not given, attempt will be made
             to calculate ideal point from problem.
+        nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
         delta (float, optional): a small scalar value to define the utopian point. Defaults to 1e-6.
@@ -2544,7 +2537,6 @@ def add_group_guess_agg(
         tuple[Problem, str]: a tuple with the copy of the problem with the added
             scalarization and the symbol of the added scalarization.
     """
-
     # check if ideal point is specified
     # if not specified, try to calculate corrected ideal point
     if ideal is not None:
@@ -2661,7 +2653,7 @@ def add_group_guess_diff(
             aspiration levels.
         nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
             to calculate nadir point from problem.
-        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
+        agg_bounds (dict[str, float]): a dictionary of bounds not to violate.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
         delta (float, optional): a small scalar to define the utopian point. Defaults to 1e-6.
@@ -2726,7 +2718,8 @@ def add_group_guess_diff(
         for obj in problem.objectives:
             if type(delta) is dict:
                 rp[obj.symbol] = (
-                    f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta[obj.symbol]}) - _alpha"
+                    f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir_point[obj.symbol] + delta[obj.symbol]})"
+                    " - _alpha"
                 )
             else:
                 rp[obj.symbol] = (
@@ -2815,12 +2808,10 @@ def add_group_guess_agg_diff(
     Args:
         problem (Problem): the problem the scalarization is added to.
         symbol (str): the symbol given to the added scalarization.
-        reference_points (list[dict[str, float]]): a list of dicts with keys corresponding to objective
-            function symbols and values to reference point components, i.e.,
-            aspiration levels.
+        agg_aspirations (dict[str, float]): a dictionary of aggregated aspiration levels, i.e., min aspirations.
         nadir (dict[str, float], optional): nadir point values. If not given, attempt will be made
             to calculate nadir point from problem.
-        agg_bounds dict[str, float]: a dictionary of bounds not to violate.
+        agg_bounds (dict[str, float]): a dictionary of bounds not to violate.
         rho (float, optional): a small scalar value to scale the sum in the objective
             function of the scalarization. Defaults to 1e-6.
         delta (float, optional): a small scalar to define the utopian point. Defaults to 1e-6.
@@ -2832,7 +2823,6 @@ def add_group_guess_agg_diff(
         tuple[Problem, str]: a tuple with the copy of the problem with the added
             scalarization and the symbol of the added scalarization.
     """
-
     # check if nadir point is specified
     # if not specified, try to calculate corrected nadir point
     if nadir is not None:
