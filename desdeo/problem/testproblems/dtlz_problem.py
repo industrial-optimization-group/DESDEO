@@ -153,7 +153,7 @@ def dtlz4(n_variables: int, n_objectives: int, alpha: float = 100.0) -> Problem:
         if m > 1:
             prod_expr += f"{' * ' if prod_expr != '' else ''}Sin(0.5 * {np.pi} * x_{n_objectives - m + 1}**{alpha})"
         if prod_expr == "":
-            prod_expr = "1"  # When m == n_objectives, the product is empty, implying f_M = g.
+            prod_expr = "1"  # Only reached when n_objectives == 1: no trig terms, so f_1 = 1 + g
         f_m_expr = f"(1 + {g_symbol}) * ({prod_expr})"
 
         objectives.append(
