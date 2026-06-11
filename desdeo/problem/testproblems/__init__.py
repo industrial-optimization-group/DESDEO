@@ -7,6 +7,7 @@ testing and illustration purposed are defined here.
 __all__ = [  # noqa: RUF022
     "binh_and_korn",
     "dtlz2",
+    "dtlz4",
     "forest_problem",
     "forest_problem_discrete",
     "mcwb_equilateral_tbeam_problem",
@@ -58,7 +59,7 @@ __all__ = [  # noqa: RUF022
 from .binh_and_korn_problem import binh_and_korn
 from .cake_problem import best_cake_problem
 from .dmitry_forest_problem_discrete import dmitry_forest_problem_disc
-from .dtlz2_problem import dtlz2
+from .dtlz_problems import dtlz2, dtlz4
 from .forest_problem import forest_problem, forest_problem_discrete
 from .knapsack_problem import simple_knapsack, simple_knapsack_vectors
 from .mcwb_problem import (
