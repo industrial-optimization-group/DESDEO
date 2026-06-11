@@ -46,6 +46,7 @@ __all__ = [  # noqa: RUF022
     "zdt2",
     "zdt3",
     "zdt4",
+    "zdt6",
     "best_cake_problem",
     "dmitry_forest_problem_disc",
     "generate_solar_profile",
@@ -103,4 +104,4 @@ from .summer_cabin_electricity import (
     summer_cabin_battery_problem_split,
     summer_cabin_battery_problem_split_scenario,
 )
-from .zdt_problem import zdt1, zdt2, zdt3, zdt4
+from .zdt_problem import zdt1, zdt2, zdt3, zdt4, zdt6
