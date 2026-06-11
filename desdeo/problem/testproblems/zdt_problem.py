@@ -284,9 +284,9 @@ def zdt4(number_of_variables: int) -> Problem:
 
     \begin{align*}
         \min\quad f_1(\textbf{x}) &= x_1 \\
-        \min\quad f_2(\text{x})\&=g(\text{x})\cdot\left(h\right) \\
-        g(\text{x})\&=1+10\left(n-1\right)+\sum_{i=2}^n\left[x_i^2-10\cos\left(4\pi\cdot x_i\right)\right] \\
-        h(f_1{,}g)\&=1-\sqrt{\frac{f_1}{g}}, \\
+        \min\quad f_2(\text{x}) &=g(\text{x})\cdot\left(h\right) \\
+        g(\text{x}) &=1+10\left(n-1\right)+\sum_{i=2}^n\left[x_i^2-10\cos\left(4\pi\cdot x_i\right)\right]\\
+        h(f_1{,}g) &=1-\sqrt{\frac{f_1}{g}}, \\
     \end{align*}
 
     where $f_1$ and $f_2$ are objective functions, $x_1,\dots,x_n$ are decision variables, $n$
