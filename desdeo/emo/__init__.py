@@ -17,7 +17,6 @@ __all__ = [
 from types import SimpleNamespace
 
 from .options.algorithms import (
-    emo_constructor,
     ibea_mixed_integer_options,
     ibea_options,
     nsga2_options,
@@ -25,6 +24,7 @@ from .options.algorithms import (
     nsga3_options,
     rvea_mixed_integer_options,
     rvea_options,
+    smsemoa_options,
 )
 from .options.crossover import (
     BlendAlphaCrossoverOptions,
@@ -70,6 +70,7 @@ from .options.templates import (
     ReferencePointOptions,
     Template1Options,
     Template2Options,
+    emo_constructor,
 )
 from .options.termination import (
     CompositeTerminatorOptions,
@@ -85,6 +86,7 @@ algorithms = SimpleNamespace(
     nsga2_options=nsga2_options,
     nsga3_options=nsga3_options,
     ibea_options=ibea_options,
+    smsemoa_options=smsemoa_options,
     rvea_mixed_integer_options=rvea_mixed_integer_options,
     nsga3_mixed_integer_options=nsga3_mixed_integer_options,
     ibea_mixed_integer_options=ibea_mixed_integer_options,

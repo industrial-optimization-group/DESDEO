@@ -14,6 +14,7 @@ from desdeo.emo.operators.selection import (
     ParameterAdaptationStrategy,
     ReferenceVectorOptions,
     RVEASelector,
+    SMSEMOASelector,
 )
 from desdeo.tools.indicators_binary import self_epsilon, self_hv
 
@@ -86,7 +87,46 @@ class IBEASelectorOptions(BaseModel):
     """The binary indicator for IBEA."""
 
 
-SelectorOptions = RVEASelectorOptions | NSGA2SelectorOptions | NSGA3SelectorOptions | IBEASelectorOptions
+class SMSEMOASelectorOptions(BaseModel):
+    """Options for SMS-EMOA Selection."""
+
+    name: Literal["SMSEMOASelector"] = Field(
+        default="SMSEMOASelector", frozen=True, description="The name of the selection operator."
+    )
+    """The name of the selection operator."""
+    population_size: int = Field(gt=0, description="The population size.")
+    """The population size."""
+    reference_point_offset: float = Field(
+        default=1.0,
+        gt=0.0,
+        description=(
+            "The offset added to the worst objective values of the worst-ranked front to build the dynamic "
+            "reference point used in the hypervolume computation (for three or more objectives)."
+        ),
+    )
+    """The offset for the dynamic reference point used in the hypervolume computation."""
+    use_dominating_points: bool = Field(
+        default=True,
+        description=(
+            "Whether to use the cheaper 'dominating points' variant when the population is not yet fully "
+            "non-dominated (Algorithm 3 in the SMS-EMOA reference)."
+        ),
+    )
+    """Whether to use the 'dominating points' variant for dominated solutions."""
+    greedy_reduction: bool = Field(
+        default=True,
+        description=(
+            "If True, discard individuals one at a time, recomputing hypervolume contributions after each removal "
+            "(faithful, best quality). If False, remove the required number of least-contributing individuals in a "
+            "single batch per front, which is much faster for four or more objectives at a small quality cost."
+        ),
+    )
+    """Whether to remove individuals one at a time (greedy) or in a single batch per front."""
+
+
+SelectorOptions = (
+    RVEASelectorOptions | NSGA2SelectorOptions | NSGA3SelectorOptions | IBEASelectorOptions | SMSEMOASelectorOptions
+)
 
 
 def selection_constructor(
@@ -112,6 +152,7 @@ def selection_constructor(
         "NSGA2Selector": NSGA2Selector,
         "NSGA3Selector": NSGA3Selector,
         "IBEASelector": IBEASelector,
+        "SMSEMOASelector": SMSEMOASelector,
     }
     options: dict = options.model_dump()
     name = options.pop("name")
