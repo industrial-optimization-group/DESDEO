@@ -8,6 +8,7 @@ from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem import PolarsEvaluator, PyomoEvaluator
 from desdeo.problem.testproblems import (
     binh_and_korn,
+    dtlz1,
     dtlz2,
     forest_problem,
     mcwb_equilateral_tbeam_problem,
@@ -25,6 +26,28 @@ from desdeo.problem.testproblems import (
     spanish_sustainability_problem,
 )
 from desdeo.tools import GurobipySolver, payoff_table_method
+
+
+@pytest.mark.testproblem
+def test_dtlz1():
+    """Test that the DTLZ1 problem initializes and evaluates correcly."""
+    test_variables = [3, 5, 10, 50]
+    test_objectives = [2, 4, 5, 7]
+
+    for n_variables, n_objectives in zip(test_variables, test_objectives, strict=True):
+        problem = dtlz1(n_variables, n_objectives)
+
+        assert len(problem.variables) == n_variables
+        assert len(problem.objectives) == n_objectives
+
+        xs = {f"{var.symbol}": [0.5] for var in problem.variables}
+
+        evaluator = PolarsEvaluator(problem)
+
+        res = evaluator.evaluate(xs)
+
+        assert np.allclose(problem.objectives, 0.5)
+        assert np.isclose(sum(res[obj.symbol][0] for obj in problem.objectives), 0.5)
 
 
 @pytest.mark.testproblem
