@@ -470,7 +470,7 @@ def test_mcwb_ragsdell1976_problem():
     assert np.isclose(f2, 1.2e-06, rtol=1e-3, atol=1e-9)
 
 
-@pytest.mark.eeli
+@pytest.mark.testproblem
 def test_zdt4():
     """Test that ZDT4 problem evaluates correctly."""
     n = 4
