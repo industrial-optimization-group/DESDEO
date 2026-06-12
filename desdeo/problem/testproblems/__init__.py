@@ -54,6 +54,7 @@ __all__ = [  # noqa: RUF022
     "summer_cabin_battery_problem",
     "summer_cabin_battery_problem_split",
     "summer_cabin_battery_problem_split_scenario",
+    "lame_superspheres",   
 ]
 
 
@@ -105,3 +106,4 @@ from .summer_cabin_electricity import (
     summer_cabin_battery_problem_split_scenario,
 )
 from .zdt_problem import zdt1, zdt2, zdt3, zdt4, zdt6
+from .lame_superspheres_problem import lame_superspheres
