@@ -14,21 +14,15 @@ from desdeo.problem.schema import (
 def dtlz1(n_variables: int, n_objectives: int) -> Problem:
     r"""Defines the DTLZ1 test problem.
 
-    The objective functions for DTLZ1 are defined as:
+    The objective functions for DTLZ1 are defined as follows:
 
-    \begin{equation}
-        f_1(\mathbf{x}) = \frac{1}{2}(1+g(\mathbf{x}_M))
-        \prod_{j=1}^{M-1} x_j
-    \end{equation}
-
-    \begin{equation}
-        f_m(\mathbf{x}) = \frac{1}{2}(1+g(\mathbf{x}_M))
-        \prod_{j=1}^{M-m} x_j (1 - x_{M-m+1}), \quad m=2,\dots,M-1
-    \end{equation}
-
-    \begin{equation}
-        f_M(\mathbf{x}) = \frac{1}{2}(1+g(\mathbf{x}_M))(1 - x_1)
-    \end{equation}
+    \begin{align*}
+        &\min_{\mathbf{x}} \quad & f_1(\mathbf{x}) &= \frac{1}{2}(1+g(\mathbf{x}_M))
+        \prod_{j=1}^{M-1} x_j \\
+        &\min_{\mathbf{x}} \quad & f_m(\mathbf{x}) &= \frac{1}{2}(1+g(\mathbf{x}_M))
+        \prod_{j=1}^{M-m} x_j (1 - x_{M-m+1}), \quad m=2,\dots,M-1 \\
+        &\min_{\mathbf{x}} \quad & f_M(\mathbf{x}) &= \frac{1}{2}(1+g(\mathbf{x}_M))(1 - x_1)
+    \end{align*}
 
     where
 
@@ -54,6 +48,9 @@ def dtlz1(n_variables: int, n_objectives: int) -> Problem:
             Jain, L., Goldberg, R. (eds) Evolutionary Multiobjective Optimization.
             Advanced Information and Knowledge Processing. Springer.
     """
+    if n_objectives <= 1:
+        raise ValueError("DTLZ1 requires at least 2 objectives.")
+
     # function g
     g_symbol = "g"
     g_sum = " + ".join(
