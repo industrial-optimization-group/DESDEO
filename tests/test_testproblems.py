@@ -10,6 +10,7 @@ from desdeo.problem.testproblems import (
     binh_and_korn,
     dtlz2,
     dtlz4,
+    lame_superspheres,
     forest_problem,
     mcwb_equilateral_tbeam_problem,
     mcwb_hollow_rectangular_problem,
@@ -96,6 +97,34 @@ def test_dtlz4():
 
     f1 = res["f_1"]
     assert np.isclose(f1, 1.0075)
+    
+    
+@pytest.mark.testproblem
+def test_lame_superspheres():
+    """Test that the Lamé superspheres problem initializes and evaluates correctly."""
+
+    problem = lame_superspheres(
+        n_variables=5,
+        n_objectives=3,
+        gamma=2.0,
+    )
+
+    assert len(problem.variables) == 5
+    assert len(problem.objectives) == 3
+
+    xs = {f"{var.symbol}": [0.5] for var in problem.variables}
+
+    evaluator = PolarsEvaluator(problem)
+
+    res = evaluator.evaluate(xs)
+
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    f3 = res["f_3"][0]
+
+    assert np.isfinite(f1)
+    assert np.isfinite(f2)
+    assert np.isfinite(f3)
 
 
 @pytest.mark.testproblem
