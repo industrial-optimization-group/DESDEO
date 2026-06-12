@@ -285,8 +285,8 @@ def check_gurobi_license():
     """Check if Gurobi is using a full license (not trial).
 
     Returns:
-        True if using full academic/commercial license
-        False if using trial license or no license found
+        (str | bool): True if using full academic/commercial license
+            False if using trial license or no license found
     """
     captured_output = io.StringIO()
     original_stdout = sys.stdout
