@@ -1,0 +1,32 @@
+Costs,Pain,Physical_Function,ST_sessions,Duration(w),Autors(year),Therapy
+400,4.024,11.172,40,8,An(2008),Baduanjin
+300,2.4,6.8,7,12,Bennell(2010),Home exercise
+320,5.728,12.4236,16,8,Barghin(2017),Mixed
+160,4.1,12.1,8,8,Cheung(2014),Youga
+480,4.3,8.7,24,12,Jorge_12w(2015),Resistance
+240,3.1,3.3,12,6,Jorge_6w(2015),Resistance
+240,1.39,2.99,16,16,Topp1(2002),Resistance
+240,1.71,6.62,16,16,Topp2(2002),Resistance
+350,1.84,1.34,7,8,Fransen_ind(2001),Individual training
+320,2.3,1.72,16,8,Fransen_group(2001),Group (Mixed)
+170,0.9,-1,13,12,Wallis(2017),Walking
+440,2.98,2.54,24,12,Salacinski(2012),Cycling
+400,2.84,6.08,20,10,Wortley1(2013),Resistance
+400,0.6,2.8,20,10,Wortley2(2013),Tai JI
+150,1.87,3.56,0,26,O'Reilly(1999),Mixed
+180,5.5,9.92,36,12,Sima01,Platform group
+180,5,3.1,36,12,Simao2,Squat group
+320,1.142857143,5.44,16,8,Lee(2009),Tai Chi Qigong
+480,2.5,8.6,24,8,Lin1(2009),Proprioceptive
+240,3.4,17.3,24,8,Lin2(2009),Strength
+720,-1,-1,36,12,Aglamis,Mixed
+525,0.32,0.1,7,12,Lim1(2008),Strength- Malaligned 
+525,2.38,5.4,7,12,Lim2(2008),Strength-Neutrally aligned 
+480,3.7,-4.8,24,12,Lee(2008),Tai Chi Sun-style 
+300,1.4,6.6,20,10,Rooji1(2016),Mixed
+600,2.6,9.2,40,20,Rooji2(2016),Mixed
+1200,2.5,8.8,24,8,Jan1(2008),High-resistance
+1800,1.8,8.4,24,8,Jan2(2008),Low-resistancength
+120,3,10.1,1,24,Evcik1(2002),Home exercise
+120,2.9,9.2,0,24,Evcik2(2002),Walking
+480,5.13,17.88,24,8,Krasilshchikov(2011),Mixed
