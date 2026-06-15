@@ -89,7 +89,7 @@
         show_root_heading: false
 
 ## Reference point generation
-::: desdeo.tools.GenerateReferencePoints
+::: desdeo.tools.generateReferencePoints
     options:
         heading_level: 3
         show_root_heading: false
