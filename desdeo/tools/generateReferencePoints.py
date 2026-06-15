@@ -34,8 +34,9 @@ def householder(vector):
 
 
 def rotate(initial_vector, rotated_vector, other_vectors):
-    """Calculate the rotation matrix that rotates the initial_vector to the
-    rotated_vector. Apply that rotation on other_vectors and return.
+    """Calculate the rotation matrix that rotates the initial_vector...
+
+    ...to the rotated_vector. Apply that rotation on other_vectors and return.
     Uses Householder reflections twice to achieve this.
     """
     init_vec_norm = normalize(initial_vector)
@@ -43,9 +44,9 @@ def rotate(initial_vector, rotated_vector, other_vectors):
     middle_vec_norm = normalize(init_vec_norm + rot_vec_norm)
     first_reflector = init_vec_norm - middle_vec_norm
     second_reflector = middle_vec_norm - rot_vec_norm
-    Q1 = householder(first_reflector)
-    Q2 = householder(second_reflector)
-    reflection_matrix = np.matmul(Q2, Q1)
+    q1 = householder(first_reflector)
+    q2 = householder(second_reflector)
+    reflection_matrix = np.matmul(q2, q1)
     return np.matmul(other_vectors, np.transpose(reflection_matrix))
 
 
@@ -79,9 +80,9 @@ def get_reference_hull(num_dims) -> tuple[np.ndarray, np.ndarray, np.ndarray, Co
 
     hull = ConvexHull(rotated_vertices)
 
-    A, b = get_hull_equations(hull)
+    a, b = get_hull_equations(hull)  # A, b
 
-    return bounding_box, A, b, hull
+    return bounding_box, a, b, hull
 
 
 def rotate_in(vertices: np.ndarray) -> np.ndarray:
@@ -158,22 +159,22 @@ def generate_points(
     Returns:
         np.ndarray: A (num_points) x (num_dims-1) array of reference points.
     """
-    bounding_box, A, b, _ = get_reference_hull(num_dims)
-    points = numba_random_gen(num_points, bounding_box, A, b)
+    bounding_box, a, b, _ = get_reference_hull(num_dims)  # bounding_box, A, b, hull
+    points = numba_random_gen(num_points, bounding_box, a, b)
     # Project vertices onto plane perpendicular to largest space diagonal
     points_rotated = rotate_out(points)
     return points, points_rotated
 
 
 @njit()
-def numba_random_gen(num_points: int, bounding_box: np.ndarray, A: np.ndarray, b: np.ndarray) -> np.ndarray:
+def numba_random_gen(num_points: int, bounding_box: np.ndarray, a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """Generates num_points random points within the convex hull defined by A and b.
 
     Args:
         num_points (int): The number of points to generate.
         bounding_box (np.ndarray): A (2) x (num_objs - 1) array defining the bounding box within which to
             generate points initially.
-        A (np.ndarray): A (num_hyperplanes) x (num_objs - 1) array of the coefficients of the hyperplanes defining the
+        a (np.ndarray): A (num_hyperplanes) x (num_objs - 1) array of the coefficients of the hyperplanes defining the
             convex hull. Basically the first num_objs - 1 columns of hull.equations.
         b (np.ndarray): A (num_hyperplanes) array of the constants of the hyperplanes defining the convex hull.
             Basically the last column of hull.equations.
@@ -193,7 +194,7 @@ def numba_random_gen(num_points: int, bounding_box: np.ndarray, A: np.ndarray, b
         for i in range(num_dims_):
             # Generate a random point within the bounding box
             point[i] = np.random.Generator.uniform(bounding_box[0, i], bounding_box[1, i])
-        if np.all(point @ A + b < eps):
+        if np.all(point @ a + b < eps):  # point @ A + b
             # If the point is inside the convex hull, add it to the list of points
             points[counter] = point
             counter += 1

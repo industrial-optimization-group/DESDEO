@@ -581,7 +581,7 @@ def add_group_asf_agg_diff(
     return _problem.add_constraints(constraints), symbol
 
 
-def add_group_nimbus(
+def add_group_nimbus(  # noqa: C901
     problem: Problem,
     symbol: str,
     classifications_list: list[dict[str, tuple[str, float | None]]],
@@ -1348,7 +1348,7 @@ def add_group_nimbus_compromise_diff(
     return _problem.add_constraints(constraints), symbol
 
 
-def add_group_nimbus_sf(
+def add_group_nimbus_sf(  # noqa: C901
     problem: Problem,
     symbol: str,
     classifications_list: list[dict[str, tuple[str, float | None]]],
@@ -1359,7 +1359,8 @@ def add_group_nimbus_sf(
     rho: float = 0.000001,
 ) -> tuple[Problem, str]:
     r"""Implements the multiple decision maker variant of the NIMBUS scalarization function.
-        Variant without aggregated bounds.
+
+    Variant without aggregated bounds.
 
     The scalarization function is defined as follows:
 
@@ -1574,7 +1575,7 @@ def add_group_nimbus_sf(
     return _problem.add_constraints(constraints), symbol
 
 
-def add_group_nimbus_diff(
+def add_group_nimbus_diff(  # noqa: C901
     problem: Problem,
     symbol: str,
     classifications_list: list[dict[str, tuple[str, float | None]]],
@@ -2542,7 +2543,7 @@ def add_group_guess_agg(
     if ideal is not None:
         ideal_point = ideal
     elif problem.get_ideal_point() is not None:
-        ideal_point = get_corrected_ideal(problem)
+        ideal_point = get_corrected_ideal(problem)  # noqa: F841
     else:
         msg = "Ideal point not defined!"
         raise ScalarizationError(msg)
