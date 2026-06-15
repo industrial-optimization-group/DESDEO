@@ -55,6 +55,7 @@ __all__ = [  # noqa: RUF022
     "summer_cabin_battery_problem",
     "summer_cabin_battery_problem_split",
     "summer_cabin_battery_problem_split_scenario",
+    "water_management",
 ]
 
 
@@ -105,4 +106,5 @@ from .summer_cabin_electricity import (
     summer_cabin_battery_problem_split,
     summer_cabin_battery_problem_split_scenario,
 )
+from .water_management_problem import water_management
 from .zdt_problem import zdt1, zdt2, zdt3, zdt4, zdt6
