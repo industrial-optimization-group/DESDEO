@@ -76,7 +76,7 @@ def lame_superspheres(
     References:
         Emmerich, M. T. M., & Deutz, A. H. (2007).
         Test Problems Based on Lamé Superspheres.
-        EMO 2007, LNCS 4403, 922–936.
+        EMO 2007, LNCS 4403, 922-936.
     """
 
     g_symbol = "g"
