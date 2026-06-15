@@ -218,6 +218,9 @@ max-complexity = 15
 # is the public import path users are being migrated away from, so renaming it
 # to satisfy N999 would be counterproductive.
 "desdeo/emo/methods/EAs.py" = ["N999"]
+# Public module whose camelCase name predates the snake_case convention. Renaming
+# it is a breaking change for importers and is left as a separate follow-up.
+"desdeo/tools/generateReferencePoints.py" = ["N999"]
 
 [tool.ruff.format]
 quote-style = "double"

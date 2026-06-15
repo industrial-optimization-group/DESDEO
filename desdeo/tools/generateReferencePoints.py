@@ -192,8 +192,10 @@ def numba_random_gen(num_points: int, bounding_box: np.ndarray, a: np.ndarray, b
     while counter < num_points:
         point = np.zeros(num_dims_)
         for i in range(num_dims_):
-            # Generate a random point within the bounding box
-            point[i] = np.random.Generator.uniform(bounding_box[0, i], bounding_box[1, i])
+            # Generate a random point within the bounding box.
+            # NOTE: numba's nopython mode does not support the np.random.Generator
+            # API, so the legacy np.random.uniform must be used here.
+            point[i] = np.random.uniform(bounding_box[0, i], bounding_box[1, i])  # noqa: NPY002
         if np.all(point @ a + b < eps):  # point @ A + b
             # If the point is inside the convex hull, add it to the list of points
             points[counter] = point
