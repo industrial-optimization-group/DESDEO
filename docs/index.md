@@ -25,6 +25,14 @@ Otherwise, [you may jump to the quick-start section](#quick-start).
 
     [:octicons-arrow-right-24: DESDEO](./home/index.md)
 
+-   :octicons-list-unordered-24:{ .lg .middle } __Implemented methods and features__
+
+    ---
+
+    See which interactive methods, algorithms, and tools are available
+
+    [:octicons-arrow-right-24: Features](./home/features.md)
+
 -   :octicons-mortar-board-24:{ .lg .middle } __Tutorials__
 
     ---

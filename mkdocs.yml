@@ -11,6 +11,7 @@ nav:
       - "": "home/index.md"
       - "About": "home/about.md"
       - "The structure": "home/structure.md"
+      - "Implemented methods and features": "home/features.md"
       - "Citing DESDEO": "home/citing.md"
   - "Tutorials":
       - "": "tutorials/index.md"

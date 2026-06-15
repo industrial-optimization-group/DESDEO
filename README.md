@@ -70,6 +70,10 @@ optimization are available.
 -   An extensive documentation suitable for both newcomers to DESDEO and
 interactive multiobjective optimization in general, and seasoned veterans.
 
+For a complete overview of the interactive methods, algorithms, and tools
+currently implemented, see [Implemented methods and
+features](https://desdeo.readthedocs.io/en/latest/home/features/).
+
 ## Web-API: key features
 
 DESDEO's web-API is currently under active development. Once it stabilized, its
