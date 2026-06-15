@@ -1,25 +1,29 @@
-from desdeo.adm import BaseADM
+"""Artificial decision maker (ADM) based on the approach by Afsar et al."""
+
 import numpy as np
-from desdeo.tools.reference_vectors import create_simplex
-from desdeo.tools.non_dominated_sorting import non_dominated as nds
+
+from desdeo.adm.base_adm import BaseADM
 from desdeo.problem.schema import Problem
 from desdeo.tools import payoff_table_method
+from desdeo.tools.non_dominated_sorting import non_dominated as nds
+from desdeo.tools.reference_vectors import create_simplex
 
 
 class ADMAfsar(BaseADM):
-    """
-    Adaptive Decision Maker using the AFSAR approach.
+    """Adaptive Decision Maker using the AFSAR approach.
 
     This ADM generates preferences for interactive evolutionary multiobjective optimization
     based on the method described in:
 
-    > Afsar, B., Miettinen, K., & Ruiz, A. B. (2021).
-    > An Artificial Decision Maker for Comparing Reference Point Based Interactive Evolutionary Multiobjective Optimization Methods.
-    > In: Ishibuchi, H., et al. Evolutionary Multi-Criterion Optimization. EMO 2021. Lecture Notes in Computer Science, vol 12654. Springer, Cham.
+    > Afsar, B., Miettinen, K., & Ruiz, A. B. (2021). An Artificial Decision Maker
+    > for Comparing Reference Point Based Interactive Evolutionary Multiobjective
+    > Optimization Methods. In: Ishibuchi, H., et al. Evolutionary Multi-Criterion
+    > Optimization. EMO 2021. Lecture Notes in Computer Science, vol 12654.
+    > Springer, Cham.
 
     > Afsar, B., Ruiz, A. B., & Miettinen, K. (2023).
     > Comparing interactive evolutionary multiobjective optimization methods with an artificial decision maker.
-    > Complex & Intelligent Systems, Volume 9, pages 1165–1181. Springer.
+    > Complex & Intelligent Systems, Volume 9, pages 1165-1181. Springer.
 
     Attributes:
         composite_front (list): Stores the composite front of solutions.
@@ -33,11 +37,11 @@ class ADMAfsar(BaseADM):
         problem: Problem,
         it_learning_phase: int,
         it_decision_phase: int,
-        lattice_resolution: int = None,
-        number_of_vectors: int = None,
+        lattice_resolution: int | None = None,
+        number_of_vectors: int | None = None,
+        seed: int | None = None,
     ):
-        """
-        Initialize the artificial decision maker proposed by Afsar et al.
+        """Initialize the artificial decision maker proposed by Afsar et al.
 
         Args:
             problem (Problem): The optimization problem to solve.
@@ -45,71 +49,61 @@ class ADMAfsar(BaseADM):
             it_decision_phase (int): Number of iterations for the decision phase.
             lattice_resolution (int, optional): Lattice resolution for reference vectors.
             number_of_vectors (int, optional): Number of reference vectors.
+            seed (int | None): Optional seed for the random number generator. Defaults to None.
         """
         self.true_ideal, self.true_nadir = payoff_table_method(problem)
-        problem = problem.update_ideal_and_nadir(
-            new_ideal=self.true_ideal, new_nadir=self.true_nadir
-        )
-        super().__init__(problem, it_learning_phase, it_decision_phase)
+        problem = problem.update_ideal_and_nadir(new_ideal=self.true_ideal, new_nadir=self.true_nadir)
+        super().__init__(problem, it_learning_phase, it_decision_phase, seed=seed)
         self.composite_front = []
         self.max_assigned_vector = None
         self.preference_type = "reference_point"
         number_of_objectives = len(problem.objectives)
 
-        self.reference_vectors = create_simplex(
-            number_of_objectives, lattice_resolution, number_of_vectors
-        )
+        self.reference_vectors = create_simplex(number_of_objectives, lattice_resolution, number_of_vectors)
         self.true_ideal, self.true_nadir = payoff_table_method(problem)
 
         self.generate_initial_preference()
 
     def generate_initial_preference(self):
-        """
-        Generate the initial preference as a random point between the ideal and nadir points.
+        """Generate the initial preference as a random point between the ideal and nadir points.
 
         The preference is stored in self.preference as a numpy array.
         """
         self.preference = np.array(
             [
-                np.random.uniform(min_val, max_val)
+                self.rng.uniform(min_val, max_val)
                 for min_val, max_val in zip(
                     self.problem.get_ideal_point().values(),
                     self.problem.get_nadir_point().values(),
+                    strict=True,
                 )
             ]
         )
 
-    def get_next_preference(self, *fronts, preference_type: str = "reference_point"):
-        """
-        Generate the next preference based on the current phase and provided solution fronts.
+    def get_next_preference(self, *fronts: np.ndarray, preference_type: str = "reference_point") -> np.ndarray:
+        """Generate the next preference based on the current phase and provided solution fronts.
 
         Args:
             *fronts: One or more solution fronts (arrays) to be considered.
             preference_type (str): The type of preference to generate.
 
         Returns:
-            dict: The generated preference information.
+            np.ndarray: The generated preference information.
         """
         self.preference_type = preference_type
         if len(self.composite_front) == 0:
             self.composite_front = self.generate_composite_front(*fronts)
         else:
-            self.composite_front = self.generate_composite_front(
-                self.composite_front, *fronts
-            )
+            self.composite_front = self.generate_composite_front(self.composite_front, *fronts)
         ideal_point = self.composite_front.min(axis=0)
         translated_front = self.translate_front(self.composite_front, ideal_point)
         normalized_front = self.normalize_front(self.composite_front, translated_front)
         assigned_vectors = self.assign_vectors(normalized_front)
         if self.iteration_counter < self.it_learning_phase:
-            self.preference = self.generate_preference_learning(
-                ideal_point, translated_front, assigned_vectors
-            )
+            self.preference = self.generate_preference_learning(ideal_point, translated_front, assigned_vectors)
         else:
             if self.iteration_counter == self.it_learning_phase:
-                self.max_assigned_vector = self.get_max_assigned_vector(
-                    assigned_vectors
-                )
+                self.max_assigned_vector = self.get_max_assigned_vector(assigned_vectors)
             self.preference = self.generate_preference_decision(
                 ideal_point,
                 translated_front,
@@ -119,9 +113,8 @@ class ADMAfsar(BaseADM):
         self.iteration_counter += 1
         return self.preference
 
-    def assign_vectors(self, front):
-        """
-        Assign each solution in the front to the closest reference vector using cosine similarity.
+    def assign_vectors(self, front) -> np.ndarray:
+        """Assign each solution in the front to the closest reference vector using cosine similarity.
 
         Args:
             front (np.ndarray): The normalized solution front.
@@ -135,12 +128,10 @@ class ADMAfsar(BaseADM):
         if cosine[np.where(cosine < 0)].size:
             cosine[np.where(cosine < 0)] = 0
 
-        assigned_vectors = np.argmax(cosine, axis=1)
-        return assigned_vectors
+        return np.argmax(cosine, axis=1)
 
-    def normalize_front(self, front, translated_front):
-        """
-        Normalize the translated front so that each solution has unit length.
+    def normalize_front(self, front, translated_front) -> np.ndarray:
+        """Normalize the translated front so that each solution has unit length.
 
         Args:
             front (np.ndarray): The original solution front.
@@ -150,17 +141,13 @@ class ADMAfsar(BaseADM):
             np.ndarray: The normalized solution front.
         """
         translated_norm = np.linalg.norm(translated_front, axis=1)
-        translated_norm = np.repeat(
-            translated_norm, len(translated_front[0, :])
-        ).reshape(len(front), len(front[0, :]))
+        translated_norm = np.repeat(translated_norm, len(translated_front[0, :])).reshape(len(front), len(front[0, :]))
 
         translated_norm[translated_norm == 0] = np.finfo(float).eps
-        normalized_front = np.divide(translated_front, translated_norm)
-        return normalized_front
+        return np.divide(translated_front, translated_norm)
 
-    def generate_composite_front(self, *fronts):
-        """
-        Generate the composite front by stacking and extracting the non-dominated solutions.
+    def generate_composite_front(self, *fronts: np.ndarray) -> np.ndarray:
+        """Generate the composite front by stacking and extracting the non-dominated solutions.
 
         Args:
             *fronts: One or more solution fronts (arrays).
@@ -169,12 +156,10 @@ class ADMAfsar(BaseADM):
             np.ndarray: The composite non-dominated front.
         """
         _fronts = np.vstack(fronts)
-        cf = _fronts[nds(_fronts)]
-        return cf
+        return _fronts[nds(_fronts)]
 
-    def translate_front(self, front, ideal):
-        """
-        Translate the front by subtracting the ideal point from each solution.
+    def translate_front(self, front, ideal) -> np.ndarray:
+        """Translate the front by subtracting the ideal point from each solution.
 
         Args:
             front (np.ndarray): The solution front.
@@ -183,14 +168,10 @@ class ADMAfsar(BaseADM):
         Returns:
             np.ndarray: The translated front.
         """
-        translated_front = np.subtract(front, ideal)
-        return translated_front
+        return np.subtract(front, ideal)
 
-    def generate_preference_learning(
-        self, ideal_point, translated_front, assigned_vectors
-    ):
-        """
-        Generate preference information during the learning phase.
+    def generate_preference_learning(self, ideal_point, translated_front, assigned_vectors) -> np.ndarray:
+        """Generate preference information during the learning phase.
 
         The preference is generated according to the selected preference type:
         - 'reference_point': Returns a reference point.
@@ -206,29 +187,22 @@ class ADMAfsar(BaseADM):
             np.ndarray: The generated preference information.
         """
         if self.preference_type == "reference_point":
-            return self.generate_reference_point_learning(
-                ideal_point, translated_front, assigned_vectors
-            )
-        elif self.preference_type == "preferred_ranges":
-            return self.generate_ranges_learning(
-                ideal_point, translated_front, assigned_vectors
-            )
-        elif self.preference_type == "preferred_solutions":
-            return self.generate_preferred_solutions_learning(
-                ideal_point, translated_front, assigned_vectors
-            )
+            return self.generate_reference_point_learning(ideal_point, translated_front, assigned_vectors)
+        if self.preference_type == "preferred_ranges":
+            return self.generate_ranges_learning(ideal_point, translated_front, assigned_vectors)
+        if self.preference_type == "preferred_solutions":
+            return self.generate_preferred_solutions_learning(ideal_point, translated_front, assigned_vectors)
 
-        else:
-            raise ValueError(
-                f"Invalid preference type: {self.preference_type}. "
-                "Valid options are 'reference_point', 'preferred_ranges', 'preferred_solutions', or 'non_preferred_solutions'."
-            )
+        raise ValueError(
+            f"Invalid preference type: {self.preference_type}. "
+            "Valid options are 'reference_point', 'preferred_ranges', "
+            "'preferred_solutions', or 'non_preferred_solutions'."
+        )
 
     def generate_preference_decision(
         self, ideal_point, translated_front, assigned_vectors, max_assigned_vector
-    ):
-        """
-        Generate preference information during the decision phase.
+    ) -> np.ndarray:
+        """Generate preference information during the decision phase.
 
         The preference is generated according to the selected preference type:
         - 'reference_point': Returns a reference point.
@@ -251,23 +225,20 @@ class ADMAfsar(BaseADM):
                 assigned_vectors,
                 max_assigned_vector,
             )
-        elif self.preference_type == "preferred_ranges":
-            return self.generate_ranges_decision(
-                ideal_point, translated_front, assigned_vectors, max_assigned_vector
-            )
-        elif self.preference_type == "preferred_solutions":
+        if self.preference_type == "preferred_ranges":
+            return self.generate_ranges_decision(ideal_point, translated_front, assigned_vectors, max_assigned_vector)
+        if self.preference_type == "preferred_solutions":
             return self.generate_preferred_solutions_decision(
                 ideal_point, translated_front, assigned_vectors, max_assigned_vector
             )
-        else:
-            raise ValueError(
-                f"Invalid preference type: {self.preference_type}. "
-                "Valid options are 'reference_point', 'preferred_ranges', 'preferred_solutions', or 'non_preferred_solutions'."
-            )
+        raise ValueError(
+            f"Invalid preference type: {self.preference_type}. "
+            "Valid options are 'reference_point', 'preferred_ranges', "
+            "'preferred_solutions', or 'non_preferred_solutions'."
+        )
 
-    def get_max_assigned_vector(self, assigned_vectors):
-        """
-        Find the reference vector with the maximum number of assigned solutions.
+    def get_max_assigned_vector(self, assigned_vectors) -> np.ndarray:
+        """Find the reference vector with the maximum number of assigned solutions.
 
         Args:
             assigned_vectors (np.ndarray): Indices of assigned reference vectors.
@@ -276,21 +247,12 @@ class ADMAfsar(BaseADM):
             np.ndarray: Indices of the reference vector(s) with the maximum assignments.
         """
         number_assigned = np.bincount(assigned_vectors)
-        max_assigned_vector = np.atleast_1d(
-            np.squeeze(
-                np.where(
-                    number_assigned
-                    == np.max(number_assigned[np.nonzero(number_assigned)])
-                )
-            )
+        return np.atleast_1d(
+            np.squeeze(np.where(number_assigned == np.max(number_assigned[np.nonzero(number_assigned)])))
         )
-        return max_assigned_vector
 
-    def generate_reference_point_learning(
-        self, ideal_point, translated_front, assigned_vectors
-    ):
-        """
-        Generate a reference point for the learning phase.
+    def generate_reference_point_learning(self, ideal_point, translated_front, assigned_vectors) -> np.ndarray:
+        """Generate a reference point for the learning phase.
 
         The reference point is based on the solution assigned to the reference vector with the minimum
         number of assigned solutions and closest to the origin.
@@ -307,35 +269,20 @@ class ADMAfsar(BaseADM):
         translated_cf = translated_front
         number_assigned = np.bincount(assigned_vectors)
         min_assigned_vector = np.atleast_1d(
-            np.squeeze(
-                np.where(
-                    number_assigned
-                    == np.min(number_assigned[np.nonzero(number_assigned)])
-                )
-            )
+            np.squeeze(np.where(number_assigned == np.min(number_assigned[np.nonzero(number_assigned)])))
         )
-        sub_population_index = np.atleast_1d(
-            np.squeeze(np.where(assigned_vectors == min_assigned_vector[0]))
-        )
+        sub_population_index = np.atleast_1d(np.squeeze(np.where(assigned_vectors == min_assigned_vector[0])))
         sub_population_fitness = translated_cf[sub_population_index]
-        sub_pop_fitness_magnitude = np.sqrt(
-            np.sum(np.power(sub_population_fitness, 2), axis=1)
-        )
-        minidx = np.where(
-            sub_pop_fitness_magnitude == np.nanmin(sub_pop_fitness_magnitude)
-        )
+        sub_pop_fitness_magnitude = np.sqrt(np.sum(np.power(sub_population_fitness, 2), axis=1))
+        minidx = np.where(sub_pop_fitness_magnitude == np.nanmin(sub_pop_fitness_magnitude))
         distance_selected = sub_pop_fitness_magnitude[minidx]
-        reference_point = (
-            distance_selected[0] * self.reference_vectors[min_assigned_vector[0]]
-        )
-        reference_point = np.squeeze(reference_point + ideal_cf)
-        return reference_point
+        reference_point = distance_selected[0] * self.reference_vectors[min_assigned_vector[0]]
+        return np.squeeze(reference_point + ideal_cf)
 
     def generate_reference_point_decision(
         self, ideal_point, translated_front, assigned_vectors, max_assigned_vector
-    ):
-        """
-        Generate a reference point for the decision phase.
+    ) -> np.ndarray:
+        """Generate a reference point for the decision phase.
 
         The reference point is based on the solution assigned to the reference vector with the maximum
         number of assigned solutions and closest to the origin.
@@ -347,30 +294,20 @@ class ADMAfsar(BaseADM):
             max_assigned_vector (int): Index of the reference vector with the maximum assigned solutions.
 
         Returns:
-            dict: The generated reference point.
+            np.ndarray: The generated reference point.
         """
         ideal_cf = ideal_point
         translated_cf = translated_front
-        sub_population_index = np.atleast_1d(
-            np.squeeze(np.where(assigned_vectors == max_assigned_vector))
-        )
+        sub_population_index = np.atleast_1d(np.squeeze(np.where(assigned_vectors == max_assigned_vector)))
         sub_population_fitness = translated_cf[sub_population_index]
-        sub_pop_fitness_magnitude = np.sqrt(
-            np.sum(np.power(sub_population_fitness, 2), axis=1)
-        )
-        minidx = np.where(
-            sub_pop_fitness_magnitude == np.nanmin(sub_pop_fitness_magnitude)
-        )
+        sub_pop_fitness_magnitude = np.sqrt(np.sum(np.power(sub_population_fitness, 2), axis=1))
+        minidx = np.where(sub_pop_fitness_magnitude == np.nanmin(sub_pop_fitness_magnitude))
         distance_selected = sub_pop_fitness_magnitude[minidx]
-        reference_point = (
-            distance_selected[0] * self.reference_vectors[max_assigned_vector]
-        )
-        reference_point = np.squeeze(reference_point + ideal_cf)
-        return reference_point
+        reference_point = distance_selected[0] * self.reference_vectors[max_assigned_vector]
+        return np.squeeze(reference_point + ideal_cf)
 
-    def generate_ranges_learning(self, ideal_point, translated_front, assigned_vectors):
-        """
-        Generate the preferred ranges for the learning phase.
+    def generate_ranges_learning(self, ideal_point, translated_front, assigned_vectors) -> np.ndarray:
+        """Generate the preferred ranges for the learning phase.
 
         Args:
             ideal_point (np.ndarray): The ideal point.
@@ -382,30 +319,15 @@ class ADMAfsar(BaseADM):
         """
         number_assigned = np.bincount(assigned_vectors)
         min_assigned_vector = np.atleast_1d(
-            np.squeeze(
-                np.where(
-                    number_assigned
-                    == np.min(number_assigned[np.nonzero(number_assigned)])
-                )
-            )
+            np.squeeze(np.where(number_assigned == np.min(number_assigned[np.nonzero(number_assigned)])))
         )
-        sub_population_index = np.atleast_1d(
-            np.squeeze(np.where(assigned_vectors == min_assigned_vector[0]))
-        )
+        sub_population_index = np.atleast_1d(np.squeeze(np.where(assigned_vectors == min_assigned_vector[0])))
         sub_population_fitness = translated_front[sub_population_index]
-        sub_pop_fitness_magnitude = np.sqrt(
-            np.sum(np.power(sub_population_fitness, 2), axis=1)
-        )
-        minidx = np.where(
-            sub_pop_fitness_magnitude == np.nanmin(sub_pop_fitness_magnitude)
-        )
+        sub_pop_fitness_magnitude = np.sqrt(np.sum(np.power(sub_population_fitness, 2), axis=1))
+        minidx = np.where(sub_pop_fitness_magnitude == np.nanmin(sub_pop_fitness_magnitude))
         distance_selected = sub_pop_fitness_magnitude[minidx]
-        reference_point = (
-            distance_selected[0] * self.reference_vectors[min_assigned_vector[0]]
-        )
-        distance = min(
-            np.linalg.norm(reference_point - i) for i in sub_population_fitness
-        )
+        reference_point = distance_selected[0] * self.reference_vectors[min_assigned_vector[0]]
+        distance = min(np.linalg.norm(reference_point - i) for i in sub_population_fitness)
         reference_point = np.squeeze(reference_point + ideal_point)
         temp = reference_point - distance
         temp2 = reference_point + distance
@@ -414,28 +336,20 @@ class ADMAfsar(BaseADM):
         true_nadir = np.array(list(self.problem.get_nadir_point().values()))
 
         for i in range(reference_point.shape[0]):
-            if reference_point[i] < true_ideal[i]:
-                reference_point[i] = true_ideal[i]
-            if reference_point[i] > true_nadir[i]:
-                reference_point[i] = true_nadir[i]
-            if temp[i] < true_ideal[i]:
-                temp[i] = true_ideal[i]
-            if temp[i] > true_nadir[i]:
-                temp[i] = true_nadir[i]
-            if temp2[i] < true_ideal[i]:
-                temp2[i] = true_ideal[i]
-            if temp2[i] > true_nadir[i]:
-                temp2[i] = true_nadir[i]
+            reference_point[i] = max(reference_point[i], true_ideal[i])
+            reference_point[i] = min(reference_point[i], true_nadir[i])
+            temp[i] = max(temp[i], true_ideal[i])
+            temp[i] = min(temp[i], true_nadir[i])
+            temp2[i] = max(temp2[i], true_ideal[i])
+            temp2[i] = min(temp2[i], true_nadir[i])
 
-        preferred_range = np.vstack((temp, temp2)).T
         # TODO (giomara): return the reference point in some other place
-        return preferred_range
+        return np.vstack((temp, temp2)).T
 
     def generate_ranges_decision(
         self, ideal_point, translated_front, assigned_vectors, max_assigned_vector
-    ):
-        """
-        Generate the preferred ranges for the decision phase.
+    ) -> np.ndarray:
+        """Generate the preferred ranges for the decision phase.
 
         Args:
             ideal_point (np.ndarray): The ideal point.
@@ -446,23 +360,13 @@ class ADMAfsar(BaseADM):
         Returns:
             np.ndarray: an array of ranges.
         """
-        sub_population_index = np.atleast_1d(
-            np.squeeze(np.where(assigned_vectors == max_assigned_vector))
-        )
+        sub_population_index = np.atleast_1d(np.squeeze(np.where(assigned_vectors == max_assigned_vector)))
         sub_population_fitness = translated_front[sub_population_index]
-        sub_pop_fitness_magnitude = np.sqrt(
-            np.sum(np.power(sub_population_fitness, 2), axis=1)
-        )
-        minidx = np.where(
-            sub_pop_fitness_magnitude == np.nanmin(sub_pop_fitness_magnitude)
-        )
+        sub_pop_fitness_magnitude = np.sqrt(np.sum(np.power(sub_population_fitness, 2), axis=1))
+        minidx = np.where(sub_pop_fitness_magnitude == np.nanmin(sub_pop_fitness_magnitude))
         distance_selected = sub_pop_fitness_magnitude[minidx]
-        reference_point = (
-            distance_selected[0] * self.reference_vectors[max_assigned_vector]
-        )
-        distance = min(
-            np.linalg.norm(reference_point - i) for i in sub_population_fitness
-        )
+        reference_point = distance_selected[0] * self.reference_vectors[max_assigned_vector]
+        distance = min(np.linalg.norm(reference_point - i) for i in sub_population_fitness)
         reference_point = np.squeeze(reference_point + ideal_point)
         reference_point = np.squeeze(reference_point - distance)
         temp = reference_point - distance
@@ -472,27 +376,17 @@ class ADMAfsar(BaseADM):
         true_nadir = np.array(list(self.problem.get_nadir_point().values()))
 
         for i in range(reference_point.shape[0]):
-            if reference_point[i] < true_ideal[i]:
-                reference_point[i] = true_ideal[i]
-            if reference_point[i] > true_nadir[i]:
-                reference_point[i] = true_nadir[i]
-            if temp[i] < true_ideal[i]:
-                temp[i] = true_ideal[i]
-            if temp[i] > true_nadir[i]:
-                temp[i] = true_nadir[i]
-            if temp2[i] < true_ideal[i]:
-                temp2[i] = true_ideal[i]
-            if temp2[i] > true_nadir[i]:
-                temp2[i] = true_nadir[i]
+            reference_point[i] = max(reference_point[i], true_ideal[i])
+            reference_point[i] = min(reference_point[i], true_nadir[i])
+            temp[i] = max(temp[i], true_ideal[i])
+            temp[i] = min(temp[i], true_nadir[i])
+            temp2[i] = max(temp2[i], true_ideal[i])
+            temp2[i] = min(temp2[i], true_nadir[i])
 
-        preferred_range = np.vstack((temp, temp2)).T
-        return preferred_range
+        return np.vstack((temp, temp2)).T
 
-    def generate_preferred_solutions_learning(
-        self, ideal_point, translated_front, assigned_vectors
-    ):
-        """
-        Generate the preferred solutions during the learning phase.
+    def generate_preferred_solutions_learning(self, ideal_point, translated_front, assigned_vectors) -> np.ndarray:
+        """Generate the preferred solutions during the learning phase.
 
         Args:
             ideal_point (np.ndarray): The ideal point.
@@ -504,30 +398,16 @@ class ADMAfsar(BaseADM):
         """
         number_assigned = np.bincount(assigned_vectors)
         min_assigned_vector = np.atleast_1d(
-            np.squeeze(
-                np.where(
-                    number_assigned
-                    == np.min(number_assigned[np.nonzero(number_assigned)])
-                )
-            )
+            np.squeeze(np.where(number_assigned == np.min(number_assigned[np.nonzero(number_assigned)])))
         )
-        sub_population_index = np.atleast_1d(
-            np.squeeze(np.where(assigned_vectors == min_assigned_vector[0]))
-        )
+        sub_population_index = np.atleast_1d(np.squeeze(np.where(assigned_vectors == min_assigned_vector[0])))
         sub_population_fitness = translated_front[sub_population_index]
-        sub_pop_fitness_magnitude = np.sqrt(
-            np.sum(np.power(sub_population_fitness, 2), axis=1)
-        )
-        solution_selected = sub_population_fitness
-        preferred_solution = np.squeeze(solution_selected + ideal_point)
-
-        return preferred_solution
+        return np.squeeze(sub_population_fitness + ideal_point)
 
     def generate_preferred_solutions_decision(
         self, ideal_point, translated_front, assigned_vectors, max_assigned_vector
-    ):
-        """
-        Generate the preferred solutions during the decision phase.
+    ) -> np.ndarray:
+        """Generate the preferred solutions during the decision phase.
 
         Args:
             ideal_point (np.ndarray): The ideal point.
@@ -538,14 +418,9 @@ class ADMAfsar(BaseADM):
         Returns:
             np.ndarray: The preferred solutions.
         """
-        sub_population_index = np.atleast_1d(
-            np.squeeze(np.where(assigned_vectors == max_assigned_vector))
-        )
+        sub_population_index = np.atleast_1d(np.squeeze(np.where(assigned_vectors == max_assigned_vector)))
         sub_population_fitness = translated_front[sub_population_index]
-        sub_pop_fitness_magnitude = np.sqrt(
-            np.sum(np.power(sub_population_fitness, 2), axis=1)
-        )
+        sub_pop_fitness_magnitude = np.sqrt(np.sum(np.power(sub_population_fitness, 2), axis=1))
         minidx = np.argpartition(sub_pop_fitness_magnitude, 4)
         solution_selected = sub_population_fitness[minidx[:4]]
-        preferred_solution = np.squeeze(solution_selected + ideal_point)
-        return preferred_solution
+        return np.squeeze(solution_selected + ideal_point)
