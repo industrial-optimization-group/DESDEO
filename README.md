@@ -108,16 +108,21 @@ An [`llms.txt`](https://desdeo.readthedocs.io/en/latest/llms.txt) and
 [`llms-full.txt`](https://desdeo.readthedocs.io/en/latest/llms-full.txt) file are available to
 appease our AI overlords.
 
-## Contributing
+## Contributing, reporting issues, and getting support
 
 As DESDEO is an open source-project, anybody is welcome to contribute.
-An extensive tutorial to get started contributing to DESDEO
-[is available in the documentation](https://desdeo.readthedocs.io/en/latest/tutorials/contributing/).
-Be sure to check it out!
 
-For additional support for contributing to DESDEO,
-be sure to check out the DESDEO Discord server. You may join the server
-[through this invite](https://discord.gg/uGCEgQTJyY).
+- **Contribute:** see [`CONTRIBUTING.md`](CONTRIBUTING.md) for a quick start, and
+  the [extensive contribution tutorial](https://desdeo.readthedocs.io/en/latest/tutorials/contributing/)
+  in the documentation for the full development workflow.
+- **Report a bug or suggest an idea:**
+  [open an issue](https://github.com/industrial-optimization-group/DESDEO/issues/new/choose)
+  using one of the provided templates.
+- **Get help or discuss:** join the DESDEO Discord server
+  [through this invite](https://discord.gg/uGCEgQTJyY).
+
+All participation in the project is governed by our
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
@@ -143,8 +148,13 @@ To cite DESDEO, please include the following reference:
 ```
 
 __Note__: A new article describing the latest iteration of the framework,
-also known as _DESDEO 2.0_ is currently being prepared. The content of
-this repository's master branch is considered to be _DESDEO 2.0_.
+also known as _DESDEO 2.0_, is currently being prepared for submission to the
+[Journal of Open Source Software (JOSS)](https://joss.theoj.org/). The content of
+this repository's master branch is considered to be _DESDEO 2.0_. Once the JOSS
+paper is published it will become the preferred reference. Until then, please use
+the IEEE Access reference above. See the
+[Citing DESDEO](https://desdeo.readthedocs.io/en/latest/home/citing/) page and the
+[`CITATION.cff`](CITATION.cff) file for up-to-date citation metadata.
 
 ## Funding
 

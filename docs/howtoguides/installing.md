@@ -18,7 +18,7 @@ Currently, the external optimizers needed in DESDEO are:
 
 These optimizers are part part of the [COIN-OR project](https://www.coin-or.org/). You may install these
 optimizers manually, or you can utilize pre-compiled binaries provided by the AMPL team [here](https://ampl.com/products/solvers/open-source-solvers/).
-You will need to register (which is free). Once registered, download the coin module for your system's architecture (Windows, Mac, or Linux). We also provide these 
+You will need to register (which is free). Once registered, download the coin module for your system's architecture (Windows, Mac, or Linux). We also provide these
 same files in DESDEO's repository (under releases). To get specific binaries, use one of the following links:
 
 - [Windows](https://github.com/industrial-optimization-group/DESDEO/releases/download/supplementary/coin.mswin64.20230221.zip)
@@ -65,7 +65,10 @@ Make sure you are at the root level of the DESDEO directory, which you should no
 current working directory. E.g., in a terminal, `cd DESDEO`. To ensure you are in the correct directory,
 you should be able to see files like `pyproject.toml`, `README.md`, and others.
 
-There are many ways to setup and activate a virtual environment. Some examples have been given below:
+There are many ways to setup and activate a virtual environment. We **recommend
+[`uv`](https://github.com/astral-sh/uv)**, which can manage Python versions,
+virtual environments, and dependencies in one tool, but several alternatives are
+shown below:
 
 === "Python's venv module"
 
@@ -106,7 +109,7 @@ There are many ways to setup and activate a virtual environment. Some examples h
     !!! Note
 
     Version 2.2 or greater of `poetry` is required!
- 
+
     This assumes you already have [`poetry`](https://python-poetry.org/) available on your system.
 
     ```bash
@@ -114,7 +117,7 @@ There are many ways to setup and activate a virtual environment. Some examples h
     ```
 
     1. This assumes your system's Python version is 3.12. If not, you can use `poetry env use python3.12`, but this requires that version
-        3.12 is available on your system. 
+        3.12 is available on your system.
 
     __This command will print the command you must execute to activate the virtual environment. It does
     not activate it.__ Copy-paste the command printed by poetry and execute it to activate the virtual
@@ -136,7 +139,7 @@ There are many ways to setup and activate a virtual environment. Some examples h
 
     If using the default virtual environment name `.venv`, `uv` will automatically
     use the virtual environment in subsequent invocations. Otherwise, the environment
-    needs to be activated locally. 
+    needs to be activated locally.
 
 !!! Note
 
@@ -145,9 +148,9 @@ There are many ways to setup and activate a virtual environment. Some examples h
 ### Installing dependencies
 
 After setting up a virtual environment, we next need to install DESDEO's dependencies.
-For this, we can utilize either `poetry` or `uv`. It is also possible to use `pip` directly,
-but it is not recommended. Make sure your virtual environment
-is activated!
+We **recommend using `uv`** for this. The `poetry` and `pip` options shown below also
+work, but `uv` is the tool used throughout DESDEO's development and CI. Make sure your
+virtual environment is activated!
 
 === "Poetry"
 
@@ -208,10 +211,11 @@ And now we should be done! DESDEO should now be available on your system in your
 
 !!! Note "Extra dependencies?"
 
-    By default, an 'poetry install' and 'uv sync' will install just the dependencies of
+    By default, `uv sync --no-default-groups` (or `poetry install --only main`) will
+    install just the dependencies of
     the __core-logic__. This is meant for cases where DESDEO is used like a library, i.e.,
     you do not intend to develop DESDEO or use the web-API or web-GUI parts of it. In case you
-    wish to develop or utilize DESDEO past what the core-logic has to offer, then it is 
+    wish to develop or utilize DESDEO past what the core-logic has to offer, then it is
     recommended to install all the extra dependencies.
 
 ## Installation (for restricted Windows PCs)
@@ -227,7 +231,7 @@ If you successfully installed DESDEO using the
 to read further.
 
 !!! Note
-    
+
     While this guide will refer to _JYU Windows machines_, it should be
     applicable to your restricted work machine regardless of company. However,
     if this is not the case, feel free to open an issue, and we will see what
