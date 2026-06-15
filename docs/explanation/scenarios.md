@@ -4,13 +4,13 @@
 
 One way of modeling uncertainty in decision making is using _scenarios_. A scenario in optimization context is typically a set of parameters or constraints that describes what our optimization problem might look like in a plausible future.
 
-In DESDEO scenarios are described by a [ScenarioModel](../../api/desdeo_problem/#desdeo.problem.ScenarioModel). It contains base_problem that is a [Problem](../../api/desdeo_problem/#desdeo.problem.schema) object. The base_problem is then modified by the different [Scenario](../../api/desdeo_problem/#desdeo.problem.Scenario)s which are stored in a dict called scenarios. How different scenarios flow into one another is described by scenario_tree dict. The scenarios can also be assigned probabilities, which are stored in the scenario_probabilities dict.
+In DESDEO scenarios are described by a [ScenarioModel](../api/desdeo_problem.md#desdeo.problem.scenario.ScenarioModel). It contains base_problem that is a [Problem](../api/desdeo_problem.md#desdeo.problem.schema) object. The base_problem is then modified by the different [Scenario](../api/desdeo_problem.md#desdeo.problem.scenario.Scenario)s which are stored in a dict called scenarios. How different scenarios flow into one another is described by scenario_tree dict. The scenarios can also be assigned probabilities, which are stored in the scenario_probabilities dict.
 
 ## Building a ScenarioModel
 
-We will take a look at how a [ScenarioModel](../../api/desdeo_problem/#desdeo.problem.ScenarioModel) is constructed with the help of an example. The first thing our ScenarioModel needs is a base_problem that will be modified by the different scenario.
+We will take a look at how a [ScenarioModel](../api/desdeo_problem.md#desdeo.problem.scenario.ScenarioModel) is constructed with the help of an example. The first thing our ScenarioModel needs is a base_problem that will be modified by the different scenario.
 
-We will use the [summer_cabin_electricity](../../api/desdeo_problem/#desdeo.problem.testproblems.summer_cabin_battery_problem) Problem as our base_problem. It is a MILP-problem with a few thousand variables. We will use the split version of the problem, where the decision variables relating to electricity usage have been split into three time periods. The reason for this will become apparent later.
+We will use the [summer_cabin_electricity](../api/desdeo_problem.md#desdeo.problem.testproblems.summer_cabin_battery_problem) Problem as our base_problem. It is a MILP-problem with a few thousand variables. We will use the split version of the problem, where the decision variables relating to electricity usage have been split into three time periods. The reason for this will become apparent later.
 
 ```python
 from pprint import pprint
@@ -71,7 +71,7 @@ The `scenario_probabilities` dict assigns a probability to every scenario in the
 
 ### Describing the effects of the scenarios
 
-We also need to describe how the scenarios change our `base_problem`. [ScenarioModel](../../api/desdeo_problem/#desdeo.problem.ScenarioModel) handles this by having lists of constants, variables, objectives, constraints, extra functions, and scalarization functions, which are then assigned to scenarios as need be. It works like this, because it is often desirable to use, for example, same constraints in multiple different scenarios, and having them all be drawn from a single lists saves space is computer memory and database.
+We also need to describe how the scenarios change our `base_problem`. [ScenarioModel](../api/desdeo_problem.md#desdeo.problem.scenario.ScenarioModel) handles this by having lists of constants, variables, objectives, constraints, extra functions, and scalarization functions, which are then assigned to scenarios as need be. It works like this, because it is often desirable to use, for example, same constraints in multiple different scenarios, and having them all be drawn from a single lists saves space is computer memory and database.
 
 We wanted to describe an electricity outage, so let's define constraints that say we cannot buy or sell electricity at specified times. We put one of these outages at the start of slices 2 and 3 of our timeseries variables.
 
@@ -248,7 +248,7 @@ for k in (2, 3):
 
 ### Constructing the scenarios
 
-Now we are ready to construct the [Scenario](../../api/desdeo_problem/#desdeo.problem.ScenarioModel) objects that describe which Variables, Constraints, and Objectives should be used in which scenario.
+Now we are ready to construct the [Scenario](../api/desdeo_problem.md#desdeo.problem.scenario.ScenarioModel) objects that describe which Variables, Constraints, and Objectives should be used in which scenario.
 
 ```python
 from desdeo.problem import Scenario
@@ -276,7 +276,7 @@ for name, segs in _outage_segs.items():
 
 ### Defining anticipation stop
 
-The last thing we need to define in our [ScenarioModel](../../api/desdeo_problem/#desdeo.problem.ScenarioModel) is anticipation stop. It describes which scenarios are allowed to affect values of the listed Variables. The scenario under which the Variable is listed is the last scenario that can affect the value of the Variable. Thus, Variables listed under `"ROOT"` must have the same values in all scenarios. Variables listed under `"S2"` must have the same value in all scenarios that follow `"S2"`, and so on.
+The last thing we need to define in our [ScenarioModel](../api/desdeo_problem.md#desdeo.problem.scenario.ScenarioModel) is anticipation stop. It describes which scenarios are allowed to affect values of the listed Variables. The scenario under which the Variable is listed is the last scenario that can affect the value of the Variable. Thus, Variables listed under `"ROOT"` must have the same values in all scenarios. Variables listed under `"S2"` must have the same value in all scenarios that follow `"S2"`, and so on.
 
 In this summer cabin electricity problem, the decisions associated with time before the first possible electricity outage must all have the same values in all scenarios. The decision variables that follow the first potential outage can have their values depend on whether that outage happened, but they cannot depend on the second outage happening.
 
@@ -357,9 +357,9 @@ del mod
 'add_worst_case_robust'
 ```
 
-The way these aggregation functions work is they construct one big scenario model using [build_combined_scenario_problem](../../api/desdeo_tools/#desdeo.tools.scenarios.build_combined_scenario_problem) and then add aggregation functions that combine the values from multiple scenarios into a single function expression.
+The way these aggregation functions work is they construct one big scenario model using [build_combined_scenario_problem](../api/desdeo_tools.md#desdeo.tools.scenarios.build_combined_scenario_problem) and then add aggregation functions that combine the values from multiple scenarios into a single function expression.
 
-Let us look at the [add_expected_value](../../api/desdeo_tools/#desdeo.tools.stochastic.add_expected_value) as an example.
+Let us look at the [add_expected_value](../api/desdeo_tools.md#desdeo.tools.stochastic.add_expected_value) as an example.
 
 ```python
 from desdeo.tools import add_expected_value
