@@ -1,8 +1,3 @@
-## Methods
-::: desdeo.emo.methods.EAs
-    options:
-        heading_level: 3
-
 ## Templates
 ::: desdeo.emo.methods.templates
     options:
