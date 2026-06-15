@@ -70,6 +70,24 @@ There are many ways to setup and activate a virtual environment. We **recommend
 virtual environments, and dependencies in one tool, but several alternatives are
 shown below:
 
+=== "uv"
+
+    This assumes you already have [`uv`](https://github.com/astral-sh/uv) available on your system.
+
+    `uv` is handy, as it can be used to manage Python versions as well. To install Python 3.12 and
+    create a virtual environment, run
+
+    ```bash
+    uv venv --python 3.12
+    ```
+
+    This will download the latest version of Python 3.12 (if not already available) and then create
+    a virtual environment in the current directory under a new folder `.venv`.
+
+    If using the default virtual environment name `.venv`, `uv` will automatically
+    use the virtual environment in subsequent invocations. Otherwise, the environment
+    needs to be activated locally.
+
 === "Python's venv module"
 
     ```bash
@@ -123,24 +141,6 @@ shown below:
     not activate it.__ Copy-paste the command printed by poetry and execute it to activate the virtual
     environment.
 
-=== "uv"
-
-    This assumes you already have [`uv`](https://github.com/astral-sh/uv) available on your system.
-
-    `uv` is handy, as it can be used to manage Python versions as well. To install Python 3.12 and
-    create a virtual environment, run
-
-    ```bash
-    uv venv --python 3.12
-    ```
-
-    This will download the latest version fo Python 3.12 (if not already available) and then create
-    a virtual environment in the current directory under a new folder `.venv`.
-
-    If using the default virtual environment name `.venv`, `uv` will automatically
-    use the virtual environment in subsequent invocations. Otherwise, the environment
-    needs to be activated locally.
-
 !!! Note
 
     Remember to reactivate your virtual environment if you exit it, and then return to it.
@@ -151,6 +151,26 @@ After setting up a virtual environment, we next need to install DESDEO's depende
 We **recommend using `uv`** for this. The `poetry` and `pip` options shown below also
 work, but `uv` is the tool used throughout DESDEO's development and CI. Make sure your
 virtual environment is activated!
+
+=== "uv"
+
+    If not already done, we need to first install `uv`:
+
+    ```bash
+    pip install uv
+    ```
+
+    To install DESDEO's core-logic dependencies, run
+
+    ```bash
+    uv sync --no-default-groups
+    ```
+
+    If you wish to install the development and web dependencies as well, then run the following command instead:
+
+    ```bash
+    uv sync
+    ```
 
 === "Poetry"
 
@@ -172,26 +192,6 @@ virtual environment is activated!
 
     ```bash
     poetry install
-    ```
-
-=== "uv"
-
-    If not already done, we need to first install `uv`:
-
-    ```bash
-    pip install uv
-    ```
-
-    To install DESDEO's core-logic dependencies, run
-
-    ```bash
-    uv sync --no-default-groups
-    ```
-
-    If you wish to install the development and web dependencies as well, then run the following command instead:
-
-    ```bash
-    uv sync
     ```
 
 === "pip"

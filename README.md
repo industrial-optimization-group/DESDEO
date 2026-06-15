@@ -112,8 +112,8 @@ appease our AI overlords.
 
 As DESDEO is an open source-project, anybody is welcome to contribute.
 
-- **Contribute:** see [`CONTRIBUTING.md`](CONTRIBUTING.md) for a quick start, and
-  the [extensive contribution tutorial](https://desdeo.readthedocs.io/en/latest/tutorials/contributing/)
+- **Contribute:** see [`CONTRIBUTING.md`](https://github.com/industrial-optimization-group/DESDEO/blob/master/CONTRIBUTING.md)
+  for a quick start, and the [extensive contribution tutorial](https://desdeo.readthedocs.io/en/latest/tutorials/contributing/)
   in the documentation for the full development workflow.
 - **Report a bug or suggest an idea:**
   [open an issue](https://github.com/industrial-optimization-group/DESDEO/issues/new/choose)
@@ -122,7 +122,7 @@ As DESDEO is an open source-project, anybody is welcome to contribute.
   [through this invite](https://discord.gg/uGCEgQTJyY).
 
 All participation in the project is governed by our
-[Code of Conduct](CODE_OF_CONDUCT.md).
+[Code of Conduct](https://github.com/industrial-optimization-group/DESDEO/blob/master/CODE_OF_CONDUCT.md).
 
 ## License
 
@@ -154,7 +154,8 @@ this repository's master branch is considered to be _DESDEO 2.0_. Once the JOSS
 paper is published it will become the preferred reference. Until then, please use
 the IEEE Access reference above. See the
 [Citing DESDEO](https://desdeo.readthedocs.io/en/latest/home/citing/) page and the
-[`CITATION.cff`](CITATION.cff) file for up-to-date citation metadata.
+[`CITATION.cff`](https://github.com/industrial-optimization-group/DESDEO/blob/master/CITATION.cff)
+file for up-to-date citation metadata.
 
 ## Funding
 

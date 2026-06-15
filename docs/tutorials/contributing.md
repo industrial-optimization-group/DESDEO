@@ -68,33 +68,24 @@ $ python --version
 
 this should report the version of the currently installed Python interpreter.
 
-Next, we need to install _Git_ for version control and _poetry_ for managing
-packages and the virtual environment for developing DESDEO. To facilitate this,
-it is recommended to install [scoop](https://scoop.sh/). Installation
-instructions are provided on scoop's webpage. Using scoop is optional, but we
-will assume that it has been installed for the remainder of this section.
+Next, we need to install _Git_ for version control and
+[_uv_](https://docs.astral.sh/uv/) for managing Python versions, packages, and the
+virtual environment for developing DESDEO. To facilitate this, it is recommended to
+install [scoop](https://scoop.sh/). Installation instructions are provided on scoop's
+webpage. Using scoop is optional, but we will assume that it has been installed for
+the remainder of this section.
 
-To install poetry, we will follow the [recommended way and use _pipx_](https://python-poetry.org/docs/#installation).
-To install pipx, in a powershell, we run [the commands](https://pipx.pypa.io/stable/how-to/install-pipx/#on-windows)
-
-```shell
-$ scoop install pipx
-$ pipx ensurepath
-```
-
-After successfully installing pipx, installing poetry is as simple as
+To install `uv` with scoop, run
 
 ```shell
-$ pipx install poetry
+$ scoop install uv
 ```
 
-It might be a good idea to run
-
-```shell
-$ pipx ensurepath
-```
-
-once more after installing poetry. After this, we should log out and back into a Windows session.
+Alternatively, follow the
+[official `uv` installation instructions](https://docs.astral.sh/uv/getting-started/installation/),
+which provide a standalone installer and other methods. Note that `uv` can also
+install and manage Python versions for you, so a separate Python installation is
+not strictly required.
 
 Finally, we can install Git utilizing scoop
 
@@ -108,9 +99,11 @@ on a Windows operating system.
 ### Linux
 
 Git and Python are most probably already available on our system. If not, we can
-use our systems's package manager to install both. We can follow the instruction on
-[poetry's webpage](https://python-poetry.org/docs/#installation) to install
-poetry. After this, we should be set to begin developing on Linux-based systems.
+use our system's package manager to install both. We then install
+[`uv`](https://docs.astral.sh/uv/) by following the
+[official installation instructions](https://docs.astral.sh/uv/getting-started/installation/)
+(for example, `curl -LsSf https://astral.sh/uv/install.sh | sh`). After this, we
+should be set to begin developing on Linux-based systems.
 
 ### macOS
 
@@ -197,72 +190,60 @@ We are now in a position to setup our virtual environment.
 ### Setting up a virtual environment
 
 There are many ways to setup a virtual environment. Here, we will
-be utilizing poetry (c.f., section [Required software](#installing-required-software))
-for the task. (If you want to some other virtual environment system,
+be utilizing `uv` (c.f., section [Required software](#installing-required-software))
+for the task. (If you want to use some other virtual environment system,
 see the [DESDEO installation guide](../howtoguides/installing.md#setting-up-a-virtual-environment)
-for hints.) First, we should ensure
-that we are utilizing a correct version of Python
+for hints.)
 
-```bash
-$ python --version
-```
-
-This prints the version of the current
-Python interpreter installed on our system.
-If the version is correct, then we can proceed. If not,
-we should point poetry to the Python binary of the version we wish to utilize,
-e.g.,
+Assuming we are in the DESDEO's project directory (e.g., `~/workspace/DESDEO`), we
+can create a virtual environment that uses the correct version of Python with the
+command
 
 ```shell
-$ poetry env use /usr/bin/python
+$ uv venv --python 3.12
 ```
 
-!!! Note "Managing multiple Python versions"
-For managing multiple Python versions, a tool, such
-as [pyenv](https://github.com/pyenv/pyenv?tab=readme-ov-file)
-is recommended.
+This will download Python 3.12 (if it is not already available) and create a
+virtual environment in the `.venv/` directory inside the project directory.
 
-Before proceeding, it is useful to set the poetry configuration
-`virtualenvs.in-project` to `true`. This will ensure that our
-virtual environment will be created in the `.venv/` directory
-in our project's directory. To configure poetry to do this,
-we run
+!!! Note "Managing Python versions"
+
+    `uv` can download and manage Python versions for us, so we do not need a
+    separate tool such as [pyenv](https://github.com/pyenv/pyenv). If a specific
+    Python version is required, pass it via the `--python` flag as shown above.
+
+We can then activate the virtual environment. On Linux and macOS, run
 
 ```shell
-$ poetry config virtualenvs.in-project true
+$ source .venv/bin/activate
 ```
 
-Assuming we are still in the DESDEO's project directory
-(e.g., `~/workspace/DESDEO`), we can now create and activate
-a virtual environment with the command
+and on Windows (powershell), run
 
-```shell
-$ poetry env activate
+```powershell
+$ .venv\Scripts\activate
 ```
 
 !!! Note
 
-    Please note that with an older version of poetry, we could have run the command
-    `poetry shell`, which would both create and activate a virtual environment. The
-    `shell` command can also be used to re-activate the virtual environment once exited.
-    It will not re-create it, if it already exists.
+    `uv` will automatically use the `.venv/` environment for its own commands (such
+    as `uv run` and `uv sync`) even without activating it. Activating it is still
+    handy for running tools like `pytest` or `just` directly.
 
-This will print the command that needs to be executed to activate the virtual
-environment. **Please note that this command does not activate the environment,
-it only shows the command that needs to be executed to do so.**
+Once the virtual environment is set up, we can install DESDEO together with all of
+its development dependencies
 
-Once the virtual environment is activated, we can install
-
-<span id="bash:poetry_install_dev"></span>
+<span id="bash:uv_install_dev"></span>
 
 ```shell
-$ poetry install --with all-dev # (1)!
+$ uv sync # (1)!
 ```
 
-1.  The option `--with all-dev` install DESDEO and all its extra dependencies,
-    which are needed for developing the framework.
+1.  `uv sync` installs DESDEO and all of its extra (development and web)
+    dependencies, which are needed for developing the framework. To install only
+    the core-logic dependencies instead, use `uv sync --no-default-groups`.
 
-This might take a while. After poetry is done installing, and there
+This might take a while. After `uv` is done installing, and there
 are no error messages, we should be able to run
 
 ```shell
@@ -291,21 +272,24 @@ suppresses warnings. Some tests may not pass, which is normal.
 To exit the virtual environment, simply run
 
 ```bash
-$ exit
+$ deactivate
 ```
 
-and to re-activate it,
+and to re-activate it, run the activation command again from the DESDEO project
+directory. On Linux and macOS,
 
 ```bash
-$ poetry env activate
+$ source .venv/bin/activate
 ```
 
-and follow the printed instructions.
+and on Windows (powershell),
 
-Activating the environment requires that our current working
-directory is set to be the DESDEO directory with the source code.
-The command `poetry env activate` will not re-create the virtual environment
-if it already exists, only print the instructions on how to activate it.
+```powershell
+$ .venv\Scripts\activate
+```
+
+Re-activating the environment does not re-create it; it simply makes the existing
+`.venv/` environment active in the current shell.
 
 ## Typical Git workflow for contributing to DESDEO
 
@@ -641,8 +625,8 @@ code such that it follows the established code style.
 
 In DESDEO, we have chosen to utilize [Ruff](https://docs.astral.sh/ruff/) which
 is _both_ a linter and code formatter. If we have installed DESDEO utilizing
-poetry, including its development dependencies (c.f., [this
-example](#bash:poetry_install_dev)), then Ruff should be installed on our
+`uv`, including its development dependencies (c.f., [this
+example](#bash:uv_install_dev)), then Ruff should be installed on our
 machines.
 
 To run Ruff on a file and check for any errors or discrepancies, we
@@ -797,7 +781,7 @@ utilized in DESDEO as well.
 
 As was the case
 with Ruff, mypy should be already installed on our machine if we installed
-desdeo with its [development dependencies](#bash:poetry_install_dev). To check
+desdeo with its [development dependencies](#bash:uv_install_dev). To check
 a file with mypy, we can run the command
 
 ```bash
@@ -831,7 +815,7 @@ documentation](https://mypy.readthedocs.io/en/stable/index.html).
 Another way to ensure the code quality in DESDEO is _testing_.
 DESDEO utilizes _pytest_ as its testing library, which should
 come installed with the project if we installed DESDEO with its
-[development dependencies](#bash:poetry_install_dev).
+[development dependencies](#bash:uv_install_dev).
 
 Tests should be located in the `tests/` directory found at the root of the
 directory. Tests are written inside `.py` files with the `test_` prefix, e.g.,
@@ -1281,8 +1265,8 @@ to DESDEO in this last section.
 
     1.  This just indicates that the line continues on a new row.
 
-4.  If no virtual environment exists, create and activate a virtual environment. (`$ poetry shell`)
-5.  Else activate an existing virtual environment. (`$ poetry shell`)
+4.  If no virtual environment exists, create one. (`$ uv venv --python 3.12`)
+5.  Activate the virtual environment. (`$ source .venv/bin/activate`)
 6.  Run tests and make sure at least most of them are passing. (`$ pytest`)
 7.  Create or switch to a local branch.
     ```bash
