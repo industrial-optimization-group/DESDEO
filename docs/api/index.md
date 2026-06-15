@@ -22,4 +22,8 @@ The following references cover the core modules of DESDEO.
 
 ## Other modules
 
-Other modules will be listed here.
+The following references cover additional modules of DESDEO.
+
+- **[desdeo-adm](./desdeo_adm.md):** Module containing artificial decision makers (ADMs) for automated testing and benchmarking of interactive methods.
+- **[desdeo-gdm](./desdeo_gdm.md):** Module containing tools for group decision making, including voting rules and preference aggregation.
+- **[desdeo-explanations](./desdeo_explanations.md):** Module containing tools to generate and analyze explanations of solutions, such as SHAP-based explanations and Lagrange multiplier utilities.

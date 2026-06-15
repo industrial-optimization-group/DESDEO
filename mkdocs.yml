@@ -59,6 +59,9 @@ nav:
       - "emo": "api/desdeo_emo.md"
       - "EMO Pydantic Interface": "api/EMO Options.md"
       - "tools": "api/desdeo_tools.md"
+      - "adm": "api/desdeo_adm.md"
+      - "gdm": "api/desdeo_gdm.md"
+      - "explanations": "api/desdeo_explanations.md"
   - "Web-API":
       - "": "web_api/index.md"
       - "OpenAPI reference": "web_api/openapi.md"
