@@ -28,26 +28,34 @@ def lame_superspheres(
     \tilde{p}_i(\mathbf{x}),
     \end{equation}
 
-    where the angular terms are
+    where the hypersphere parametrization follows Eq. (10)
 
     \begin{equation}
-    \tilde{p}_1 =
-    \prod_{j=1}^{M-1}
-    \cos\left(x_j \frac{\pi}{2}\right)^{2/\gamma},
+    p_1 = \cos(\theta_1),
     \end{equation}
 
-    and for $i > 1$
+    \begin{equation}
+    p_2 = \sin(\theta_1)\cos(\theta_2),
+    \end{equation}
 
     \begin{equation}
-    \tilde{p}_i =
-    \left(
-    \prod_{j=1}^{M-i}
-    \cos\left(x_j \frac{\pi}{2}\right)
-    \right)^{2/\gamma}
-    \sin\left(
-    x_{M-i+1}
-    \frac{\pi}{2}
-    \right)^{2/\gamma}.
+    p_3 = \sin(\theta_1)\sin(\theta_2)\cos(\theta_3),
+    \end{equation}
+
+    \begin{equation}
+    \vdots
+    \end{equation}
+
+    \begin{equation}
+    p_M =
+    \prod_{j=1}^{M-1}
+    \sin(\theta_j).
+    \end{equation}
+
+    The Lamé supersphere coordinates are then obtained as
+
+    \begin{equation}
+    \tilde{p}_i = p_i^{2/\gamma}.
     \end{equation}
 
     The distance function is
@@ -55,15 +63,18 @@ def lame_superspheres(
     \begin{equation}
     g(\mathbf{x}_M)
     =
+    \sqrt{
     \sum_{x_i \in \mathbf{x}_M}
-    \left(x_i - 0.5\right)^2.
+    x_i^2
+    }.
     \end{equation}
 
     The parameter $\gamma$ controls the curvature of the Pareto front:
 
-    - $\gamma = 2$ gives a spherical front.
-    - $\gamma < 2$ gives a more convex front.
-    - $\gamma > 2$ gives a more concave front.
+    - $\gamma < 1$ gives a convex Pareto front.
+    - $\gamma = 1$ gives a linear Pareto front.
+    - $\gamma = 2$ gives a spherical (concave) Pareto front.
+    - $\gamma > 2$ gives a more boxy, strongly concave Pareto front.
 
     Args:
         n_variables: Number of variables.
@@ -80,31 +91,47 @@ def lame_superspheres(
     """
 
     g_symbol = "g"
-    g_expr = " + ".join(
-        [f"(x_{i} - 0.5)**2" for i in range(n_objectives, n_variables + 1)]
+
+    sum_expr = " + ".join(
+        [f"(x_{i})**2" for i in range(n_objectives, n_variables + 1)]
     )
 
+    g_expr = f"Sqrt({sum_expr})"
     objectives = []
 
     for m in range(1, n_objectives + 1):
-        prod_expr = " * ".join(
-            [
-                f"Cos(0.5 * {np.pi} * x_{i})**({2 / gamma})"
-                for i in range(1, n_objectives - m + 1)
+
+        if m == 1:
+
+            angular_expr = f"Cos(0.5 * {np.pi} * x_1)"
+
+        elif m < n_objectives:
+    
+            factors = [
+                f"Sin(0.5 * {np.pi} * x_{i})"
+                for i in range(1, m)
             ]
-        )
-
-        if m > 1:
-            prod_expr += (
-                f"{' * ' if prod_expr != '' else ''}"
-                f"Sin(0.5 * {np.pi} * x_{n_objectives - m + 1})**({2 / gamma})"
+    
+            factors.append(
+                f"Cos(0.5 * {np.pi} * x_{m})"
             )
-
-        if prod_expr == "":
-            prod_expr = "1"
-
-        f_m_expr = f"(1 + {g_symbol}) * ({prod_expr})"
-
+    
+            angular_expr = " * ".join(factors)
+    
+        else:
+    
+            angular_expr = " * ".join(
+                [
+                    f"Sin(0.5 * {np.pi} * x_{i})"
+                    for i in range(1, n_objectives)
+                ]
+            )
+    
+        f_m_expr = (
+            f"(1 + {g_symbol}) * "
+            f"(({angular_expr})**({2 / gamma}))"
+        )
+    
         objectives.append(
             Objective(
                 name=f"f_{m}",
