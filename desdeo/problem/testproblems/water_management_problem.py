@@ -106,8 +106,8 @@ def water_management() -> Problem:
     )
 
     g_6 = Constraint(
-        name="g_7",
-        symbol="g_7",
+        name="g_6",
+        symbol="g_6",
         cons_type=ConstraintTypeEnum.LTE,
         func=["(0.417/(x_1 * x_2))+ 1721.26 * x_3 -136.54 - 2000.00"],
         is_linear=True,
