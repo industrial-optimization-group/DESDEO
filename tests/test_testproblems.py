@@ -688,14 +688,14 @@ def test_water_management():
     problem = water_management()
 
     evaluator = PolarsEvaluator(problem)
-    xs = {"x_1": [0.01, 0.1312, 0.45], "x_2": [0.01, 0.0942, 0.10], "x_3": [0.01, 0.0354, 0.10]}
+    xs = {"x_1": [0.1312], "x_2": [0.0942], "x_3": [0.0354]}
 
     res = evaluator.evaluate(xs)
-    f1 = res["f_1"][1]
-    f2 = res["f_2"][1]
-    f3 = res["f_3"][1]
-    f4 = res["f_4"][1]
-    f5 = res["f_5"][1]
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    f3 = res["f_3"][0]
+    f4 = res["f_4"][0]
+    f5 = res["f_5"][0]
 
     assert np.isclose(f1, 75550.6)
     assert np.isclose(f2, 393.59)
