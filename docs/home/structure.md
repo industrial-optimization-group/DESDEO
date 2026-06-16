@@ -34,7 +34,7 @@ of interactive methods (such as MCDM or EMO, covered next). This includes
 scalarization and solver interfaces to existing optimization algorithms, for
 example, Gurobi, or utilities, such as the payoff-table method.
 
-Next, we have the first of the main modules that are contain logic for
+Next, we have the first of the main modules that contain logic for
 implementing interactive multiobjective optimization methods, `desdeo.mcdm`. The
 name _MCDM_ refers to interactive methods that have been inspired by more
 traditional approaches in the field of multi-criteria decision-making. In
@@ -55,8 +55,12 @@ Nonetheless, the `desdeo.emo` contains many different cross-over, mutation, sele
 termination operators, which can be combined in different way to create existing
 or new EMO methods.
 
-Apart from the main modules, other modules exist as well. The main modules,
-and others, can be found in the `/desdeo/` directory of the source tree.
+Apart from the four main modules, the core-logic includes additional modules,
+such as `desdeo.adm` (artificial decision makers for benchmarking interactive
+methods), `desdeo.gdm` (group decision making), and `desdeo.explanations`
+(explainability tools). A full overview of the available methods and features is
+given on the [Implemented methods and features](features.md) page. The main
+modules, and others, can be found in the `/desdeo/` directory of the source tree.
 
 ## The web-API
 
@@ -85,16 +89,16 @@ The web-API can be found in the directory `desdeo/api/` in the project source tr
 
 The web-GUI is the frontend part of DESDEO. It implements an interface, which
 allows users to utilize DESDEO through a graphical user interface.
-Development of the web-GUI is in early stages of development.
+The web-GUI is in the early stages of development.
 
 !!! Note "WIP"
 
     The web-GUI is currently under heavy development. Be free to explore it
     and contribute, but understand things will be changing fast and nothing is stable!
 
-    If you are interested in contributing to the web-API, please check out [this
+    If you are interested in contributing to the web-GUI, please check out [this
     issue](https://github.com/industrial-optimization-group/DESDEO/issues/251)
     and be sure to hop on our [Discord server](https://discord.gg/uGCEgQTJyY)
     for additional support!
 
-The web-GUI will be found in the directory `desdeo/gui/` in the project source tree.
+The web-GUI can be found in the directory `webui/` in the project source tree.
