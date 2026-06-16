@@ -35,7 +35,6 @@ nav:
       - "": "howtoguides/index.md"
       - "How to install DESDEO": "howtoguides/installing.md"
       - "How to get started using DESDEO": "howtoguides/full_example.ipynb"
-      - "How to define multiobjective optimization problems": "howtoguides/problem.md"
       - "How to define a multiobjective optimization problem": "howtoguides/how_to_define_a_problem.ipynb"
       - "How to host a DESDEO web application on Kubernetes": "howtoguides/kubernetes.md"
       - "How to deploy DESDEO on OpenShift": "howtoguides/deploying_on_openshift.md"
