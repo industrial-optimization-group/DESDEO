@@ -134,27 +134,34 @@ class BoundedPolynomialMutation(BaseMutation):
         k = self.rng.random(size=offspring.shape)
         miu = self.rng.random(size=offspring.shape)
         temp = np.logical_and((k <= self.mutation_probability), (miu < 0.5))  # noqa: PLR2004
-        offspring_scaled = (offspring - min_val) / (max_val - min_val)
-        offspring[temp] = offspring[temp] + (
-            (max_val[temp] - min_val[temp])
-            * (
-                (2 * miu[temp] + (1 - 2 * miu[temp]) * (1 - offspring_scaled[temp]) ** (self.distribution_index + 1))
-                ** (1 / (self.distribution_index + 1))
-                - 1
-            )
-        )
-        temp = np.logical_and((k <= self.mutation_probability), (miu >= 0.5))  # noqa: PLR2004
-        offspring[temp] = offspring[temp] + (
-            (max_val[temp] - min_val[temp])
-            * (
-                1
-                - (
-                    2 * (1 - miu[temp])
-                    + 2 * (miu[temp] - 0.5) * offspring_scaled[temp] ** (self.distribution_index + 1)
+        # The polynomial mutation formula can divide by zero (zero-width bounds) or raise negative
+        # scaled values to fractional powers; the offspring are clipped to the bounds afterwards, so
+        # the intermediate inf/nan is discarded. Silence the resulting benign numpy warnings.
+        with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+            offspring_scaled = (offspring - min_val) / (max_val - min_val)
+            offspring[temp] = offspring[temp] + (
+                (max_val[temp] - min_val[temp])
+                * (
+                    (
+                        2 * miu[temp]
+                        + (1 - 2 * miu[temp]) * (1 - offspring_scaled[temp]) ** (self.distribution_index + 1)
+                    )
+                    ** (1 / (self.distribution_index + 1))
+                    - 1
                 )
-                ** (1 / (self.distribution_index + 1))
             )
-        )
+            temp = np.logical_and((k <= self.mutation_probability), (miu >= 0.5))  # noqa: PLR2004
+            offspring[temp] = offspring[temp] + (
+                (max_val[temp] - min_val[temp])
+                * (
+                    1
+                    - (
+                        2 * (1 - miu[temp])
+                        + 2 * (miu[temp] - 0.5) * offspring_scaled[temp] ** (self.distribution_index + 1)
+                    )
+                    ** (1 / (self.distribution_index + 1))
+                )
+            )
         offspring[offspring > max_val] = max_val[offspring > max_val]
         offspring[offspring < min_val] = min_val[offspring < min_val]
         self.offspring = pl.from_numpy(offspring, schema=self.variable_symbols)

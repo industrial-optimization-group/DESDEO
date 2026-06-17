@@ -934,7 +934,7 @@ class SingleArithmeticCrossover(BaseCrossover):
             )
 
         # Messages for parents and offspring
-        if self.verbosity >= 2:  # More detailed info
+        if self.verbosity >= 2:  # noqa: PLR2004 - more detailed info
             msgs.extend(
                 [
                     PolarsDataFrameMessage(
@@ -1076,7 +1076,7 @@ class LocalCrossover(BaseCrossover):
                     value=self.xover_probability,
                 )
             )
-        if self.verbosity >= 2:
+        if self.verbosity >= 2:  # noqa: PLR2004
             msgs.extend(
                 [
                     PolarsDataFrameMessage(
@@ -1095,7 +1095,7 @@ class LocalCrossover(BaseCrossover):
 
 
 class BoundedExponentialCrossover(BaseCrossover):
-    """Bounded‐exponential (BEX) crossover for continuous problems."""
+    """Bounded-exponential (BEX) crossover for continuous problems."""
 
     @property
     def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
@@ -1129,7 +1129,7 @@ class BoundedExponentialCrossover(BaseCrossover):
         lambda_: float = 1.0,
         xover_probability: float = 1.0,
     ):
-        """Initialize the bounded‐exponential crossover operator.
+        """Initialize the bounded-exponential crossover operator.
 
         Args:
             problem (Problem): the problem object.
@@ -1165,7 +1165,7 @@ class BoundedExponentialCrossover(BaseCrossover):
         population: pl.DataFrame,
         to_mate: list[int] | None = None,
     ) -> pl.DataFrame:
-        """Perform bounded‐exponential crossover.
+        """Perform bounded-exponential crossover.
 
         Args:
             population (pl.DataFrame): the population to perform the crossover with. The DataFrame
@@ -1206,23 +1206,27 @@ class BoundedExponentialCrossover(BaseCrossover):
         u_i = self.rng.random((mating_pop_size // 2, num_var))  # random integers
         r_i = self.rng.random((mating_pop_size // 2, num_var))
 
-        exp_lower_1 = np.exp((x_lower - parents1) / (self.lambda_ * span))
-        exp_upper_1 = np.exp((parents1 - x_upper) / (self.lambda_ * span))
+        # Both branches of each np.where below are evaluated eagerly; the unused branch can legitimately
+        # overflow or divide by zero (e.g. zero-width spans), producing inf/nan that np.where discards.
+        # Silence the resulting benign numpy floating-point warnings.
+        with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+            exp_lower_1 = np.exp((x_lower - parents1) / (self.lambda_ * span))
+            exp_upper_1 = np.exp((parents1 - x_upper) / (self.lambda_ * span))
 
-        exp_lower_2 = np.exp((x_lower - parents2) / (self.lambda_ * span))
-        exp_upper_2 = np.exp((parents2 - x_upper) / (self.lambda_ * span))
+            exp_lower_2 = np.exp((x_lower - parents2) / (self.lambda_ * span))
+            exp_upper_2 = np.exp((parents2 - x_upper) / (self.lambda_ * span))
 
-        beta_1 = np.where(
-            r_i <= 0.5,
-            self.lambda_ * np.log(exp_lower_1 + u_i * (1 - exp_lower_1)),
-            -self.lambda_ * np.log(1 - u_i * (1 - exp_upper_1)),
-        )
+            beta_1 = np.where(
+                r_i <= 0.5,  # noqa: PLR2004
+                self.lambda_ * np.log(exp_lower_1 + u_i * (1 - exp_lower_1)),
+                -self.lambda_ * np.log(1 - u_i * (1 - exp_upper_1)),
+            )
 
-        beta_2 = np.where(
-            r_i <= 0.5,
-            self.lambda_ * np.log(exp_lower_2 + u_i * (1 - exp_lower_2)),
-            -self.lambda_ * np.log(1 - u_i * (1 - exp_upper_2)),
-        )
+            beta_2 = np.where(
+                r_i <= 0.5,  # noqa: PLR2004
+                self.lambda_ * np.log(exp_lower_2 + u_i * (1 - exp_lower_2)),
+                -self.lambda_ * np.log(1 - u_i * (1 - exp_upper_2)),
+            )
 
         offspring1 = parents1 + beta_1 * span
         offspring2 = parents2 + beta_2 * span
@@ -1264,7 +1268,7 @@ class BoundedExponentialCrossover(BaseCrossover):
                     value=self.lambda_,
                 )
             )
-        if self.verbosity >= 2:
+        if self.verbosity >= 2:  # noqa: PLR2004
             msgs.extend(
                 [
                     PolarsDataFrameMessage(

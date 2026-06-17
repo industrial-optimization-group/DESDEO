@@ -221,6 +221,11 @@ max-complexity = 15
 # Public module whose camelCase name predates the snake_case convention. Renaming
 # it is a breaking change for importers and is left as a separate follow-up.
 "desdeo/tools/generateReferencePoints.py" = ["N999"]
+# The backend dispatch tables map operators to `lambda x: backend.fn(x)` wrappers
+# on purpose: the lambda defers the attribute lookup so that unsupported operations
+# (e.g. cvxpy has no `arccos`) only error when actually used, not at table construction.
+# Inlining them (PLW0108's suggestion) breaks that deferral, so the rule is ignored here.
+"desdeo/problem/json_parser.py" = ["PLW0108"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -273,7 +278,22 @@ markers = [
 ]
 pythonpath = "."
 asyncio_default_fixture_loop_scope = "function"
-filterwarnings = ["default::RuntimeWarning", "default::UserWarning"]
+# nevergrad's NGOpt dispatches to CMA-ES, which emits a CMA InjectionWarning ("orphanated
+# injected solution ...") for every discarded injected solution. This is internal optimizer
+# bookkeeping (tens of thousands of messages in the scalarization tests), so it is silenced here.
+filterwarnings = [
+    "default::RuntimeWarning",
+    "default::UserWarning",
+    "ignore:orphanated injected solution",
+    # nevergrad warns once per evaluation that the parametrization bounds are close relative to its
+    # sigma ("Bounds are N sigma away ..."); the varying N defeats deduplication, so tens of thousands
+    # of these flood the scalarization tests. It is a third-party tuning hint, not a DESDEO issue.
+    "ignore:Bounds are .* sigma away",
+    # nevergrad's metamodel calls float() on an ndim>0 array (NumPy 1.25 deprecation), emitting a
+    # DeprecationWarning on every prediction (tens of thousands in the scalarization tests). It is a
+    # third-party issue in nevergrad, not DESDEO, and cannot be fixed here.
+    "ignore:Conversion of an array with ndim",
+]
 testpaths = ["tests", "desdeo/api/tests"]
 
 [build-system]
