@@ -85,53 +85,41 @@ def lame_superspheres(
         Problem: A Lamé superspheres test problem.
 
     References:
-        Emmerich, M. T. M., & Deutz, A. H. (2007).
-        Test Problems Based on Lamé Superspheres.
-        EMO 2007, LNCS 4403, 922-936.
+        Emmerich, M. T. M., & Deutz, A. H. (2007).  Test Problems Based on Lamé
+        Superspheres.  EMO 2007, LNCS 4403, 922-936.
     """
+    if n_objectives < 2:  # noqa: PLR2004
+        raise ValueError(f"n_objectives must be at least 2, got {n_objectives}.")
+
+    if n_variables < n_objectives:
+        raise ValueError(
+            "n_variables must be greater than or equal to n_objectives "
+            f"(need at least {n_objectives} variables), got {n_variables}."
+        )
 
     g_symbol = "g"
 
-    sum_expr = " + ".join(
-        [f"(x_{i})**2" for i in range(n_objectives, n_variables + 1)]
-    )
+    sum_expr = " + ".join([f"(x_{i})**2" for i in range(n_objectives, n_variables + 1)])
 
     g_expr = f"Sqrt({sum_expr})"
     objectives = []
 
     for m in range(1, n_objectives + 1):
-
         if m == 1:
-
             angular_expr = f"Cos(0.5 * {np.pi} * x_1)"
 
         elif m < n_objectives:
-    
-            factors = [
-                f"Sin(0.5 * {np.pi} * x_{i})"
-                for i in range(1, m)
-            ]
-    
-            factors.append(
-                f"Cos(0.5 * {np.pi} * x_{m})"
-            )
-    
+            factors = [f"Sin(0.5 * {np.pi} * x_{i})" for i in range(1, m)]
+
+            factors.append(f"Cos(0.5 * {np.pi} * x_{m})")
+
             angular_expr = " * ".join(factors)
-    
+
         else:
-    
-            angular_expr = " * ".join(
-                [
-                    f"Sin(0.5 * {np.pi} * x_{i})"
-                    for i in range(1, n_objectives)
-                ]
-            )
-    
-        f_m_expr = (
-            f"(1 + {g_symbol}) * "
-            f"(({angular_expr})**({2 / gamma}))"
-        )
-    
+            angular_expr = " * ".join([f"Sin(0.5 * {np.pi} * x_{i})" for i in range(1, n_objectives)])
+
+        f_m_expr = f"(1 + {g_symbol}) * (({angular_expr})**({2 / gamma}))"
+
         objectives.append(
             Objective(
                 name=f"f_{m}",

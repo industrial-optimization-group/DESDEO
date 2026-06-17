@@ -10,8 +10,8 @@ from desdeo.problem.testproblems import (
     binh_and_korn,
     dtlz2,
     dtlz4,
-    lame_superspheres,
     forest_problem,
+    lame_superspheres,
     mcwb_equilateral_tbeam_problem,
     mcwb_hollow_rectangular_problem,
     mcwb_ragsdell1976_problem,
@@ -97,34 +97,53 @@ def test_dtlz4():
 
     f1 = res["f_1"]
     assert np.isclose(f1, 1.0075)
-    
-    
-@pytest.mark.testproblem
-def test_lame_superspheres():
-    """Test that the Lamé superspheres problem initializes and evaluates correctly."""
 
+
+@pytest.mark.testproblem
+@pytest.mark.parametrize("gamma", [0.5, 1.0, 2.0, 3.0])
+@pytest.mark.parametrize(("n_variables", "n_objectives"), [(2, 2), (5, 3), (7, 4)])
+def test_lame_superspheres(gamma, n_variables, n_objectives):
+    """Test that the Lamé superspheres problem matches the supersphere geometry.
+
+    For any decision vector, the objectives must lie on a Lamé supersphere of
+    radius (1 + g(x)), i.e. sum_i f_i**gamma == (1 + g(x))**gamma (Emmerich &
+    Deutz, 2007, Eqs. 8 and 13). The Pareto front is the g(x) == 0 case.
+    """
     problem = lame_superspheres(
-        n_variables=5,
-        n_objectives=3,
-        gamma=2.0,
+        n_variables=n_variables,
+        n_objectives=n_objectives,
+        gamma=gamma,
     )
 
-    assert len(problem.variables) == 5
-    assert len(problem.objectives) == 3
+    assert len(problem.variables) == n_variables
+    assert len(problem.objectives) == n_objectives
 
-    xs = {f"{var.symbol}": [0.5] for var in problem.variables}
+    rng = np.random.default_rng(42)
+    n_samples = 16
+    xs = {f"x_{i}": rng.random(n_samples).tolist() for i in range(1, n_variables + 1)}
 
     evaluator = PolarsEvaluator(problem)
-
     res = evaluator.evaluate(xs)
 
-    f1 = res["f_1"][0]
-    f2 = res["f_2"][0]
-    f3 = res["f_3"][0]
+    objs = np.array([res[f"f_{m}"].to_numpy() for m in range(1, n_objectives + 1)])
+    g = res["g"].to_numpy()
 
-    assert np.isfinite(f1)
-    assert np.isfinite(f2)
-    assert np.isfinite(f3)
+    assert np.all(np.isfinite(objs))
+
+    # Every evaluated point must lie on the supersphere of radius (1 + g(x)).
+    lhs = np.sum(objs**gamma, axis=0)
+    rhs = (1.0 + g) ** gamma
+    assert np.allclose(lhs, rhs)
+
+
+@pytest.mark.testproblem
+def test_lame_superspheres_invalid_arguments():
+    """Test that invalid objective/variable counts are rejected."""
+    with pytest.raises(ValueError, match="n_objectives must be at least 2"):
+        lame_superspheres(n_variables=2, n_objectives=1)
+
+    with pytest.raises(ValueError, match="n_variables must be greater than or equal"):
+        lame_superspheres(n_variables=2, n_objectives=3)
 
 
 @pytest.mark.testproblem
