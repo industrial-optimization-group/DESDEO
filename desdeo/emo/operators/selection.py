@@ -6,11 +6,12 @@ TODO:@light-weaver
 
 import warnings
 from abc import abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from enum import StrEnum
 from itertools import combinations
-from typing import Callable, Literal, TypeVar
+from typing import Literal, TypeVar
 
+import moocore
 import numpy as np
 import polars as pl
 from numba import njit
@@ -30,7 +31,7 @@ from desdeo.tools.message import (
     SelectorMessageTopics,
     TerminatorMessageTopics,
 )
-from desdeo.tools.non_dominated_sorting import fast_non_dominated_sort
+from desdeo.tools.non_dominated_sorting import dominates, fast_non_dominated_sort
 from desdeo.tools.patterns import Publisher, Subscriber
 
 SolutionType = TypeVar("SolutionType", list, pl.DataFrame)
@@ -1776,3 +1777,340 @@ class NSGA2Selector(BaseSelector):
 
     def update(self, message: Message) -> None:
         pass
+
+
+_BIOBJECTIVE = 2  # Number of objectives for which the fast exact 2D hypervolume contribution is used.
+
+
+@njit
+def _hv_contributions_2d(front: np.ndarray) -> np.ndarray:
+    """Compute exact exclusive hypervolume contributions for a 2-objective non-dominated front.
+
+    The two boundary (extremal) solutions are assigned an infinite contribution so that they are always
+    kept, following the boundary handling of the SMS-EMOA in the bi-objective case.
+
+    Args:
+        front (np.ndarray): A 2D array (n x 2) of mutually non-dominated objective vectors in minimization form.
+
+    Returns:
+        np.ndarray: A 1D array of length n with the exclusive hypervolume contribution of each solution. The two
+            extremal solutions are assigned ``np.inf``.
+    """
+    n = front.shape[0]
+    contrib = np.full(n, np.inf)
+    if n <= _BIOBJECTIVE:
+        # A bi-objective front with at most two points consists only of boundary solutions, which are kept.
+        return contrib
+    # Sort by the first objective (ascending). Because the front is mutually non-dominated, this also orders
+    # the second objective in descending order.
+    order = np.argsort(front[:, 0])
+    for r in range(1, n - 1):
+        i = order[r]
+        nxt = order[r + 1]
+        prv = order[r - 1]
+        contrib[i] = (front[nxt, 0] - front[i, 0]) * (front[prv, 1] - front[i, 1])
+    return contrib
+
+
+@njit
+def _count_dominating_points(fitness: np.ndarray, candidates: np.ndarray) -> np.ndarray:
+    """Count, for each candidate, how many solutions in ``fitness`` dominate it.
+
+    This implements the d(s, P(t)) measure of the "dominating points" SMS-EMOA variant (Algorithm 3 in the
+    reference). It is computed over the whole (currently alive) population ``fitness``.
+
+    Args:
+        fitness (np.ndarray): A 2D array (n x m) of objective vectors in minimization form (the whole population).
+        candidates (np.ndarray): Indices (into ``fitness``) of the solutions for which to count dominating points.
+
+    Returns:
+        np.ndarray: A 1D array with the number of dominating points for each candidate.
+    """
+    n = fitness.shape[0]
+    counts = np.zeros(len(candidates), dtype=np.int64)
+    for k in range(len(candidates)):
+        s = candidates[k]
+        c = 0
+        for j in range(n):
+            if j == s:
+                continue
+            if dominates(fitness[j], fitness[s]):
+                c += 1
+        counts[k] = c
+    return counts
+
+
+class SMSEMOASelector(BaseSelector):
+    """The S-Metric Selection EMOA (SMS-EMOA) environmental (Reduce) selection operator.
+
+    SMS-EMOA is a steady-state algorithm that aims explicitly at maximizing the dominated hypervolume of the
+    population. The selection (Reduce) operator combines non-dominated sorting with a hypervolume-based criterion:
+    the population is partitioned into fronts, and individuals are discarded from the worst-ranked front one at a
+    time. When discarding from the last front, the individual contributing the least exclusive hypervolume is
+    removed, which guarantees that the dominated hypervolume of the population never decreases.
+
+    Two variants are supported (see Sections 2.1 and 2.2 of the reference):
+
+    - The basic variant always removes the least-contributing individual of the worst-ranked front using the
+      contributing hypervolume.
+    - The "dominating points" (dp) variant (``use_dominating_points=True``, the default) removes, whenever the
+      population consists of more than one front, the worst-ranked individual that is dominated by the most other
+      solutions. The (more expensive) hypervolume criterion is then only used once all solutions are mutually
+      non-dominated. This variant typically achieves a comparable quality at a lower runtime.
+
+    This operator is designed to be used together with [template2][desdeo.emo.methods.templates.template2]: each
+    generation a small number of offspring is created, appended to the population, and the population is reduced
+    back to ``population_size``.
+
+    Reference:
+        Beume, N., Naujoks, B., & Emmerich, M. (2007). SMS-EMOA: Multiobjective selection based on dominated
+        hypervolume. European Journal of Operational Research, 181(3), 1653-1669.
+        https://doi.org/10.1016/j.ejor.2006.08.008
+    """
+
+    @property
+    def provided_topics(self):
+        """The topics provided by the SMS-EMOA selector."""
+        return {
+            0: [],
+            1: [SelectorMessageTopics.STATE],
+            2: [SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS, SelectorMessageTopics.SELECTED_FITNESS],
+        }
+
+    @property
+    def interested_topics(self):
+        """The topics the SMS-EMOA selector is interested in."""
+        return []
+
+    def __init__(
+        self,
+        problem: Problem,
+        verbosity: int,
+        publisher: Publisher,
+        population_size: int,
+        reference_point_offset: float = 1.0,
+        use_dominating_points: bool = True,
+        greedy_reduction: bool = True,
+        seed: int = 0,
+    ):
+        """Initialize the SMS-EMOA selection operator.
+
+        Args:
+            problem (Problem): The optimization problem to be solved.
+            verbosity (int): The verbosity level of the operator.
+            publisher (Publisher): The publisher to use for communication.
+            population_size (int): The (constant) size of the population maintained by the algorithm.
+            reference_point_offset (float, optional): The offset added to the worst objective values of the
+                worst-ranked front to build the dynamic reference point used in the hypervolume computation
+                (for problems with three or more objectives). Defaults to 1.0.
+            use_dominating_points (bool, optional): If True, use the "dominating points" variant (Algorithm 3 in
+                the reference), which is cheaper when the population is not yet fully non-dominated. Defaults to
+                True.
+            greedy_reduction (bool, optional): How to discard several individuals from the same front per
+                generation. If True (default, the faithful steady-state behaviour), individuals are removed one at
+                a time, re-evaluating hypervolume contributions after each removal. If False, the contributions are
+                computed once per front and the required number of least-contributing individuals are removed in a
+                single batch. Batching is a far cheaper approximation that is recommended for four or more
+                objectives, where the per-removal hypervolume cost would otherwise dominate the runtime. Defaults
+                to True.
+            seed (int, optional): The random seed used to break ties. Defaults to 0.
+        """
+        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher, seed=seed)
+        if self.constraints_symbols is not None:
+            raise NotImplementedError(
+                "SMS-EMOA selector does not support constraints. Please use a different selector."
+            )
+        self.population_size = population_size
+        self.reference_point_offset = reference_point_offset
+        self.use_dominating_points = use_dominating_points
+        self.greedy_reduction = greedy_reduction
+        self.selection: list[int] | None = None
+        self.selected_individuals: SolutionType | None = None
+        self.selected_targets: pl.DataFrame | None = None
+        self.fitness: np.ndarray | None = None
+
+    def do(
+        self,
+        parents: tuple[SolutionType, pl.DataFrame],
+        offsprings: tuple[SolutionType, pl.DataFrame],
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Perform the SMS-EMOA Reduce operation.
+
+        The parent and offspring populations are merged and reduced back to ``population_size`` by repeatedly
+        discarding the worst individual of the worst-ranked front.
+
+        Args:
+            parents (tuple[SolutionType, pl.DataFrame]): the decision variables as the first element.
+                The second element is the objective values, targets, and constraint violations.
+            offsprings (tuple[SolutionType, pl.DataFrame]): the decision variables as the first element.
+                The second element is the objective values, targets, and constraint violations.
+
+        Returns:
+            tuple[SolutionType, pl.DataFrame]: The selected decision variables and their objective values,
+                targets, and constraint violations.
+        """
+        if isinstance(parents[0], pl.DataFrame) and isinstance(offsprings[0], pl.DataFrame):
+            solutions = parents[0].vstack(offsprings[0])
+        elif isinstance(parents[0], list) and isinstance(offsprings[0], list):
+            solutions = parents[0] + offsprings[0]
+        else:
+            raise TypeError("The decision variables must be either a list or a polars DataFrame, not both")
+
+        alltargets = parents[1].vstack(offsprings[1])
+        targets = alltargets[self.target_symbols].to_numpy()
+        num_total = targets.shape[0]
+
+        if num_total <= self.population_size:
+            keep = np.arange(num_total)
+        else:
+            keep = self._reduce(targets, num_total - self.population_size)
+
+        self.selection = keep.tolist()
+        if isinstance(solutions, pl.DataFrame):
+            self.selected_individuals = solutions[self.selection]
+        else:
+            self.selected_individuals = [solutions[i] for i in self.selection]
+        self.selected_targets = alltargets[self.selection]
+
+        # Fitness used by the (optional) mating selection operator. Higher is better, so we use the negated
+        # non-dominated rank of the surviving individuals.
+        self.fitness = self._rank_fitness(targets[keep])
+
+        self.notify()
+        return self.selected_individuals, self.selected_targets
+
+    def _reduce(self, targets: np.ndarray, num_remove: int) -> np.ndarray:
+        """Greedily remove ``num_remove`` individuals using the SMS-EMOA Reduce criterion.
+
+        Args:
+            targets (np.ndarray): A 2D array (n x m) of objective vectors in minimization form.
+            num_remove (int): The number of individuals to discard.
+
+        Note:
+            A single non-dominated sort suffices for the whole reduction: discarding a worst-front individual
+            never promotes any surviving individual to a better front (a worst-front individual dominates nobody
+            in the population), so both the front membership of the survivors and the dominating-point counts
+            remain valid throughout. This makes a (mu + lambda) reduction much cheaper than re-sorting per removal.
+
+        Args:
+            targets (np.ndarray): A 2D array (n x m) of objective vectors in minimization form.
+            num_remove (int): The number of individuals to discard.
+
+        Returns:
+            np.ndarray: The (sorted) indices of the surviving individuals.
+        """
+        fronts = fast_non_dominated_sort(targets)
+        num_fronts = len(fronts)
+        alive = np.ones(targets.shape[0], dtype=bool)
+        remaining = num_remove
+
+        # Process fronts from worst to best. ``front_id == 0`` is the only/first (non-dominated) front.
+        for front_id in range(num_fronts - 1, -1, -1):
+            if remaining == 0:
+                break
+            front = np.where(fronts[front_id])[0]
+            if self.use_dominating_points and front_id > 0:
+                # Dominating points variant: discard the solutions dominated by the most others first. The counts
+                # are stable across removals, so they are computed once and the worst are taken in order.
+                dom_counts = _count_dominating_points(targets, front)
+                order = front[np.argsort(-dom_counts, kind="stable")]
+                take = min(remaining, len(order))
+                alive[order[:take]] = False
+                remaining -= take
+            elif self.greedy_reduction:
+                # Hypervolume criterion on the worst front: remove the least contributor, re-evaluating after each
+                # removal because exclusive contributions depend on the surviving neighbours.
+                survivors = list(front)
+                while remaining > 0 and len(survivors) > 0:
+                    victim = self._least_contributor(targets[survivors])
+                    alive[survivors.pop(victim)] = False
+                    remaining -= 1
+            else:
+                # Batched approximation: compute contributions once and drop the required number of least
+                # contributors together. Much cheaper for many objectives at a small quality cost.
+                take = min(remaining, len(front))
+                contributions = self._contributions(targets[front])
+                order = np.argsort(contributions, kind="stable")
+                alive[front[order[:take]]] = False
+                remaining -= take
+        return np.where(alive)[0]
+
+    def _contributions(self, front: np.ndarray) -> np.ndarray:
+        """Return the exclusive hypervolume contribution of every solution of a non-dominated front."""
+        if front.shape[0] <= 1:
+            return np.zeros(front.shape[0])
+        if front.shape[1] == _BIOBJECTIVE:
+            return _hv_contributions_2d(front)
+        reference_point = front.max(axis=0) + self.reference_point_offset
+        return np.asarray(moocore.hv_contributions(front, ref=reference_point))
+
+    def _least_contributor(self, front: np.ndarray) -> int:
+        """Return the index (into ``front``) of the least contributing solution of a non-dominated front."""
+        if front.shape[0] <= 1:
+            return 0
+        return int(self._argmin_random_tie(self._contributions(front)))
+
+    def _argmin_random_tie(self, values: np.ndarray) -> int:
+        """Return the index of the minimum value, breaking ties uniformly at random."""
+        candidates = np.where(values == values.min())[0]
+        if len(candidates) == 1:
+            return int(candidates[0])
+        return int(candidates[self.rng.integers(0, len(candidates))])
+
+    @staticmethod
+    def _rank_fitness(targets: np.ndarray) -> np.ndarray:
+        """Compute a scalar fitness (higher is better) as the negated non-dominated rank."""
+        fronts = fast_non_dominated_sort(targets)
+        fitness = np.zeros(targets.shape[0])
+        for rank in range(len(fronts)):
+            fitness[fronts[rank]] = -rank
+        return fitness
+
+    def state(self) -> Sequence[Message]:
+        """Return the state of the SMS-EMOA selector."""
+        if self.verbosity == 0 or self.selection is None or self.selected_targets is None:
+            return []
+        if self.verbosity == 1:
+            return [
+                DictMessage(
+                    topic=SelectorMessageTopics.STATE,
+                    value={
+                        "population_size": self.population_size,
+                        "selected_individuals": self.selection,
+                    },
+                    source=self.__class__.__name__,
+                )
+            ]
+        # verbosity == 2
+        if isinstance(self.selected_individuals, pl.DataFrame):
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                source=self.__class__.__name__,
+            )
+        else:
+            warnings.warn("Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.", stacklevel=2)
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=self.selected_targets,
+                source=self.__class__.__name__,
+            )
+        return [
+            DictMessage(
+                topic=SelectorMessageTopics.STATE,
+                value={
+                    "population_size": self.population_size,
+                    "selected_individuals": self.selection,
+                },
+                source=self.__class__.__name__,
+            ),
+            message,
+            NumpyArrayMessage(
+                topic=SelectorMessageTopics.SELECTED_FITNESS,
+                value=self.fitness,
+                source=self.__class__.__name__,
+            ),
+        ]
+
+    def update(self, message: Message) -> None:
+        """The SMS-EMOA selector does not react to messages."""
