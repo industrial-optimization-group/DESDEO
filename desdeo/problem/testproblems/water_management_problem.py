@@ -69,7 +69,7 @@ def water_management() -> Problem:
         name="g_1",
         symbol="g_1",
         cons_type=ConstraintTypeEnum.LTE,
-        func="(0.00139/(x_1 * x_2))+ 4.94 * x_3 -0.08 - 1.00",
+        func="(0.00139/(x_1 * x_2))+ 4.94 * x_3 - 0.08 - 1.00",
         is_linear=False,
     )
 
@@ -77,7 +77,7 @@ def water_management() -> Problem:
         name="g_2",
         symbol="g_2",
         cons_type=ConstraintTypeEnum.LTE,
-        func="(0.000306/(x_1 * x_2))+ 1.082 * x_3 -0.0986 - 1.00",
+        func="(0.000306/(x_1 * x_2))+ 1.082 * x_3 - 0.0986 - 1.00",
         is_linear=False,
     )
 
@@ -85,7 +85,7 @@ def water_management() -> Problem:
         name="g_3",
         symbol="g_3",
         cons_type=ConstraintTypeEnum.LTE,
-        func="(12.307/(x_1 * x_2))+ 49408.24 * x_3 -4051.02 - 50000.00",
+        func="(12.307/(x_1 * x_2))+ 49408.24 * x_3 - 4051.02 - 50000.00",
         is_linear=False,
     )
 
@@ -93,7 +93,7 @@ def water_management() -> Problem:
         name="g_4",
         symbol="g_4",
         cons_type=ConstraintTypeEnum.LTE,
-        func="(2.098/(x_1 * x_2))+ 8046.33 * x_3 -696.71 - 16000.00",
+        func="(2.098/(x_1 * x_2))+ 8046.33 * x_3 - 696.71 - 16000.00",
         is_linear=False,
     )
 
@@ -101,7 +101,7 @@ def water_management() -> Problem:
         name="g_5",
         symbol="g_5",
         cons_type=ConstraintTypeEnum.LTE,
-        func="(2.138/(x_1 * x_2))+ 7883.39 * x_3 -705.04 - 10000.00",
+        func="(2.138/(x_1 * x_2))+ 7883.39 * x_3 - 705.04 - 10000.00",
         is_linear=False,
     )
 
@@ -109,7 +109,7 @@ def water_management() -> Problem:
         name="g_6",
         symbol="g_6",
         cons_type=ConstraintTypeEnum.LTE,
-        func="(0.417/(x_1 * x_2))+ 1721.26 * x_3 -136.54 - 2000.00",
+        func="(0.417/(x_1 * x_2))+ 1721.26 * x_3 - 136.54 - 2000.00",
         is_linear=False,
     )
 
@@ -117,7 +117,7 @@ def water_management() -> Problem:
         name="g_7",
         symbol="g_7",
         cons_type=ConstraintTypeEnum.LTE,
-        func="(0.164/(x_1 * x_2))+ 631.13 * x_3 -54.48 - 550.00",
+        func="(0.164/(x_1 * x_2))+ 631.13 * x_3 - 54.48 - 550.00",
         is_linear=False,
     )
 
