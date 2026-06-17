@@ -51,7 +51,7 @@ def water_management() -> Problem:
         variable_type=VariableTypeEnum.real,
         lowerbound=0.01,
         upperbound=0.10,
-        initial_value=0.2,
+        initial_value=0.05,
     )
 
     x_3 = Variable(
@@ -60,7 +60,7 @@ def water_management() -> Problem:
         variable_type=VariableTypeEnum.real,
         lowerbound=0.01,
         upperbound=0.10,
-        initial_value=0.2,
+        initial_value=0.05,
     )
 
     # Constraints
@@ -146,7 +146,7 @@ def water_management() -> Problem:
     f_3 = Objective(
         name="f_3",
         symbol="f_3",
-        func="((305700) * 2289 * x_2)/((0.06*2289)**0.65)",
+        func="(305700 * 228.9 * x_2)/((0.06*2289)**0.65)",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
         is_convex=False,
@@ -156,7 +156,7 @@ def water_management() -> Problem:
     f_4 = Objective(
         name="f_4",
         symbol="f_4",
-        func="250 * 2289 * np.exp(-39.75 * x_2 + 9.9 * x_3 + 2.74)",
+        func="250 * 2289 * Exp(-39.75 * x_2 + 9.9 * x_3 + 2.74)",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
         is_convex=False,

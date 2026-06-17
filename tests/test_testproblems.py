@@ -686,19 +686,34 @@ def test_zdt6():
 def test_water_management():
     """Test that water management problem evaluates correctly."""
     problem = water_management()
-
     evaluator = PolarsEvaluator(problem)
-    xs = {"x_1": [0.1312], "x_2": [0.0942], "x_3": [0.0354]}
+
+    expected_result = np.array(
+        [
+            [75543.405952, 393.6, 268796.7764975157, 297551.09520674264, 5183.607058153383],
+            [66023.1, 1099.03, 797974, 335489, 3141.07],
+            [66456.1, 1333.30, 474106, 603903, 6159.86],
+            [70633.7, 1349.74, 196507, 669173, 965.80],
+        ]
+    )
+
+    expected_result = np.array(
+        [
+            [75543.405952, 393.6, 268796.7764975157, 297551.09520674264, 5183.607058153383],
+            [66210.8016, 1098.90000, 79897.1310, 3351475.44, 3141.82839],
+            [66467.0745, 1333.20000, 47367.5848, 6044632.45, 6168.56142],
+            [70631.508932, 1349.7, 196033.3178915, 669319.1213215, 964.44965837],
+        ]
+    )
+
+    xs = {
+        "x_1": [0.1312, 0.3663, 0.4444, 0.4499],
+        "x_2": [0.0942, 0.0280, 0.0166, 0.0687],
+        "x_3": [0.0354, 0.0142, 0.0280, 0.0149],
+    }
 
     res = evaluator.evaluate(xs)
-    f1 = res["f_1"][0]
-    f2 = res["f_2"][0]
-    f3 = res["f_3"][0]
-    f4 = res["f_4"][0]
-    f5 = res["f_5"][0]
 
-    assert np.isclose(f1, 75550.6)
-    assert np.isclose(f2, 393.59)
-    assert np.isclose(f3, 268857)
-    assert np.isclose(f4, 297434)
-    assert np.isclose(f5, 5188.67)
+    for i in range(len(res)):
+        obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
+        assert np.allclose(obj_values, expected_result[i])
