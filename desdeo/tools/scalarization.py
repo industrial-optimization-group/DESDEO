@@ -2033,7 +2033,7 @@ def add_desirability_funcs(
     return problem_, symbols
 
 
-def add_iopis_funcs(  # TODO (@light-weaver): Add docstrings here.
+def add_iopis_funcs(
     problem: Problem,
     reference_point: dict[str, float],
     ideal: dict[str, float] | None = None,
@@ -2041,6 +2041,7 @@ def add_iopis_funcs(  # TODO (@light-weaver): Add docstrings here.
     rho: float = 1e-6,
     delta: float = 1e-6,
 ) -> tuple[Problem, list[str]]:
+    """Add the IOPIS GUESS and STOM scalarization functions to the problem."""
     symbols = ["iopis_guess", "iopis_stom"]
     _problem, _ = add_guess_sf_nondiff(
         problem=problem,

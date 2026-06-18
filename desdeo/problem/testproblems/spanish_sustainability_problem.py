@@ -1,3 +1,5 @@
+"""Defines the spanish sustainability test problem."""
+
 from pathlib import Path
 
 import polars as pl
@@ -15,6 +17,7 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
+
 
 def spanish_sustainability_problem():
     """Implements the Spanish sustainability problem."""
@@ -384,7 +387,7 @@ def spanish_sustainability_problem():
     )
 
     # Environmental
-    f3_expr = "cte_enviro + beta_enviro @ X + gamma_enviro @ (X**2) + delta_enviro @ (X**3) " "+ omega_enviro @ Ln(X)"
+    f3_expr = "cte_enviro + beta_enviro @ X + gamma_enviro @ (X**2) + delta_enviro @ (X**3) + omega_enviro @ Ln(X)"
 
     f3 = Objective(
         name="Environmental indicator",
@@ -900,7 +903,7 @@ def spanish_sustainability_problem_discrete():
     """Implements the Spanish sustainability problem using Pareto front representation."""
     filename = "datasets/sustainability_spanish.csv"
     varnames = [f"x{i}" for i in range(1, 12)]
-    objNames = {"f1": "social", "f2": "economic", "f3": "environmental"}
+    objNames = {"f1": "social", "f2": "economic", "f3": "environmental"}  # noqa: N806
 
     path = Path(__file__).parent.parent.parent.parent / filename
     data = pl.read_csv(path, has_header=True)

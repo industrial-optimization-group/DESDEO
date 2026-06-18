@@ -82,9 +82,8 @@ def enautilus_get_representative_solutions(
                 col = f"{var.symbol}_{i}"
                 if col in available_cols:
                     var_col_names.append(col)
-        else:
-            if var.symbol in available_cols:
-                var_col_names.append(var.symbol)
+        elif var.symbol in available_cols:
+            var_col_names.append(var.symbol)
 
     # Objective matrix (rows = ND points, cols = objectives, original senses)
     obj_matrix = non_dominated_points.select(obj_syms).to_numpy()
@@ -120,7 +119,7 @@ def enautilus_get_representative_solutions(
     return solver_results
 
 
-def enautilus_step(  # noqa: PLR0913
+def enautilus_step(
     problem: Problem,
     non_dominated_points: pl.DataFrame | dict[str, float],
     current_iteration: int,

@@ -197,7 +197,7 @@ _default_ipopt_options = IpoptOptions()
 """Defines Ipopt optins with default values."""
 
 
-def parse_pyomo_optimizer_results(
+def parse_pyomo_optimizer_results(  # noqa: C901
     opt_res: _pyomo_SolverResults, problem: Problem, evaluator: PyomoEvaluator
 ) -> SolverResults:
     """Parses pyomo SolverResults into DESDEO SolverResults.

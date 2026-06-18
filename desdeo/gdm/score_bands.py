@@ -1,7 +1,5 @@
 """Implements a interactive SCORE bands based GDM."""
 
-from typing import Literal
-
 import polars as pl
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,7 +12,7 @@ class SCOREBandsGDMConfig(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    score_bands_config: SCOREBandsConfig = Field(default_factory=lambda: SCOREBandsConfig())
+    score_bands_config: SCOREBandsConfig = Field(default_factory=SCOREBandsConfig)
     """Configuration for the SCORE bands method."""
     minimum_votes: int = Field(default=1, gt=0)
     """Minimum number of votes required to select a cluster."""
@@ -74,7 +72,7 @@ def score_bands_gdm(
         ]
     if not state:
         raise ValueError("State must be provided if votes are provided.")
-    elif config.from_iteration is None:
+    if config.from_iteration is None:
         raise ValueError("from_iteration must be set in the config for subsequent iterations.")
 
     winning_clusters = consensus_rule(votes, config.minimum_votes)

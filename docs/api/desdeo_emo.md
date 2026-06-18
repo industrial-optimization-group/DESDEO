@@ -1,8 +1,3 @@
-## Methods
-::: desdeo.emo.methods.EAs
-    options:
-        heading_level: 3
-
 ## Templates
 ::: desdeo.emo.methods.templates
     options:
@@ -12,7 +7,7 @@
 ::: desdeo.emo.operators.generator
     options:
         heading_level: 3
-    
+
 ## Evaluator
 ::: desdeo.emo.operators.evaluator
     options:
@@ -33,7 +28,17 @@
     options:
         heading_level: 3
 
+## Scalar selection operators
+::: desdeo.emo.operators.scalar_selection
+    options:
+        heading_level: 3
+
 ## Termination criteria
 ::: desdeo.emo.operators.termination
+    options:
+        heading_level: 3
+
+## Archivers
+::: desdeo.emo.hooks.archivers
     options:
         heading_level: 3

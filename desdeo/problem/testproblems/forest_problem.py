@@ -1,3 +1,5 @@
+"""Defines the forest test problem."""
+
 from pathlib import Path
 
 import numpy as np

@@ -123,7 +123,7 @@ def find_compatible_solvers(problem: Problem) -> list[BaseSolver]:
     if (
         problem.is_twice_differentiable
         and shutil.which("ipopt")
-        and problem.variable_domain in [VariableDomainTypeEnum.continuous]
+        and problem.variable_domain == VariableDomainTypeEnum.continuous
     ):
         solvers.append(available_solvers["pyomo_ipopt"]["constructor"])  # ipopt has to be installed
 
@@ -196,7 +196,7 @@ def guess_best_solver(problem: Problem) -> BaseSolver:
         if (
             problem.is_twice_differentiable
             and shutil.which("ipopt")
-            and problem.variable_domain in [VariableDomainTypeEnum.continuous]
+            and problem.variable_domain == VariableDomainTypeEnum.continuous
         ):
             return available_solvers["pyomo_ipopt"]["constructor"]
 
@@ -229,7 +229,7 @@ def guess_best_solver(problem: Problem) -> BaseSolver:
     if (
         problem.is_twice_differentiable
         and shutil.which("ipopt")
-        and problem.variable_domain in [VariableDomainTypeEnum.continuous]
+        and problem.variable_domain == VariableDomainTypeEnum.continuous
     ):
         return available_solvers["pyomo_ipopt"]["constructor"]
 

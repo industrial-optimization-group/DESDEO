@@ -22,16 +22,16 @@ the web-API and web-GUI are provided.
 
 Install the `web` dependencies with the following command if you have not already done so:
 
-=== "Poetry"
-
-    ```bash
-    poetry install
-    ```
-
 === "uv"
 
     ```bash
     uv sync
+    ```
+
+=== "Poetry"
+
+    ```bash
+    poetry install
     ```
 
 This will install the required dependencies for the web-API. The web-API itself is

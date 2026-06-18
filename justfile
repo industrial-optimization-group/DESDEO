@@ -66,5 +66,5 @@ lint:
     pre-commit run
 
 # run pre-commit hooks on all files.
-ling-all:
+lint-all:
     pre-commit run --all-files

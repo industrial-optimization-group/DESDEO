@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and support (Discord)
+    url: https://discord.gg/uGCEgQTJyY
+    about: For general questions, usage help, and discussion, please join our Discord server.
+  - name: Documentation
+    url: https://desdeo.readthedocs.io/en/latest/
+    about: Check the DESDEO documentation before opening an issue.

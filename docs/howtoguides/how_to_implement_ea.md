@@ -33,10 +33,10 @@ number of generations increases. The mutation is bound by specified minimum and 
 ```python
 def adaptive_mutation(
     offspring: np.ndarray,
-    generation: int, 
-    max_generations: int, 
-    base_mutation_rate: float, 
-    mut_min: float, 
+    generation: int,
+    max_generations: int,
+    base_mutation_rate: float,
+    mut_min: float,
     mut_max: float
     ) -> np.ndarray:
     mutation_rate = base_mutation_rate * (1 - generation / max_generations)
@@ -74,14 +74,14 @@ The inputs of the `adaptive_mutation` method can be classified as follows:
 
 Now that we have classified the inputs, we can implement a Subscriber wrapper class for the `adaptive_mutation` method.
 The class will inherit from [Subscriber](../api/desdeo_tools.md#desdeo.tools.patterns.Subscriber). As stated [here](../explanation/templates_and_pub_sub.ipynb#publish-subscribe-pattern),
-we need to implement four attributes/methods: 
+we need to implement four attributes/methods:
 
 1. Attribute `provided_topics`: Topics for the publisher subscriber mechanism that the component will provide data for.
 2. Attribute `interested_topics`: Topics for the publisher subscriber mechanism that the component needs data from.
 3. Method `state`: A method that creates the messages to be sent to the `Publisher`.
 4. Method `update`: A method that receives messages from the `Publisher` and performs updates the component.
 
-While implementing the class, make sure to follow the structure of other similar components in DESDEO. To check the 
+While implementing the class, make sure to follow the structure of other similar components in DESDEO. To check the
 available message topics and structures, check the [docs](../api/desdeo_tools.md#message-topics).
 
 ```python
@@ -118,7 +118,7 @@ class AdaptiveMutation(Subscriber):
         self.max_generations = None
         self.offsprings_original = None
         self.offsprings_mutated = None
-    
+
     def do(self, offsprings: pl.DataFrame, parents: pl.DataFrame) -> pl.DataFrame:
         """Apply adaptive mutation to the offspring population."""
         if self.generation is None or self.max_generations is None:
@@ -151,18 +151,19 @@ class AdaptiveMutation(Subscriber):
                 value=mutation_probability,
             ),
         ]
-    def update(self, message: Message) -> None:
-    """Update the parameters for adaptive mutation.
 
-    Args:
-        message (Message): The message to update the parameters. The message should be coming from the
-            Terminator operator (via the Publisher).
-    """
-    if message.topic == TerminatorMessageTopics.GENERATION:
-        self.generation = message.value
-    if message.topic == TerminatorMessageTopics.MAX_GENERATIONS:
-        self.max_generations = message.value
-    return
+    def update(self, message: Message) -> None:
+        """Update the parameters for adaptive mutation.
+
+        Args:
+            message (Message): The message to update the parameters. The message should be coming from the
+                Terminator operator (via the Publisher).
+        """
+        if message.topic == TerminatorMessageTopics.GENERATION:
+            self.generation = message.value
+        if message.topic == TerminatorMessageTopics.MAX_GENERATIONS:
+            self.max_generations = message.value
+        return
 ```
 
 ## Step 4: Implement a Pydantic model
@@ -177,7 +178,7 @@ model that contains the initialization parameters for the mutation operator, alo
 the operator. It should also contain some sensible default values for the parameters.
 
 ```python
-class AdaptiveMutationOptions(Pydantic.BaseModel):
+class AdaptiveMutationOptions(BaseModel):
     """Pydantic model for AdaptiveMutation operator."""
 
     name: Literal["AdaptiveMutation"] = "AdaptiveMutation"

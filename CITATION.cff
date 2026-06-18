@@ -1,0 +1,68 @@
+cff-version: 1.2.0
+title: "DESDEO: the open-source software framework for interactive multiobjective optimization"
+message: >-
+  If you use DESDEO in your work, please cite it. See the "Citing DESDEO"
+  section of the documentation for the current recommended reference:
+  https://desdeo.readthedocs.io/en/latest/home/citing/
+type: software
+authors:
+  - given-names: Giovanni
+    family-names: Misitano
+    affiliation: "University of Jyväskylä"
+  - given-names: Bhupinder Singh
+    family-names: Saini
+    affiliation: "University of Jyväskylä"
+  - given-names: Giomara
+    family-names: Lárraga
+    affiliation: "University of Jyväskylä"
+  - given-names: Juho
+    family-names: Roponen
+    affiliation: "University of Jyväskylä"
+  - given-names: Matias
+    family-names: Nieminen
+    affiliation: "University of Jyväskylä"
+  - given-names: Juuso
+    family-names: Pajasmaa
+    affiliation: "University of Jyväskylä"
+  - given-names: Babooshka
+    family-names: Shavazipour
+    affiliation: "University of Jyväskylä"
+  - given-names: Vili
+    family-names: Kärkkäinen
+    affiliation: "University of Jyväskylä"
+  - given-names: Kaisa
+    family-names: Miettinen
+    affiliation: "University of Jyväskylä"
+repository-code: "https://github.com/industrial-optimization-group/DESDEO"
+url: "https://desdeo.readthedocs.io/en/latest/"
+license: MIT
+keywords:
+  - multiobjective optimization
+  - interactive methods
+  - decision support
+  - evolutionary optimization
+  - optimization
+# Preferred citation until the JOSS paper is published. Once the JOSS paper is
+# available, update `preferred-citation` to point to it (and its DOI).
+preferred-citation:
+  type: article
+  title: "DESDEO: The Modular and Open Source Framework for Interactive Multiobjective Optimization"
+  authors:
+    - given-names: Giovanni
+      family-names: Misitano
+    - given-names: Bhupinder Singh
+      family-names: Saini
+    - given-names: Bekir
+      family-names: Afsar
+    - given-names: Babooshka
+      family-names: Shavazipour
+    - given-names: Kaisa
+      family-names: Miettinen
+  journal: "IEEE Access"
+  volume: 9
+  start: 148277
+  end: 148295
+  year: 2021
+  publisher:
+    name: "IEEE"
+  doi: 10.1109/ACCESS.2021.3123825

@@ -1,7 +1,7 @@
 """Defines a parser to parse multiobjective optimziation problems defined in a JSON format."""
 
 from collections.abc import Callable
-from enum import Enum
+from enum import StrEnum
 from functools import reduce
 
 import cvxpy as cp
@@ -19,7 +19,7 @@ gpexpression = gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQ
 cvxpyexpression = cp.Variable | cp.Expression | cp.Constant | int | float
 
 
-class FormatEnum(str, Enum):
+class FormatEnum(StrEnum):
     """Enumerates the supported formats the JSON format may be parsed to."""
 
     polars = "polars"
@@ -213,7 +213,11 @@ class MathParser:
 
         def _polars_reduce_unary(expr, ufunc):
             def _map_function(acc, ufunc=ufunc):
-                return pl.Series(values=ufunc(acc.to_numpy()))
+                # Unary math functions (e.g. log, arctanh) can legitimately hit domain edges such as
+                # log(0) or arctanh(+-1); the resulting inf/nan is the intended evaluation result, so
+                # silence the benign numpy warnings.
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    return pl.Series(values=ufunc(acc.to_numpy()))
 
             return to_expr(expr).map_batches(_map_function)
 
