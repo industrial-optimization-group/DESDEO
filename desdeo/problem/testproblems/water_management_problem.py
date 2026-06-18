@@ -14,9 +14,23 @@ from desdeo.problem.schema import (
 def water_management() -> Problem:
     r"""Water resource planning problem.
 
-    The objective functions and constraints for the water management problem are defined as follows:
+    The constraints and objective functions for the water management problem are defined as follows:
 
     \begin{align}
+        g_1(\mathbf{x})
+        &= \frac{0.00139}{x_1 x_2} + 4.94x_3 - 0.08 \leq 1.00 \\
+        g_2(\mathbf{x})
+        &= \frac{0.000306}{x_1 x_2} + 1.082x_3 - 0.0986 \leq 1.00 \\
+        g_3(\mathbf{x})
+        &= \frac{12.307}{x_1 x_2} + 49408.24x_3 + 4051.02 \leq 50000.00 \\
+        g_4(\mathbf{x})
+        &= \frac{2.098}{x_1 x_2} + 8046.33x_3 - 696.71 \leq 16000.00 \\
+        g_5(\mathbf{x})
+        &= \frac{2.138}{x_1 x_2} + 7883.39x_3 - 705.04 \leq 10000.00 \\
+        g_6(\mathbf{x})
+        &= \frac{0.417}{x_1 x_2} + 1721.26x_3 - 136.54 \leq 2000.00 \\
+        g_7(\mathbf{x})
+        &= \frac{0.164}{x_1 x_2} + 631.13x_3 - 54.48 \leq 550.00 \\
         &\min_{\mathbf{x}}
         & f_1(\mathbf{x})
         &= 106780.37(x_2 + x_3) + 61704.67 \\
@@ -69,7 +83,7 @@ def water_management() -> Problem:
         name="g_1",
         symbol="g_1",
         cons_type=ConstraintTypeEnum.LTE,
-        func="(0.00139/(x_1 * x_2))+ 4.94 * x_3 - 0.08 - 1.00",
+        func="0.00139 / (x_1 * x_2) + 4.94 * x_3 - 0.08 - 1.00",
         is_linear=False,
     )
 
@@ -77,7 +91,7 @@ def water_management() -> Problem:
         name="g_2",
         symbol="g_2",
         cons_type=ConstraintTypeEnum.LTE,
-        func="(0.000306/(x_1 * x_2))+ 1.082 * x_3 - 0.0986 - 1.00",
+        func="0.000306 / (x_1 * x_2) + 1.082 * x_3 - 0.0986 - 1.00",
         is_linear=False,
     )
 
@@ -85,7 +99,7 @@ def water_management() -> Problem:
         name="g_3",
         symbol="g_3",
         cons_type=ConstraintTypeEnum.LTE,
-        func="(12.307/(x_1 * x_2))+ 49408.24 * x_3 - 4051.02 - 50000.00",
+        func="12.307 / (x_1 * x_2) + 49408.24 * x_3 - 4051.02 - 50000.00",
         is_linear=False,
     )
 
@@ -93,7 +107,7 @@ def water_management() -> Problem:
         name="g_4",
         symbol="g_4",
         cons_type=ConstraintTypeEnum.LTE,
-        func="(2.098/(x_1 * x_2))+ 8046.33 * x_3 - 696.71 - 16000.00",
+        func="2.098 / (x_1 * x_2) + 8046.33 * x_3 - 696.71 - 16000.00",
         is_linear=False,
     )
 
@@ -101,7 +115,7 @@ def water_management() -> Problem:
         name="g_5",
         symbol="g_5",
         cons_type=ConstraintTypeEnum.LTE,
-        func="(2.138/(x_1 * x_2))+ 7883.39 * x_3 - 705.04 - 10000.00",
+        func="2.138 / (x_1 * x_2) + 7883.39 * x_3 - 705.04 - 10000.00",
         is_linear=False,
     )
 
@@ -109,7 +123,7 @@ def water_management() -> Problem:
         name="g_6",
         symbol="g_6",
         cons_type=ConstraintTypeEnum.LTE,
-        func="(0.417/(x_1 * x_2))+ 1721.26 * x_3 - 136.54 - 2000.00",
+        func="0.417 / (x_1 * x_2) + 1721.26 * x_3 - 136.54 - 2000.00",
         is_linear=False,
     )
 
@@ -117,7 +131,7 @@ def water_management() -> Problem:
         name="g_7",
         symbol="g_7",
         cons_type=ConstraintTypeEnum.LTE,
-        func="(0.164/(x_1 * x_2))+ 631.13 * x_3 - 54.48 - 550.00",
+        func="0.164 / (x_1 * x_2) + 631.13 * x_3 - 54.48 - 550.00",
         is_linear=False,
     )
 
@@ -129,7 +143,7 @@ def water_management() -> Problem:
         func="106780.37 * (x_2 + x_3) + 61704.67",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
-        is_convex=False,
+        is_convex=True,
         is_twice_differentiable=True,
     )
 
@@ -138,8 +152,8 @@ def water_management() -> Problem:
         symbol="f_2",
         func="3000 * x_1",
         objective_type=ObjectiveTypeEnum.analytical,
-        is_linear=False,
-        is_convex=False,
+        is_linear=True,
+        is_convex=True,
         is_twice_differentiable=True,
     )
 
@@ -149,7 +163,7 @@ def water_management() -> Problem:
         func="(305700 * 228.9 * x_2)/((0.06*2289)**0.65)",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
-        is_convex=False,
+        is_convex=True,
         is_twice_differentiable=True,
     )
 
@@ -159,7 +173,7 @@ def water_management() -> Problem:
         func="250 * 2289 * Exp(-39.75 * x_2 + 9.9 * x_3 + 2.74)",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
-        is_convex=False,
+        is_convex=True,
         is_twice_differentiable=True,
     )
 
@@ -169,7 +183,7 @@ def water_management() -> Problem:
         func="25 * ((1.39 / (x_1 * x_2)) + 4940 * x_3 - 80)",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
-        is_convex=False,
+        is_convex=True,
         is_twice_differentiable=True,
     )
 
