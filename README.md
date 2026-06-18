@@ -1,6 +1,6 @@
 ![Latest release](https://img.shields.io/github/v/release/industrial-optimization-group/DESDEO?label=Latest%20release)
 [![PyPI version](https://img.shields.io/pypi/v/desdeo?label=PyPI)](https://pypi.org/project/desdeo/)
-[![Documentation Status](https://img.shields.io/readthedocs/desdeo.svg?version=desdeo2&label=Documentation)](https://desdeo.readthedocs.io/en/latest/)
+[![Documentation Status](https://img.shields.io/readthedocs/desdeo.svg?version=latest&label=Documentation)](https://desdeo.readthedocs.io/en/latest/)
 ![Core-logic / Web-API Tests](https://img.shields.io/github/actions/workflow/status/industrial-optimization-group/DESDEO/unit_tests.yaml?branch=master&label=Core-logic%20and%20Web-API%20Tests)
 ![Web-UI Tests](https://img.shields.io/github/actions/workflow/status/industrial-optimization-group/DESDEO/webui_tests.yaml?branch=master&label=WebUI%20Tests)
 [![codecov](https://codecov.io/gh/industrial-optimization-group/DESDEO/branch/master/graph/badge.svg)](https://codecov.io/gh/industrial-optimization-group/DESDEO)
