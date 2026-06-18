@@ -66,6 +66,7 @@ dev = [
 docs = [
     "mkdocs>=1.0",
     "mkdocs-material>=9.5.12",
+    "sqlalchemy-schemadisplay>=2.0",
     "mkdocstrings-python>=1.0",
     "mkdocs-macros-plugin>=1.0.5",
     "mkdocs-jupyter>=0.26.3",
