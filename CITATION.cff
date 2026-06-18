@@ -35,6 +35,7 @@ authors:
     affiliation: "University of Jyväskylä"
 repository-code: "https://github.com/industrial-optimization-group/DESDEO"
 url: "https://desdeo.readthedocs.io/en/latest/"
+doi: 10.5281/zenodo.20748206
 license: MIT
 keywords:
   - multiobjective optimization

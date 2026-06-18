@@ -4,6 +4,7 @@
 ![Core-logic / Web-API Tests](https://img.shields.io/github/actions/workflow/status/industrial-optimization-group/DESDEO/unit_tests.yaml?branch=master&label=Core-logic%20and%20Web-API%20Tests)
 ![Web-UI Tests](https://img.shields.io/github/actions/workflow/status/industrial-optimization-group/DESDEO/webui_tests.yaml?branch=master&label=WebUI%20Tests)
 [![codecov](https://codecov.io/gh/industrial-optimization-group/DESDEO/branch/master/graph/badge.svg)](https://codecov.io/gh/industrial-optimization-group/DESDEO)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20748206.svg)](https://doi.org/10.5281/zenodo.20748206)
 [![Discord](https://img.shields.io/discord/1382614276409266206?style=flat&label=Join%20our%20Discord&labelColor=%237289da)](https://discord.gg/uGCEgQTJyY)
 
 
