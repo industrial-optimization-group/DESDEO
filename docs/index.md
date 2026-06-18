@@ -67,6 +67,5 @@ Otherwise, [you may jump to the quick-start section](#quick-start).
 -   [:octicons-tools-24: __DESDEO Tools__](./api/desdeo_tools.md)
 -   [:octicons-codescan-checkmark-24: __DESDEO MCDM__](./api/desdeo_mcdm.md)
 -   [:octicons-beaker-24: __DESDEO EMO__](./api/desdeo_emo.md)
--   [:octicons-rocket-24: __DESDEO WebAPI__](./api/desdeo_api.md)
 
 </div>

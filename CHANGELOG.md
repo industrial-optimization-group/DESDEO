@@ -54,6 +54,72 @@ This project follows **Keep a Changelog** and **Semantic Versioning**:
 
 ---
 
+## [2.6.0] - 18.6.2026
+
+### Core logic
+
+#### Added
+
+- Added the **ZDT4** and **ZDT6** benchmark test problems, with tests
+  (`desdeo/problem/testproblems/zdt_problem.py`) (#512, #515).
+- Added the **DTLZ1** and **DTLZ4** benchmark test problems and consolidated the
+  DTLZ family into a single `desdeo/problem/testproblems/dtlz_problems.py`
+  module, with tests (#517, #518).
+- Added the **Lamé superspheres** test problem
+  (`desdeo/problem/testproblems/lame_superspheres_problem.py`), with tests (#529).
+- Added an optional `seed` argument to the nevergrad solver interface
+  (`NevergradGenericOptions` / `NevergradGenericSolver` in
+  `desdeo/tools/ng_solver_interfaces.py`) for reproducible gradient-free solves;
+  the caller's NumPy RNG state is saved and restored around the solve.
+
+#### Changed
+
+- Renamed the artificial decision maker (ADM) modules to snake_case:
+  `ADMAfsar` -> `adm_afsar`, `ADMChen` -> `adm_chen`, and `BaseADM` -> `base_adm`
+  (`desdeo/adm/`).
+- Renamed `desdeo/tools/GenerateReferencePoints.py` to `generateReferencePoints.py`
+  (#520).
+- Improvements and fixes to the Gurobi and CVXPY evaluators and the Gurobi
+  solver interface (#520).
+- Resolved mypy type-checking issues in `desdeo/tools/patterns.py` (#511).
+
+#### Removed
+
+- Removed the standalone `dtlz2_problem.py`; DTLZ2 now lives in the unified
+  `dtlz_problems.py` (#517).
+- Removed unused ideal-point handling from `desdeo/tools/group_scalarization.py`
+  (#537).
+
+#### Fixed
+
+- Corrected LaTeX notation and formulas for several benchmark test problems
+  (ZDT4, ZDT6, DTLZ4), and fixed a logic issue in the ZDT6 `g` function so the
+  implementation matches its documented definition (#512, #515, #517).
+- Fixed an incorrect pytest marker on the ZDT4 problem test.
+- Fixed tests that failed due to an incomplete function refactoring.
+
+#### Security
+
+- Removed a reference to a broken/compromised `polyfill` script (the polyfill.io
+  supply-chain risk) from the documentation site configuration (`mkdocs.yml`)
+  (#516).
+
+### Web API
+
+#### Fixed
+
+- The API test suite is now skipped automatically when the optional `web` extra
+  (FastAPI) is not installed, so a core-logic-only installation can run the
+  documented `pytest` / `just test` without a collection-time import error.
+
+### Web GUI
+
+#### Removed
+
+- Removed scenario keys from the problem-definition view (#480).
+
+---
+
 ## [2.5.0] - 9.6.2026
 
 ### Core logic
