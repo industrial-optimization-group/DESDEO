@@ -47,6 +47,12 @@ class NevergradGenericOptions(BaseModel):
     `OnePlusOne`, `CMA`, `TBPSA`, `PSO`, `ScrHammersleySearchPlusMiddlePoint`, or `RandomSearch`.
     Defaults to `NGOpt`."""
 
+    seed: int | None = Field(
+        description="An optional random seed for reproducible optimization. Defaults to None.", default=None
+    )
+    """An optional random seed for reproducible optimization. If `None`, the optimizer's
+    random state is left unseeded. Defaults to None."""
+
 
 _default_nevergrad_generic_options = NevergradGenericOptions()
 """The set of default options for nevergrad's NgOpt optimizer."""
@@ -150,8 +156,11 @@ class NevergradGenericSolver(BaseSolver):
         )
 
         optimizer = ng.optimizers.registry[self.options.optimizer](
-            parametrization=parametrization, **self.options.model_dump(exclude="optimizer")
+            parametrization=parametrization, **self.options.model_dump(exclude={"optimizer", "seed"})
         )
+
+        if self.options.seed is not None:
+            optimizer.parametrization.random_state.seed(self.options.seed)
 
         constraint_symbols = (
             None if self.problem.constraints is None else [con.symbol for con in self.problem.constraints]

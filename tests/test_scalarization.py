@@ -782,7 +782,7 @@ def test_nimbus_sf_nondiff_solve():
     weights = {"f_1": 0.1, "f_2": 0.1, "f_3": 0.8}
     problem_w_sum, t_sum = add_weighted_sums(problem, "target", weights)
 
-    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
+    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt", seed=67)
 
     solver = NevergradGenericSolver(problem_w_sum, solver_options)
 
@@ -805,7 +805,7 @@ def test_nimbus_sf_nondiff_solve():
 
     assert len(problem_w_sf.constraints) == 1
 
-    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
+    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt", seed=67)
 
     solver = NevergradGenericSolver(problem_w_sf, solver_options)
 
@@ -839,7 +839,7 @@ def test_stom_sf_nondiff_solve():
 
     problem_w_sf, target = add_stom_sf_nondiff(problem, "target", rp)
 
-    solver_options = NevergradGenericOptions(budget=250, num_workers=1, optimizer="NGOpt")
+    solver_options = NevergradGenericOptions(budget=250, num_workers=1, optimizer="NGOpt", seed=67)
 
     solver = NevergradGenericSolver(problem_w_sf, solver_options)
 
@@ -871,7 +871,7 @@ def test_guess_sf_nondiff_solve():
 
     problem_w_sf, target = add_guess_sf_nondiff(problem, "target", rp)
 
-    solver_options = NevergradGenericOptions(budget=250, num_workers=1, optimizer="NGOpt")
+    solver_options = NevergradGenericOptions(budget=250, num_workers=1, optimizer="NGOpt", seed=67)
 
     solver = NevergradGenericSolver(problem_w_sf, solver_options)
 
@@ -910,7 +910,7 @@ def test_add_group_asf():
 
     problem_w_group_sf_3rp, group_sf_3rp = add_group_asf(problem, "group_sf", rps, agg_bounds)
 
-    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
+    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt", seed=67)
 
     solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp, solver_options)
     result = solver_group_sf_3rp.solve(group_sf_3rp)
@@ -951,7 +951,7 @@ def test_add_group_asf_agg():
 
     problem_w_group_sf_3rp, group_sf_3rp = add_group_asf_agg(problem, "group_sf", agg_rps, agg_bounds)
 
-    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
+    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt", seed=67)
 
     solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp, solver_options)
     result = solver_group_sf_3rp.solve(group_sf_3rp)
@@ -1057,7 +1057,7 @@ def test_add_group_guess():
     problem_w_group_sf_3rp, group_sf_3rp = add_group_guess(problem, "group_sf", rps, agg_bounds)
 
     # solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="CMA")
-    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
+    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt", seed=67)
     solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp, solver_options)
     result = solver_group_sf_3rp.solve(group_sf_3rp)
     assert result.success
@@ -1072,7 +1072,7 @@ def test_add_group_guess():
     problem_w_group_sf_3rp, group_sf_3rp = add_group_guess_agg(problem, "group_sf", agg_rps, agg_bounds)
 
     # solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="CMA")
-    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
+    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt", seed=67)
     solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp, solver_options)
     result = solver_group_sf_3rp.solve(group_sf_3rp)
     assert result.success
@@ -1252,7 +1252,7 @@ def test_add_group_stom():
 
     problem_w_group_sf_3rp, group_sf_3rp = add_group_stom(problem, "group_sf", rps, agg_bounds)
 
-    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
+    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt", seed=67)
     solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp, solver_options)
     result = solver_group_sf_3rp.solve(group_sf_3rp)
     assert result.success
@@ -1290,7 +1290,7 @@ def test_add_group_stom_agg():
 
     problem_w_group_sf_3rp, group_sf_3rp = add_group_stom_agg(problem, "group_sf", agg_rps, agg_bounds)
 
-    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt")
+    solver_options = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt", seed=67)
     solver_group_sf_3rp = NevergradGenericSolver(problem_w_group_sf_3rp, solver_options)
     result = solver_group_sf_3rp.solve(group_sf_3rp)
     assert result.success
@@ -1389,7 +1389,7 @@ def test_add_group_scenario_sf_nondiff_happy_path():
         problem, symbol="ssf_nd", reference_points=ref_points, weights=weights, epsilon=eps
     )
 
-    solver_opts = NevergradGenericOptions(budget=100, num_workers=1, optimizer="NGOpt")
+    solver_opts = NevergradGenericOptions(budget=500, num_workers=1, optimizer="NGOpt", seed=67)
     solver = NevergradGenericSolver(problem_w_sf, solver_opts)
     result = solver.solve(target)
 
