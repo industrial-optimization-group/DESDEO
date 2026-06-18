@@ -55,11 +55,12 @@ multiple compromise solutions representing different trade-offs.
 To select the best compromise, a decision maker (a person with expertise in the
 problem domain) must explore the trade-offs and choose the solution they find
 most preferred. This choice is inherently subjective, reflecting the decision
-maker's own priorities and domain knowledge. Interactive methods
+maker's own priorities and domain knowledge. [Interactive
+methods](https://desdeo.readthedocs.io/en/latest/tutorials/moo_primer/)
 [@miettinen_nonlinear_1999; @mhp] support this task. They proceed step by step,
 letting the decision maker examine candidate solutions, express what they
-prefer, and steer the search toward more desirable solutions. Along the way,
-the decision maker learns about the problem and about which preferences are
+prefer, and steer the search toward more desirable solutions. Along the way, the
+decision maker learns about the problem and about which preferences are
 achievable, and can revise those preferences between steps.
 
 DESDEO2 is an open source software framework that provides a complete
@@ -69,7 +70,8 @@ developed to address practical challenges in building reusable and reproducible
 decision-support tools. Throughout this paper, we refer to the new version as
 DESDEO2 to distinguish it from its predecessor. Outside this context, it is
 simply known as DESDEO. This paper focuses on the Python-based core-logic layer
-of DESDEO2, which is fully self-contained and usable as a standalone library.
+of DESDEO2, which is fully self-contained and [usable as a standalone
+library](https://desdeo.readthedocs.io/en/latest/howtoguides/full_example/).
 However, the broader software framework also includes web-facing components,
 including a web API and a graphical web user interface, both of which are
 currently under active development.
@@ -117,7 +119,8 @@ interaction logic, state management, and preference handling. This makes
 systematic experimentation laborious and difficult to
 reproduce [@afsar2021assessing; @afsar2024experimental]. DESDEO2's core
 logic is designed to fill this gap. It targets researchers in interactive
-multiobjective optimization, who can experiment with existing methods and
+multiobjective optimization, who can [experiment with existing
+methods](https://desdeo.readthedocs.io/en/latest/home/features/) and
 develop new ones; students, for whom it serves as a tool for learning about
 interactive methods; and practitioners building decision-support systems.
 
@@ -202,32 +205,39 @@ challenges identified from experiences with earlier versions of DESDEO:
 
 To address problem modeling (C1) and a language-agnostic problem representation
 (C2), DESDEO2 represents problem definitions in Python as explicit models built
-with Pydantic^[<https://github.com/pydantic/pydantic>, accessed 17 June 2026.], a Python
-library for data validation. These models can be exported to and reconstructed
-from a JSON representation. The problem model is explicitly designed for
-multiobjective optimization and also supports data-driven evaluation settings
-in which objective and constraint function values may be computed using
-external simulations or opaque-box models. This JSON-based representation makes
+with Pydantic^[<https://github.com/pydantic/pydantic>, accessed 17 June 2026.],
+a Python library for data validation. These models can be exported to and
+reconstructed from a [JSON
+representation](https://desdeo.readthedocs.io/en/latest/explanation/problem_format/).
+The problem model is explicitly designed for multiobjective optimization and
+also supports [data-driven evaluation
+settings](https://desdeo.readthedocs.io/en/latest/explanation/simulator_support/)
+in which objective and constraint function values may be computed using external
+simulations or opaque-box models. This JSON-based representation makes
 the problem structure accessible across the core-logic while enabling
 validation, serialization, and interoperability beyond the Python runtime,
 e.g., when utilizing databases [@saini2023using]. The problem model is fed to
-evaluators and parsers, which bridge the model to external problem-definition
-ecosystems when needed. Optimization is done through solver interfaces that
+[evaluators and
+parsers](https://desdeo.readthedocs.io/en/latest/explanation/parsing_and_evaluating/),
+which bridge the model to external problem-definition ecosystems when needed.
+Optimization is done through [solver
+interfaces](https://desdeo.readthedocs.io/en/latest/explanation/solvers/) that
 connect the core-logic to external optimization libraries or executables. At
 present, problems can be parsed and evaluated using Pyomo [@hart2011pyomo],
-SymPy [@meurer2017sympy], CVXPY [@diamond2016cvxpy], Gurobi [@gurobi], and Polars
-[@polars2025], and solved through optimizers from SciPy [@2020SciPy-NMeth], the
-COIN-OR^[<https://www.coin-or.org/>, accessed 17 June 2026.] suite (CBC [@cbc],
-Bonmin [@bonami2008bonmin], and Ipopt [@wachter2006ipopt], accessed via Pyomo),
-Gurobi, CVXPY, and nevergrad [@nevergrad]. For
-example, a problem can be parsed and evaluated as a Pyomo model and then
-solved, after scalarization (turning a multiobjective problem into one or more
-single-objective subproblems), using a COIN-OR optimizer. This design
-prioritizes compatibility with diverse problem types and existing optimization
-ecosystems (C1), while allowing problem and method information to be stored and
-exchanged across software boundaries (C2). The result is flexible, as problems
-need to be modeled only once in DESDEO2 to be solved and manipulated in
-numerous ways.
+SymPy [@meurer2017sympy], CVXPY [@diamond2016cvxpy], Gurobi [@gurobi], and
+Polars [@polars2025], and solved through optimizers from SciPy
+[@2020SciPy-NMeth], the COIN-OR^[<https://www.coin-or.org/>, accessed 17 June
+2026.] suite (CBC [@cbc], Bonmin [@bonami2008bonmin], and Ipopt
+[@wachter2006ipopt], accessed via Pyomo), Gurobi, CVXPY, and nevergrad
+[@nevergrad]. For example, a problem can be parsed and evaluated as a Pyomo
+model and then solved, after
+[scalarization](https://desdeo.readthedocs.io/en/latest/explanation/scalarization/)
+(turning a multiobjective problem into one or more single-objective
+subproblems), using a COIN-OR optimizer. This design prioritizes compatibility
+with diverse problem types and existing optimization ecosystems (C1), while
+allowing problem and method information to be stored and exchanged across
+software boundaries (C2). The result is flexible, as problems need to be modeled
+only once in DESDEO2 to be solved and manipulated in numerous ways.
 
 Another key redesign decision concerns the interactive method state management
 (C3). In earlier DESDEO versions, a method state was tightly coupled to
@@ -245,11 +255,12 @@ and the supporting problem and solver infrastructure. Instead of implementing
 methods as monolithic algorithms, DESDEO2 decomposes functionality into
 reusable components for problem handling, preference processing, and solution
 generation. This supports research workflows where individual components (e.g.,
-preference processing, scalarization, and evolutionary operators) must be
-replaced, hybridized (combined into new hybrid methods) [@sindhya2013hybrid],
-or extended without re-implementing entire methods. This enables novel concepts
-and future research directions to be incorporated with minimal architectural
-friction.
+preference processing, scalarization, and [evolutionary
+operators](https://desdeo.readthedocs.io/en/latest/explanation/templates_and_pub_sub/))
+must be replaced, hybridized (combined into new hybrid methods)
+[@sindhya2013hybrid], or extended without re-implementing entire methods. This
+enables novel concepts and future research directions to be incorporated with
+minimal architectural friction.
 
 Whereas the previous DESDEO was distributed as four separate packages, each
 maintained in its own repository, DESDEO2 brings them together in a single
@@ -265,16 +276,19 @@ for users and contributors (C5).
 Finally, to support usage and contribution (C5), we treat documentation and
 testing in DESDEO2 as integral to sustainable research software. The
 documentation structure is inspired by the Diátaxis approach [@diataxis],
-separating learning-oriented *tutorials*, goal-oriented *how-to guides*,
-understanding-oriented *explanations*, and a technical reference material. This
-structure supports both new and experienced users, as well as contributors, and
-is intended to reduce the overhead of adopting and extending the core-logic in
-research and teaching contexts. To support ongoing development and
-reproducibility, the core-logic is accompanied by unit tests targeting
-individual components, e.g., interactive method building blocks. As DESDEO2's
-broader software stack matures, integration testing can be expanded
-accordingly, but the core-logic is already designed to support such evolution
-without backwards-incompatible changes to its interfaces. As a current
+separating learning-oriented
+[*tutorials*](https://desdeo.readthedocs.io/en/latest/tutorials/), goal-oriented
+[*how-to guides*](https://desdeo.readthedocs.io/en/latest/howtoguides/),
+understanding-oriented
+[*explanations*](https://desdeo.readthedocs.io/en/latest/explanation/), and a
+technical reference material. This structure supports both new and experienced
+users, as well as contributors, and is intended to reduce the overhead of
+adopting and extending the core-logic in research and teaching contexts. To
+support ongoing development and reproducibility, the core-logic is accompanied
+by unit tests targeting individual components, e.g., interactive method building
+blocks. As DESDEO2's broader software stack matures, integration testing can be
+expanded accordingly, but the core-logic is already designed to support such
+evolution without backwards-incompatible changes to its interfaces. As a current
 limitation, DESDEO2's web-facing components, which would extend it into a full
 decision-support system, are not yet complete.
 
@@ -336,8 +350,9 @@ contributors have contributed, and continue to contribute, directly and
 indirectly to this collaborative effort.
 
 The development of DESDEO2 was supported by the Research Council of Finland
-(grant number 355346). The software is related to the thematic research area
-DEMO (Decision Analytics utilizing Causal Models and Multiobjective
-Optimization, <https://jyu.fi/demo>) of the University of Jyväskylä.
+(grant numbers 355346 and 373063). The software is related to the thematic
+research area DEMO (Decision Analytics utilizing Causal Models and
+Multiobjective Optimization, <https://jyu.fi/demo>) of the University of
+Jyväskylä.
 
 # References
