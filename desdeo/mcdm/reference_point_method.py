@@ -116,7 +116,7 @@ def rpm_solve_solutions(
     return [initial_solution, *perturbed_solutions]
 
 
-def rpm_intermediate_solutions(  # noqa: PLR0913
+def rpm_intermediate_solutions(
     problem: Problem,
     solution_1: dict[str, float],
     solution_2: dict[str, float],

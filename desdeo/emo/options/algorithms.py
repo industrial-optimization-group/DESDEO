@@ -1,8 +1,5 @@
 """Define popular MOEAs as Pydantic models."""
 
-from collections.abc import Callable
-from functools import partial
-
 from desdeo.emo.options.crossover import SimulatedBinaryCrossoverOptions, UniformMixedIntegerCrossoverOptions
 from desdeo.emo.options.generator import LHSGeneratorOptions, RandomMixedIntegerGeneratorOptions
 from desdeo.emo.options.mutation import BoundedPolynomialMutationOptions, MixedIntegerRandomMutationOptions
@@ -17,15 +14,12 @@ from desdeo.emo.options.selection import (
     RVEASelectorOptions,
 )
 from desdeo.emo.options.templates import (
-    ConstructorExtras,
     EMOOptions,
-    EMOResult,
     Template1Options,
     Template2Options,
-    emo_constructor,
+    emo_constructor,  # noqa: F401  (re-exported as part of the desdeo.emo public API)
 )
 from desdeo.emo.options.termination import MaxGenerationsTerminatorOptions
-from desdeo.problem import Problem
 
 
 def rvea_options() -> EMOOptions:
@@ -431,5 +425,5 @@ if __name__ == "__main__":
             json.dump(algo().model_dump(), f, indent=4)
 
     # Also dump the schema
-    with Path.open(json_dump_path / f"emoOptionsSchema.json", "w") as f:
+    with Path.open(json_dump_path / "emoOptionsSchema.json", "w") as f:
         json.dump(EMOOptions.model_json_schema(), f, indent=4)

@@ -1,3 +1,5 @@
+"""Defines the re test problem."""
+
 import numpy as np
 
 from desdeo.problem.schema import (
@@ -11,7 +13,7 @@ from desdeo.problem.schema import (
 )
 
 
-def re21(f: float = 10.0, sigma: float = 10.0, e: float = 2.0 * 1e5, l: float = 200.0) -> Problem:
+def re21(f: float = 10.0, sigma: float = 10.0, e: float = 2.0 * 1e5, l: float = 200.0) -> Problem:  # noqa: E741
     r"""Defines the four bar truss design problem.
 
     The objective functions and constraints for the four bar truss design problem are defined as follows:
@@ -92,7 +94,7 @@ def re21(f: float = 10.0, sigma: float = 10.0, e: float = 2.0 * 1e5, l: float = 
         name="f_2",
         symbol="f_2",
         func=f"({(f * l) / e} * ((2.0 / x_1) + (2.0 * {np.sqrt(2.0)} / x_2) - "
-             f"(2.0 * {np.sqrt(2.0)} / x_3) + (2.0 / x_4)))",
+        f"(2.0 * {np.sqrt(2.0)} / x_3) + (2.0 / x_4)))",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
         is_convex=False,  # Not checked
@@ -362,7 +364,7 @@ def re23() -> Problem:
         name="f_1",
         symbol="f_1",
         func=f"0.6224 * {x_1_exprs} * x_3 * x_4 + (1.7781 * {x_2_exprs} * x_3**2) + "
-             f"(3.1661 * {x_1_exprs}**2 * x_4) + (19.84 * {x_1_exprs}**2 * x_3)",
+        f"(3.1661 * {x_1_exprs}**2 * x_4) + (19.84 * {x_1_exprs}**2 * x_3)",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
         is_convex=False,  # Not checked
@@ -372,7 +374,7 @@ def re23() -> Problem:
         name="f_2",
         symbol="f_2",
         func=f"Max({x_1_exprs} - 0.0193 * x_3, 0) + Max({x_2_exprs} - 0.00954 * x_3, 0) + "
-             f"Max({np.pi} * x_3**2 * x_4 + (4/3) * {np.pi} * x_3**3 - 1296000, 0)",
+        f"Max({np.pi} * x_3**2 * x_4 + (4/3) * {np.pi} * x_3**3 - 1296000, 0)",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
         is_convex=False,  # Not checked
@@ -477,7 +479,7 @@ def re24() -> Problem:
         name="f_2",
         symbol="f_2",
         func=f"Max(-(1 - {sigma_b} / 700), 0) + Max(-(1 - {tau} / 450), 0) + "
-             f"Max(-(1 - {delta} / 1.5), 0) + Max(-(1 - {sigma_b} / {sigma_k}), 0)",
+        f"Max(-(1 - {delta} / 1.5), 0) + Max(-(1 - {sigma_b} / {sigma_k}), 0)",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
         is_convex=False,  # Not checked

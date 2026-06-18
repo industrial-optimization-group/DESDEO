@@ -1,3 +1,5 @@
+"""Defines the nimbus test problem."""
+
 from desdeo.problem.schema import (
     Objective,
     ObjectiveTypeEnum,
@@ -5,6 +7,7 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
+
 
 def nimbus_test_problem() -> Problem:
     r"""Defines the test problem utilized in the article describing Synchronous NIMBUS.
@@ -28,7 +31,7 @@ def nimbus_test_problem() -> Problem:
     References:
         Miettinen, K., & Mäkelä, M. M. (2006). Synchronous approach in
             interactive multiobjective optimization. European Journal of Operational
-            Research, 170(3), 909–922. https://doi.org/10.1016/j.ejor.2004.07.052
+            Research, 170(3), 909-922. https://doi.org/10.1016/j.ejor.2004.07.052
 
 
     Returns:

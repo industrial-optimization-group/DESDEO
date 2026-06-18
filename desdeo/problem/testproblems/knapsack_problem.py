@@ -1,3 +1,5 @@
+"""Defines the knapsack test problem."""
+
 from desdeo.problem.schema import (
     Constant,
     Constraint,
@@ -10,6 +12,7 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
+
 
 def simple_knapsack() -> Problem:
     r"""Defines a simple multiobjective knapsack problem.

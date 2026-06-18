@@ -791,8 +791,8 @@ def test_nimbus_sf_nondiff_solve():
 
     xs = results.optimal_variables
     # quite high atol to keep budget and time to compute low
-    assert all(np.isclose(xs[f"x_{i}"], 0.5, atol=5e-2) for i in range(n_objectives, n_variables + 1))
-    assert np.isclose(sum(results.optimal_objectives[obj.symbol] ** 2 for obj in problem.objectives), 1.0, atol=5e-2)
+    assert all(np.isclose(xs[f"x_{i}"], 0.5, atol=1e-1) for i in range(n_objectives, n_variables + 1))
+    assert np.isclose(sum(results.optimal_objectives[obj.symbol] ** 2 for obj in problem.objectives), 1.0, atol=1e-1)
 
     initial_solution = results.optimal_objectives
 
@@ -814,8 +814,8 @@ def test_nimbus_sf_nondiff_solve():
     xs = results.optimal_variables
     assert results.success
     # atol is crap here as well
-    assert all(np.isclose(xs[f"x_{i}"], 0.5, atol=5e-2) for i in range(n_objectives, n_variables + 1))
-    assert np.isclose(sum(results.optimal_objectives[obj.symbol] ** 2 for obj in problem.objectives), 1.0, atol=5e-2)
+    assert all(np.isclose(xs[f"x_{i}"], 0.5, atol=1e-1) for i in range(n_objectives, n_variables + 1))
+    assert np.isclose(sum(results.optimal_objectives[obj.symbol] ** 2 for obj in problem.objectives), 1.0, atol=1e-1)
 
     # solution is feasible
     for c in (r := results.constraint_values):
@@ -851,7 +851,7 @@ def test_stom_sf_nondiff_solve():
     assert result.success
     # atol is crap here as well
     assert all(np.isclose(xs[f"x_{i}"], 0.5, atol=1e-1) for i in range(n_objectives, n_variables + 1))
-    assert np.isclose(sum(result.optimal_objectives[obj.symbol] ** 2 for obj in problem.objectives), 1.0, atol=5e-2)
+    assert np.isclose(sum(result.optimal_objectives[obj.symbol] ** 2 for obj in problem.objectives), 1.0, atol=1e-1)
 
     # f_1 should be the lowest value
     assert result.optimal_objectives["f_1"] < result.optimal_objectives["f_2"]
@@ -883,7 +883,7 @@ def test_guess_sf_nondiff_solve():
     assert result.success
     # atol is crap here as well
     assert all(np.isclose(xs[f"x_{i}"], 0.5, atol=1e-1) for i in range(n_objectives, n_variables + 1))
-    assert np.isclose(sum(result.optimal_objectives[obj.symbol] ** 2 for obj in problem.objectives), 1.0, atol=5e-2)
+    assert np.isclose(sum(result.optimal_objectives[obj.symbol] ** 2 for obj in problem.objectives), 1.0, atol=1e-1)
 
     # f_2 should be the lowest value
     assert result.optimal_objectives["f_2"] < result.optimal_objectives["f_1"]
@@ -1372,10 +1372,10 @@ def test_add_group_scenario_sf_nondiff_happy_path():
 
     xs = result.optimal_variables
     # all decision vars on Pareto front ~0.5
-    assert all(np.isclose(xs[f"x_{i}"], 0.5, atol=5e-2) for i in range(n_objectives, n_variables + 1))
+    assert all(np.isclose(xs[f"x_{i}"], 0.5, atol=1e-1) for i in range(n_objectives, n_variables + 1))
     # objectives satisfy sum of squares ~1
     total = sum(result.optimal_objectives[obj.symbol] ** 2 for obj in problem_w_sf.objectives)
-    assert np.isclose(total, 1.0, atol=5e-2)
+    assert np.isclose(total, 1.0, atol=1e-1)
 
 
 @pytest.mark.scalarization

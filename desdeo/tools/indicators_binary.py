@@ -15,8 +15,9 @@ from typing import Literal
 import numpy as np
 from moocore import epsilon_additive, epsilon_mult
 from numba import njit
-from desdeo.tools.non_dominated_sorting import dominates
+
 from desdeo.tools.indicators_unary import hv
+from desdeo.tools.non_dominated_sorting import dominates
 
 """
 Note that the moocore package includes a more complex implementation for calculating the epsilon_indicator for two
@@ -38,7 +39,7 @@ def epsilon_component(solution1: np.ndarray, solution2: np.ndarray) -> float:
     Returns:
         float: The maximum distance between the values in s1 and s2.
     """
-    return max(0.0, max(solution1 - solution2))
+    return max(0.0, max(solution1 - solution2))  # noqa: PLW3301  (numba @njit cannot unpack an array with *)
 
 
 @njit()

@@ -1,3 +1,5 @@
+"""Defines the mixed variable dimensions test problem."""
+
 from desdeo.problem.schema import (
     Objective,
     Problem,
@@ -5,6 +7,7 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
+
 
 def mixed_variable_dimensions_problem():
     """Defines a problem with variables with mixed dimensions.

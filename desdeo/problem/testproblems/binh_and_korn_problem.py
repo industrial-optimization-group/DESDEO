@@ -1,3 +1,5 @@
+"""Defines the binh and korn test problem."""
+
 from desdeo.problem.schema import (
     Constant,
     Constraint,
@@ -5,6 +7,7 @@ from desdeo.problem.schema import (
     Problem,
     Variable,
 )
+
 
 def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
     """Create a pydantic dataclass representation of the Binh and Korn problem.

@@ -1,15 +1,12 @@
+"""Defines the rocket injector design test problem."""
+
 from desdeo.problem.schema import (
-    Constant,
-    Constraint,
-    ConstraintTypeEnum,
-    DiscreteRepresentation,
-    ExtraFunction,
     Objective,
-    ObjectiveTypeEnum,
     Problem,
     Variable,
     VariableTypeEnum,
 )
+
 
 def rocket_injector_design(original_version=False) -> Problem:
     """The rocekt injector design problem as published in Vaidyanathan, et al. (2003).
@@ -35,15 +32,15 @@ def rocket_injector_design(original_version=False) -> Problem:
     # Variables
     alpha = Variable(name="alpha", symbol="a", variable_type=VariableTypeEnum.real, lowerbound=0.0, upperbound=1.0)
 
-    deltaHA = Variable(
+    deltaHA = Variable(  # noqa: N806
         name="deltaHA", symbol="DHA", variable_type=VariableTypeEnum.real, lowerbound=0.0, upperbound=1.0
     )
 
-    deltaOA = Variable(
+    deltaOA = Variable(  # noqa: N806
         name="deltaOA", symbol="DOA", variable_type=VariableTypeEnum.real, lowerbound=0.0, upperbound=1.0
     )
 
-    OPTT = Variable(name="OPTT", symbol="OPTT", variable_type=VariableTypeEnum.real, lowerbound=0.0, upperbound=1.0)
+    OPTT = Variable(name="OPTT", symbol="OPTT", variable_type=VariableTypeEnum.real, lowerbound=0.0, upperbound=1.0)  # noqa: N806
 
     # Objectives
 
