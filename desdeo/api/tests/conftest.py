@@ -1,26 +1,36 @@
 """General fixtures for API tests are defined here."""
 
-import io
-from pathlib import Path
+import importlib.util
 
-import polars as pl
 import pytest
-from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
-from sqlmodel.pool import StaticPool
 
-from desdeo.api.app import app
-from desdeo.api.db import get_session
-from desdeo.api.models import (
-    ForestProblemMetaData,
-    ProblemDB,
-    ProblemMetaDataDB,
-    RepresentativeNonDominatedSolutions,
-    User,
-    UserRole,
-)
-from desdeo.api.routers.user_authentication import get_password_hash
-from desdeo.problem.testproblems import dmitry_forest_problem_disc, dtlz2, river_pollution_problem
+# The API test suite depends on the optional `web` extra (FastAPI, SQLModel, ...).
+# On a core-logic-only install these packages are absent, which would make collecting
+# this directory fail at import time and abort the whole `pytest` / `just test` run.
+# In that case, skip the API tests entirely so the core-logic suite can still run.
+if importlib.util.find_spec("fastapi") is None:
+    collect_ignore_glob = ["*"]
+else:
+    import io
+    from pathlib import Path
+
+    import polars as pl
+    from fastapi.testclient import TestClient
+    from sqlmodel import Session, SQLModel, create_engine
+    from sqlmodel.pool import StaticPool
+
+    from desdeo.api.app import app
+    from desdeo.api.db import get_session
+    from desdeo.api.models import (
+        ForestProblemMetaData,
+        ProblemDB,
+        ProblemMetaDataDB,
+        RepresentativeNonDominatedSolutions,
+        User,
+        UserRole,
+    )
+    from desdeo.api.routers.user_authentication import get_password_hash
+    from desdeo.problem.testproblems import dmitry_forest_problem_disc, dtlz2, river_pollution_problem
 
 
 @pytest.fixture(name="session_and_user", scope="function")
@@ -85,10 +95,7 @@ def session_fixture():
         session.add(forest_metadata)
         session.commit()
 
-        problem_db_discrete = ProblemDB.from_problem(
-            dmitry_forest_problem_disc(),
-            user=user_analyst
-        )
+        problem_db_discrete = ProblemDB.from_problem(dmitry_forest_problem_disc(), user=user_analyst)
         session.add(problem_db_discrete)
         session.commit()
         session.refresh(problem_db_discrete)
