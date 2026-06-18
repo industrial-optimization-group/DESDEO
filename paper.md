@@ -277,18 +277,20 @@ Finally, to support usage and contribution (C5), we treat documentation and
 testing in DESDEO2 as integral to sustainable research software. The
 documentation structure is inspired by the Diátaxis approach [@diataxis],
 separating learning-oriented
-[*tutorials*](https://desdeo.readthedocs.io/en/latest/tutorials/), goal-oriented
-[*how-to guides*](https://desdeo.readthedocs.io/en/latest/howtoguides/),
+[*tutorials*](https://desdeo.readthedocs.io/en/latest/tutorials/),
+goal-oriented [*how-to
+guides*](https://desdeo.readthedocs.io/en/latest/howtoguides/),
 understanding-oriented
-[*explanations*](https://desdeo.readthedocs.io/en/latest/explanation/), and a
-technical reference material. This structure supports both new and experienced
-users, as well as contributors, and is intended to reduce the overhead of
-adopting and extending the core-logic in research and teaching contexts. To
-support ongoing development and reproducibility, the core-logic is accompanied
-by unit tests targeting individual components, e.g., interactive method building
-blocks. As DESDEO2's broader software stack matures, integration testing can be
-expanded accordingly, but the core-logic is already designed to support such
-evolution without backwards-incompatible changes to its interfaces. As a current
+[*explanations*](https://desdeo.readthedocs.io/en/latest/explanation/), and
+[*technical reference material*](https://desdeo.readthedocs.io/en/latest/api/).
+This structure supports both new and experienced users, as well as
+contributors, and is intended to reduce the overhead of adopting and extending
+the core-logic in research and teaching contexts. To support ongoing
+development and reproducibility, the core-logic is accompanied by unit tests
+targeting individual components, e.g., interactive method building blocks. As
+DESDEO2's broader software stack matures, integration testing can be expanded
+accordingly, but the core-logic is already designed to support such evolution
+without backwards-incompatible changes to its interfaces. As a current
 limitation, DESDEO2's web-facing components, which would extend it into a full
 decision-support system, are not yet complete.
 
