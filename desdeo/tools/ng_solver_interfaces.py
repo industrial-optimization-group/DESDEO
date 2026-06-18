@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Literal
 
 import nevergrad as ng
+import numpy as np
 from pydantic import BaseModel, Field
 
 from desdeo.problem import Problem, SympyEvaluator
@@ -143,6 +144,15 @@ class NevergradGenericSolver(BaseSolver):
         Returns:
             SolverResults: the results of the optimization.
         """
+        # When a seed is given, make the run reproducible. nevergrad (and NGOpt's optimizer selection)
+        # draws from numpy's global RNG as well as the parametrization's own random state, so the global
+        # RNG must be seeded before anything is constructed. It is restored in the `finally` below so the
+        # caller's global numpy state is not mutated.
+        rng_state = None
+        if self.options.seed is not None:
+            rng_state = np.random.get_state()  # noqa: NPY002
+            np.random.seed(self.options.seed)  # noqa: NPY002
+
         parametrization = ng.p.Dict(
             **{
                 var.symbol: ng.p.Scalar(
@@ -198,6 +208,9 @@ class NevergradGenericSolver(BaseSolver):
         except Exception as e:
             msg = f"{self.options.optimizer} failed. Possible reason: {e}"
             success = False
+        finally:
+            if rng_state is not None:
+                np.random.set_state(rng_state)  # noqa: NPY002
 
         result = {"recommendation": recommendation, "message": msg, "success": success}
 
