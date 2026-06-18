@@ -304,6 +304,20 @@ established both the multiobjective optimization community's need for reusable
 interactive method implementations and a foundation of research experience that
 directly informed the design of DESDEO2.
 
+Building on this experience, DESDEO2's redesign enables lines of research that
+its predecessor's architecture could not readily support. Because interactive
+methods are now decoupled from any particular interface and share common
+abstractions for problems, preferences, and state, they can be implemented,
+hybridized, and compared systematically rather than rebuilt as one-off
+prototypes. In practice, this makes it feasible to combine scalarization-based
+and evolutionary methods within a single framework, to switch methods or
+preference types partway through a solution process, and to store, resume, and
+compare interactive sessions, the latter being important for reproducibly
+studying how decision makers behave during the solution process. The
+serializable problem representation similarly broadens such research to problem
+classes that were previously impractical to address, including mixed-integer,
+scenario-based, and simulation-driven problems.
+
 DESDEO2's core-logic is actively used in ongoing research at the University of
 Jyväskylä, supporting multiple Research Council of Finland funded research
 projects and both doctoral and master-level theses. Recent examples include
