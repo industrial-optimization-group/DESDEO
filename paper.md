@@ -148,7 +148,8 @@ information, for instance.
 
 Many open source software frameworks support research on non-preference-based,
 *a priori*, and *a posteriori* multiobjective optimization methods. Libraries,
-such as jMetal [@durillo2010jmetal], PlatEMO [@PlatEMO], and pymoo [@pymoo],
+such as jMetal [@durillo2010jmetal], PlatEMO [@PlatEMO], pymoo [@pymoo], Platypus
+[@platypus], DEAP [@deap], pagmo/pygmo [@pagmo], and ParMOO [@parmoo],
 have become commonplace for developing and evaluating multiobjective
 optimization methods, particularly evolutionary multiobjective optimization
 (EMO) approaches; while fewer software exist for scalarization-based methods,
