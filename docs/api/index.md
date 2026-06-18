@@ -15,10 +15,10 @@ the page to quickly jump to any relevant documentation.
 
 The following references cover the core modules of DESDEO.
 
-- **[desdeo-problem](./desdeo_problem.md):** Module containing tools and utilities to model and evaluate multiobjective optimization problems.
-- **[desdeo-mcdm](./desdeo_mcdm.md):** Module containing components for building interactive _MCDM inspired_ methods.
-- **[desdeo-emo](./desdeo_emo.md):** Module containing components for building evolutionary interactive methods.
-- **[desdeo-tools](./desdeo_tools.md):** Module containing miscellaneous tools and utilities utilized across the core-logic.
+- **[desdeo.problem](./desdeo_problem.md):** Module containing tools and utilities to model and evaluate multiobjective optimization problems.
+- **[desdeo.mcdm](./desdeo_mcdm.md):** Module containing components for building interactive _MCDM inspired_ methods.
+- **[desdeo.emo](./desdeo_emo.md):** Module containing components for building evolutionary interactive methods.
+- **[desdeo.tools](./desdeo_tools.md):** Module containing miscellaneous tools and utilities utilized across the core-logic.
 
 ## Other modules
 

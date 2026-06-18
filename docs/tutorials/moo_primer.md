@@ -366,7 +366,7 @@ and population-based methods will be introduced in the section [Population-based
 ## Scalarization-based methods
 
 !!! question "Why and where is this relevant in DESDEO?"
-    The `desdeo-mcdm` module contains many scalarization-based
+    The `desdeo.mcdm` module contains many scalarization-based
     interactive multiobjective optimization methods.
     It is important to know when these methods are appropriate to be used, and what are their
     limitations.
@@ -402,7 +402,7 @@ the method-specific guides for the [NAUTILUS Navigator](../howtoguides/nautilus_
 ## Population-based methods
 
 !!! question "Why and where is this relevant in DESDEO?"
-    The `desdeo-emo` module contains population-based interactive multiobjective
+    The `desdeo.emo` module contains population-based interactive multiobjective
     optimization methods. It is important to understand when these methods are
     appropriate, and how they differ from scalarization-based methods.
 
@@ -423,7 +423,7 @@ multiobjective optimization, discussed next.
 ## Evolutionary multiobjective optimization
 
 !!! question "Why and where is this relevant in DESDEO?"
-    The `desdeo-emo` module implements evolutionary multiobjective optimization
+    The `desdeo.emo` module implements evolutionary multiobjective optimization
     methods and the reusable components (operators) needed to build them. See the
     guide on [using evolutionary algorithms](../howtoguides/ea.ipynb) and the
     explanation of [how evolutionary algorithms are structured in DESDEO](../explanation/templates_and_pub_sub.ipynb).
@@ -449,7 +449,7 @@ that the search concentrates on the region of the Pareto front that the decision
 maker is most interested in. DESDEO, in particular, offers many interactive variants
 of EMO methods.
 
-DESDEO provides several EMO methods through `desdeo-emo`, including RVEA, NSGA-II,
+DESDEO provides several EMO methods through `desdeo.emo`, including RVEA, NSGA-II,
 NSGA-III, and IBEA, together with a library of crossover, mutation, selection, and
 other operators that can be combined to build existing or entirely new methods. A
 full overview is given on the [Implemented methods and features](../home/features.md)
