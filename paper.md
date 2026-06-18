@@ -36,7 +36,7 @@ affiliations:
     index: 1
   - name: University of Jyväskylä, P.O. Box 35 (C), FI-40014 University of Jyväskylä, Finland
     index: 2
-date: 17 June 2026
+date: 18 June 2026
 bibliography: paper.bib
 ---
 
@@ -250,15 +250,16 @@ or extended without re-implementing entire methods. This enables novel concepts
 and future research directions to be incorporated with minimal architectural
 friction.
 
-DESDEO2 consolidates what were previously four separate DESDEO packages into a
-single, cohesive package. Its core-logic is organized into modules that mirror
-the high-level roles of those predecessors [@misitano2021desdeo]: problem
-modeling, general utilities, scalarization-based methods, and evolutionary
-methods. Their contents, however, have been fully redesigned: we deliberately
-chose a clean redesign over backwards compatibility, prioritizing a solid
-foundation for future development over preserving the previous interfaces. This
-structure supports extensibility (C4) while keeping the code-base navigable for
-users and contributors (C5).
+Whereas the previous DESDEO was distributed as four separate packages, each
+maintained in its own repository, DESDEO2 brings them together in a single
+repository as one cohesive package. Its core-logic is organized into modules
+that mirror the high-level roles of those predecessors [@misitano2021desdeo]:
+problem modeling, general utilities, scalarization-based methods, and
+evolutionary methods. Their contents, however, have been fully redesigned: we
+deliberately chose a clean redesign over backwards compatibility, prioritizing a
+solid foundation for future development over preserving the previous interfaces.
+This structure supports extensibility (C4) while keeping the code-base navigable
+for users and contributors (C5).
 
 Finally, to support usage and contribution (C5), we treat documentation and
 testing in DESDEO2 as integral to sustainable research software. The
@@ -283,14 +284,16 @@ optimization over several years. Earlier versions enabled comparative studies,
 decision-support applications, and practical deployments across multiple
 domains, such as engineering design, forest management, and production planning
 (e.g., [@afsar2023comparing; @afsar2023designing; @burkotova2023interactive;
-@eyvindson2023multioptforest; @Kania2022integration; @kania2023desmils]). This established both the multiobjective optimization
-community's need for reusable interactive method implementations and a
-foundation of research experience that directly informed the design of DESDEO2.
+@eyvindson2023multioptforest; @Kania2022integration; @kania2023desmils]). This
+established both the multiobjective optimization community's need for reusable
+interactive method implementations and a foundation of research experience that
+directly informed the design of DESDEO2.
 
 DESDEO2's core-logic is actively used in ongoing research at the University of
 Jyväskylä, supporting multiple Research Council of Finland funded research
 projects and both doctoral and master-level theses. Recent examples include
-[@saini2025efficient; @pajasmaa2026nautili]. The framework has also been presented at the
+[@saini2025efficient; @pajasmaa2026nautili; @saini2026harvest;
+@tahvanainen2026climate]. The framework has also been presented at the
 International Conference on Multiple Criteria Decision Making, the European
 Conference on Operational Research, and the International Conference on
 Evolutionary Multi-Criterion Optimization.
