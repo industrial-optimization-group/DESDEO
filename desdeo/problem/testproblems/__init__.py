@@ -75,7 +75,7 @@ from .mcwb_problem import (
     mcwb_square_channel_problem,
     mcwb_tapered_channel_problem,
 )
-from .mixed_variable_dimenrions_problem import mixed_variable_dimensions_problem
+from .mixed_variable_dimensions_problem import mixed_variable_dimensions_problem
 from .momip_problem import momip_ti2, momip_ti7
 from .multi_valued_constraints import multi_valued_constraint_problem
 from .nimbus_problem import nimbus_test_problem
