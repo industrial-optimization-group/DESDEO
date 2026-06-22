@@ -1,3 +1,7 @@
+"""Contains a pymoo problem."""
+
+# ruff: noqa: S113
+
 # A FastAPI server to expose pymoo benchmark problems
 from typing import Any
 

@@ -17,6 +17,16 @@ def water_management() -> Problem:
     The constraints and objective functions for the water management problem are defined as follows:
 
     \begin{align}
+        \min\quad f_1(\textbf{x})
+        &= 106780.37(x_2 + x_3) + 61704.67 \\
+        \min\quad f_2(\textbf{x})
+        &= 3000x_1 \\
+        \min\quad f_3(\textbf{x})
+        &= \frac{305700 \cdot 2289 x_2} {(0.06 \cdot 2289)^{0.65}} \\
+        \min\quad f_4(\textbf{x})
+        &= 250 \cdot 2289 \cdot \exp(-39.75x_2 + 9.9x_3 + 2.74) \\
+        \min\quad f_5(\textbf{x})
+        &= 25\left( \frac{1.39}{x_1x_2} + 4940x_3 - 80 \right)
         g_1(\mathbf{x})
         &= \frac{0.00139}{x_1 x_2} + 4.94x_3 - 0.08 \leq 1.00 \\
         g_2(\mathbf{x})
@@ -31,16 +41,17 @@ def water_management() -> Problem:
         &= \frac{0.417}{x_1 x_2} + 1721.26x_3 - 136.54 \leq 2000.00 \\
         g_7(\mathbf{x})
         &= \frac{0.164}{x_1 x_2} + 631.13x_3 - 54.48 \leq 550.00 \\
-        &\min_{\mathbf{x}}
-        & f_1(\mathbf{x})
-        &= 106780.37(x_2 + x_3) + 61704.67 \\
-        &\min_{\mathbf{x}} & f_2(\mathbf{x})
-        &= 3000x_1 \\ &\min_{\mathbf{x}} & f_3(\mathbf{x})
-        &= \frac{305700 \cdot 2289 x_2} {(0.06 \cdot 2289)^{0.65}} \\
-        &\min_{\mathbf{x}} & f_4(\mathbf{x})
-        &= 250 \cdot 2289 \cdot \exp(-39.75x_2 + 9.9x_3 + 2.74) \\
-        &\min_{\mathbf{x}} & f_5(\mathbf{x})
-        &= 25\left( \frac{1.39}{x_1x_2} + 4940x_3 - 80 \right)
+        \[
+        \mathbf{x}^{L} \leq \mathbf{x} \leq \mathbf{x}^{U},
+        \]
+
+        where
+
+        \[
+        \mathbf{x}^{L} = (0.01,\,0.01,\,0.01),
+        \qquad
+        \mathbf{x}^{U} = (0.45,\,0.10,\,0.10).
+        \]
     \end{align}
 
     References:

@@ -1,3 +1,5 @@
+"""Defines a spanish sustainability problem."""
+
 from pathlib import Path
 
 import polars as pl
@@ -16,8 +18,9 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 
+
 def spanish_sustainability_problem():
-    """Implements the Spanish sustainability problem."""
+    """Implements the Spanish sustainability problem, with multiple coefficients for the social indicator."""
     coefficients_dict = {
         "social_linear": {
             "x_1": -0.0108,
@@ -384,7 +387,7 @@ def spanish_sustainability_problem():
     )
 
     # Environmental
-    f3_expr = "cte_enviro + beta_enviro @ X + gamma_enviro @ (X**2) + delta_enviro @ (X**3) " "+ omega_enviro @ Ln(X)"
+    f3_expr = "cte_enviro + beta_enviro @ X + gamma_enviro @ (X**2) + delta_enviro @ (X**3) + omega_enviro @ Ln(X)"
 
     f3 = Objective(
         name="Environmental indicator",
@@ -900,7 +903,7 @@ def spanish_sustainability_problem_discrete():
     """Implements the Spanish sustainability problem using Pareto front representation."""
     filename = "datasets/sustainability_spanish.csv"
     varnames = [f"x{i}" for i in range(1, 12)]
-    objNames = {"f1": "social", "f2": "economic", "f3": "environmental"}
+    objnames = {"f1": "social", "f2": "economic", "f3": "environmental"}
 
     path = Path(__file__).parent.parent.parent.parent / filename
     data = pl.read_csv(path, has_header=True)
@@ -921,14 +924,14 @@ def spanish_sustainability_problem_discrete():
 
     objectives = [
         Objective(
-            name=objNames[objname],
+            name=objnames[objname],
             symbol=objname,
             objective_type=ObjectiveTypeEnum.data_based,
             ideal=data[objname].max(),
             nadir=data[objname].min(),
             maximize=True,
         )
-        for objname in objNames
+        for objname in objnames
     ]
 
     discrete_def = DiscreteRepresentation(
