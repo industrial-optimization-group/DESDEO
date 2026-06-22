@@ -71,7 +71,7 @@ docs = [
     "mkdocs-jupyter>=0.26.3",
     "mkdocs-include-markdown-plugin[cache]>=7.0.0",
     "neoteroi-mkdocs>=1.1.2",
-    "griffe>=1.4.1",
+    "griffe>=1.4.1,<2",
     "python-markdown-math>=0.9",
     "mkdocs-llmstxt>=0.5.0",
 ]
@@ -96,7 +96,7 @@ tools = ["djlint>=1.34.1", "eralchemy>=1.5.0"]
 
 server = [ # production!
     "gunicorn>=23.0.0",
-    "psycopg2>=2.9.10",
+    "psycopg2-binary>=2.9.10",
 ]
 
 stochastic = [
