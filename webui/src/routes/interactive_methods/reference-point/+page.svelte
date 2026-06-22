@@ -35,7 +35,8 @@
 	} from './helper-functions';
 
 	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
-import type { Response, MapState, ReferencePoint } from './types';
+	import type { Response, ReferencePoint, MapState } from './types';
+
 	// State for iteration management
 	let current_state: Response = $state({} as Response);
 
@@ -119,16 +120,6 @@ import type { Response, MapState, ReferencePoint } from './types';
 		// Use the imported utility function to validate if iteration is allowed
 		return validateIterationAllowed(problem, current_preference, selected_iteration_objectives);
 	});
-
-	function buildReferencePoint(problem: ProblemInfo, preferenceValues: number[]): ReferencePoint {
-		return {
-			preference_type: 'reference_point',
-			aspiration_levels: problem.objectives.reduce((acc, obj, idx) => {
-				acc[obj.symbol] = preferenceValues[idx] ?? obj.ideal ?? 0;
-				return acc;
-			}, {} as Record<string, number>)
-		};
-	}
 
 	function handle_type_solutions_change(event: { value: string }) {
 		change_solution_type_updating_selections(event.value as SolutionType);
@@ -296,6 +287,16 @@ import type { Response, MapState, ReferencePoint } from './types';
 		}
 	}
 
+	function buildReferencePoint(problem: ProblemInfo, preferenceValues: number[]): ReferencePoint {
+            return {
+                    preference_type: 'reference_point',
+                    aspiration_levels: problem.objectives.reduce((acc, obj, idx) => {
+                            acc[obj.symbol] = preferenceValues[idx] ?? obj.ideal ?? 0;
+                            return acc;
+                    }, {} as Record<string, number>)
+            };
+    }
+
 	// The optional unused values are kept for compatibility with the AppSidebar component
 	async function handle_iterate(data: {
 		numSolutions: number;
@@ -321,7 +322,7 @@ import type { Response, MapState, ReferencePoint } from './types';
 			problem,
 			current_state.state_id,
 			null,
-			preference
+			preference,
 		);
 
 		if (result) {
@@ -403,12 +404,13 @@ import type { Response, MapState, ReferencePoint } from './types';
 			);
 
 			if (problem) {
-						// Check if problem has utopia metadata (this only needs to be done once)
+				// Check if problem has utopia metadata (this only needs to be done once)
 				// Using the imported utility function
 				hasUtopiaMetadata = checkUtopiaMetadata(problem);
 
-				const initialPreference = buildReferencePoint(problem, current_preference);
-				await initialize_rpm_state(problem, initialPreference);
+				let preference: ReferencePoint = buildReferencePoint(problem, current_preference);
+				// Initialize NIMBUS state from the API
+				await initialize_rpm_state(problem, preference);
 
 			}
 		}
