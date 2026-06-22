@@ -18,7 +18,6 @@
 
 	// NIMBUS specific components
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
-	import IntermediateSidebar from '$lib/components/custom/nimbus/intermediate-sidebar.svelte';
 	import SolutionTable from '$lib/components/custom/nimbus/solution-table.svelte';
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 	import UtopiaMap from '$lib/components/custom/nimbus/utopia-map.svelte';
@@ -317,7 +316,7 @@
 			return;
 		}
 
-		const preference = buildReferencePoint(problem, current_preference);
+		const preference = buildReferencePoint(problem, data.preferenceValues);
 		const result = await handleIterateRequest(
 			problem,
 			current_state.state_id,
@@ -468,8 +467,8 @@
 </script>
 
 <svelte:head>
-	<title>NIMBUS | DESDEO</title>
-	<meta name="description" content="This page implements the NIMBUS interactive multiobjective optimization method in DESDEO" />
+	<title>Reference Point | DESDEO</title>
+	<meta name="description" content="This page implements the Reference Point interactive multiobjective optimization method in DESDEO" />
 </svelte:head>
 
 {#if $isLoading}
@@ -577,6 +576,7 @@
 					onIterate={handle_iterate}
 					isFinishButton={false}
 				/>
+			<!-- Commented out because intermediate is not yet implemented. -->
 			<!-- {:else if problem && mode === 'intermediate'}
 				<div class="flex flex-col">
 					<IntermediateSidebar
@@ -610,7 +610,7 @@
 				class="inline-block"
 				title={selectedIndexes.length !== 1
 					? 'Please select exactly one solution to finish with it.'
-					: 'Select final solution and finish the NIMBUS method with it'}
+					: 'Select final solution and finish the Reference Point method with it'}
 			>
 				<Button
 					onclick={selectedIndexes.length === 1 ? confirm_finish : undefined}

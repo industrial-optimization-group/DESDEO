@@ -1,8 +1,7 @@
 /**
- * NIMBUS API Client-Side Handlers
+ * Preference Point API Client-Side Handlers
  *
- * Uses Orval-generated endpoint functions to call the backend directly,
- * replacing the previous +server.ts proxy + callNimbusAPI pattern.
+ * Uses Orval-generated endpoint functions to call the backend directly.
  */
 import {
 	saveMethodNimbusSavePost,
@@ -16,12 +15,10 @@ import type {
 	NIMBUSFinalizeRequest,
 	SolutionInfo,
 	RPMSolveRequest,
-	RPMState,
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type { ProblemInfo, Solution } from '$lib/types';
 import type { Response, ReferencePoint, FinishResponse } from './types';
 import { errorMessage, isLoading } from '../../../stores/uiState';
-import { addProblemProblemAddPostBodyOnePreferencePreferenceTypeDefault } from '$lib/gen/endpoints/DESDEOFastAPIzod';
 
 /** Convert a Solution (SolutionReferenceResponse) to a SolutionInfo for API requests. */
 function toSolutionInfo(solution: Solution, name?: string | null): SolutionInfo {
@@ -33,7 +30,7 @@ function toSolutionInfo(solution: Solution, name?: string | null): SolutionInfo 
 }
 
 /**
- * Handles a NIMBUS iteration based on user-defined preferences and classifications.
+ * Handles a Reference Point iteration based on user-defined preferences.
  */
 export async function handle_iterate(
 	problem: ProblemInfo,
@@ -161,7 +158,6 @@ export async function handle_remove_saved(
 export async function handle_finish(
 	problem: ProblemInfo | null,
 	solution: Solution,
-	preferences: ReferencePoint
 ): Promise<boolean> {
 	if (!problem) {
 		errorMessage.set('No problem selected');
