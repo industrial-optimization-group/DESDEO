@@ -1,4 +1,6 @@
-"""Defines the re test problem."""
+"""Contains multiple different RE-problems."""
+
+# ruff: noqa: E741
 
 import numpy as np
 
@@ -13,7 +15,7 @@ from desdeo.problem.schema import (
 )
 
 
-def re21(f: float = 10.0, sigma: float = 10.0, e: float = 2.0 * 1e5, l: float = 200.0) -> Problem:  # noqa: E741
+def re21(f: float = 10.0, sigma: float = 10.0, e: float = 2.0 * 1e5, l: float = 200.0) -> Problem:
     r"""Defines the four bar truss design problem.
 
     The objective functions and constraints for the four bar truss design problem are defined as follows:

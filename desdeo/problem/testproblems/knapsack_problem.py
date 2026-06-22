@@ -1,4 +1,4 @@
-"""Defines the knapsack test problem."""
+"""Contains two variants of simple multiobjective knapsack problem."""
 
 from desdeo.problem.schema import (
     Constant,

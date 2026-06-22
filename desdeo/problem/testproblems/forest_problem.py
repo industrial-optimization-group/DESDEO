@@ -1,4 +1,4 @@
-"""Defines the forest test problem."""
+"""Forest problem with TensorConstants and TensorVariables."""
 
 from pathlib import Path
 

@@ -10,10 +10,13 @@ from desdeo.problem.schema import (
 
 
 def mixed_variable_dimensions_problem():
-    """Defines a problem with variables with mixed dimensions.
+    """Defines the problem with mixed dimensions variables.
 
     Has both Variable and TensorVariable types of variables, where the TensorVariables have
     varying number of dimensions. Mostly for testing purposes.
+
+    Returns:
+        Problem: A problem instance representing the mixed variable dimemensions problem.
     """
     x = Variable(
         name="Regular variable",

@@ -1,4 +1,4 @@
-"""Defines the nimbus test problem."""
+"""Defines a test problem that is utilized in article that describes Synchronous NIMBUS."""
 
 from desdeo.problem.schema import (
     Objective,

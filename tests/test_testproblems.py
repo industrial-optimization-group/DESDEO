@@ -26,6 +26,7 @@ from desdeo.problem.testproblems import (
     river_pollution_problem,
     river_pollution_scenario,
     spanish_sustainability_problem,
+    water_management,
     zdt1,
     zdt2,
     zdt3,
@@ -727,3 +728,35 @@ def test_zdt6():
     assert np.isclose(f1, 1.0)
     assert np.isclose(f2, 8.45135530798638410874)
     assert np.isclose(g, 8.568067737283432)
+
+
+@pytest.mark.testproblem
+def test_water_management():
+    """Test that water management problem evaluates correctly."""
+    problem = water_management()
+    evaluator = PolarsEvaluator(problem)
+
+    # Representative solutions from Table III of Ray, Tai & Seow (2001). The table values are
+    # rounded to 5-6 significant figures, so a loose relative tolerance is used. The table also
+    # contains scattered obvious factor of 10 typos in the f_3 and f_4 columns. These entries have been
+    # multiplied by 10 here to match the published formulae (see this row's f_3/f_4 noted below).
+    expected_result = np.array(
+        [
+            [75550.6, 393.59, 2688570, 297434, 5188.67],  # f_3 x10
+            [66203.1, 1099.03, 797974, 3354890, 3141.07],  # f_4 x10
+            [66465.1, 1333.30, 474106, 6039030, 6159.86],  # f_4 x10
+            [70633.7, 1349.74, 1960570, 669173, 965.80],  # f_3 x10
+        ]
+    )
+
+    xs = {
+        "x_1": [0.1312, 0.3663, 0.4444, 0.4499],
+        "x_2": [0.0942, 0.0280, 0.0166, 0.0687],
+        "x_3": [0.0354, 0.0142, 0.0280, 0.0149],
+    }
+
+    res = evaluator.evaluate(xs)
+
+    for i in range(len(res)):
+        obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
+        assert np.allclose(obj_values, expected_result[i], rtol=2e-2)

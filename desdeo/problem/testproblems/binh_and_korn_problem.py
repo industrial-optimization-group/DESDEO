@@ -1,4 +1,4 @@
-"""Defines the binh and korn test problem."""
+"""Contains a Binh and Korn problem with pydantic dataclass representation."""
 
 from desdeo.problem.schema import (
     Constant,
@@ -10,7 +10,7 @@ from desdeo.problem.schema import (
 
 
 def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
-    """Create a pydantic dataclass representation of the Binh and Korn problem.
+    """Create the pydantic dataclass representation of the Binh and Korn problem.
 
     The function has two objective functions, two variables, and two constraint functions.
     For testing purposes, it can be chosen whether the firs and second objective should
@@ -19,6 +19,9 @@ def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
     Arguments:
         maximize (tuple[bool]): whether the first or second objective should be
             maximized or not. Defaults to (False, False).
+
+    Returns:
+        Problem: A problem instance representing the Binh and Korn problem.
 
     References:
         Binh T. and Korn U. (1997) MOBES: A Multiobjective Evolution Strategy for Constrained Optimization Problems.
