@@ -5,48 +5,23 @@
  * replacing the previous +server.ts proxy + callNimbusAPI pattern.
  */
 import {
-	solveSolutionsMethodNimbusSolvePost,
-	getOrInitializeMethodNimbusGetOrInitializePost,
 	saveMethodNimbusSavePost,
 	deleteSaveMethodNimbusDeleteSavePost,
 	finalizeNimbusMethodNimbusFinalizePost,
-	solveNimbusIntermediateMethodNimbusIntermediatePost,
-	getUtopiaDataUtopiaPost,
 	solveSolutionsMethodRpmSolvePost
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type {
-	NIMBUSClassificationRequest,
-	NIMBUSInitializationRequest,
 	NIMBUSSaveRequest,
 	NIMBUSDeleteSaveRequest,
 	NIMBUSFinalizeRequest,
-	IntermediateSolutionRequest,
 	SolutionInfo,
 	RPMSolveRequest,
-	solveSolutionsMethodRpmSolvePostResponse200,
 	RPMState,
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type { ProblemInfo, Solution } from '$lib/types';
 import type { Response, ReferencePoint, FinishResponse } from './types';
 import { errorMessage, isLoading } from '../../../stores/uiState';
 import { addProblemProblemAddPostBodyOnePreferencePreferenceTypeDefault } from '$lib/gen/endpoints/DESDEOFastAPIzod';
-
-
-export async function initializeRPMState(current_state: RPMState, problem: ProblemInfo, session_id: number | null, preference: ReferencePoint) {
-
-	const request: RPMSolveRequest = {
-		problem_id: problem.id,
-		session_id: session_id,
-		parent_state_id: current_state.id ?? undefined,
-		preference: preference,
-	}
-
-	return await solveSolutionsMethodRpmSolvePost(request);
-}
-
-export async function handle_rpm_intermediate() {
-
-}
 
 /** Convert a Solution (SolutionReferenceResponse) to a SolutionInfo for API requests. */
 function toSolutionInfo(solution: Solution, name?: string | null): SolutionInfo {
@@ -58,86 +33,26 @@ function toSolutionInfo(solution: Solution, name?: string | null): SolutionInfo 
 }
 
 /**
- * Handles the generation of intermediate solutions between two selected reference solutions.
- */
-export async function handle_intermediate(
-	problem: ProblemInfo | null,
-	selected_solutions: Solution[],
-	num_desired: number
-): Promise<Response | null> {
-	if (!problem) {
-		errorMessage.set('No problem selected');
-		console.error('No problem selected');
-		return null;
-	}
-	if (selected_solutions.length !== 2) {
-		errorMessage.set('Exactly 2 solutions must be selected for intermediate solutions');
-		console.error('Exactly 2 solutions must be selected for intermediate solutions');
-		return null;
-	}
-
-	isLoading.set(true);
-	errorMessage.set(null);
-
-	try {
-		const request: IntermediateSolutionRequest = {
-			problem_id: problem.id,
-			reference_solution_1: toSolutionInfo(selected_solutions[0]),
-			reference_solution_2: toSolutionInfo(selected_solutions[1]),
-			num_desired: num_desired
-		};
-
-		const response = await solveNimbusIntermediateMethodNimbusIntermediatePost(request);
-
-		if (response.status !== 200) {
-			errorMessage.set(`Intermediate solutions failed with status ${response.status}`);
-			console.error('NIMBUS intermediate failed:', response.status);
-			return null;
-		}
-
-		return response.data as unknown as Response;
-	} catch (error) {
-		const msg = error instanceof Error ? error.message : 'Unknown error';
-		errorMessage.set(msg);
-		console.error('Error in handle_intermediate:', msg);
-		return null;
-	} finally {
-		isLoading.set(false);
-	}
-}
-
-/**
  * Handles a NIMBUS iteration based on user-defined preferences and classifications.
  */
 export async function handle_iterate(
 	problem: ProblemInfo,
-	current_preference: number[],
-	selected_iteration_objectives: Record<string, number>,
-	current_num_iteration_solutions: number
+	session_id: number | null,
+	parent_state_id: number | null,
+	preference: ReferencePoint
 ): Promise<Response | null> {
 	isLoading.set(true);
 	errorMessage.set(null);
 
 	try {
-		const preference: ReferencePoint = {
-			preference_type: 'reference_point',
-			aspiration_levels: problem.objectives.reduce(
-				(acc, obj, idx) => {
-					acc[obj.symbol] = current_preference[idx];
-					return acc;
-				},
-				{} as Record<string, number>
-			)
-		};
-
-		const request: NIMBUSClassificationRequest = {
+		const request: RPMSolveRequest = {
 			problem_id: problem.id,
-			current_objectives: selected_iteration_objectives,
-			num_desired: current_num_iteration_solutions,
-			preference: preference
+			session_id: session_id,
+			parent_state_id: parent_state_id ?? undefined,
+			preference: preference,
 		};
 
-		const response = await solveSolutionsMethodNimbusSolvePost(request);
+		const response = await solveSolutionsMethodRpmSolvePost(request);
 
 		if (response.status !== 200) {
 			errorMessage.set(`Iteration failed with status ${response.status}`);
@@ -282,75 +197,27 @@ export async function handle_finish(
 	}
 }
 
+
 /**
- * Fetches map data related to a specific solution for UTOPIA visualization.
+ * Initializes a new RPM state for a given problem, or retrieves the latest one.
  */
-export async function get_maps(
-	problem: ProblemInfo,
-	solution: Solution
-): Promise<{
-	years: string[];
-	options: Record<string, any>;
-	map_json: object;
-	map_name: string;
-	description: string;
-	compensation: number;
-} | null> {
+export async function initialize_rpm_state(problem: ProblemInfo, session_id: number | null, parent_state_id: number | null, preference: ReferencePoint): Promise<Response | null> {
 	isLoading.set(true);
 	errorMessage.set(null);
 
 	try {
-		const response = await getUtopiaDataUtopiaPost({
+		const request: RPMSolveRequest = {
 			problem_id: problem.id,
-			solution: toSolutionInfo(solution)
-		});
-
-		if (response.status !== 200) {
-			errorMessage.set(`Get maps failed with status ${response.status}`);
-			console.error('NIMBUS get maps failed:', response.status);
-			return null;
+			session_id: session_id,
+			parent_state_id: parent_state_id ?? undefined,
+			preference: preference,
 		}
 
-		const result = response.data as any;
-
-		if (result) {
-			for (const year of result.years) {
-				if (result.options[year].tooltip.formatterEnabled) {
-					result.options[year].tooltip.formatter = function (params: any) {
-						return `${params.name}`;
-					};
-				}
-			}
-		}
-
-		return result;
-	} catch (error) {
-		const msg = error instanceof Error ? error.message : 'Unknown error';
-		errorMessage.set(msg);
-		console.error('Error in get_maps:', msg);
-		return null;
-	} finally {
-		isLoading.set(false);
-	}
-}
-
-/**
- * Initializes a new NIMBUS state for a given problem, or retrieves the latest one.
- */
-export async function initialize_nimbus_state(problem_id: number): Promise<Response | null> {
-	isLoading.set(true);
-	errorMessage.set(null);
-
-	try {
-		const request: NIMBUSInitializationRequest = {
-			problem_id: problem_id
-		};
-
-		const response = await getOrInitializeMethodNimbusGetOrInitializePost(request);
+		const response = await solveSolutionsMethodRpmSolvePost(request);
 
 		if (response.status !== 200) {
 			errorMessage.set(`Initialization failed with status ${response.status}`);
-			console.error('NIMBUS initialization failed:', response.status);
+			console.error('RPM initialization failed:', response.status);
 			return null;
 		}
 
@@ -358,7 +225,7 @@ export async function initialize_nimbus_state(problem_id: number): Promise<Respo
 	} catch (error) {
 		const msg = error instanceof Error ? error.message : 'Unknown error';
 		errorMessage.set(msg);
-		console.error('Error in initialize_nimbus_state:', msg);
+		console.error('Error in initialize_rpm_state:', msg);
 		return null;
 	} finally {
 		isLoading.set(false);

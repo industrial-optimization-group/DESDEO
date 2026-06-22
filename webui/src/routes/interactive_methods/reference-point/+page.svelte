@@ -191,44 +191,13 @@
 	}
 
 	import {
-		handle_intermediate as handleIntermediateRequest,
 		handle_iterate as handleIterateRequest,
 		handle_save as handleSaveRequest,
 		handle_remove_saved as handleRemoveSavedRequest,
 		handle_finish as handleFinishRequest,
-		get_maps as getMapsRequest,
-		initialize_nimbus_state as initializeNimbusStateRequest,
-		initializeRPMState,
-		handle_rpm_intermediate,
+		initialize_rpm_state as initializeRPMState,
 	} from './handlers';
 	import EndStateView from '../GNIMBUS/components/EndStateView.svelte';
-
-	// Handle intermediate solutions generation
-	async function handle_intermediate() {
-		const result = await handleIntermediateRequest(
-			problem,
-			selected_solutions_for_intermediate,
-			current_num_intermediate_solutions
-		);
-
-		if (result) {
-			// Update the current state with the intermediate solutions response
-			current_state = result;
-
-			// Update names from saved solutions (only for all_solutions, current_solutions are new)
-			current_state.all_solutions = updateSolutionNames(
-				current_state.saved_solutions,
-				current_state.all_solutions
-			);
-
-			// Switch back to iterate mode after generating intermediate solutions
-			mode = 'iterate';
-			// Select the first solution by default
-			selected_iteration_index = [0];
-			// Switch to current solutions view and update UI
-			change_solution_type_updating_selections('current');
-		}
-	}
 
 	function handle_change(solution: Solution): void {
 		openInputDialog({
@@ -340,9 +309,8 @@
 
 		const result = await handleIterateRequest(
 			problem,
-			current_preference,
-			selected_iteration_objectives,
-			current_num_iteration_solutions
+			current_state.state_id,
+			null,
 		);
 
 		if (result) {
@@ -362,71 +330,6 @@
 			current_num_iteration_solutions = current_state.current_solutions.length;
 		}
 	}
-
-	// Fetch maps data for UTOPIA visualization for one solution
-	async function get_maps(solution: Solution, solutionIndex: number) {
-		if (!problem) {
-			console.error('No problem selected');
-			return;
-		}
-
-		try {
-			const data = await getMapsRequest(problem, solution);
-
-			if (data) {
-				// Create new map state for this solution
-				const newMapState: MapState = {
-					mapOptions: {
-						period1: {},
-						period2: {},
-						period3: {}
-					},
-					yearlist: data.years,
-					selectedPeriod: 'period1' as PeriodKey,
-					geoJSON: data.map_json,
-					mapName: data.map_name,
-					mapDescription: data.description
-				};
-
-				// Apply the formatter function client-side if needed
-				for (let year of newMapState.yearlist) {
-					if (data.options[year]?.tooltip?.formatterEnabled) {
-						data.options[year].tooltip.formatter = function (params: any) {
-							return `${params.name}`;
-						};
-					}
-				}
-
-				// Assign map options for each period
-				newMapState.mapOptions = {
-					period1: data.options[newMapState.yearlist[0]] || {},
-					period2: data.options[newMapState.yearlist[1]] || {},
-					period3: data.options[newMapState.yearlist[2]] || {}
-				} as Record<PeriodKey, Record<string, any>>;
-
-				// Store the map state at the correct index
-				mapStates[solutionIndex] = newMapState;
-				if (solutionIndex === selected_iteration_index[0]) {
-					mapState = { ...newMapState };
-				}
-			}
-		} catch (error) {
-			console.error(`Failed to get maps for solution ${solutionIndex}:`, error);
-		}
-	}
-
-	// Pre-fetch maps for all solutions when chosen_solutions changes
-	$effect(() => {
-		if (hasUtopiaMetadata && chosen_solutions.length > 0) {
-			// Initialize mapStates array with the correct length
-			mapStates = new Array(chosen_solutions.length);
-
-			// Fetch maps for each solution without waiting
-			chosen_solutions.forEach((solution, index) => {
-				get_maps(solution, index);
-			});
-		}
-	});
 
 	// Helper function to update current iteration objectives from the current state
 	function update_iteration_selection(state: Response | null) {
@@ -493,16 +396,17 @@
 				// Using the imported utility function
 				hasUtopiaMetadata = checkUtopiaMetadata(problem);
 
+				let preference: ReferencePoint = {};
 				// Initialize NIMBUS state from the API
-				await initialize_nimbus_state(problem.id);
+				await initialize_rpm_state(problem, preference);
 
 			}
 		}
 	});
 
 	// Initialize NIMBUS state by calling the API endpoint
-	async function initialize_nimbus_state(problem_id: number) {
-		const result = await initializeNimbusStateRequest(problem_id);
+	async function initialize_rpm_state(problem: ProblemInfo, preference: ReferencePoint) {
+		const result = await initializeRPMState(problem, null, null, null);
 		if (result) {
 			// Store response data
 			let current_solutions = result.current_solutions || [];
@@ -661,7 +565,7 @@
 					onIterate={handle_iterate}
 					isFinishButton={false}
 				/>
-			{:else if problem && mode === 'intermediate'}
+			<!-- {:else if problem && mode === 'intermediate'}
 				<div class="flex flex-col">
 					<IntermediateSidebar
 						currentSolutions={selected_solutions_for_intermediate}
@@ -670,7 +574,7 @@
 						maxNumSolutions={4}
 						onClick={handle_intermediate}
 					/>
-				</div>
+				</div> -->
 			{/if}
 		{/snippet}
 
