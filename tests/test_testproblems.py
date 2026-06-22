@@ -688,21 +688,16 @@ def test_water_management():
     problem = water_management()
     evaluator = PolarsEvaluator(problem)
 
+    # Representative solutions from Table III of Ray, Tai & Seow (2001). The table values are
+    # rounded to 5-6 significant figures, so a loose relative tolerance is used. The table also
+    # contains scattered obvious factor of 10 typos in the f_3 and f_4 columns. These entries have been
+    # multiplied by 10 here to match the published formulae (see this row's f_3/f_4 noted below).
     expected_result = np.array(
         [
-            [75543.405952, 393.6, 268796.7764975157, 297551.09520674264, 5183.607058153383],
-            [66023.1, 1099.03, 797974, 335489, 3141.07],
-            [66456.1, 1333.30, 474106, 603903, 6159.86],
-            [70633.7, 1349.74, 196507, 669173, 965.80],
-        ]
-    )
-
-    expected_result = np.array(
-        [
-            [75543.405952, 393.6, 268796.7764975157, 297551.09520674264, 5183.607058153383],
-            [66210.8016, 1098.90000, 79897.1310, 3351475.44, 3141.82839],
-            [66467.0745, 1333.20000, 47367.5848, 6044632.45, 6168.56142],
-            [70631.508932, 1349.7, 196033.3178915, 669319.1213215, 964.44965837],
+            [75550.6, 393.59, 2688570, 297434, 5188.67],  # f_3 x10
+            [66203.1, 1099.03, 797974, 3354890, 3141.07],  # f_4 x10
+            [66465.1, 1333.30, 474106, 6039030, 6159.86],  # f_4 x10
+            [70633.7, 1349.74, 1960570, 669173, 965.80],  # f_3 x10
         ]
     )
 
@@ -716,4 +711,4 @@ def test_water_management():
 
     for i in range(len(res)):
         obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
-        assert np.allclose(obj_values, expected_result[i])
+        assert np.allclose(obj_values, expected_result[i], rtol=2e-2)
