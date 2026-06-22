@@ -35,8 +35,7 @@
 	} from './helper-functions';
 
 	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
-	import type { Response, MapState } from './types';
-
+import type { Response, MapState, ReferencePoint } from './types';
 	// State for iteration management
 	let current_state: Response = $state({} as Response);
 
@@ -120,6 +119,16 @@
 		// Use the imported utility function to validate if iteration is allowed
 		return validateIterationAllowed(problem, current_preference, selected_iteration_objectives);
 	});
+
+	function buildReferencePoint(problem: ProblemInfo, preferenceValues: number[]): ReferencePoint {
+		return {
+			preference_type: 'reference_point',
+			aspiration_levels: problem.objectives.reduce((acc, obj, idx) => {
+				acc[obj.symbol] = preferenceValues[idx] ?? obj.ideal ?? 0;
+				return acc;
+			}, {} as Record<string, number>)
+		};
+	}
 
 	function handle_type_solutions_change(event: { value: string }) {
 		change_solution_type_updating_selections(event.value as SolutionType);
@@ -307,10 +316,12 @@
 			return;
 		}
 
+		const preference = buildReferencePoint(problem, current_preference);
 		const result = await handleIterateRequest(
 			problem,
 			current_state.state_id,
 			null,
+			preference
 		);
 
 		if (result) {
@@ -356,7 +367,7 @@
 	// Helper function to initialize preferences from previous state or ideal values
 	function update_preferences_from_state(state: Response | null) {
 		if (!problem) return;
-		current_preference = updatePreferencesFromState(state, problem);
+		current_preference = updatePreferencesFromState(state as any, problem);
 		last_iterated_preference = [...current_preference];
 	}
 
@@ -392,13 +403,12 @@
 			);
 
 			if (problem) {
-				// Check if problem has utopia metadata (this only needs to be done once)
+						// Check if problem has utopia metadata (this only needs to be done once)
 				// Using the imported utility function
 				hasUtopiaMetadata = checkUtopiaMetadata(problem);
 
-				let preference: ReferencePoint = {};
-				// Initialize NIMBUS state from the API
-				await initialize_rpm_state(problem, preference);
+				const initialPreference = buildReferencePoint(problem, current_preference);
+				await initialize_rpm_state(problem, initialPreference);
 
 			}
 		}
@@ -406,7 +416,7 @@
 
 	// Initialize NIMBUS state by calling the API endpoint
 	async function initialize_rpm_state(problem: ProblemInfo, preference: ReferencePoint) {
-		const result = await initializeRPMState(problem, null, null, null);
+		const result = await initializeRPMState(problem, null, null, preference);
 		if (result) {
 			// Store response data
 			let current_solutions = result.current_solutions || [];
