@@ -133,6 +133,7 @@
 		update_iteration_selection(current_state);
 		update_intermediate_selection(current_state);
 	}
+
 	function handle_solution_click(index: number) {
 		if (mode === 'iterate') {
 			if (selected_iteration_index[0] === index) {

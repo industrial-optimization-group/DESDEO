@@ -7,7 +7,8 @@ import {
 	saveMethodNimbusSavePost,
 	deleteSaveMethodNimbusDeleteSavePost,
 	finalizeNimbusMethodNimbusFinalizePost,
-	solveSolutionsMethodRpmSolvePost
+	solveSolutionsMethodRpmSolvePost,
+	getUtopiaDataUtopiaPost,
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type {
 	NIMBUSSaveRequest,
@@ -27,45 +28,6 @@ function toSolutionInfo(solution: Solution, name?: string | null): SolutionInfo 
 		solution_index: solution.solution_index ?? 0,
 		name: name ?? solution.name
 	};
-}
-
-/**
- * Handles a Reference Point iteration based on user-defined preferences.
- */
-export async function handle_iterate(
-	problem: ProblemInfo,
-	session_id: number | null,
-	parent_state_id: number | null,
-	preference: ReferencePoint
-): Promise<Response | null> {
-	isLoading.set(true);
-	errorMessage.set(null);
-
-	try {
-		const request: RPMSolveRequest = {
-			problem_id: problem.id,
-			session_id: session_id,
-			parent_state_id: parent_state_id ?? undefined,
-			preference: preference,
-		};
-
-		const response = await solveSolutionsMethodRpmSolvePost(request);
-
-		if (response.status !== 200) {
-			errorMessage.set(`Iteration failed with status ${response.status}`);
-			console.error('NIMBUS iterate failed:', response.status);
-			return null;
-		}
-
-		return response.data as unknown as Response;
-	} catch (error) {
-		const msg = error instanceof Error ? error.message : 'Unknown error';
-		errorMessage.set(msg);
-		console.error('Error in handle_iterate:', msg);
-		return null;
-	} finally {
-		isLoading.set(false);
-	}
 }
 
 /**
@@ -95,7 +57,7 @@ export async function handle_save(
 
 		if (response.status !== 200) {
 			errorMessage.set(`Save failed with status ${response.status}`);
-			console.error('NIMBUS save failed:', response.status);
+			console.error('Reference Point Method save failed:', response.status);
 			return false;
 		}
 
@@ -137,7 +99,7 @@ export async function handle_remove_saved(
 
 		if (response.status !== 200) {
 			errorMessage.set(`Delete save failed with status ${response.status}`);
-			console.error('NIMBUS delete save failed:', response.status);
+			console.error('Reference Point Method delete save failed:', response.status);
 			return false;
 		}
 
@@ -193,6 +155,44 @@ export async function handle_finish(
 	}
 }
 
+/**
+ * Handles a Reference Point iteration based on user-defined preferences.
+ */
+export async function handle_iterate(
+	problem: ProblemInfo,
+	session_id: number | null,
+	parent_state_id: number | null,
+	preference: ReferencePoint
+): Promise<Response | null> {
+	isLoading.set(true);
+	errorMessage.set(null);
+
+	try {
+		const request: RPMSolveRequest = {
+			problem_id: problem.id,
+			session_id: session_id,
+			parent_state_id: parent_state_id ?? undefined,
+			preference: preference,
+		};
+
+		const response = await solveSolutionsMethodRpmSolvePost(request);
+
+		if (response.status !== 200) {
+			errorMessage.set(`Iteration failed with status ${response.status}`);
+			console.error('RPM iterate failed:', response.status);
+			return null;
+		}
+
+		return response.data as unknown as Response;
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : 'Unknown error';
+		errorMessage.set(msg);
+		console.error('Error in handle_iterate:', msg);
+		return null;
+	} finally {
+		isLoading.set(false);
+	}
+}
 
 /**
  * Initializes a new RPM state for a given problem, or retrieves the latest one.
@@ -222,6 +222,55 @@ export async function initialize_rpm_state(problem: ProblemInfo, session_id: num
 		const msg = error instanceof Error ? error.message : 'Unknown error';
 		errorMessage.set(msg);
 		console.error('Error in initialize_rpm_state:', msg);
+		return null;
+	} finally {
+		isLoading.set(false);
+	}
+}
+
+export async function get_maps(
+	problem: ProblemInfo,
+	solution: Solution
+): Promise<{
+	years: string[];
+	options: Record<string, any>;
+	map_json: object;
+	map_name: string;
+	description: string;
+	compensation: number;
+} | null> {
+	isLoading.set(true);
+	errorMessage.set(null);
+
+	try {
+		const response = await getUtopiaDataUtopiaPost({
+			problem_id: problem.id,
+			solution: toSolutionInfo(solution)
+		});
+
+		if (response.status !== 200) {
+			errorMessage.set(`Get maps failed with status ${response.status}`);
+			console.error('NIMBUS get maps failed:', response.status);
+			return null;
+		}
+
+		const result = response.data as any;
+
+		if (result) {
+			for (const year of result.years) {
+				if (result.options[year].tooltip.formatterEnabled) {
+					result.options[year].tooltip.formatter = function (params: any) {
+						return `${params.name}`;
+					};
+				}
+			}
+		}
+
+		return result;
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : 'Unknown error';
+		errorMessage.set(msg);
+		console.error('Error in get_maps:', msg);
 		return null;
 	} finally {
 		isLoading.set(false);
