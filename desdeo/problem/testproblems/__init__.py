@@ -56,11 +56,13 @@ __all__ = [  # noqa: RUF022
     "summer_cabin_battery_problem_split",
     "summer_cabin_battery_problem_split_scenario",
     "water_management",
+    "car_side_impact",
 ]
 
 
 from .binh_and_korn_problem import binh_and_korn
 from .cake_problem import best_cake_problem
+from .car_side_impact_problem import car_side_impact
 from .dmitry_forest_problem_discrete import dmitry_forest_problem_disc
 from .dtlz_problems import dtlz1, dtlz2, dtlz4
 from .forest_problem import forest_problem, forest_problem_discrete

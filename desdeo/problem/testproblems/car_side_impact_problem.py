@@ -108,21 +108,19 @@ def car_side_impact(three_obj: bool = True) -> Problem:
         Jain, H. & Deb, K. (2014). An Evolutionary Many-Objective Optimization Algorithm
         Using Reference-Point Based Nondominated Sorting Approach, Part II: Handling Constraints
         and Extending to an Adaptive Approach. IEEE transactions on evolutionary computation,
-        18(4), 602-622. https://doi.org/10.1109/TEVC.2013.2281534
+        18(4), 602-622.
 
         Optional fourth objective from:
 
         Tanabe, R. & Ishibuchi, H. (2020). An easy-to-use real-world
         multi-objective optimization problem suite.
         Applied soft computing, 89, 106078.
-        https://doi.org/10.1016/j.asoc.2020.106078
 
         Variable names from:
 
         Deb, K., Gupta, S., Daum, D., Branke, J., Mall, A. & Padmanabhan, D. (2009).
         Reliability-Based Optimization Using Evolutionary Algorithms.
         IEEE transactions on evolutionary computation, 13(5), 1054-1074.
-        https://doi.org/10.1109/TEVC.2009.2014361
     """
     x_1 = Variable(
         name="x_1",
