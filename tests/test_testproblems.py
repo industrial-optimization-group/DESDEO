@@ -7,8 +7,12 @@ import pytest
 from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem import PolarsEvaluator, PyomoEvaluator
 from desdeo.problem.testproblems import (
+    binh_and_korn,
+    dtlz1,
     dtlz2,
+    dtlz4,
     forest_problem,
+    lame_superspheres,
     mcwb_equilateral_tbeam_problem,
     mcwb_hollow_rectangular_problem,
     mcwb_ragsdell1976_problem,
@@ -19,10 +23,38 @@ from desdeo.problem.testproblems import (
     re22,
     re23,
     re24,
+    river_pollution_problem,
     river_pollution_scenario,
     spanish_sustainability_problem,
+    water_management,
+    zdt1,
+    zdt2,
+    zdt3,
+    zdt4,
+    zdt6,
 )
 from desdeo.tools import GurobipySolver, payoff_table_method
+
+
+@pytest.mark.testproblem
+def test_dtlz1():
+    """Test that the DTLZ1 problem initializes and evaluates correcly."""
+    test_variables = [3, 5, 10, 50]
+    test_objectives = [2, 4, 5, 7]
+
+    for n_variables, n_objectives in zip(test_variables, test_objectives, strict=True):
+        problem = dtlz1(n_variables, n_objectives)
+
+        assert len(problem.variables) == n_variables
+        assert len(problem.objectives) == n_objectives
+
+        xs = {f"{var.symbol}": [0.5] for var in problem.variables}
+
+        evaluator = PolarsEvaluator(problem)
+
+        res = evaluator.evaluate(xs)
+
+        assert np.isclose(sum(res[obj.symbol][0] for obj in problem.objectives), 0.5)
 
 
 @pytest.mark.testproblem
@@ -49,7 +81,92 @@ def test_dtlz2():
 
     xs = {f"{var.symbol}": [0.55] for var in problem.variables}
 
+    evaluator = PolarsEvaluator(problem)
+
+    res = evaluator.evaluate(xs)
+
     assert sum(res[obj.symbol][0] ** 2 for obj in problem.objectives) != 1.0
+
+
+@pytest.mark.testproblem
+def test_dtlz4():
+    """Test that the DTLZ4 problem initializes and evaluates correctly."""
+    test_variables = [3, 5, 10, 50]
+    test_objectives = [2, 4, 5, 7]
+
+    for n_variables, n_objectives in zip(test_variables, test_objectives, strict=True):
+        problem = dtlz4(n_variables=n_variables, n_objectives=n_objectives)
+
+        assert len(problem.variables) == n_variables
+        assert len(problem.objectives) == n_objectives
+
+        xs = {f"{var.symbol}": [0.5] for var in problem.variables}
+
+        evaluator = PolarsEvaluator(problem)
+
+        res = evaluator.evaluate(xs)
+
+        assert np.isclose(sum(res[obj.symbol][0] ** 2 for obj in problem.objectives), 1.0)
+
+    n_variables = 5
+    n_objectives = 3
+    problem = dtlz4(n_variables, n_objectives)
+
+    xs = {f"{var.symbol}": [0.55] for var in problem.variables}
+
+    evaluator = PolarsEvaluator(problem)
+
+    res = evaluator.evaluate(xs)
+
+    f1 = res["f_1"]
+    assert np.isclose(f1, 1.0075)
+
+
+@pytest.mark.testproblem
+@pytest.mark.parametrize("gamma", [0.5, 1.0, 2.0, 3.0])
+@pytest.mark.parametrize(("n_variables", "n_objectives"), [(2, 2), (5, 3), (7, 4)])
+def test_lame_superspheres(gamma, n_variables, n_objectives):
+    """Test that the Lamé superspheres problem matches the supersphere geometry.
+
+    For any decision vector, the objectives must lie on a Lamé supersphere of
+    radius (1 + g(x)), i.e. sum_i f_i**gamma == (1 + g(x))**gamma (Emmerich &
+    Deutz, 2007, Eqs. 8 and 13). The Pareto front is the g(x) == 0 case.
+    """
+    problem = lame_superspheres(
+        n_variables=n_variables,
+        n_objectives=n_objectives,
+        gamma=gamma,
+    )
+
+    assert len(problem.variables) == n_variables
+    assert len(problem.objectives) == n_objectives
+
+    rng = np.random.default_rng(42)
+    n_samples = 16
+    xs = {f"x_{i}": rng.random(n_samples).tolist() for i in range(1, n_variables + 1)}
+
+    evaluator = PolarsEvaluator(problem)
+    res = evaluator.evaluate(xs)
+
+    objs = np.array([res[f"f_{m}"].to_numpy() for m in range(1, n_objectives + 1)])
+    g = res["g"].to_numpy()
+
+    assert np.all(np.isfinite(objs))
+
+    # Every evaluated point must lie on the supersphere of radius (1 + g(x)).
+    lhs = np.sum(objs**gamma, axis=0)
+    rhs = (1.0 + g) ** gamma
+    assert np.allclose(lhs, rhs)
+
+
+@pytest.mark.testproblem
+def test_lame_superspheres_invalid_arguments():
+    """Test that invalid objective/variable counts are rejected."""
+    with pytest.raises(ValueError, match="n_objectives must be at least 2"):
+        lame_superspheres(n_variables=2, n_objectives=1)
+
+    with pytest.raises(ValueError, match="n_variables must be greater than or equal"):
+        lame_superspheres(n_variables=2, n_objectives=3)
 
 
 @pytest.mark.testproblem
@@ -352,6 +469,7 @@ def test_solve_spanish_sustainability_problem():
             npt.assert_array_less(res[i].constraint_values[con.symbol], 1e-5)
 
 
+@pytest.mark.testproblem
 def test_river_scenario():
     """Test that the scenario-based river pollution problem works."""
     model = river_pollution_scenario()
@@ -359,7 +477,8 @@ def test_river_scenario():
     assert len(model.scenario_tree["ROOT"]) == 6
 
     for i in range(6):
-        problem_scenario = model.get_scenario_problem(f"scenario_{i+1}")
+        problem_scenario = model.get_scenario_problem(f"scenario_{i + 1}")
+        problem_scenario = model.get_scenario_problem(f"scenario_{i + 1}")
         assert len(problem_scenario.objectives) == 4
 
     problem_scenario_2 = model.get_scenario_problem("scenario_2")
@@ -370,6 +489,7 @@ def test_river_scenario():
     assert len(nadir_2) == 4
 
 
+@pytest.mark.testproblem
 def test_mcwb_solid_rectangular_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
     problem = mcwb_solid_rectangular_problem()
@@ -385,6 +505,7 @@ def test_mcwb_solid_rectangular_problem():
     assert np.isclose(f2, 0.0000012)
 
 
+@pytest.mark.testproblem
 def test_mcwb_hollow_rectangular_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
     problem = mcwb_hollow_rectangular_problem()
@@ -400,6 +521,7 @@ def test_mcwb_hollow_rectangular_problem():
     assert np.isclose(f2, float("inf"))
 
 
+@pytest.mark.testproblem
 def test_mcwb_equilateral_tbeam_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
     problem = mcwb_equilateral_tbeam_problem()
@@ -415,6 +537,7 @@ def test_mcwb_equilateral_tbeam_problem():
     assert np.isclose(f2, 1.2e-6, rtol=1e-9)
 
 
+@pytest.mark.testproblem
 def test_mcwb_square_channel_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
     problem = mcwb_square_channel_problem()
@@ -430,6 +553,7 @@ def test_mcwb_square_channel_problem():
     assert np.isclose(f2, 1.2e-6, rtol=1e-9)
 
 
+@pytest.mark.testproblem
 def test_mcwb_tapered_channel_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
     problem = mcwb_tapered_channel_problem()
@@ -445,6 +569,7 @@ def test_mcwb_tapered_channel_problem():
     assert np.isnan(f2)
 
 
+@pytest.mark.testproblem
 def test_mcwb_ragsdell1976_problem():
     """Test that the MCWB problem initializes and evaluates correctly."""
     problem = mcwb_ragsdell1976_problem()
@@ -458,3 +583,180 @@ def test_mcwb_ragsdell1976_problem():
     # these are the values we are getting now, are they even correct?
     assert np.isclose(f1, 0.02511625)
     assert np.isclose(f2, 1.2e-06, rtol=1e-3, atol=1e-9)
+
+
+@pytest.mark.testproblem
+def test_zdt4():
+    """Test that ZDT4 problem evaluates correctly."""
+    n = 4
+    val = [0.5, 0, 0, 0]
+    problem = zdt4(n)
+
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{problem.variables[i].symbol}": [val[i]] for i in range(n)}
+
+    res = evaluator.evaluate(xs)
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    g = res["g"][0]
+    h = res["h"][0]
+
+    assert np.allclose(f1, 0.5)
+    assert np.allclose(f2, 0.292893218)
+    assert np.allclose(g, 1.0)
+    assert np.allclose(h, 0.292893218)
+
+
+@pytest.mark.testproblem
+def test_river_pollution_problem():
+    """Test that the river pollution problem initializes and evaluates correctly."""
+    problem = river_pollution_problem()
+    evaluator = PolarsEvaluator(problem)
+    xs = {"x_1": [0.3, 0.4, 1], "x_2": [0.3, 0.5, 1]}
+    expected_result = np.array(
+        [
+            [4.751, 2.853461, 7.5, 0, 0.35],
+            [4.978, 2.893287, 7.446559, -0.182857, 0.25],
+            [6.34, 3.444871, 0.321111, -9.70, 0.35],
+        ]
+    )
+
+    res = evaluator.evaluate(xs)
+
+    for i in range(len(res)):
+        obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
+        assert np.allclose(obj_values, expected_result[i], rtol=1e-3, atol=1e-6)
+
+
+@pytest.mark.testproblem
+def test_zdt1():
+    """Test that ZDT1 problem evaluates correctly."""
+    n = 3
+    val = 0.5
+    problem = zdt1(n)
+
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [val] for var in problem.variables}
+
+    res = evaluator.evaluate(xs)
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    g = res["g"][0]
+    h = res["h"][0]
+
+    assert np.isclose(f1, 0.5)
+    assert np.isclose(f2, 3.8416876048223)
+    assert np.isclose(g, 5.5)
+    assert np.isclose(h, 0.6984886554222364)
+
+
+@pytest.mark.testproblem
+def test_binh_and_korn_problem():
+    """Test that the Binh and Korn problem initializes and evaluates correctly."""
+    problem = binh_and_korn()
+    evaluator = PolarsEvaluator(problem)
+
+    xs = {"x_1": [0, 2.5, 5], "x_2": [0, 1.5, 3]}
+    expected_result = np.array([[0, 50], [34, 18.5], [136, 4]])
+
+    res = evaluator.evaluate(xs)
+
+    for i in range(len(res)):
+        obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
+        assert np.allclose(obj_values, expected_result[i])
+
+
+@pytest.mark.testproblem
+def test_zdt2():
+    """Test that ZDT2 problem evaluates correctly."""
+    n = 3
+    val = 0.5
+    problem = zdt2(n)
+
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [val] for var in problem.variables}
+
+    res = evaluator.evaluate(xs)
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    g = res["g"][0]
+    h = res["h"][0]
+
+    assert np.isclose(f1, 0.5)
+    assert np.isclose(f2, 5.454545454545455)
+    assert np.isclose(g, 5.5)
+    assert np.isclose(h, 0.9917355371900827)
+
+
+@pytest.mark.testproblem
+def test_zdt3():
+    """Test that ZDT3 problem evaluates correctly."""
+    n = 2
+    val = 0.5
+    problem = zdt3(n)
+
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [val] for var in problem.variables}
+
+    res = evaluator.evaluate(xs)
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    g = res["g"][0]
+    h = res["h"][0]
+
+    assert np.isclose(f1, 0.5)
+    assert np.isclose(f2, 3.8416876048223)
+    assert np.isclose(g, 5.5)
+    assert np.isclose(h, 0.6984886554222363)
+
+
+@pytest.mark.testproblem
+def test_zdt6():
+    """Test that ZDT6 problem evaluates correctly."""
+    n = 5
+    val = 0.5
+    problem = zdt6(n)
+
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [val] for var in problem.variables}
+
+    res = evaluator.evaluate(xs)
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    g = res["g"][0]
+
+    assert np.isclose(f1, 1.0)
+    assert np.isclose(f2, 8.45135530798638410874)
+    assert np.isclose(g, 8.568067737283432)
+
+
+@pytest.mark.testproblem
+def test_water_management():
+    """Test that water management problem evaluates correctly."""
+    problem = water_management()
+    evaluator = PolarsEvaluator(problem)
+
+    # Representative solutions from Table III of Ray, Tai & Seow (2001). The table values are
+    # rounded to 5-6 significant figures, so a loose relative tolerance is used. The table also
+    # contains scattered obvious factor of 10 typos in the f_3 and f_4 columns. These entries have been
+    # multiplied by 10 here to match the published formulae (see this row's f_3/f_4 noted below).
+    expected_result = np.array(
+        [
+            [75550.6, 393.59, 2688570, 297434, 5188.67],  # f_3 x10
+            [66203.1, 1099.03, 797974, 3354890, 3141.07],  # f_4 x10
+            [66465.1, 1333.30, 474106, 6039030, 6159.86],  # f_4 x10
+            [70633.7, 1349.74, 1960570, 669173, 965.80],  # f_3 x10
+        ]
+    )
+
+    xs = {
+        "x_1": [0.1312, 0.3663, 0.4444, 0.4499],
+        "x_2": [0.0942, 0.0280, 0.0166, 0.0687],
+        "x_3": [0.0354, 0.0142, 0.0280, 0.0149],
+    }
+
+    res = evaluator.evaluate(xs)
+
+    for i in range(len(res)):
+        obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
+        assert np.allclose(obj_values, expected_result[i], rtol=2e-2)

@@ -39,7 +39,7 @@ def choose_reference_point(
             If None, a random reference point is chosen.
     """
     if evaluated_points is None or len(evaluated_points) == 0:
-        return refp_array[np.random.choice(refp_array.shape[0])], None
+        return refp_array[np.random.choice(refp_array.shape[0])], None  # noqa: NPY002
     bad_points_mask = _find_bad_RPs(refp_array, evaluated_points)
     available_points_mask = ~bad_points_mask
     solution_projections = _project(np.array([list(eval_result.targets.values()) for eval_result in evaluated_points]))
@@ -49,12 +49,15 @@ def choose_reference_point(
     ), bad_points_mask
 
 
-def _find_bad_RPs(
+def _find_bad_RPs(  # noqa: N802
     reference_points_array: np.ndarray, eval_results: list[_EvaluatedPoint], thickness: float = 0.02
 ) -> np.ndarray:
     """Find the reference points that will lead to repeated evaluations according to the ASF pruning rule."""
     mask = np.zeros(reference_points_array.shape[0], dtype=bool)
-    dict_to_numpy = lambda x: np.array(list(x.values()))
+
+    def dict_to_numpy(x):
+        return np.array(list(x.values()))
+
     for eval_result in eval_results:
         bad_indices, _, _ = find_bad_indicesREF(
             dict_to_numpy(eval_result.targets),
@@ -67,23 +70,23 @@ def _find_bad_RPs(
     return mask
 
 
-def _DSS_with_pruning(
+def _DSS_with_pruning(  # noqa: N802
     available: np.ndarray,
     taken: np.ndarray,
 ) -> int:
     """One-liner implementation of the DSS algorithm using scipy."""
-    assert len(available) > 0, "No reference points available."
+    assert len(available) > 0, "No reference points available."  # noqa: S101
 
-    assert np.allclose(
+    assert np.allclose(  # noqa: S101
         available.sum(axis=1), available.shape[1]
     ), "Reference points must lie on plane perpendicular to ideal-nadir line."
 
-    assert np.allclose(
+    assert np.allclose(  # noqa: S101
         taken.sum(axis=1), taken.shape[1]
     ), "Reference points must lie on plane perpendicular to ideal-nadir line."
 
     if taken is None or len(taken) == 0:
-        return np.random.choice(available)
+        return np.random.choice(available)  # noqa: NPY002
 
     distances = cdist(available, taken, metric="chebyshev").min(axis=1)
 
@@ -95,5 +98,4 @@ def _project(solutions):
     reference_point = np.ones(solutions.shape[1])
     normal = reference_point / np.linalg.norm(reference_point)
     perp_dist = np.atleast_2d(np.inner(solutions - reference_point, normal)).T
-    projected_points = solutions - perp_dist * normal
-    return projected_points
+    return solutions - perp_dist * normal

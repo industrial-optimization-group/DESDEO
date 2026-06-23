@@ -134,27 +134,34 @@ class BoundedPolynomialMutation(BaseMutation):
         k = self.rng.random(size=offspring.shape)
         miu = self.rng.random(size=offspring.shape)
         temp = np.logical_and((k <= self.mutation_probability), (miu < 0.5))  # noqa: PLR2004
-        offspring_scaled = (offspring - min_val) / (max_val - min_val)
-        offspring[temp] = offspring[temp] + (
-            (max_val[temp] - min_val[temp])
-            * (
-                (2 * miu[temp] + (1 - 2 * miu[temp]) * (1 - offspring_scaled[temp]) ** (self.distribution_index + 1))
-                ** (1 / (self.distribution_index + 1))
-                - 1
-            )
-        )
-        temp = np.logical_and((k <= self.mutation_probability), (miu >= 0.5))  # noqa: PLR2004
-        offspring[temp] = offspring[temp] + (
-            (max_val[temp] - min_val[temp])
-            * (
-                1
-                - (
-                    2 * (1 - miu[temp])
-                    + 2 * (miu[temp] - 0.5) * offspring_scaled[temp] ** (self.distribution_index + 1)
+        # The polynomial mutation formula can divide by zero (zero-width bounds) or raise negative
+        # scaled values to fractional powers; the offspring are clipped to the bounds afterwards, so
+        # the intermediate inf/nan is discarded. Silence the resulting benign numpy warnings.
+        with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+            offspring_scaled = (offspring - min_val) / (max_val - min_val)
+            offspring[temp] = offspring[temp] + (
+                (max_val[temp] - min_val[temp])
+                * (
+                    (
+                        2 * miu[temp]
+                        + (1 - 2 * miu[temp]) * (1 - offspring_scaled[temp]) ** (self.distribution_index + 1)
+                    )
+                    ** (1 / (self.distribution_index + 1))
+                    - 1
                 )
-                ** (1 / (self.distribution_index + 1))
             )
-        )
+            temp = np.logical_and((k <= self.mutation_probability), (miu >= 0.5))  # noqa: PLR2004
+            offspring[temp] = offspring[temp] + (
+                (max_val[temp] - min_val[temp])
+                * (
+                    1
+                    - (
+                        2 * (1 - miu[temp])
+                        + 2 * (miu[temp] - 0.5) * offspring_scaled[temp] ** (self.distribution_index + 1)
+                    )
+                    ** (1 / (self.distribution_index + 1))
+                )
+            )
         offspring[offspring > max_val] = max_val[offspring > max_val]
         offspring[offspring < min_val] = min_val[offspring < min_val]
         self.offspring = pl.from_numpy(offspring, schema=self.variable_symbols)
@@ -981,39 +988,41 @@ class SelfAdaptiveGaussianMutation(BaseMutation):
         self.tau_prime = 1 / np.sqrt(2 * self.num_vars)
         self.tau = 1 / np.sqrt(2 * np.sqrt(self.num_vars))
 
+        # Per-gene step sizes, adapted on each call and carried over across generations.
+        self.step_sizes: np.ndarray | None = None
+
     def do(
         self,
         offsprings: pl.DataFrame,
         parents: pl.DataFrame,
-        step_sizes: np.ndarray | None = None,
-    ) -> tuple[pl.DataFrame, np.ndarray]:
+    ) -> pl.DataFrame:
         """Apply self-adaptive Gaussian mutation.
+
+        The per-gene step sizes are adapted on every call and stored in `self.step_sizes`,
+        so that the adaptation carries over across generations.
 
         Args:
             offsprings (pl.DataFrame): Current offspring population.
             parents (pl.DataFrame): Parent population.
-            step_sizes (np.ndarray | None): Step sizes for each gene of each individual.
 
         Returns:
-            tuple:
-                - Mutated offspring population as a Polars DataFrame.
-                - Updated step sizes as a NumPy array.
+            pl.DataFrame: The mutated offspring population.
         """
         self.offspring_original = offsprings
         self.parents = parents
 
         offspring_array = offsprings.to_numpy(writable=True).astype(float)
 
-        if step_sizes is None:
-            step_sizes = np.full_like(offspring_array, fill_value=0.1)
+        if self.step_sizes is None or self.step_sizes.shape != offspring_array.shape:
+            self.step_sizes = np.full_like(offspring_array, fill_value=0.1)
 
-        new_offspring, new_eta = self._mutation(offspring_array, step_sizes)
+        new_offspring, self.step_sizes = self._mutation(offspring_array, self.step_sizes)
 
         mutated_df = pl.from_numpy(new_offspring, schema=self.variable_symbols).cast(pl.Float64)
         self.offspring = mutated_df
         self.notify()
 
-        return mutated_df, new_eta
+        return mutated_df
 
     def _mutation(self, variables: np.ndarray, eta: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Perform the self-adaptive mutation.

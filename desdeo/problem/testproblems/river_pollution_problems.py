@@ -39,8 +39,8 @@ def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
     `five_objective_variant = True`.
 
     Args:
-        five_objective_variant (bool, optional): Whether to use to five
-            objective function variant of the problem or not. Defaults to True.
+        five_objective_variant (bool, optional): Whether to use the five-objective
+            function variant of the problem or not. Defaults to True.
 
     Returns:
         Problem: the river pollution problem.
@@ -150,8 +150,8 @@ def river_pollution_problem_discrete(*, five_objective_variant: bool = True) -> 
     the analytical functions for the objectives.
 
     Args:
-        five_objective_variant (bool, optional): Whether to use to five
-            objective function variant of the problem or not. Defaults to True.
+        five_objective_variant (bool, optional): Whether to use the five-objective
+            function variant of the problem or not. Defaults to True.
 
     Returns:
         Problem: the river pollution problem.

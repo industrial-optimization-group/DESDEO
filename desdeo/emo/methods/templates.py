@@ -6,7 +6,6 @@ This can be used as a template for the implementation of the EMO methods.
 from collections.abc import Callable
 
 import polars as pl
-from pydantic import BaseModel, ConfigDict, Field
 
 from desdeo.emo.operators.crossover import BaseCrossover
 from desdeo.emo.operators.evaluator import EMOEvaluator

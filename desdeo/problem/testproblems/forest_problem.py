@@ -1,3 +1,5 @@
+"""Forest problem with TensorConstants and TensorVariables."""
+
 from pathlib import Path
 
 import numpy as np
@@ -89,7 +91,6 @@ def forest_problem(
         for j in range(n_schedules):
             unit = unique_units[i]
             schedule = unique_schedules[j]
-            print(f"unit {unit} schedule {schedule}")
             if selected_df.filter((pl.col("unit") == unit) & (pl.col("schedule") == schedule)).height == 0:
                 continue
             v_array[i][j] = (

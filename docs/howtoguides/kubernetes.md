@@ -15,13 +15,13 @@ Once you have your project set up, you can start adding resources to your projec
 
 ## DESDEO webapi
 
-To add a new resource i.e. piece of your web application, navigate to the `+Add` page. There, you want to choose `Import from Git` option. 
+To add a new resource i.e. piece of your web application, navigate to the `+Add` page. There, you want to choose `Import from Git` option.
 
 First, you will need to input a Github adress to the repository that contains your DESDEO webapi code, for example `https://github.com/industrial-optimization-group/DESDEO`. You are unlikely to be using the main branch of the Git for your deployment, so click `Show advanced Git options` and add the name of your desired branch under `Git reference`. You probably don't need to touch any of the other advanced options.
 
-At this point, the system should have automatically figured out that you want to host a Python application and chosen you an appropriate `Builder Image version`. But if not, you can set it up manually. 
+At this point, the system should have automatically figured out that you want to host a Python application and chosen you an appropriate `Builder Image version`. But if not, you can set it up manually.
 !!! Note
-      At the time of writing this, Rahti does not support Python versions newer than 3.9, and DESDEO2 uses Python 3.12. 
+      At the time of writing this, Rahti does not support Python versions newer than 3.9, and DESDEO2 uses Python 3.12.
 If you need to use a builder image that is not available on Rahti or need to customize the build image to add support for different solvers, for example, just use Python 3.9 to create the build configuration, and then change it later to use a [different build image](#adding-a-custom-build-image).
 
 Under the **General** section, you can choose the name of your application, which does not matter much, because it will not be visible outside the administrative interface, and the `Name` of your application component, which is kind of important, because it will be part of any URL pointing to that component. For the webapi it does not matter too much what you choose, but put some thought into what you name the webui, because your users are connecting to that part and can see the name.
@@ -67,7 +67,7 @@ GUNICORN_CMD_ARGS=--bind=0.0.0.0:8080 --workers=2 --access-logfile=- --worker-cl
 DESDEO_INSTALL=. --group web --group server
 DEBUG=false
 ```
-The first line tells that `pip` should be upgraded to the latest version. `APP_MODULE` denotes the app that [gunicorn](http://docs.gunicorn.org/en/latest/run.html#gunicorn) should run. `GUNICORN_CMD_ARGS` lists the other arguments given to gunicorn i.e. the server should be run for all ip addresses at port 8080, the number of workers should be 2 (the default is way too many), the logs should go to stdout, and most importantly, the workers-class should use uvicorn workers. The end result here is that the code in app:app will be run on a Gunicorn ASGI server using the given arguments. `DESDEO_INSTALL` is used to give additional parameters in the `pip install $DESDEO_INSTALL` command in the `asseble` script. `DESDEO_PRODUCTION` is present so that the API knows to use the correct configurations.
+The first line tells that `pip` should be upgraded to the latest version. `APP_MODULE` denotes the app that [gunicorn](https://docs.gunicorn.org/) should run. `GUNICORN_CMD_ARGS` lists the other arguments given to gunicorn i.e. the server should be run for all ip addresses at port 8080, the number of workers should be 2 (the default is way too many), the logs should go to stdout, and most importantly, the workers-class should use uvicorn workers. The end result here is that the code in app:app will be run on a Gunicorn ASGI server using the given arguments. `DESDEO_INSTALL` is used to give additional parameters in the `pip install $DESDEO_INSTALL` command in the `asseble` script. `DESDEO_PRODUCTION` is present so that the API knows to use the correct configurations.
 
 [Desdeo-webui](#desdeo-webui) has custom `assemble` and `run` scripts included. This is because [s2i-nodejs-container](https://github.com/sclorg/s2i-nodejs-container/blob/master/18/README.md) does not include as many configuration options through environment variables. The custom scripts are not very complicated however. If you need to change them, the `assemble` and `run` scripts are found in the `webui/.s2i/bin/` folder.
 

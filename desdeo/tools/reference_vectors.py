@@ -1,24 +1,9 @@
+"""Reference vector generation for decomposition-based evolutionary methods."""
+
 from itertools import combinations
 
 import numpy as np
 from scipy.special import comb
-
-
-def normalize(vectors):
-    """Normalize a set of vectors.
-
-    The length of the returned vectors will be unity.
-
-    Parameters
-    ----------
-    vectors : np.ndarray
-        Set of vectors of any length, except zero.
-
-    """
-    if len(np.asarray(vectors).shape) == 1:
-        return vectors / np.linalg.norm(vectors)
-    norm = np.linalg.norm(vectors, axis=1)
-    return vectors / norm[:, np.newaxis]
 
 
 def shear(vectors, degrees: float = 5):
@@ -52,11 +37,10 @@ def rotate(initial_vector, rotated_vector, other_vectors):
     middle_vec_norm = normalize(init_vec_norm + rot_vec_norm)
     first_reflector = init_vec_norm - middle_vec_norm
     second_reflector = middle_vec_norm - rot_vec_norm
-    Q1 = householder(first_reflector)
-    Q2 = householder(second_reflector)
+    Q1 = householder(first_reflector)  # noqa: N806
+    Q2 = householder(second_reflector)  # noqa: N806
     reflection_matrix = np.matmul(Q2, Q1)
-    rotated_vectors = np.matmul(other_vectors, np.transpose(reflection_matrix))
-    return rotated_vectors
+    return np.matmul(other_vectors, np.transpose(reflection_matrix))
 
 
 def householder(vector):
@@ -65,8 +49,7 @@ def householder(vector):
     v = vector[np.newaxis]
     denominator = np.matmul(v, v.T)
     numerator = np.matmul(v.T, v)
-    rot_mat = identity_mat - (2 * numerator / denominator)
-    return rot_mat
+    return identity_mat - (2 * numerator / denominator)
 
 
 def rotate_toward(initial_vector, final_vector, other_vectors, degrees: float = 5):
@@ -99,16 +82,15 @@ def rotate_toward(initial_vector, final_vector, other_vectors, degrees: float = 
     if phi < theta:
         return (rotate(initial_vector, final_vector, other_vectors), True)
     cos_phi_theta = np.cos(phi - theta)
-    A = np.asarray([[cos_phi, 1], [1, cos_phi]])
-    B = np.asarray([cos_phi_theta, cos_theta])
+    A = np.asarray([[cos_phi, 1], [1, cos_phi]])  # noqa: N806
+    B = np.asarray([cos_phi_theta, cos_theta])  # noqa: N806
     x = np.linalg.solve(A, B)
     rotated_vector = x[0] * initial_vector + x[1] * final_vector
     return (rotate(initial_vector, rotated_vector, other_vectors), False)
 
 
 def approx_lattice_resolution(number_of_vectors: int, num_dims: int) -> int:
-    """
-    Approximate the lattice resolution based on the number of vectors and dimensions.
+    """Approximate the lattice resolution based on the number of vectors and dimensions.
 
     Args:
         number_of_vectors (int): Desired number of reference vectors.
@@ -132,15 +114,15 @@ def approx_lattice_resolution(number_of_vectors: int, num_dims: int) -> int:
 
 def create_simplex(
     number_of_objectives: int,
-    lattice_resolution: int = None,
-    number_of_vectors: int = None,
+    lattice_resolution: int | None = None,
+    number_of_vectors: int | None = None,
 ) -> np.ndarray:
-    """
-    Create reference vectors using the simplex lattice design.
+    """Create reference vectors using the simplex lattice design.
 
     Args:
         number_of_objectives (int): Number of objectives (dimensions).
-        lattice_resolution (int, optional): Lattice resolution to use. If None, will be determined from number_of_vectors.
+        lattice_resolution (int, optional): Lattice resolution to use. If None, will be
+            determined from number_of_vectors.
         number_of_vectors (int, optional): Desired number of reference vectors. Used if lattice_resolution is None.
 
     Returns:
@@ -150,14 +132,10 @@ def create_simplex(
         ValueError: If both lattice_resolution and number_of_vectors are None.
     """
     if lattice_resolution is None and number_of_vectors is None:
-        raise ValueError(
-            "Either lattice resolution or number of vectors must be specified."
-        )
+        raise ValueError("Either lattice resolution or number of vectors must be specified.")
 
     if lattice_resolution is None:
-        lattice_resolution = approx_lattice_resolution(
-            number_of_vectors, number_of_objectives
-        )
+        lattice_resolution = approx_lattice_resolution(number_of_vectors, number_of_objectives)
 
     number_of_vectors = comb(
         lattice_resolution + number_of_objectives - 1,
@@ -179,8 +157,7 @@ def create_simplex(
 
 
 def normalize(values: np.ndarray) -> np.ndarray:
-    """
-    Normalize a set of vectors to unit length (project onto the unit hypersphere).
+    """Normalize a set of vectors to unit length (project onto the unit hypersphere).
 
     Args:
         values (np.ndarray): Array of vectors to normalize.
@@ -190,13 +167,11 @@ def normalize(values: np.ndarray) -> np.ndarray:
     """
     norm_2 = np.linalg.norm(values, axis=1).reshape(-1, 1)
     norm_2[norm_2 == 0] = np.finfo(float).eps
-    values = np.divide(values, norm_2)
-    return values
+    return np.divide(values, norm_2)
 
 
 def neighbouring_angles(values: np.ndarray) -> np.ndarray:
-    """
-    Calculate the angles to the nearest neighbor for each reference vector.
+    """Calculate the angles to the nearest neighbor for each reference vector.
 
     Args:
         values (np.ndarray): Array of normalized reference vectors.
@@ -208,13 +183,11 @@ def neighbouring_angles(values: np.ndarray) -> np.ndarray:
     cosvv.sort(axis=1)
     cosvv = np.flip(cosvv, 1)
     cosvv[cosvv > 1] = 1
-    acosvv = np.arccos(cosvv[:, 1])
-    return acosvv
+    return np.arccos(cosvv[:, 1])
 
 
 def add_edge_vectors(values: np.ndarray) -> np.ndarray:
-    """
-    Add edge (axis-aligned) vectors to the set of reference vectors.
+    """Add edge (axis-aligned) vectors to the set of reference vectors.
 
     This ensures that each axis direction is represented in the set.
 

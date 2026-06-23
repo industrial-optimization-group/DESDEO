@@ -12,7 +12,6 @@ Warning:
 """
 
 import time
-from abc import abstractmethod
 from collections.abc import Sequence
 
 from desdeo.tools.message import (
@@ -112,7 +111,7 @@ class BaseTerminator(Subscriber):
         """
         if not isinstance(message, IntMessage):
             return
-        if not (isinstance(message.topic, EvaluatorMessageTopics) or isinstance(message.topic, GeneratorMessageTopics)):
+        if not (isinstance(message.topic, (EvaluatorMessageTopics, GeneratorMessageTopics))):
             return
         if (
             message.topic == EvaluatorMessageTopics.NEW_EVALUATIONS  # NOQA: PLR1714

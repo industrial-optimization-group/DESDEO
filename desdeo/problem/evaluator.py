@@ -1,6 +1,6 @@
 """Defines a Polars-based evaluator."""
 
-from enum import Enum
+from enum import StrEnum
 
 import numpy as np
 import polars as pl
@@ -19,7 +19,7 @@ SUPPORTED_EVALUATOR_MODES = ["variables", "discrete"]
 SUPPORTED_VAR_DIMENSIONS = ["scalar", "vector"]
 
 
-class PolarsEvaluatorModesEnum(str, Enum):
+class PolarsEvaluatorModesEnum(StrEnum):
     """Defines the supported modes for the PolarsEvaluator."""
 
     variables = "variables"
@@ -45,7 +45,7 @@ class PolarsEvaluatorError(Exception):
     """Error raised when exceptions are encountered in an PolarsEvaluator."""
 
 
-class VariableDimensionEnum(str, Enum):
+class VariableDimensionEnum(StrEnum):
     """An enumerator for the possible dimensions of the variables of a problem."""
 
     scalar = "scalar"
@@ -463,7 +463,7 @@ class PolarsEvaluator:
                 # construct the tensor variable
 
                 unflattened_xs = unflattened_xs.with_columns(
-                    xs.select(pl.concat_arr(f"^{var.symbol}_.*$").alias(var.symbol).reshape((1, *var.shape)))
+                    xs.select(pl.concat_arr(f"^{var.symbol}_.*$").alias(var.symbol).reshape((-1, *var.shape)))
                 )
 
             else:

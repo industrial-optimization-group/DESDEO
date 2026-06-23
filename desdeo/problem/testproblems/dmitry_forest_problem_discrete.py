@@ -68,7 +68,10 @@ def dmitry_forest_problem_disc() -> Problem:
 
     return Problem(
         name="Dmitry Forest Problem (Discrete)",
-        description="Defines a forest problem with four objectives: revenue, habitat availability, carbon storage, and deadwood.",
+        description=(
+            "Defines a forest problem with four objectives: revenue, habitat availability, "
+            "carbon storage, and deadwood."
+        ),
         variables=variables,
         objectives=objectives,
         discrete_representation=discrete_def,

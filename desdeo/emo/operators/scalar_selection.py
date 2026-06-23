@@ -16,6 +16,7 @@ class BaseScalarSelector(Subscriber):
 
     @property
     def provided_topics(self):
+        """The message topics provided by the selection operator."""
         return {
             0: [],
             1: [],
@@ -24,6 +25,7 @@ class BaseScalarSelector(Subscriber):
 
     @property
     def interested_topics(self):
+        """The message topics that the selection operator is interested in."""
         return [
             SelectorMessageTopics.SELECTED_FITNESS,
         ]
@@ -96,6 +98,7 @@ class BaseScalarSelector(Subscriber):
             raise ValueError(f"Unknown message topic: {message.topic}")
 
     def state(self) -> Sequence[Message]:
+        """Return the state of the selection operator."""
         return []
 
 
@@ -167,7 +170,9 @@ class TournamentSelection(BaseScalarSelector):
             int: The index of the selected solution.
         """
         if self.selection_probability is None:
-            probabilities = fitness / np.sum(fitness)
+            # Fitness can sum to zero (e.g. all-zero fitness), giving 0/0; the resulting nan is acceptable.
+            with np.errstate(divide="ignore", invalid="ignore"):
+                probabilities = fitness / np.sum(fitness)
             probabilities = np.cumsum(probabilities)
         else:
             indices = indices[np.argsort(fitness)[::-1]]  # Sort indices by fitness in descending order

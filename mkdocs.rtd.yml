@@ -25,7 +25,15 @@ plugins:
           ignore_init_summary: false
   include-markdown:
   mkdocs-jupyter:
-    execute: true # KEEP otherwise as a carbon copy of mkdcos.yml
+    execute: true # RTD executes, but the cache is pre-seeded so this is ~all hits
+    cache: true
+    cache_dir: .cache/mkdocs-jupyter
+    # Only treat notebooks as notebooks. Without this, the plugin runs
+    # jupytext.read() on every .md during on_files, which hangs on RTD.
+    ignore:
+      - "*.md"
+    # execute_ignore:       # OPTIONAL safety net for a single very-heavy notebook
+    #   - "docs/howtoguides/ea.ipynb" (example, not heavy)
     include_requirejs: true
     custom_mathjax_url: "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML-full,Safe"
     remove_tag_config:

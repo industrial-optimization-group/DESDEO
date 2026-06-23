@@ -394,10 +394,7 @@ def calculate_axes_positions(
     return np.cumsum(np.append(0, axis_len))
 
 
-def score_json(
-    data: pl.DataFrame,
-    options: SCOREBandsConfig,
-) -> SCOREBandsResult:
+def score_json(data: pl.DataFrame, options: SCOREBandsConfig) -> SCOREBandsResult:
     """Generate the SCORE Bands data for a given dataset and configuration options.
 
     Args:
@@ -508,6 +505,9 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
     Returns:
         go.Figure: The SCORE bands plot.
     """
+    # some constants for the figure, can be made configurable in the future if needed
+    num_ticks = 6  # number of ticks to show on each axis
+    max_dist_percent = 0.02  # Maximum distance between equidistant tick position vs a rounded tick position.
     column_names = result.ordered_dimensions
 
     clusters = np.sort(np.unique(result.clusters))
@@ -547,18 +547,19 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
         descriptive_names = result.options.descriptive_names
     units = dict.fromkeys(column_names, "") if result.options.units is None else result.options.units
 
-    num_ticks = 6
     # Add axes
-    for i, col_name in enumerate(column_names):
+    for _, col_name in enumerate(column_names):
         # check if axis_colours is provided, otherwise use black
         current_axis_colour = "black"
         if result.options.axis_colours is not None and col_name in result.options.axis_colours:
             current_axis_colour = result.options.axis_colours[col_name]
-        label_text = np.linspace(result.options.scales[col_name][0], result.options.scales[col_name][1], num_ticks)
-        label_text = [f"{i:.5g}" for i in label_text]
-        # label_text[0] = "<<"
-        # label_text[-1] = ">>"
-        heights = np.linspace(0, 1, num_ticks)
+        # Calculate "nice" tick positions and values
+        label_text, heights = smart_axis_tick_placement(
+            axis_min=result.options.scales[col_name][0],
+            axis_max=result.options.scales[col_name][1],
+            num_ticks=num_ticks,
+            max_dist_percent=max_dist_percent,
+        )
         # Axis lines
         fig.add_scatter(
             x=[result.axis_positions[col_name]] * num_ticks,
@@ -569,12 +570,19 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
             line={"color": current_axis_colour},
             showlegend=False,
             hoverinfo="skip",
+            zorder=100,
         )
-        # Column Name
+        # Objective Name
+        name = descriptive_names[col_name]
+        splits = name.split()
+        # If the name is too long, add a line break at the second space
+        if len(splits) > 2:  # noqa: PLR2004
+            splits[2] = "<br>" + splits[2]
+        name = " ".join(splits)
         fig.add_scatter(
             x=[result.axis_positions[col_name]],
             y=[1.20],
-            text=f"{descriptive_names[col_name]}",
+            text=f"{name}",
             textfont={"size": 20},
             mode="text",
             showlegend=False,
@@ -601,7 +609,7 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
             else f"Cluster {cluster_id}"
         )
         color_bands = f"rgba({r}, {g}, {b}, {a})"
-        color_solutions = f"rgba({r}, {g}, {b}, 0.3)"
+        color_solutions = f"rgba({r}, {g}, {b}, 0.5)"
         # color_soln = f"rgba({r}, {g}, {b}, {a})"
 
         lows = [
@@ -703,7 +711,7 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
             fig.add_scatter(
                 x=x,
                 y=y,
-                line={"color": color_solutions},
+                line={"color": color_solutions, "width": 1},
                 name=f"{result.cardinalities[cluster_id]} Solutions: {current_cluster_name}",
                 mode="lines",
                 legendgroup=f"{result.cardinalities[cluster_id]} Solutions: {current_cluster_name}",
@@ -715,3 +723,54 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
     fig.update_layout(font_size=18)
     fig.update_layout(legend={"orientation": "h", "yanchor": "top"})
     return fig
+
+
+def smart_axis_tick_placement(
+    axis_min: float, axis_max: float, num_ticks: int, max_dist_percent: float
+) -> tuple[list[str], list[float]]:
+    """Calculate smart tick placement for the axes in the SCORE bands visualization."""
+    min_label_delta = 100
+    label_text = np.linspace(axis_min, axis_max, num_ticks)
+    heights = [0.0] * num_ticks
+    max_distance = (axis_max - axis_min) * max_dist_percent
+
+    # Get a range of candidate tick values around each label_text value
+    # and choose the one with the least number of significant digits
+    for j in range(len(label_text)):
+        if j == 0 or j == len(label_text) - 1:
+            # skip rounding for the first and last labels to ensure they are exactly the min and max values
+            continue
+        label_max = label_text[j] + max_distance
+        label_min = label_text[j] - max_distance
+        # Find the closest "nice" number to label_text[j] within the range [label_min, label_max]
+        # i.e., least number of significant digits
+        # while still being within the max distance from the original label text value.
+        label_delta = label_max - label_min
+        # All calculations are done in integers so we multiply the label_min and label_max by a power of 10
+        # such that the label_delta is at least 100.
+        multiplier = 1
+        while label_delta * multiplier < min_label_delta:
+            multiplier *= 10
+        label_min = label_min * multiplier
+        label_max = label_max * multiplier
+        if label_max > 0:
+            changing_point = label_max
+            stable_point = label_min
+        else:
+            changing_point = label_min
+            stable_point = label_max
+        # Remove the least significant digits until the changing_point is too far from the original label_text value
+        # then reverse one step back to get the final label value. This gives us a tick label within the max distance
+        # from the original label_text value, but with as few significant digits as possible for better readability.
+        divider = 1
+        while True:
+            divider *= 10
+            if abs(int(changing_point / divider) * divider) < abs(stable_point):
+                break
+        divider = divider / 10  # reverse one step back
+        label_text[j] = int(changing_point / divider) * divider / multiplier
+        # Get the correct height for the label_text[j] value based on the original axis_min and axis_max values
+        heights[j] = (label_text[j] - axis_min) / (axis_max - axis_min)
+    heights[-1] = 1.0  # Ensure the last label is exactly at the max scale value
+    label_text = [f"{label:.6g}" for label in label_text]
+    return label_text, heights

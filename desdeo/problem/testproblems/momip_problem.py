@@ -1,3 +1,5 @@
+"""Defines the momip test problem."""
+
 from desdeo.problem.schema import (
     Constraint,
     ConstraintTypeEnum,

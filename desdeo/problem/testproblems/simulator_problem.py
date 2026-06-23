@@ -1,3 +1,5 @@
+"""Defines a simulator-based test problem."""
+
 from pathlib import Path
 
 from desdeo.problem.schema import (
@@ -12,8 +14,9 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 
+
 def simulator_problem(file_dir: str | Path):
-    """A test problem with analytical, simulator and surrogate based objectives, constraints and extra functions.
+    """The test problem with analytical, simulator and surrogate based objectives, constraints and extra functions.
 
     The problem uses two different simulator files. There are also objectives, constraints and extra fucntions that
     are surrogate based but it is assumed that the surrogate models are given when evaluating (while testing they

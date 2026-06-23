@@ -1,8 +1,10 @@
 ![Latest release](https://img.shields.io/github/v/release/industrial-optimization-group/DESDEO?label=Latest%20release)
 [![PyPI version](https://img.shields.io/pypi/v/desdeo?label=PyPI)](https://pypi.org/project/desdeo/)
-[![Documentation Status](https://img.shields.io/readthedocs/desdeo.svg?version=desdeo2&label=Documentation)](https://desdeo.readthedocs.io/en/latest/)
+[![Documentation Status](https://img.shields.io/readthedocs/desdeo.svg?version=latest&label=Documentation)](https://desdeo.readthedocs.io/en/latest/)
 ![Core-logic / Web-API Tests](https://img.shields.io/github/actions/workflow/status/industrial-optimization-group/DESDEO/unit_tests.yaml?branch=master&label=Core-logic%20and%20Web-API%20Tests)
 ![Web-UI Tests](https://img.shields.io/github/actions/workflow/status/industrial-optimization-group/DESDEO/webui_tests.yaml?branch=master&label=WebUI%20Tests)
+[![codecov](https://codecov.io/gh/industrial-optimization-group/DESDEO/branch/master/graph/badge.svg)](https://codecov.io/gh/industrial-optimization-group/DESDEO)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20748206.svg)](https://doi.org/10.5281/zenodo.20748206)
 [![Discord](https://img.shields.io/discord/1382614276409266206?style=flat&label=Join%20our%20Discord&labelColor=%237289da)](https://discord.gg/uGCEgQTJyY)
 
 
@@ -70,6 +72,10 @@ optimization are available.
 -   An extensive documentation suitable for both newcomers to DESDEO and
 interactive multiobjective optimization in general, and seasoned veterans.
 
+For a complete overview of the interactive methods, algorithms, and tools
+currently implemented, see [Implemented methods and
+features](https://desdeo.readthedocs.io/en/latest/home/features/).
+
 ## Web-API: key features
 
 DESDEO's web-API is currently under active development. Once it stabilized, its
@@ -108,17 +114,21 @@ An [`llms.txt`](https://desdeo.readthedocs.io/en/latest/llms.txt) and
 [`llms-full.txt`](https://desdeo.readthedocs.io/en/latest/llms-full.txt) file are available to
 appease our AI overlords.
 
-## Contributing
+## Contributing, reporting issues, and getting support
 
 As DESDEO is an open source-project, anybody is welcome to contribute.
-An extensive tutorial to get started contributing to DESDEO
-[is available in the documentation](https://desdeo.readthedocs.io/en/latest/tutorials/contributing/).
-Be sure to check it out!
 
-For additional support for contributing to DESDEO,
-be sure to check out the DESDEO channels
-in the MCDM Community's Discord server. You may join the server
-[through this invite](https://discord.gg/TgSnUmzv5M).
+- **Contribute:** see [`CONTRIBUTING.md`](https://github.com/industrial-optimization-group/DESDEO/blob/master/CONTRIBUTING.md)
+  for a quick start, and the [extensive contribution tutorial](https://desdeo.readthedocs.io/en/latest/tutorials/contributing/)
+  in the documentation for the full development workflow.
+- **Report a bug or suggest an idea:**
+  [open an issue](https://github.com/industrial-optimization-group/DESDEO/issues/new/choose)
+  using one of the provided templates.
+- **Get help or discuss:** join the DESDEO Discord server
+  [through this invite](https://discord.gg/uGCEgQTJyY).
+
+All participation in the project is governed by our
+[Code of Conduct](https://github.com/industrial-optimization-group/DESDEO/blob/master/CODE_OF_CONDUCT.md).
 
 ## License
 
@@ -144,8 +154,14 @@ To cite DESDEO, please include the following reference:
 ```
 
 __Note__: A new article describing the latest iteration of the framework,
-also known as _DESDEO 2.0_ is currently being prepared. The content of
-this repository's master branch is considered to be _DESDEO 2.0_.
+also known as _DESDEO 2.0_, is currently being prepared for submission to the
+[Journal of Open Source Software (JOSS)](https://joss.theoj.org/). The content of
+this repository's master branch is considered to be _DESDEO 2.0_. Once the JOSS
+paper is published it will become the preferred reference. Until then, please use
+the IEEE Access reference above. See the
+[Citing DESDEO](https://desdeo.readthedocs.io/en/latest/home/citing/) page and the
+[`CITATION.cff`](https://github.com/industrial-optimization-group/DESDEO/blob/master/CITATION.cff)
+file for up-to-date citation metadata.
 
 ## Funding
 

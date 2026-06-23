@@ -1,7 +1,7 @@
 """Defines a parser to parse multiobjective optimziation problems defined in a JSON format."""
 
 from collections.abc import Callable
-from enum import Enum
+from enum import StrEnum
 from functools import reduce
 
 import cvxpy as cp
@@ -19,7 +19,7 @@ gpexpression = gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQ
 cvxpyexpression = cp.Variable | cp.Expression | cp.Constant | int | float
 
 
-class FormatEnum(str, Enum):
+class FormatEnum(StrEnum):
     """Enumerates the supported formats the JSON format may be parsed to."""
 
     polars = "polars"
@@ -150,7 +150,7 @@ class MathParser:
             return arr[keep].tolist() if keep else []
 
         def _polars_extract(expr, *raw_indices):
-            def _fn(acc, _):
+            def _fn(acc):
                 arr = acc.to_numpy()
                 if arr.ndim > 1:
                     idx = _collect_indices(raw_indices, arr.shape[-1])
@@ -159,10 +159,10 @@ class MathParser:
                     result = _extract_from_array(arr, *raw_indices)
                 return pl.Series(values=result.tolist())
 
-            return pl.reduce(function=_fn, exprs=[expr, None])
+            return to_expr(expr).map_batches(_fn)
 
         def _polars_exclude(expr, *raw_indices):
-            def _fn(acc, _):
+            def _fn(acc):
                 arr = acc.to_numpy()
                 if arr.ndim > 1:
                     n = arr.shape[-1]
@@ -173,7 +173,7 @@ class MathParser:
                     result = _exclude_from_array(arr, *raw_indices)
                 return pl.Series(values=result.tolist())
 
-            return pl.reduce(function=_fn, exprs=[expr, None])
+            return to_expr(expr).map_batches(_fn)
 
         def _not_impl_extract(*_args):
             raise NotImplementedError("'Extract' is not implemented for this backend.")
@@ -192,49 +192,61 @@ class MathParser:
             msg = "The gurobipy model format only supports linear and quadratic expressions."
             ParserError(msg)
 
-        def _polars_reduce(ufunc, exprs):
-            def _reduce_function(acc, x, ufunc=ufunc):
-                acc_numpy = acc.to_numpy()
-                x_numpy = x.to_numpy()
-
-                if acc_numpy.shape == x_numpy.shape:
-                    return pl.Series(values=ufunc(acc_numpy, x_numpy))
-
-                expanded_shape = acc_numpy.shape + (1,) * (x_numpy.ndim - acc_numpy.ndim)
-
-                return pl.Series(values=ufunc(acc_numpy.reshape(expanded_shape), x_numpy))
-
-            return pl.reduce(function=_reduce_function, exprs=exprs)
+        def _polars_pow(base, exponent):
+            base = to_expr(base)
+            exponent = to_expr(exponent)
+            # Detect a constant exponent (the operands have already been parsed to polars
+            # expressions, so a literal arrives as pl.lit(...)). A constant exponent lets us
+            # apply the power via a unary UDF so polars can infer the shape-preserving return
+            # dtype: native `**` does not work on array columns, and an N-ary UDF nested in
+            # other expressions cannot be inferred by polars >=1.31.
+            try:
+                exponent_value = pl.select(exponent).item()
+            except Exception:
+                exponent_value = None
+            if exponent_value is not None:
+                return base.map_batches(
+                    lambda series, exp=exponent_value: pl.Series(values=np.power(series.to_numpy(), exp))
+                )
+            # Non-constant exponent (rare): native power, which works for scalar operands.
+            return base**exponent
 
         def _polars_reduce_unary(expr, ufunc):
-            def _reduce_function(acc, _, ufunc=ufunc):
-                return pl.Series(values=ufunc(acc.to_numpy()))
+            def _map_function(acc, ufunc=ufunc):
+                # Unary math functions (e.g. log, arctanh) can legitimately hit domain edges such as
+                # log(0) or arctanh(+-1); the resulting inf/nan is the intended evaluation result, so
+                # silence the benign numpy warnings.
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    return pl.Series(values=ufunc(acc.to_numpy()))
 
-            return pl.reduce(function=_reduce_function, exprs=[expr, None])
+            return to_expr(expr).map_batches(_map_function)
 
         def _polars_reduce_matmul(*exprs):
-            def _reduce_function(acc, x):
-                acc = acc.to_numpy()
-                x = x.to_numpy()
+            # Numpy matmul (row-vector dot product OR matrix product) via an N-ary UDF.
+            # No return dtype is declared: polars infers it from a sample, which works
+            # because the surrounding +,-,*,/ are native expressions (not UDFs), so this
+            # UDF is never nested inside another un-inferrable UDF.
+            def _map_function(series_list):
+                acc = series_list[0].to_numpy()
+                for series in series_list[1:]:
+                    x = series.to_numpy()
+                    if acc.ndim == 2 and x.ndim == 2:  # noqa: PLR2004
+                        # row vectors -> per-row dot product (polars has no "column" vectors)
+                        acc = np.einsum("ij,ij->i", acc, x, optimize=True)
+                    else:
+                        acc = np.matmul(acc, x)
+                return pl.Series(values=acc)
 
-                if len(acc.shape) == 2 and len(x.shape) == 2:  # noqa: PLR2004
-                    # Row vectors, just return the dot product, polars does not handle
-                    # "column" vectors anyway
-                    return pl.Series(values=np.einsum("ij,ij->i", acc, x, optimize=True))
-
-                # actual matrix product required
-                return pl.Series(values=np.matmul(acc, x))
-
-            return pl.reduce(function=_reduce_function, exprs=exprs)
+            return pl.map_batches(exprs=[to_expr(expr) for expr in exprs], function=_map_function)
 
         def _polars_summation(expr):
             """Polars matrix summation."""
 
-            def _reduce_function(acc, _):
+            def _map_function(acc):
                 acc_numpy = acc.to_numpy()
                 return pl.Series(values=np.sum(acc_numpy, axis=tuple(range(1, acc_numpy.ndim))))
 
-            return pl.reduce(function=_reduce_function, exprs=[expr, None])
+            return to_expr(expr).map_batches(_map_function)
 
         def _polars_random_access(expr, *indices):
             """Polars tensor random access."""
@@ -250,10 +262,10 @@ class MathParser:
             # Define the operations for the different operators.
             # Basic arithmetic operations
             self.NEGATE: lambda x: _polars_reduce_unary(x, np.negative),
-            self.ADD: lambda *args: _polars_reduce(np.add, args),
-            self.SUB: lambda *args: _polars_reduce(np.subtract, args),
-            self.MUL: lambda *args: _polars_reduce(np.multiply, args),
-            self.DIV: lambda *args: _polars_reduce(np.divide, args),
+            self.ADD: lambda *args: reduce(lambda a, b: to_expr(a) + to_expr(b), args),
+            self.SUB: lambda *args: reduce(lambda a, b: to_expr(a) - to_expr(b), args),
+            self.MUL: lambda *args: reduce(lambda a, b: to_expr(a) * to_expr(b), args),
+            self.DIV: lambda *args: reduce(lambda a, b: to_expr(a) / to_expr(b), args),
             # Vector and matrix operations
             self.MATMUL: _polars_reduce_matmul,
             self.SUM: lambda x: _polars_summation(x),
@@ -268,7 +280,7 @@ class MathParser:
             self.LOP: lambda x: _polars_reduce_unary(x, np.log1p),
             self.SQRT: lambda x: _polars_reduce_unary(x, np.sqrt),
             self.SQUARE: lambda x: _polars_reduce_unary(x, lambda y: np.power(y, 2)),
-            self.POW: lambda *args: _polars_reduce(np.power, args),
+            self.POW: lambda *args: reduce(_polars_pow, args),
             # Trigonometric operations
             self.ARCCOS: lambda x: _polars_reduce_unary(x, np.arccos),
             self.ARCCOSH: lambda x: _polars_reduce_unary(x, np.arccosh),

@@ -4,7 +4,7 @@ These solvers can solve various scalarized problems of multiobjective optimizati
 """
 
 from collections.abc import Callable
-from enum import Enum
+from enum import StrEnum
 
 import numpy as np
 from pydantic import BaseModel, Field
@@ -60,7 +60,7 @@ class ScipyMinimizeOptions(BaseModel):
 _default_scipy_minimize_options = ScipyMinimizeOptions()
 
 
-class EvalTargetEnum(str, Enum):
+class EvalTargetEnum(StrEnum):
     """An enum that describe whether the evaluator target is an objective or a constraint."""
 
     objective = "objective"

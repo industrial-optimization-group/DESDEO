@@ -30,8 +30,13 @@ test-all:
     {{ PYTEST }}
 
 # Run only necessary tests given the changes in the code (pytest-testmon).
+# NOTE: testmon must be run WITHOUT xdist (`-n auto`) and WITHOUT a `-m` mark
+# expression. Either one stops testmon from saving a stable baseline, so it
+# silently reruns the whole suite every time. Hence no PYTEST/PYTEST_SKIP here.
+# Instead, TESTMON_SKIP_FIXME makes the root conftest skip `fixme` tests (the
+# testmon-friendly equivalent of `-m "not fixme"`).
 test-changes:
-    {{ PYTEST }} --testmon
+    TESTMON_SKIP_FIXME=1 pytest --testmon {{ PYTEST_OPTS }}
 
 # Rerun the last failures only.
 test-failures:
@@ -61,5 +66,5 @@ lint:
     pre-commit run
 
 # run pre-commit hooks on all files.
-ling-all:
+lint-all:
     pre-commit run --all-files

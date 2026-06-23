@@ -267,12 +267,12 @@ class GurobipyEvaluator:
 
         return objective_functions
 
-    def init_constraints(self, problem: Problem) -> gp.Model:
+    def init_constraints(self, problem: Problem, model: gp.Model | None = None) -> gp.Model:
         """Add constraint expressions to a Gurobipy Model.
 
         Args:
             problem (Problem): the problem from which to extract the constraint function expressions.
-            model (GurobipyModel): the GurobipyModel to add the exprssions to.
+            model (GurobipyModel | None): the GurobipyModel to add the expressions to.
 
         Raises:
             GurobipyEvaluatorError: when an unsupported constraint type is encountered.
@@ -581,7 +581,7 @@ class GurobipyEvaluator:
 
         Args:
             target (str): an str representing a symbol. Needs to match an objective function or scalarization
-            function already found in the model.
+                function already found in the model.
             maximize (bool): If true, the target function is maximized instead of minimized
 
         Raises:
