@@ -162,7 +162,7 @@ export async function handle_finish(
  */
 export async function handle_iterate(
 	problem: ProblemInfo,
-	session_id: number | null,
+	session_id: number | null | undefined,
 	parent_state_id: number | null,
 	preference: ReferencePoint
 ): Promise<RPMState | null> {

@@ -33,7 +33,7 @@
 	} from './helper-functions';
 
 	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
-	import type { ReferencePoint, MapState } from './types';
+	import type { ReferencePoint, MapState, RPMPageState } from './types';
 	import type { RPMState } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 	// State for iteration management
@@ -52,7 +52,7 @@
 
 	let chosen_solutions = $derived.by(() => {
 		if (!current_state) return [];
-		return current_state.solver_results ?? [];
+		return current_state.current_solutions ?? [];
 	});
 
 	// Get the label for the selected solution type from frameworks
@@ -165,6 +165,7 @@
 	} from './handlers';
 	import EndStateView from '../GNIMBUS/components/EndStateView.svelte';
 	import type { ReferencePointAspirationLevels } from '$lib/gen/endpoints/DESDEOFastAPI';
+	import { SwitchPhaseGnimbusTogglePhasePostResponse } from '$lib/gen/endpoints/DESDEOFastAPIzod';
 
 	function handle_change(solution: Solution): void {
 		openInputDialog({
@@ -264,6 +265,22 @@
             };
     }
 
+	function buildRPMPageState(rpmState: RPMState | null): RPMPageState {
+		if (rpmState == null) return ({} as RPMPageState);
+		return { ...rpmState,
+			current_solutions: current_state.current_solutions,
+			saved_solutions: current_state.saved_solutions,
+			all_solutions: current_state.all_solutions,
+			previous_preference: current_state.previous_preference,
+			previous_objectives: current_state.previous_objectives,
+			reference_solution_1: current_state.reference_solution_1,
+			reference_solution_2: current_state.reference_solution_2,
+			response_type: current_state.response_type,
+			final_solution: current_state.final_solution,
+			state_id: current_state.state_id,
+		}
+	}
+
 	// The optional unused values are kept for compatibility with the AppSidebar component
 	async function handle_iterate(data: {
 		numSolutions: number;
@@ -294,7 +311,7 @@
 
 		if (result) {
 			// Store the preference values that were just used for iteration
-			current_state = result;
+			current_state = buildRPMPageState(result);
 
 			// Update names from saved solutions (only for all_solutions, current_solutions are new)
 			current_state.all_solutions = updateSolutionNames(
@@ -373,7 +390,8 @@
 
 	// Initialize NIMBUS state by calling the API endpoint
 	async function initialize_rpm_state(problem: ProblemInfo, preference: ReferencePoint) {
-		const result = await initializeRPMState(problem, null, null, preference);
+		const response = await initializeRPMState(problem, null, null, preference);
+		const result = buildRPMPageState(response);
 		if (result) {
 			// Store response data
 			let current_solutions = result.current_solutions || [];
