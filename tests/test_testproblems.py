@@ -720,47 +720,32 @@ def test_water_management():
         assert np.allclose(obj_values, expected_result[i])
 
 
+@pytest.mark.testproblem
 def test_car_side_impact():
     """Test that car side impact problem evaluates correctly."""
     problem = car_side_impact()
     evaluator = PolarsEvaluator(problem)
 
     xs = {
-        "x_1": 0.5,
-        "x_2": 0.45,
-        "x_3": 0.5,
-        "x_4": 0.5,
-        "x_5": 0.875,
-        "x_6": 0.4,
-        "x_7": 0.4,
+        "x_1": [0.5, 1.0, 1.5],
+        "x_2": [0.45, 0.95, 1.35],
+        "x_3": [0.5, 1.0, 1.5],
+        "x_4": [0.5, 1.0, 1.5],
+        "x_5": [0.875, 1.75, 2.625],
+        "x_6": [0.4, 0.8, 1.2],
+        "x_7": [0.4, 0.8, 1.2],
     }
+
+    expected_result = np.array(
+        [
+            [15.576004, 4.42725, 13.091381250000001],
+            [29.505508, 4.0395, 12.08959375],
+            [42.768012, 3.58525, 10.61064375],
+        ]
+    )
 
     res = evaluator.evaluate(xs)
 
-    f1 = res["f_1"][0]
-    f2 = res["f_2"][0]
-    f3 = res["f_3"][0]
-    g1 = res["g_1"][0]
-    g2 = res["g_2"][0]
-    g3 = res["g_3"][0]
-    g4 = res["g_4"][0]
-    g5 = res["g_5"][0]
-    g6 = res["g_6"][0]
-    g7 = res["g_7"][0]
-    g8 = res["g_8"][0]
-    g9 = res["g_9"][0]
-    g10 = res["g_10"][0]
-
-    assert np.isclose(f1, 15, 432004)
-    assert np.isclose(f2, 4.42725)
-    assert np.isclose(f3, 13.091381250000001)
-    assert np.isclose(g1, 0.07172109999999998)
-    assert np.isclose(g2, -0.08594894000000006)
-    assert np.isclose(g3, -0.11558395000000002)
-    assert np.isclose(g4, 0.16307069999999996)
-    assert np.isclose(g5, -2.6190760000000033)
-    assert np.isclose(g6, 0.569465000000001)
-    assert np.isclose(g7, 7.6797499999999985)
-    assert np.isclose(g8, 0.4272499999999999)
-    assert np.isclose(g9, 0.22561250000000044)
-    assert np.isclose(g10, 0.35715000000000074)
+    for i in range(len(res)):
+        obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
+        assert np.allclose(obj_values, expected_result[i])

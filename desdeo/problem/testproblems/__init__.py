@@ -6,6 +6,7 @@ testing and illustration purposed are defined here.
 
 __all__ = [  # noqa: RUF022
     "binh_and_korn",
+    "car_side_impact",
     "dtlz1",
     "dtlz2",
     "dtlz4",
@@ -56,7 +57,6 @@ __all__ = [  # noqa: RUF022
     "summer_cabin_battery_problem_split",
     "summer_cabin_battery_problem_split_scenario",
     "water_management",
-    "car_side_impact",
 ]
 
 
