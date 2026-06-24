@@ -14,6 +14,7 @@ import type {
 	SolutionReferenceResponse,
 	RPMState
 } from '$lib/gen/endpoints/DESDEOFastAPI';
+
 import type { RPMPageState } from './types';
 
 // Type definitions for NIMBUS components
