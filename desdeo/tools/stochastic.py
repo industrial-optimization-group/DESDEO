@@ -299,8 +299,8 @@ def add_conditional_value_at_risk(
                 name=f"VaR threshold for {sym}",
                 symbol=var_sym,
                 variable_type=VariableTypeEnum.real,
-                lowerbound=-float("Inf"),
-                upperbound=float("Inf"),
+                lowerbound=None,
+                upperbound=None,
                 initial_value=0.0,
             )
         )
@@ -317,7 +317,7 @@ def add_conditional_value_at_risk(
                     symbol=z_sym,
                     variable_type=VariableTypeEnum.real,
                     lowerbound=0.0,
-                    upperbound=float("Inf"),
+                    upperbound=None,
                     initial_value=0.0,
                 )
             )

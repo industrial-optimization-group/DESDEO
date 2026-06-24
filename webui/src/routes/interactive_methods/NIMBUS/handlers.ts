@@ -4,6 +4,7 @@
  * Uses Orval-generated endpoint functions to call the backend directly,
  * replacing the previous +server.ts proxy + callNimbusAPI pattern.
  */
+import { customFetch } from '$lib/api/new-client'
 import {
 	solveSolutionsMethodNimbusSolvePost,
 	getOrInitializeMethodNimbusGetOrInitializePost,
@@ -23,7 +24,7 @@ import type {
 	SolutionInfo
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type { ProblemInfo, Solution } from '$lib/types';
-import type { Response, ReferencePoint, FinishResponse } from './types';
+import type { Response, ReferencePoint } from './types';
 import { errorMessage, isLoading } from '../../../stores/uiState';
 
 /** Convert a Solution (SolutionReferenceResponse) to a SolutionInfo for API requests. */
@@ -309,6 +310,34 @@ export async function get_maps(
 		return null;
 	} finally {
 		isLoading.set(false);
+	}
+}
+
+/**
+ * Fetches a textual solution description from the solution_description endpoint.
+ * Returns null if unavailable or if the problem has no description metadata.
+ */
+export async function get_solution_description(
+	problem: ProblemInfo,
+	solution: Solution
+): Promise<string | null> {
+	try {
+		const response = await customFetch<{ status: number; data: { available: boolean; description: string } }>(
+			'http://localhost:8000/solution-description/get',
+			{
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					problem_id: problem.id,
+					solution: toSolutionInfo(solution)
+				})
+			}
+		)
+
+		if (response.status !== 200 || !response.data.available) return null
+		return response.data.description
+	} catch {
+		return null
 	}
 }
 
