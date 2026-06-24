@@ -723,7 +723,9 @@ def test_water_management():
 @pytest.mark.testproblem
 def test_car_side_impact():
     """Test that car side impact problem evaluates correctly."""
-    problem = car_side_impact()
+    a = False
+
+    problem = car_side_impact(a)
     evaluator = PolarsEvaluator(problem)
 
     xs = {
@@ -738,9 +740,9 @@ def test_car_side_impact():
 
     expected_result = np.array(
         [
-            [15.576004, 4.42725, 13.091381250000001],
-            [29.505508, 4.0395, 12.08959375],
-            [42.768012, 3.58525, 10.61064375],
+            [15.576004, 4.42725, 13.091381250000001, 9.4940193],
+            [29.505508, 4.0395, 12.08959375, 0.5440],
+            [42.768012, 3.58525, 10.61064375, 0.0],
         ]
     )
 
