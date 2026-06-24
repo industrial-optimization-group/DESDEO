@@ -28,16 +28,16 @@
 		checkUtopiaMetadata,
 		mapSolutionsToObjectiveValues,
 		updatePreferencesFromState,
-		validateIterationAllowed,
 		processPreviousObjectiveValues,
 		updateSolutionNames
 	} from './helper-functions';
 
 	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
 	import type { Response, ReferencePoint, MapState } from './types';
+	import type { RPMState } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 	// State for iteration management
-	let current_state: Response = $state({} as Response);
+	let current_state: RPMState = $state({} as RPMState);
 
 	let problem: ProblemInfo | null = $state(null);
 	const { data } = $props<{ data: ProblemInfo[] }>();
@@ -52,17 +52,7 @@
 
 	let chosen_solutions = $derived.by(() => {
 		if (!current_state) return [];
-
-		switch (selected_type_solutions) {
-			case 'current':
-				return current_state.current_solutions || [];
-			case 'best':
-				return current_state.saved_solutions || [];
-			case 'all':
-				return current_state.all_solutions || [];
-			default:
-				return current_state.current_solutions || [];
-		}
+		return current_state.solver_results ?? [];
 	});
 
 	// Get the label for the selected solution type from frameworks
@@ -77,19 +67,11 @@
 	let selected_iteration_index: number[] = $state([0]); // Index of solution from previous results to use in sidebar. List for consistency, but always has one element
 	let current_num_iteration_solutions: number = $state(1); // how many solutions user wants when making the iteration
 	let selected_iteration_objectives: Record<string, number> = $state({}); // actual objectives of the selected solution in iteration mode
-	// intermediate mode
-	let selected_intermediate_indexes: number[] = $state([]);
-	let current_num_intermediate_solutions: number = $state(1);
-	let selected_solutions_for_intermediate: Solution[] = $state([]); // actual objectives, but it is a list unlike for iteration, since user should choose two solutions
 
 	// Reactive variable for selected indexes based on current mode
 	let selectedIndexes = $derived.by(() => {
-		if (mode === 'intermediate') {
-			return selected_intermediate_indexes;
-		} else {
-			// Both "iterate" and "final" modes use the same index list
-			return selected_iteration_index;
-		}
+		// Both "iterate" and "final" modes use the same index list
+		return selected_iteration_index;
 	});
 	// currentPreference is initialized from previous preference or ideal values
 	let current_preference: number[] = $state([]);
@@ -115,10 +97,7 @@
 	});
 
 	// Validation: iteration is allowed when at least one preference is better and one is worse than current objectives
-	let is_iteration_allowed = $derived(() => {
-		// Use the imported utility function to validate if iteration is allowed
-		return validateIterationAllowed(problem, current_preference, selected_iteration_objectives);
-	});
+	const is_iteration_allowed = true;
 
 	function handle_type_solutions_change(event: { value: string }) {
 		change_solution_type_updating_selections(event.value as SolutionType);
@@ -131,29 +110,16 @@
 
 		// Then update UI and data
 		update_iteration_selection(current_state);
-		update_intermediate_selection(current_state);
 	}
 
 	function handle_solution_click(index: number) {
-		if (mode === 'iterate') {
-			if (selected_iteration_index[0] === index) {
-				return; // Already selected, do nothing
-			}
-			// Iterate mode: always select just one solution
-			selected_iteration_index = [index];
-			update_iteration_selection(current_state);
-		} else if (mode === 'intermediate') {
-			// Intermediate mode: allow selecting up to 2 rows
-			if (selected_intermediate_indexes.includes(index)) {
-				// If already selected, deselect it, checking unsaved changes first
-				selected_intermediate_indexes = selected_intermediate_indexes.filter((i) => i !== index);
-			} else if (selected_intermediate_indexes.length < 2) {
-				// Only add if we haven't reached the limit of 2
-				selected_intermediate_indexes = [...selected_intermediate_indexes, index];
-			}
-			update_intermediate_selection(current_state);
+		if (selected_iteration_index[0] === index) {
+			return; // Already selected, do nothing
 		}
-	}
+		// Iterate mode: always select just one solution
+		selected_iteration_index = [index];
+		update_iteration_selection(current_state);
+}
 
 	// Function to handle finishing
 	function confirm_finish() {
@@ -198,6 +164,7 @@
 		initialize_rpm_state as initializeRPMState,
 	} from './handlers';
 	import EndStateView from '../GNIMBUS/components/EndStateView.svelte';
+	import type { ReferencePointAspirationLevels } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 	function handle_change(solution: Solution): void {
 		openInputDialog({
@@ -293,7 +260,7 @@
                     aspiration_levels: problem.objectives.reduce((acc, obj, idx) => {
                             acc[obj.symbol] = preferenceValues[idx] ?? obj.ideal ?? 0;
                             return acc;
-                    }, {} as Record<string, number>)
+                    }, {} as ReferencePointAspirationLevels)
             };
     }
 
@@ -312,7 +279,7 @@
 			console.error('No preferences set');
 			return;
 		}
-		if (!is_iteration_allowed()) {
+		if (!is_iteration_allowed) {
 			console.error('Iteration not allowed based on current preferences and objectives');
 			return;
 		}
@@ -344,7 +311,7 @@
 	}
 
 	// Helper function to update current iteration objectives from the current state
-	function update_iteration_selection(state: Response | null) {
+	function update_iteration_selection(state: RPMState | null) {
 		if (!problem) return;
 		if (!state) return;
 

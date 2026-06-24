@@ -16,6 +16,7 @@ import type {
 	NIMBUSFinalizeRequest,
 	SolutionInfo,
 	RPMSolveRequest,
+	RPMState,
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type { ProblemInfo, Solution } from '$lib/types';
 import type { Response, ReferencePoint, FinishResponse } from './types';
@@ -120,6 +121,7 @@ export async function handle_remove_saved(
 export async function handle_finish(
 	problem: ProblemInfo | null,
 	solution: Solution,
+	preference: ReferencePoint,
 ): Promise<boolean> {
 	if (!problem) {
 		errorMessage.set('No problem selected');
@@ -163,7 +165,7 @@ export async function handle_iterate(
 	session_id: number | null,
 	parent_state_id: number | null,
 	preference: ReferencePoint
-): Promise<Response | null> {
+): Promise<RPMState | null> {
 	isLoading.set(true);
 	errorMessage.set(null);
 
@@ -183,7 +185,7 @@ export async function handle_iterate(
 			return null;
 		}
 
-		return response.data as unknown as Response;
+		return response.data;
 	} catch (error) {
 		const msg = error instanceof Error ? error.message : 'Unknown error';
 		errorMessage.set(msg);
