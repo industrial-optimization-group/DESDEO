@@ -19,7 +19,7 @@ import type {
 	RPMState,
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type { ProblemInfo, Solution } from '$lib/types';
-import type { Response, ReferencePoint, FinishResponse } from './types';
+import type { ReferencePoint } from './types';
 import { errorMessage, isLoading } from '../../../stores/uiState';
 
 /** Convert a Solution (SolutionReferenceResponse) to a SolutionInfo for API requests. */
@@ -199,7 +199,7 @@ export async function handle_iterate(
 /**
  * Initializes a new RPM state for a given problem, or retrieves the latest one.
  */
-export async function initialize_rpm_state(problem: ProblemInfo, session_id: number | null, parent_state_id: number | null, preference: ReferencePoint): Promise<Response | null> {
+export async function initialize_rpm_state(problem: ProblemInfo, session_id: number | null, parent_state_id: number | null, preference: ReferencePoint): Promise<RPMState | null> {
 	isLoading.set(true);
 	errorMessage.set(null);
 
@@ -219,7 +219,7 @@ export async function initialize_rpm_state(problem: ProblemInfo, session_id: num
 			return null;
 		}
 
-		return response.data as unknown as Response;
+		return response.data;
 	} catch (error) {
 		const msg = error instanceof Error ? error.message : 'Unknown error';
 		errorMessage.set(msg);

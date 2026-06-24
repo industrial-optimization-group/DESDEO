@@ -1,26 +1,24 @@
-/*Types specific for NIMBUS */
+/* Types specific for the reference point method. */
 
-import type { ReferencePoint, NIMBUSFinalizeResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
-import type { BaseMethodResponse, PeriodKey, Solution } from "$lib/types";
+import type { ReferencePoint, NIMBUSFinalizeResponse, RPMState } from "$lib/gen/endpoints/DESDEOFastAPI";
+import type { PeriodKey, Solution } from "$lib/types";
 
 // Type for objective values in reference points and solutions
 export type ObjectiveValues = {
     [key: string]: number;
 };
 
-// General response type that includes all possible fields
-export type Response = BaseMethodResponse & {
-	response_type: 'nimbus.classification' | 'nimbus.initialization' | 'nimbus.intermediate' | 'nimbus.finalize';
-    previous_preference?: ReferencePoint;
-    previous_objectives?: ObjectiveValues;
-    reference_solution_1?: ObjectiveValues;
-    reference_solution_2?: ObjectiveValues;
-} & {
-	response_type: 'nimbus.finalize';
-	state_id: number | null;
-	final_solution: Solution;
+export type RPMPageState = RPMState & {
+	current_solutions: Solution[];
 	saved_solutions: Solution[];
 	all_solutions: Solution[];
+	previous_preference?: ReferencePoint;
+	previous_objectives?: ObjectiveValues;
+	reference_solution_1?: ObjectiveValues;
+	reference_solution_2?: ObjectiveValues;
+	response_type?: 'rpm.finalize';
+	final_solution?: Solution;
+	state_id?: number | null;
 };
 
 export type { ReferencePoint };

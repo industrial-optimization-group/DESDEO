@@ -12,13 +12,12 @@
 import type {
 	ProblemInfo,
 	SolutionReferenceResponse,
-	NIMBUSClassificationResponse,
-	NIMBUSInitializationResponse
+	RPMState
 } from '$lib/gen/endpoints/DESDEOFastAPI';
+import type { RPMPageState } from './types';
 
 // Type definitions for NIMBUS components
 type Solution = SolutionReferenceResponse;
-type Response = NIMBUSClassificationResponse | NIMBUSInitializationResponse;
 
 /**
  * Checks if a problem has utopia metadata for map visualization
@@ -61,22 +60,15 @@ export function mapSolutionsToObjectiveValues(solutions: Solution[], problem: Pr
  * @returns Array of preference values
  */
 export function updatePreferencesFromState(
-	state: Response | null,
+	state: RPMState | null,
 	problem: ProblemInfo | null
 ): number[] {
 	if (!problem) return [];
 
-	// Try to get previous preference from NIMBUS state
-	if (state && 'previous_preference' in state && state.previous_preference) {
-		// Extract aspiration levels from previous preference
-		const previous_pref = state.previous_preference as {
-			aspiration_levels?: Record<string, number>;
-		};
-		if (previous_pref.aspiration_levels) {
-			return problem.objectives.map(
-				(obj) => previous_pref.aspiration_levels![obj.symbol] ?? obj.ideal ?? 0
-			);
-		}
+	if (state?.preferences?.aspiration_levels) {
+		return problem.objectives.map(
+			(obj) => state.preferences.aspiration_levels[obj.symbol] ?? obj.ideal ?? 0
+		);
 	}
 
 	// Fallback to ideal values
@@ -113,7 +105,7 @@ export function convertObjectiveToArray(
  * @returns Array of arrays with previous objective values
  */
 export function processPreviousObjectiveValues(
-	state: any,
+	state: RPMPageState | null,
 	problem: ProblemInfo | null
 ): number[][] {
 	if (!problem || !state) {

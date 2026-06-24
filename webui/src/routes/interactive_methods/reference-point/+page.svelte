@@ -33,11 +33,11 @@
 	} from './helper-functions';
 
 	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
-	import type { Response, ReferencePoint, MapState } from './types';
+	import type { ReferencePoint, MapState } from './types';
 	import type { RPMState } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 	// State for iteration management
-	let current_state: RPMState = $state({} as RPMState);
+	let current_state: RPMPageState = $state({} as RPMPageState);
 
 	let problem: ProblemInfo | null = $state(null);
 	const { data } = $props<{ data: ProblemInfo[] }>();
@@ -333,27 +333,15 @@
 	}
 
 	// Helper function to initialize preferences from previous state or ideal values
-	function update_preferences_from_state(state: Response | null) {
+	function update_preferences_from_state(state: RPMState | null) {
 		if (!problem) return;
-		current_preference = updatePreferencesFromState(state as any, problem);
+		current_preference = updatePreferencesFromState(state, problem);
 		last_iterated_preference = [...current_preference];
 	}
 
 	// Helper function to update current intermediate objectives from the current state
-	function update_intermediate_selection(state: Response | null) {
-		if (!problem) return;
-		if (!state) return;
-		if (chosen_solutions.length === 0) return;
-
-		// Filter selected indexes that are within bounds
-		const validIndexes = selected_intermediate_indexes.filter((i) => i < chosen_solutions.length);
-		if (validIndexes.length !== selected_intermediate_indexes.length) {
-			selected_intermediate_indexes = validIndexes; // Update if any were out of bounds
-		}
-
-		selected_solutions_for_intermediate = selected_intermediate_indexes.map(
-			(i) => chosen_solutions[i]
-		);
+	function update_intermediate_selection(_state: RPMState | null) {
+		return;
 	}
 
 	// helper function to check if a solution is saved (exists in savedSolutions)
@@ -411,9 +399,6 @@
 			update_iteration_selection(current_state);
 			update_preferences_from_state(current_state);
 			current_num_iteration_solutions = current_state.current_solutions.length;
-			if (current_state.response_type === 'nimbus.finalize') {
-				mode = 'final';
-			}
 		}
 	}
 
@@ -536,7 +521,7 @@
 					typePreferences={type_preferences}
 					preferenceValues={current_preference}
 					objectiveValues={Object.values(selected_iteration_objectives)}
-					isIterationAllowed={is_iteration_allowed()}
+					isIterationAllowed={is_iteration_allowed}
 					minNumSolutions={1}
 					maxNumSolutions={4}
 					lastIteratedPreference={last_iterated_preference}
@@ -582,7 +567,7 @@
 			>
 				<Button
 					onclick={selectedIndexes.length === 1 ? confirm_finish : undefined}
-					disabled={selectedIndexes.length !== 1 || current_state.response_type === 'nimbus.finalize'}
+					disabled={selectedIndexes.length !== 1}
 					variant="destructive"
 					class="ml-10"
 				>
