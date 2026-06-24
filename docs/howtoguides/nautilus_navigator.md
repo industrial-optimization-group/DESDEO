@@ -16,9 +16,9 @@ approximation of the Pareto front.
 To set up a problem, you can start with a problem object as described in ["How to define a problem"](./how_to_define_a_problem.ipynb). Then you can add the approximation of the Pareto front as follows:
 
 ```python
-from desdeo.problem.schema import DiscreteDefinition
+from desdeo.problem.schema import DiscreteRepresentation
 
-dis_def = DiscreteDefinition(
+dis_def = DiscreteRepresentation(
     variable_values={
         "var_1_data": list_of_var_1_values,
         "var_2_data": list_of_var_2_values
@@ -148,4 +148,3 @@ Moreover, the `get_current_path` function can be used to get the current path of
 current_path = get_current_path(all_responses)
 responses_to_visualize = [all_responses[i] for i in current_path]
 ```
-

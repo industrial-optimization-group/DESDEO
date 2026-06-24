@@ -152,6 +152,7 @@ export interface ConstantDB {
 	value: number;
 	id?: number | null;
 	problem_id?: number | null;
+	scenario_model_id?: number | null;
 }
 
 /**
@@ -208,7 +209,6 @@ export const ConstraintTypeEnum = {
  */
 export interface ConstraintDB {
 	func: unknown[];
-	scenario_keys?: string[] | null;
 	surrogates?: string[] | null;
 	simulator_path?: string | Url | null;
 	/** Descriptive name of the constraint. This can be used in UI and visualizations. Example: 'maximum length'. */
@@ -225,6 +225,7 @@ export interface ConstraintDB {
 	is_twice_differentiable?: boolean;
 	id?: number | null;
 	problem_id?: number | null;
+	scenario_model_id?: number | null;
 }
 
 /**
@@ -602,7 +603,6 @@ export interface EndProcessPreference {
  */
 export interface ExtraFunctionDB {
 	func: unknown[];
-	scenario_keys?: string[] | null;
 	surrogates?: string[] | null;
 	simulator_path?: string | Url | null;
 	/** Descriptive name of the function. Example: 'normalization'. */
@@ -617,6 +617,7 @@ export interface ExtraFunctionDB {
 	is_twice_differentiable?: boolean;
 	id?: number | null;
 	problem_id?: number | null;
+	scenario_model_id?: number | null;
 }
 
 export type ForestProblemMetaDataScheduleDict = { [key: string]: unknown };
@@ -812,6 +813,19 @@ Defaults to None.
 export type SCOREBandsConfigAxisPositions = { [key: string]: number } | null;
 
 /**
+ * Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the
+same as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.
+
+Valid plotly color strings include:
+    - A hex string (e.g. '#ff0000')
+    - An rgb/rgba string (e.g. 'rgb(255,0,0)')
+    - An hsl/hsla string (e.g. 'hsl(0,100%,50%)')
+    - An hsv/hsva string (e.g. 'hsv(0,100%,100%)')
+    - A named CSS color: see https://plotly.com/python/css-colors/ for a list
+ */
+export type SCOREBandsConfigAxisColours = { [key: string]: string } | null;
+
+/**
  * Optional dictionary specifying the min and max values for each objective. The keys should be the
 objective names (i.e., column names in the data), and the values should be tuples of (min, max).
 If not provided, the min and max will be calculated from the data.
@@ -836,8 +850,21 @@ export interface SCOREBandsConfig {
   manually set the axis positions. If None, the axis positions are calculated automatically based on correlations.
   Defaults to None. */
 	axis_positions?: SCOREBandsConfigAxisPositions;
-	/** Clustering algorithm to use. Currently supported options: "GMM", "DBSCAN",
-      and "KMeans". Defaults to "DBSCAN". */
+	/** Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the
+  same as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.
+
+  Valid plotly color strings include:
+      - A hex string (e.g. '#ff0000')
+      - An rgb/rgba string (e.g. 'rgb(255,0,0)')
+      - An hsl/hsla string (e.g. 'hsl(0,100%,50%)')
+      - An hsv/hsva string (e.g. 'hsv(0,100%,100%)')
+      - A named CSS color: see https://plotly.com/python/css-colors/ for a list */
+	axis_colours?: SCOREBandsConfigAxisColours;
+	/** Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.
+  If a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a
+  pattern fill in the band. */
+	highlight_cluster?: number | null;
+	/** Clustering algorithm to use. Currently supports one of `ClusteringOptions`. */
 	clustering_algorithm?:
 		| GMMOptions
 		| DBSCANOptions
@@ -867,6 +894,18 @@ export interface SCOREBandsConfig {
   If not provided, the min and max will be calculated from the data. */
 	scales?: SCOREBandsConfigScales;
 }
+
+/**
+ * Optional dictionary mapping cluster IDs to descriptive names for display in the visualization.
+If None, the cluster IDs themselves are used as names. Defaults to None.
+ */
+export type SCOREBandsResultClusterNames = { [key: string]: string } | null;
+
+/**
+ * Optional dictionary mapping cluster IDs to hover information for display in the visualization.
+If None, no additional hover information is displayed. Defaults to None.
+ */
+export type SCOREBandsResultClusterHoverInfo = { [key: string]: string } | null;
 
 /**
  * Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
@@ -901,6 +940,12 @@ export interface SCOREBandsResult {
 	ordered_dimensions: string[];
 	/** List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs. */
 	clusters: number[];
+	/** Optional dictionary mapping cluster IDs to descriptive names for display in the visualization.
+  If None, the cluster IDs themselves are used as names. Defaults to None. */
+	cluster_names?: SCOREBandsResultClusterNames;
+	/** Optional dictionary mapping cluster IDs to hover information for display in the visualization.
+  If None, no additional hover information is displayed. Defaults to None. */
+	cluster_hover_info?: SCOREBandsResultClusterHoverInfo;
 	/** Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
   objective is at position 0.0, and the last objective is at position 1.0. */
 	axis_positions: SCOREBandsResultAxisPositions;
@@ -1490,7 +1535,6 @@ export const ObjectiveTypeEnum = {
  */
 export interface ObjectiveDB {
 	func: unknown[] | null;
-	scenario_keys?: string[] | null;
 	surrogates?: string[] | null;
 	simulator_path?: string | Url | null;
 	/** A longer description of the objective function. This can be used in UI and visualizations.             Meant to have longer text than what name should have. */
@@ -1517,6 +1561,7 @@ export interface ObjectiveDB {
 	is_twice_differentiable?: boolean;
 	id?: number | null;
 	problem_id?: number | null;
+	scenario_model_id?: number | null;
 }
 
 /**
@@ -1544,6 +1589,7 @@ export interface TensorConstantDB {
 	symbol: string;
 	id?: number | null;
 	problem_id?: number | null;
+	scenario_model_id?: number | null;
 }
 
 /**
@@ -1575,6 +1621,7 @@ export interface VariableDB {
 	initial_value?: number | null;
 	id?: number | null;
 	problem_id?: number | null;
+	scenario_model_id?: number | null;
 }
 
 /**
@@ -1593,6 +1640,7 @@ export interface TensorVariableDB {
 	variable_type: VariableTypeEnum;
 	id?: number | null;
 	problem_id?: number | null;
+	scenario_model_id?: number | null;
 }
 
 /**
@@ -1600,7 +1648,6 @@ export interface TensorVariableDB {
  */
 export interface ScalarizationFunctionDB {
 	func: unknown[];
-	scenario_keys: string[];
 	/** Name of the scalarization function. */
 	name: string;
 	/** Optional symbol to represent the scalarization function. This may be used in UIs and visualizations. */
@@ -1613,6 +1660,7 @@ export interface ScalarizationFunctionDB {
 	is_twice_differentiable?: boolean;
 	id?: number | null;
 	problem_id?: number | null;
+	scenario_model_id?: number | null;
 }
 
 export type SimulatorDBParameterOptions = { [key: string]: unknown } | null;
@@ -1713,7 +1761,6 @@ export interface ProblemInfo {
 	is_convex: boolean | null;
 	is_linear: boolean | null;
 	is_twice_differentiable: boolean | null;
-	scenario_keys: string[] | null;
 	variable_domain: VariableDomainTypeEnum;
 	id: number;
 	user_id: number;
@@ -1739,7 +1786,6 @@ export interface ProblemInfoSmall {
 	is_convex: boolean | null;
 	is_linear: boolean | null;
 	is_twice_differentiable: boolean | null;
-	scenario_keys: string[] | null;
 	variable_domain: VariableDomainTypeEnum;
 	id: number;
 	user_id: number;
@@ -1760,7 +1806,7 @@ export interface ProblemMetaDataGetRequest {
 export interface ProblemSelectSolverRequest {
 	/** ID of the problem that the solver is assigned to. */
 	problem_id: number;
-	/** One of the following: ['scipy_minimize', 'scipy_de', 'proximal', 'nevergrad', 'pyomo_bonmin', 'pyomo_cbc', 'pyomo_ipopt', 'pyomo_gurobi', 'gurobipy', 'gurobipy_persistent'] */
+	/** One of the following: ['scipy_minimize', 'scipy_de', 'proximal', 'nevergrad', 'pyomo_bonmin', 'pyomo_cbc', 'pyomo_ipopt', 'pyomo_gurobi', 'gurobipy', 'gurobipy_persistent', 'cvxpy'] */
 	solver_string_representation: string;
 }
 

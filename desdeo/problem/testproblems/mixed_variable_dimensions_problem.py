@@ -1,4 +1,4 @@
-"""Defines a problem with variables with mixed dimensions."""
+"""Defines the mixed variable dimensions test problem."""
 
 from desdeo.problem.schema import (
     Objective,

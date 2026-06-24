@@ -1,4 +1,4 @@
-"""Defines a problem that is utilized in convex Pareto navigator article."""
+"""Defines a problem that is utilized in the convex Pareto navigator article."""
 
 from desdeo.problem.schema import (
     Constraint,

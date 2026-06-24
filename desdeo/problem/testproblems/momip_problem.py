@@ -1,4 +1,4 @@
-"""Contains two multiobjective optimization test instance problems with mixed-integer."""
+"""Defines the momip test problem."""
 
 from desdeo.problem.schema import (
     Constraint,

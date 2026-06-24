@@ -11,6 +11,7 @@ nav:
       - "": "home/index.md"
       - "About": "home/about.md"
       - "The structure": "home/structure.md"
+      - "Implemented methods and features": "home/features.md"
       - "Citing DESDEO": "home/citing.md"
   - "Tutorials":
       - "": "tutorials/index.md"
@@ -34,7 +35,6 @@ nav:
       - "": "howtoguides/index.md"
       - "How to install DESDEO": "howtoguides/installing.md"
       - "How to get started using DESDEO": "howtoguides/full_example.ipynb"
-      - "How to define multiobjective optimization problems": "howtoguides/problem.md"
       - "How to define a multiobjective optimization problem": "howtoguides/how_to_define_a_problem.ipynb"
       - "How to host a DESDEO web application on Kubernetes": "howtoguides/kubernetes.md"
       - "How to deploy DESDEO on OpenShift": "howtoguides/deploying_on_openshift.md"
@@ -53,18 +53,20 @@ nav:
       - "How to generate a representative set of solutions": "howtoguides/IPR.ipynb"
   - "Core-Logic API Reference":
       - "": "api/index.md"
-      - "api": "api/desdeo_api.md"
       - "problem": "api/desdeo_problem.md"
       - "mcdm": "api/desdeo_mcdm.md"
       - "emo": "api/desdeo_emo.md"
       - "EMO Pydantic Interface": "api/EMO Options.md"
       - "tools": "api/desdeo_tools.md"
-  - "Web-API":
+      - "adm": "api/desdeo_adm.md"
+      - "gdm": "api/desdeo_gdm.md"
+      - "explanations": "api/desdeo_explanations.md"
+  - "Web-API (WIP)":
       - "": "web_api/index.md"
       - "OpenAPI reference": "web_api/openapi.md"
       - "Database models": "web_api/models.md"
       - "Database relations mapping": "web_api/relations.md"
-  - "Web-GUI":
+  - "Web-GUI (WIP)":
       - "": "web_gui/index.md"
 
 watch:

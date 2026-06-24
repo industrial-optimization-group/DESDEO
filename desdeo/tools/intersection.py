@@ -36,17 +36,18 @@ def line_box_intersection(
     k_min = np.min((k_bmax, k_bmin), axis=0).max(axis=1) - thickness / 2
     k_max = np.max((k_bmax, k_bmin), axis=0).min(axis=1) + thickness / 2
 
-    intersect_mask = np.logical_or((k_max >= k_min), np.isclose(k_max, k_min))
-    return intersect_mask
+    return np.logical_or((k_max >= k_min), np.isclose(k_max, k_min))
 
 
-def find_bad_indicesREF(solution, ref_point, reference_points, thickness):
+def find_bad_indicesREF(solution, ref_point, reference_points, thickness):  # noqa: N802
+    """Return reference points flagged as bad via line-box intersection, with the box limits."""
     box_max, box_min = find_bad_limits(solution, ref_point)
     bad_points = line_box_intersection(box_min, box_max, reference_points, thickness)
     return bad_points, box_min, box_max
 
 
 def find_bad_limits(solution, ref_point, threshold=0.05):
+    """Return the (max, min) box corners used to flag bad reference points around a solution."""
     # Find projections of solution on the ref direction
     k = solution - ref_point
     box_max = ref_point + k.max()

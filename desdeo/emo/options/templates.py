@@ -250,7 +250,7 @@ def preference_handler(
             problem=problem,
             aspiration_levels=preference.aspiration_levels,
             reservation_levels=preference.reservation_levels,
-            desirability_levels={name: preference.desirability_levels for name in preference.aspiration_levels},
+            desirability_levels=dict.fromkeys(preference.aspiration_levels, preference.desirability_levels),
             desirability_func="MaoMao",
         )
         return df_problem, selection

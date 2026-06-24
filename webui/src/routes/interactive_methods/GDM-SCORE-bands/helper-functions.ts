@@ -194,7 +194,7 @@ export function calculateScales(
 	let allObjectivesHaveScales = true;
 
 	problem.objectives.forEach((objective: any) => {
-		const name = objective.name;
+		const name = objective.symbol || objective.name; // Use symbol if available, otherwise name
 		const ideal = objective.ideal;
 		const nadir = objective.nadir;
 		if (ideal !== undefined && nadir !== undefined) {

@@ -13,7 +13,7 @@ The problem definition is a JSON file that contains the following information:
 
 from collections import Counter
 from collections.abc import Iterable
-from enum import Enum
+from enum import StrEnum
 from itertools import product
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
@@ -98,7 +98,6 @@ def parse_infix_to_func(cls: "Problem", v: str | list) -> list:
     raise ValueError(msg)
 
 
-
 def parse_list_to_mathjson(cls: "TensorVariable", v: Tensor | VariableType | None) -> list:
     """Validator that makes sure a nested Python list is represented as tensor following the MathJSON convention.
 
@@ -174,7 +173,7 @@ def get_tensor_values(
     raise ValueError(msg)
 
 
-class VariableTypeEnum(str, Enum):
+class VariableTypeEnum(StrEnum):
     """An enumerator for possible variable types."""
 
     real = "real"
@@ -185,7 +184,7 @@ class VariableTypeEnum(str, Enum):
     """A binary variable."""
 
 
-class VariableDomainTypeEnum(str, Enum):
+class VariableDomainTypeEnum(StrEnum):
     """An enumerator for the possible variable type domains of a problem."""
 
     continuous = "continuous"
@@ -198,7 +197,7 @@ class VariableDomainTypeEnum(str, Enum):
     """Some variables are continuos, some are integer or binary."""
 
 
-class ConstraintTypeEnum(str, Enum):
+class ConstraintTypeEnum(StrEnum):
     """An enumerator for supported constraint expression types."""
 
     EQ = "="
@@ -207,7 +206,7 @@ class ConstraintTypeEnum(str, Enum):
     """An inequality constraint of type 'less than or equal'."""
 
 
-class ObjectiveTypeEnum(str, Enum):
+class ObjectiveTypeEnum(StrEnum):
     """An enumerator for supported objective function types."""
 
     analytical = "analytical"

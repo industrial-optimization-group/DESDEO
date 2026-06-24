@@ -2538,16 +2538,6 @@ def add_group_guess_agg(
         tuple[Problem, str]: a tuple with the copy of the problem with the added
             scalarization and the symbol of the added scalarization.
     """
-    # check if ideal point is specified
-    # if not specified, try to calculate corrected ideal point
-    if ideal is not None:
-        ideal_point = ideal
-    elif problem.get_ideal_point() is not None:
-        ideal_point = get_corrected_ideal(problem)  # noqa: F841
-    else:
-        msg = "Ideal point not defined!"
-        raise ScalarizationError(msg)
-
     # check if nadir point is specified
     # if not specified, try to calculate corrected nadir point
     if nadir is not None:

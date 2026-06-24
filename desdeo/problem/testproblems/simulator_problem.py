@@ -1,4 +1,4 @@
-"""Defines a simulator test problem with multibased objectives, constraints and functions."""
+"""Defines a simulator-based test problem."""
 
 from pathlib import Path
 

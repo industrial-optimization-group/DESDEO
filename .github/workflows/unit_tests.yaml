@@ -55,4 +55,11 @@ jobs:
 
       - name: Run unit tests
         run: |
-          uv run pytest -n auto -m "not githubskip and not fixme" --disable-warnings --maxfail=5
+          uv run pytest -n auto -m "not githubskip and not fixme" --disable-warnings --maxfail=5 --cov=desdeo --cov-report=xml --cov-report=term
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}

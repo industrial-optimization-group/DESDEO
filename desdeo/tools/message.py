@@ -144,9 +144,7 @@ MessageTopics = (
     | SelectorMessageTopics
     | TerminatorMessageTopics
     | ReferenceVectorMessageTopics
-    | Literal[
-        "ALL"
-    ]  # Used to indicate that all topics are of interest to a subscriber.
+    | Literal["ALL"]  # Used to indicate that all topics are of interest to a subscriber.
 )
 
 
@@ -190,9 +188,7 @@ class BoolMessage(BaseMessage):
 class DictMessage(BaseMessage):
     """A message containing a dictionary value."""
 
-    value: dict[str, Any] = Field(
-        ..., description="The dictionary value of the message."
-    )
+    value: dict[str, Any] = Field(..., description="The dictionary value of the message.")
     """ The dictionary value of the message. """
 
 

@@ -1,6 +1,4 @@
-"""Contains a pymoo problem."""
-
-# ruff: noqa: S113
+"""Server utilities for serving benchmark test problems."""
 
 # A FastAPI server to expose pymoo benchmark problems
 from typing import Any
@@ -76,7 +74,7 @@ port = 8000
 def server_problem(parameters: PymooParameters) -> Problem:
     """Create a Problem instance from pymoo parameters."""
     try:
-        info = requests.get(url + f":{port}/info", json=parameters.model_dump())
+        info = requests.get(url + f":{port}/info", json=parameters.model_dump(), timeout=30)
         info.raise_for_status()
     except requests.RequestException as e:
         raise RuntimeError("Failed to fetch problem info. Is the server running?") from e

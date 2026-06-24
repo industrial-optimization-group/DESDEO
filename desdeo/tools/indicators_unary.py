@@ -17,11 +17,10 @@ European journal of operational research 292.2 (2021): 397-422.
 from warnings import warn
 
 import numpy as np
-from pydantic import BaseModel, Field
 from moocore import Hypervolume
+from pydantic import BaseModel, Field
 from pymoo.indicators.rmetric import RMetric
 from scipy.spatial.distance import cdist
-from typing import Dict
 
 
 def hv(solution_set: np.ndarray, reference_point_component: float) -> float:
@@ -37,7 +36,6 @@ def hv(solution_set: np.ndarray, reference_point_component: float) -> float:
     Returns:
         float: The hypervolume indicator value.
     """
-
     hv = Hypervolume(reference_point_component)
     ind = hv(solution_set)
 
@@ -70,12 +68,12 @@ def hv_batch(
             point component. If the calculation fails, the value is set to None, and should be handled by the user.
     """
     hvs = {key: [] for key in solution_sets}
-    num_objs = solution_sets[next(iter(solution_sets.keys()))].shape[1]
+    solution_sets[next(iter(solution_sets.keys()))].shape[1]
 
     for rp in reference_points_component:
         hv = Hypervolume(rp)
-        for set_name in solution_sets:
-            ind = hv(solution_sets[set_name])
+        for set_name, sols in solution_sets.items():
+            ind = hv(sols)
             if ind is None:
                 warn("Hypervolume calculation failed. Setting value to None", category=RuntimeWarning, stacklevel=2)
                 hvs[set_name].append(None)
@@ -168,8 +166,8 @@ def distance_indicators_batch(
             values. This data structure can be easily converted to a DataFrame or saved to disk as a JSON file.
     """
     inds = {}
-    for set_name in solution_sets:
-        inds[set_name] = distance_indicators(solution_sets[set_name], reference_set, p=p)
+    for set_name, sols in solution_sets.items():
+        inds[set_name] = distance_indicators(sols, reference_set, p=p)
     return inds
 
 
@@ -231,21 +229,23 @@ def igd_plus_batch(
         results[set_name] = igd_plus_indicator(solution_set, reference_set, p)
     return results
 
+
 class R2Indicator(BaseModel):
+    """Container for the R2 indicator value of a solution set."""
+
     r2_value: float
+
 
 def tchebycheff_utility(fx: np.ndarray, lambd: np.ndarray, z_star: np.ndarray, rho: float = 0.05) -> float:
     """Calculates the augmented Tchebycheff utility of a solution."""
     diff = np.abs(z_star - fx)
     max_term = np.max(lambd * diff)
     sum_term = np.sum(diff)
-    return - (max_term + rho * sum_term)
+    return -(max_term + rho * sum_term)
+
 
 def r2_indicator(
-    solution_set: np.ndarray,
-    lambda_set: np.ndarray,
-    z_star: np.ndarray,
-    rho: float = 0.05
+    solution_set: np.ndarray, lambda_set: np.ndarray, z_star: np.ndarray, rho: float = 0.05
 ) -> R2Indicator:
     """Computes the unary R2 indicator for a given solution set.
 
@@ -260,21 +260,16 @@ def r2_indicator(
     """
     total_score = 0.0
     for lambd in lambda_set:
-        best_score = max(
-            tchebycheff_utility(fx, lambd, z_star, rho)
-            for fx in solution_set
-        )
+        best_score = max(tchebycheff_utility(fx, lambd, z_star, rho) for fx in solution_set)
         total_score += best_score
 
     r2_value = total_score / len(lambda_set)
     return R2Indicator(r2_value=r2_value)
 
+
 def r2_batch(
-    solution_sets: Dict[str, np.ndarray],
-    lambda_set: np.ndarray,
-    z_star: np.ndarray,
-    rho: float = 0.05
-) -> Dict[str, R2Indicator]:
+    solution_sets: dict[str, np.ndarray], lambda_set: np.ndarray, z_star: np.ndarray, rho: float = 0.05
+) -> dict[str, R2Indicator]:
     """Computes the R2 indicator for multiple solution sets.
 
     Args:
@@ -286,10 +281,8 @@ def r2_batch(
     Returns:
         dict[str, R2IndicatorResult]: Dictionary of results.
     """
-    return {
-        name: r2_indicator(solution_set, lambda_set, z_star, rho)
-        for name, solution_set in solution_sets.items()
-    }
+    return {name: r2_indicator(solution_set, lambda_set, z_star, rho) for name, solution_set in solution_sets.items()}
+
 
 class RMetricIndicators(BaseModel):
     """A container for R-metric indicators: R-HV and R-IGD."""
@@ -335,8 +328,8 @@ def r_metric_indicators_batch(
 ) -> dict[str, RMetricIndicators]:
     """Calculate the R-metrics (R-HV and R-IGD) for a batch of solution sets."""
     inds = {}
-    for set_name in solution_set:
-        inds[set_name] = r_metric_indicator(solution_set[set_name], ref_points, w, delta)
+    for set_name, sols in solution_set.items():
+        inds[set_name] = r_metric_indicator(sols, ref_points, w, delta)
     return inds
 
 

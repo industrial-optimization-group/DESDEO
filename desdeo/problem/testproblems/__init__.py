@@ -56,6 +56,7 @@ __all__ = [  # noqa: RUF022
     "summer_cabin_battery_problem",
     "summer_cabin_battery_problem_split",
     "summer_cabin_battery_problem_split_scenario",
+    "lame_superspheres",
     "water_management",
 ]
 
@@ -67,6 +68,7 @@ from .dmitry_forest_problem_discrete import dmitry_forest_problem_disc
 from .dtlz_problems import dtlz1, dtlz2, dtlz4
 from .forest_problem import forest_problem, forest_problem_discrete
 from .knapsack_problem import simple_knapsack, simple_knapsack_vectors
+from .lame_superspheres_problem import lame_superspheres
 from .mcwb_problem import (
     mcwb_equilateral_tbeam_problem,
     mcwb_hollow_rectangular_problem,
@@ -75,7 +77,7 @@ from .mcwb_problem import (
     mcwb_square_channel_problem,
     mcwb_tapered_channel_problem,
 )
-from .mixed_variable_dimenrions_problem import mixed_variable_dimensions_problem
+from .mixed_variable_dimensions_problem import mixed_variable_dimensions_problem
 from .momip_problem import momip_ti2, momip_ti7
 from .multi_valued_constraints import multi_valued_constraint_problem
 from .nimbus_problem import nimbus_test_problem
@@ -97,10 +99,7 @@ from .simple_problem import (
     simple_test_problem,
 )
 from .simulator_problem import simulator_problem
-from .spanish_sustainability_problem import (
-    spanish_sustainability_problem,
-    spanish_sustainability_problem_discrete,
-)
+from .spanish_sustainability_problem import spanish_sustainability_problem, spanish_sustainability_problem_discrete
 from .summer_cabin_electricity import (
     generate_solar_profile,
     generate_summer_cabin_electricity_data,

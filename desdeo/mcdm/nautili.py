@@ -13,16 +13,16 @@ from desdeo.problem import (
     Problem,
     get_nadir_dict,
 )
-from desdeo.tools.generics import BaseSolver, SolverResults, SolverOptions
+from desdeo.tools.generics import BaseSolver, SolverOptions, SolverResults
 from desdeo.tools.scalarization import (
-    add_asf_generic_nondiff,
     add_asf_generic_diff,
+    add_asf_generic_nondiff,
     add_epsilon_constraints,
 )
 from desdeo.tools.utils import guess_best_solver
 
 
-class NAUTILI_Response(BaseModel):
+class NAUTILI_Response(BaseModel):  # noqa: N801
     """The response of the NAUTILI method."""
 
     step_number: int = Field(description="The step number associted with this response.")
@@ -46,9 +46,7 @@ class NautiliError(Exception):
 
 
 def solve_reachable_bounds(
-    problem: Problem,
-    navigation_point: dict[str, float],
-    solver: BaseSolver | None = None
+    problem: Problem, navigation_point: dict[str, float], solver: BaseSolver | None = None
 ) -> tuple[dict[str, float], dict[str, float]]:
     """Computes the current reachable (upper and lower) bounds of the solutions in the objective space.
 
@@ -153,6 +151,7 @@ def solve_reachable_solution(
         solver_options (SolverOptions | None, optional): optional options passed
             to the `solver`. Ignored if `solver` is `None`.
             Defaults to None.
+
     Returns:
         SolverResults: the results of the projection.
     """
@@ -183,8 +182,8 @@ def solve_reachable_solution(
     problem_w_asf = problem_w_asf.add_constraints(
         [
             Constraint(
-                name=f"_const_{i+1}",
-                symbol=f"_const_{i+1}",
+                name=f"_const_{i + 1}",
+                symbol=f"_const_{i + 1}",
                 func=f"{obj.symbol}_min - {previous_nav_point[obj.symbol] * (-1 if obj.maximize else 1)}",
                 cons_type=ConstraintTypeEnum.LTE,
                 is_linear=obj.is_linear,
@@ -227,7 +226,7 @@ def nautili_init(problem: Problem, solver: BaseSolver | None = None) -> NAUTILI_
     )
 
 
-def nautili_step(  # NOQA: PLR0913
+def nautili_step(
     problem: Problem,
     steps_remaining: int,
     step_number: int,
@@ -236,6 +235,7 @@ def nautili_step(  # NOQA: PLR0913
     group_improvement_direction: dict | None = None,
     reachable_solution: dict | None = None,
 ) -> NAUTILI_Response:
+    """Perform a single step of the NAUTILI method."""
     if group_improvement_direction is None and reachable_solution is None:
         raise NautiliError("Either group_improvement_direction or reachable_solution must be provided.")
 
@@ -273,6 +273,7 @@ def nautili_all_steps(
     previous_responses: list[NAUTILI_Response],
     solver: BaseSolver | None = None,
 ) -> [NAUTILI_Response]:
+    """Run all remaining NAUTILI steps for the given reference points and return the responses."""
     responses = []
     nav_point = previous_responses[-1].navigation_point
     step_number = previous_responses[-1].step_number + 1
@@ -282,7 +283,7 @@ def nautili_all_steps(
     # Calculate the improvement directions for each DM
 
     improvement_directions = {}
-    for dm in reference_points:
+    for dm in reference_points:  # noqa: PLC0206
         if reference_points[dm] is None:
             # If no reference point is provided, use the previous improvement direction
             if previous_responses[-1].reference_points is None:
