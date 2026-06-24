@@ -17,19 +17,19 @@ def car_side_impact(three_obj: bool = True) -> Problem:
     The constraints and objective functions for the car side-impact problem are defined as follows:
 
     \begin{align}
-        \min\quad f_1(\textbf{x})
+        \min\quad f_1(\mathbf{x})
         &= 1.98 + 4.9x_1 + 6.67x_2 + 6.98x_3 + 4.01x_4
         + 1.78x_5 + 0.00001x_6 + 2.73x_7 \\
-        \min\quad f_2(\textbf{x})
+        \min\quad f_2(\mathbf{x})
         &= 4.72 - 0.5x_4 - 0.19x_2x_3 \\
-        \min\quad f_3(\textbf{x})
-        &= 0.5 * (V_{MBP} + V_{FD}) \\
-        \min\quad f_4(\textbf{x})
+        \min\quad f_3(\mathbf{x})
+        &= 0.5\,(V_{MBP} + V_{FD}) \\
+        \min\quad f_4(\mathbf{x})
         &= \max(1.16 - 0.3717x_2x_4 - 0.0092928x_3 - 1.0, 0) \\
         &+ \max(0.261 - 0.0159x_1x_2 - 0.06486x_1 - 0.019x_2x_7
         + 0.0144x_3x_5 + 0.0154464x_6 - 0.32, 0) \\
         &+ \max(0.214 + 0.00817x_5 - 0.045195x_1 - 0.0135168x_1 + 0.03099x_2x_6 - 0.018x_2x_7
-        + 0.007176x_3 + 0.023232x_3 - 0.00364x_5x_6 - 0.018x_2^2 - 0.32) \\
+        + 0.007176x_3 + 0.023232x_3 - 0.00364x_5x_6 - 0.018x_2^2 - 0.32, 0) \\
         &+ \max(0.74 - 0.61x_2 - 0.031296x_3 - 0.031872x_7 + 0.227x_2^2 - 0.32,0) \\
         &+ \max(28.98 + 3.818x_3 - 4.2x_1x_2 + 1.27296x_6 - 2.68065x_7 - 32.0,0) \\
         &+ \max(33.86 + 2.95x_3 - 5.057x_1x_2 - 3.795x_2 - 3.4431x_7 + 1.45728 - 32.0,0) \\
@@ -77,24 +77,31 @@ def car_side_impact(three_obj: bool = True) -> Problem:
         \leq 9.9 \\
         g_{10}(\mathbf{x})
         &= 16.45 - 0.489x_3x_7 - 0.843x_5x_6
-        \leq 15.7
-
-        \mathbf{x}^{L} \leq \mathbf{x} \leq \mathbf{x}^{U},
-
-        where
-
-        \[
-        \mathbf{x}^{L} = (0.5,\,0.45,\,0.5,\,0.5,\,0.875,\,0.4,\,0.4),
-        \]
-
-        \[
-        \mathbf{x}^{U} = (1.5,\,1.35,\,1.5,\,1.5,\,2.625,\,1.2,\,1.2).
-        \]
+        \leq 15.7 \\
+        &\mathbf{x}^{L} \leq \mathbf{x} \leq \mathbf{x}^{U},
     \end{align}
 
+    where
+
+    \[
+    V_{MBP} = 10.58 - 0.674x_1x_2 - 0.67275x_2,
+    \]
+
+    \[
+    V_{FD} = 16.45 - 0.489x_3x_7 - 0.843x_5x_6,
+    \]
+
+    \[
+    \mathbf{x}^{L} = (0.5,\,0.45,\,0.5,\,0.5,\,0.875,\,0.4,\,0.4),
+    \]
+
+    \[
+    \mathbf{x}^{U} = (1.5,\,1.35,\,1.5,\,1.5,\,2.625,\,1.2,\,1.2).
+    \]
+
     Arguments:
-        three_obj (bool): If true, utilize three objectives version.
-            If false, utilize four objectives version. Default is true.
+        three_obj (bool): If true, utilize the three objectives version (objectives $f_1$-$f_3$).
+            If false, utilizes the fourth objective ($f_4$) as well. Defaults to true (three objectives).
 
 
     Returns:
@@ -102,26 +109,26 @@ def car_side_impact(three_obj: bool = True) -> Problem:
 
     References:
         Jain, H., & Deb, K. (2014). An evolutionary many-objective optimization algorithm using
-        reference-point based nondominated sorting approach, part II. IEEE TEVC, 18(4), 602-622.
+            reference-point based nondominated sorting approach, part II. IEEE TEVC, 18(4), 602-622.
 
         Three objective problem from:
 
         Jain, H. & Deb, K. (2014). An Evolutionary Many-Objective Optimization Algorithm
-        Using Reference-Point Based Nondominated Sorting Approach, Part II: Handling Constraints
-        and Extending to an Adaptive Approach. IEEE transactions on evolutionary computation,
-        18(4), 602-622.
+            Using Reference-Point Based Nondominated Sorting Approach, Part II: Handling Constraints
+            and Extending to an Adaptive Approach. IEEE transactions on evolutionary computation,
+            18(4), 602-622.
 
         Optional fourth objective from:
 
         Tanabe, R. & Ishibuchi, H. (2020). An easy-to-use real-world
-        multi-objective optimization problem suite.
-        Applied soft computing, 89, 106078.
+            multi-objective optimization problem suite.
+            Applied soft computing, 89, 106078.
 
         Variable names from:
 
         Deb, K., Gupta, S., Daum, D., Branke, J., Mall, A. & Padmanabhan, D. (2009).
-        Reliability-Based Optimization Using Evolutionary Algorithms.
-        IEEE transactions on evolutionary computation, 13(5), 1054-1074.
+            Reliability-Based Optimization Using Evolutionary Algorithms.
+            IEEE transactions on evolutionary computation, 13(5), 1054-1074.
     """
     x_1 = Variable(
         name="x_1",
