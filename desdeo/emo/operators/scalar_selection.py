@@ -217,7 +217,7 @@ class ElitistSelection(BaseScalarSelector):
     best ``winner_size`` rows. No randomness, so the operation is reproducible.
     Useful as an elitist scheme for any single fitness column already present
     in the outputs DataFrame, e.g. an achievement scalarizing function value
-    added via :func:`desdeo.tools.scalarization.add_asf_nondiff`.
+    added via [desdeo.tools.scalarization.add_asf_nondiff][].
     """
 
     @property
@@ -297,7 +297,7 @@ class ElitistSelection(BaseScalarSelector):
         solutions: tuple[SolutionType, pl.DataFrame],
         fitness: np.ndarray | None = None,
     ) -> tuple[SolutionType, pl.DataFrame]:
-        """ABC requirement: delegate to the public :meth:`do`."""
+        """ABC requirement: delegate to the public `do()`."""
         return self.do(solutions, fitness)
 
     def state(self) -> Sequence[Message]:

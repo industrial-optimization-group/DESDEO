@@ -207,7 +207,8 @@ def complete_bounds_from_population(
     """Replace placeholder bounds (accuracy ``-1``) with the population's per-variable extrema.
 
     Args:
-        parsed_bounds (dict): Output of :func:`parse_rules_to_variable_bounds`.
+        parsed_bounds (dict): Output of
+            [parse_rules_to_variable_bounds][desdeo.explanations.rules.parse_rules_to_variable_bounds].
         population (np.ndarray): A 2D array of shape ``(n_individuals, n_variables)``.
         variable_symbols (list[str]): Variable symbols matching the columns of
             ``population``.
@@ -243,8 +244,9 @@ def format_rule_summary(
     bound came from the box constraint (no rule covered it).
 
     Args:
-        parsed_bounds (dict): Output of :func:`parse_rules_to_variable_bounds`
-            (or :func:`complete_bounds_from_population`).
+        parsed_bounds (dict): Output of
+            [parse_rules_to_variable_bounds][desdeo.explanations.rules.parse_rules_to_variable_bounds]
+            (or [complete_bounds_from_population][desdeo.explanations.rules.complete_bounds_from_population]).
         variable_symbols (list[str]): Variable symbols, in display order.
         population_bounds (dict[str, tuple[float, float]]): ``{symbol: (min, max)}`` from
             the final population.
@@ -273,14 +275,14 @@ def format_rule_summary(
 
 
 def format_rule_table(rule_summary: list[dict]) -> str:
-    """Render :func:`format_rule_summary` output as an aligned plain-text table.
+    """Render [format_rule_summary][desdeo.explanations.rules.format_rule_summary] output as an aligned text table.
 
     Bound values are shown with 5-decimal precision; accuracies with 3-decimal
     precision. Accuracy ``-1`` is rendered as the literal ``"-1"`` to flag that
     the bound came from the box constraint rather than a rule.
 
     Args:
-        rule_summary (list[dict]): Output of :func:`format_rule_summary`.
+        rule_summary (list[dict]): Output of [format_rule_summary][desdeo.explanations.rules.format_rule_summary].
 
     Returns:
         str: The formatted table including a header row.

@@ -38,7 +38,7 @@ def template1(
         selection (BaseSelector): The selection operator.
         terminator (BaseTerminator): The termination operator.
         repair (Callable, optional): A function that repairs the offspring if they go out of bounds. Defaults to an
-            identity function, meaning no repair is done. See :py:func:`desdeo.tools.utils.repair` as an example of a
+            identity function, meaning no repair is done. See [desdeo.tools.utils.repair][] as an example of a
             repair function.
 
     Returns:
@@ -80,7 +80,7 @@ def template2(
             This is typically a scalar selector that selects parents based on their fitness.
         terminator (BaseTerminator): The termination operator.
         repair (Callable, optional): A function that repairs the offspring if they go out of bounds. Defaults to an
-            identity function, meaning no repair is done. See :py:func:`desdeo.tools.utils.repair` as an example of a
+            identity function, meaning no repair is done. See [desdeo.tools.utils.repair][] as an example of a
             repair function.
 
     Returns:
@@ -137,9 +137,9 @@ def template_xlemoo(
         generator (BaseGenerator): Initial population generator.
         selection (BaseScalarSelector): Scalar selector that ranks the combined parent
             and offspring population by a single fitness column (e.g.
-            :class:`~desdeo.emo.operators.scalar_selection.ElitistSelection`).
+            [ElitistSelection][desdeo.emo.operators.scalar_selection.ElitistSelection]).
         learning_operator (LearningModeOperator): Operator that performs one learning step
-            (rule extraction + instantiation) using the archive. Its :meth:`do` returns
+            (rule extraction + instantiation) using the archive. Its `do()` returns
             instantiated decision vectors (or ``None`` when no rules can be extracted).
         terminator (BaseTerminator): Termination operator. Its ``check()`` advances the
             generation counter and notifies subscribers (e.g. the Archive).

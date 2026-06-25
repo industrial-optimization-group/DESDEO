@@ -3,7 +3,7 @@
 The operator subscribes to the same ``VERBOSE_OUTPUTS`` stream the archive
 listens to, and maintains its own bounded H-group (best-by-target) and
 L-group (worst-by-target) of unique decision vectors seen so far. When
-:meth:`do` is called, it trains a :class:`~imodels.SkopeRulesClassifier`
+`do()` is called, it trains a `SkopeRulesClassifier`
 on those groups and returns a fresh batch of decision vectors
 instantiated from the extracted rules.
 
@@ -34,10 +34,10 @@ class LearningModeOperator(Subscriber):
     The operator subscribes to ``VERBOSE_OUTPUTS`` from the evaluator and
     generator and maintains its own bounded H-group / L-group of the
     best- and worst-by-target unique decision vectors seen so far.
-    :meth:`do` trains a SkopeRulesClassifier on those groups and returns
+    `do()` trains a SkopeRulesClassifier on those groups and returns
     a fresh batch of decision vectors instantiated from the extracted
     rules. The caller (typically
-    :func:`~desdeo.emo.methods.templates.template_xlemoo`) evaluates the
+    [template_xlemoo][desdeo.emo.methods.templates.template_xlemoo]) evaluates the
     returned candidates and integrates them with the current population
     through its own selection step.
     """
@@ -207,5 +207,5 @@ class LearningModeOperator(Subscriber):
         return pl.DataFrame(instantiated, schema=self.variable_symbols)
 
     def state(self) -> Sequence[Message]:
-        """No outgoing messages; learning results are exposed via the return value of :meth:`do`."""
+        """No outgoing messages; learning results are exposed via the return value of `do()`."""
         return []

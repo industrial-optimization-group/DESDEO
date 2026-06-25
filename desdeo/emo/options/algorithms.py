@@ -379,9 +379,9 @@ def xlemoo_options() -> EMOOptions:
     the extracted rules.
 
     References:
-        Misitano, G., "Exploring the Explainable Aspects and Performance of a Learnable
-        Evolutionary Multiobjective Optimization Method." ACM Transactions on Evolutionary
-        Learning and Optimization 3, no. 4 (December 2023): 1-32.
+        Misitano, G. (2024). Exploring the explainable aspects and performance
+            of a learnable evolutionary multiobjective optimization method. ACM
+            Transactions on Evolutionary Learning and Optimization, 4(1), 1-39.
 
     Returns:
         EMOOptions: The default XLEMOO options as a Pydantic model.
