@@ -739,6 +739,7 @@ dependencies = [
     { name = "cvxpy", extra = ["scip"] },
     { name = "greenlet" },
     { name = "gurobipy" },
+    { name = "imodels" },
     { name = "moocore" },
     { name = "nevergrad" },
     { name = "numba" },
@@ -866,6 +867,7 @@ requires-dist = [
     { name = "cvxpy", extras = ["scip"], specifier = ">=1.8.0,<1.9" },
     { name = "greenlet", specifier = ">=3.1.1" },
     { name = "gurobipy", specifier = ">=12.0.0" },
+    { name = "imodels", specifier = ">=2.0.4" },
     { name = "moocore", specifier = ">=0.1.7" },
     { name = "nevergrad", specifier = ">=1.0.12" },
     { name = "numba", specifier = ">=0.61.0" },
@@ -1378,6 +1380,25 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/cd/63/9496c57188a2ee585e0f1db071d75089a11e98aa86eb99d9d7618fc1edce/idna-3.18.tar.gz", hash = "sha256:ffb385a7e039654cef1ab9ef32c6fafe283c0c0467bba1d9029738ce4a14a848", size = 196711, upload-time = "2026-06-02T14:34:07.794Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1e/5e/d4e9f1a599fb8e573b7b87160658329fbf28d19eac2718f51fc3def3aa5a/idna-3.18-py3-none-any.whl", hash = "sha256:7f952cbe720b688055e3f87de14f5c3e5fdaa8bc3928985c4077ca689de849a2", size = 65455, upload-time = "2026-06-02T14:34:06.319Z" },
+]
+
+[[package]]
+name = "imodels"
+version = "2.0.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "matplotlib" },
+    { name = "mlxtend" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "requests" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d3/32/e5a0f5df56bd4a82bce1e2f2b8c46cbc07e9a904cc125b24dcc67a8c3c23/imodels-2.0.4.tar.gz", hash = "sha256:6aadab17ff176033022264a70c3571fa300bd2584590aec80bbf0254d91f58ab", size = 238986, upload-time = "2025-11-25T16:27:24.942Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e8/10/530b51352d3dcbce5f242e9d9c07a4ece5a983af5d4cceb8c6fad4e8e087/imodels-2.0.4-py3-none-any.whl", hash = "sha256:ec9038de1017ff6596038ac994ecec1625fdec3a6ba96b88304d1e94e4247767", size = 274517, upload-time = "2025-11-25T16:27:23.373Z" },
 ]
 
 [[package]]
@@ -2283,6 +2304,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a4/b4/5fed370d8ebd96e4e399460a7146ae989263f16588b05a6facd6dbd51e60/mkdocstrings_python-2.0.4.tar.gz", hash = "sha256:58c73c5d358e64e9b1673447663f4a2f8a8941e392e225fc0a0c893758cc452f", size = 199219, upload-time = "2026-06-05T08:13:01.819Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5e/e3/00ec594aef5f55522e6d373bc2ac53e53a8f5e9ae32f2d6854b0de4270f3/mkdocstrings_python-2.0.4-py3-none-any.whl", hash = "sha256:fd87c173e1e719a85997b6d4f852cdc55f36710e0ed08da3a7bd9abe79c9db00", size = 104790, upload-time = "2026-06-05T08:13:00.393Z" },
+]
+
+[[package]]
+name = "mlxtend"
+version = "0.25.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "joblib" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a5/c2/a257a9b3f2f989729c6c88d127be0d832cc6defbab564c97c1e410de4697/mlxtend-0.25.0.tar.gz", hash = "sha256:7fd52f1c55ea80036945490ea54c497aa2251ac03cf8e728cde12275d2169bcc", size = 1287049, upload-time = "2026-06-06T12:32:13.64Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/61/b8/bda63104fa9e3c4e88bd158b664d21b66667fbee3eb35f737dd329dc26a3/mlxtend-0.25.0-py3-none-any.whl", hash = "sha256:71b9500d9cb506642588995783d681a30c99a3b35abfbeb7b4e800d217fc12a5", size = 1355323, upload-time = "2026-06-06T12:32:12.083Z" },
 ]
 
 [[package]]

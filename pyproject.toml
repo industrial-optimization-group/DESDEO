@@ -18,7 +18,7 @@ keywords = [
 ]
 requires-python = ">=3.12,<3.14"
 dependencies = [
-    "numpy >= 2.2.0, < 2.4",        # nevergrad 1.0.12 metamodel does float(model.predict(...)); numpy>=2.4 rejects size-1 ndim>0 -> scalar conversion
+    "numpy >= 2.2.0, < 2.4", # nevergrad 1.0.12 metamodel does float(model.predict(...)); numpy>=2.4 rejects size-1 ndim>0 -> scalar conversion
     "scipy >= 1.11.4",
     "polars >= 1.41",
     "pyarrow >= 20.0.0",
@@ -37,10 +37,11 @@ dependencies = [
     "pymoo >= 0.6.1.2",
     "shap >= 0.47.0",
     "requests >= 2.32.0",
-    "cvxpy[scip]>=1.8.0,<1.9",      # 1.9 regresses solver precision apparently?
+    "cvxpy[scip]>=1.8.0,<1.9", # 1.9 regresses solver precision apparently?
     "moocore >= 0.1.7",
     "websockets>=15.0.1",
     "coco-experiment>=2.8.2",
+    "imodels>=2.0.4",
 ]
 
 [project.urls]

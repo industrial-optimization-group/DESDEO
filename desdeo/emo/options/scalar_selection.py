@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field
 
-from desdeo.emo.operators.scalar_selection import BaseScalarSelector, TournamentSelection
+from desdeo.emo.operators.scalar_selection import BaseScalarSelector, ElitistSelection, TournamentSelection
 
 if TYPE_CHECKING:
     from desdeo.tools.patterns import Publisher
@@ -74,5 +74,12 @@ def scalar_selector_constructor(
             publisher=publisher,
             verbosity=verbosity,
             tournament_size=options.tournament_size,
+        )
+    if options.name == "ElitistSelection":
+        return ElitistSelection(
+            winner_size=options.winner_size,
+            target_column=options.target_column,
+            publisher=publisher,
+            verbosity=verbosity,
         )
     raise ValueError(f"Unknown scalar selection operator: {options.name}")
