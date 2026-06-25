@@ -479,7 +479,7 @@ if __name__ == "__main__":
     json_dump_path = current_dir.parent.parent.parent.parent / "datasets" / "emoTemplates"
 
     for algo_name, algo in zip(
-        ["rvea", "nsga3", "ibea", "rvea_mixed_integer", "nsga3_mixed_integer", "ibea_mixed_integer"],
+        ["rvea", "nsga3", "ibea", "rvea_mixed_integer", "nsga3_mixed_integer", "ibea_mixed_integer", "xlemoo"],
         [
             rvea_options,
             nsga3_options,
@@ -487,6 +487,7 @@ if __name__ == "__main__":
             rvea_mixed_integer_options,
             nsga3_mixed_integer_options,
             ibea_mixed_integer_options,
+            xlemoo_options,
         ],
         strict=True,
     ):
