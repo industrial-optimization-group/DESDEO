@@ -24,6 +24,7 @@ Guides are goal-oriented and are meant to direct users towards specific goals wh
 - **[Using EAs in DESDEO](ea.ipynb):** How to use evolutionary algorithms
 - **[Using EAs in DESDEO (Pydantic Interface)](ea_options.ipynb):** How to use evolutionary algorithms with the Pydantic interface
 - **[Implementing new EA components](how_to_implement_ea.md):** How to implement new evolutionary algorithm components
+- **[Using the XLEMOO method](xlemoo.ipynb):** How to use the explainable, learnable EMO (XLEMOO) method
 - **[Iterative Pareto Representer](IPR.ipynb):** How to generate a representative set of solutions using the Iterative Pareto Representer
 - **[Using GDM SCORE bands](gdm_score.ipynb):** How to use the group decision-making (GDM) SCORE bands method for consensus reaching
 - **[Advanced Usage of Surrogates](advancedSurrogates.ipynb):** How to a combination of multiple surrogates and analytical objectives
