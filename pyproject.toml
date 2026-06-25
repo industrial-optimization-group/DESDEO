@@ -18,7 +18,7 @@ keywords = [
 ]
 requires-python = ">=3.12,<3.14"
 dependencies = [
-    "numpy >= 2.2.0, < 2.4", # nevergrad 1.0.12 metamodel does float(model.predict(...)); numpy>=2.4 rejects size-1 ndim>0 -> scalar conversion
+    "numpy >= 2.2.0, < 2.4",        # nevergrad 1.0.12 metamodel does float(model.predict(...)); numpy>=2.4 rejects size-1 ndim>0 -> scalar conversion
     "scipy >= 1.11.4",
     "polars >= 1.41",
     "pyarrow >= 20.0.0",
@@ -37,7 +37,7 @@ dependencies = [
     "pymoo >= 0.6.1.2",
     "shap >= 0.47.0",
     "requests >= 2.32.0",
-    "cvxpy[scip]>=1.8.0,<1.9", # 1.9 regresses solver precision apparently?
+    "cvxpy[scip]>=1.8.0,<1.9",      # 1.9 regresses solver precision apparently?
     "moocore >= 0.1.7",
     "websockets>=15.0.1",
     "coco-experiment>=2.8.2",
@@ -101,7 +101,7 @@ server = [ # production!
 
 stochastic = [
     "sortedcollections",
-    "mpi4py>=3.0.3", # Need mpi installed on your system before installing this
+    "mpi4py>=3.0.3",                                         # Need mpi installed on your system before installing this
     "mpi-sppy@ git+https://github.com/juropo/mpi-sppy@main",
 ]
 
@@ -227,6 +227,14 @@ max-complexity = 15
 # (e.g. cvxpy has no `arccos`) only error when actually used, not at table construction.
 # Inlining them (PLW0108's suggestion) breaks that deferral, so the rule is ignored here.
 "desdeo/problem/json_parser.py" = ["PLW0108"]
+# Notebooks legitimately use prints to display output and rarely need
+# module/function docstrings or rigorous naming.
+"**/*.ipynb" = [
+    "T201",    # `print` found
+    "D100",    # Missing docstring in public module
+    "D103",    # Missing docstring in public function
+    "PLR2004", # Magic value used in comparison
+]
 
 [tool.ruff.format]
 quote-style = "double"

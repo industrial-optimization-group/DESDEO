@@ -36,6 +36,7 @@ from .mutation import (
 )
 from .repair import RepairOptions, repair_constructor
 from .scalar_selection import (
+    ElitistSelectionOptions,
     RouletteWheelSelectionOptions,
     ScalarSelectionOptions,
     TournamentSelectionOptions,
@@ -90,6 +91,7 @@ __all__ = [  # noqa: RUF022
     "ReferenceVectorOptions",
     "RouletteWheelSelectionOptions",
     "RVEASelectorOptions",
+    "ElitistSelectionOptions",
     "ScalarSelectionOptions",
     "scalar_selector_constructor",
     "SelfAdaptiveGaussianMutationOptions",
