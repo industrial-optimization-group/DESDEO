@@ -68,3 +68,14 @@ lint:
 # run pre-commit hooks on all files.
 lint-all:
     pre-commit run --all-files
+
+# Regenerate the OpenAPI JSON spec from the FastAPI app.
+docs-openapi:
+    uv run python scripts/gen_openapi.py
+
+# Regenerate the database ER diagram SVG from the SQLAlchemy models.
+docs-erd:
+    uv run python scripts/gen_erd.py
+
+# Regenerate both docs/web_api artifacts (JSON + SVG).
+docs-gen: docs-openapi docs-erd
