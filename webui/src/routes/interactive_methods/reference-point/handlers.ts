@@ -162,9 +162,9 @@ export async function handle_finish(
  */
 export async function handle_iterate(
 	problem: ProblemInfo,
+	preference: ReferencePoint,
 	session_id: number | null | undefined,
-	parent_state_id: number | null,
-	preference: ReferencePoint
+	parent_state_id?: number | null
 ): Promise<RPMState | null> {
 	isLoading.set(true);
 	errorMessage.set(null);

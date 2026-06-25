@@ -16,7 +16,6 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { openConfirmDialog, openInputDialog } from '$lib/components/custom/dialogs/dialogs';
 
-	// NIMBUS specific components
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
 	import SolutionTable from '$lib/components/custom/nimbus/solution-table.svelte';
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
@@ -36,10 +35,11 @@
 	import type { ReferencePoint, MapState, RPMPageState } from './types';
 	import type { RPMState } from '$lib/gen/endpoints/DESDEOFastAPI';
 
-	// State for iteration management
+	// State for Reference Point iteration management
 	let current_state: RPMPageState = $state({} as RPMPageState);
 
 	let problem: ProblemInfo | null = $state(null);
+
 	const { data } = $props<{ data: ProblemInfo[] }>();
 	let problem_list = $derived(data.problems ?? []);
 	// user can choose from three types of solutions: current, best, or all
@@ -54,14 +54,14 @@
 		if (!current_state) return [];
 		return current_state.current_solutions ?? [];
 	});
+	$inspect("chosen", chosen_solutions);
+	$inspect("current_solutions", current_state.current_solutions);
 
 	// Get the label for the selected solution type from frameworks
 	let selected_type_solutions_label = $derived.by(() => {
 		const framework = frameworks.find((f) => f.value === selected_type_solutions);
 		return framework ? framework.label : 'Solutions';
 	});
-	// variables for handling different modes (iteration, intermediate, save, finish)
-	// and chosen solutions that are separate for every mode
 	let mode: MethodMode = $state('iterate');
 	// iteration mode
 	let selected_iteration_index: number[] = $state([0]); // Index of solution from previous results to use in sidebar. List for consistency, but always has one element
@@ -75,6 +75,7 @@
 	});
 	// currentPreference is initialized from previous preference or ideal values
 	let current_preference: number[] = $state([]);
+
 	// Store the last iterated preference values to show as "previous" in UI
 	let last_iterated_preference: number[] = $state([]);
 
@@ -96,7 +97,7 @@
 		mapDescription: undefined
 	});
 
-	// Validation: iteration is allowed when at least one preference is better and one is worse than current objectives
+	// Validation: iteration is always allowed TODO: check if true
 	const is_iteration_allowed = true;
 
 	function handle_type_solutions_change(event: { value: string }) {
@@ -265,20 +266,41 @@
             };
     }
 
+	function unwrapSolverRecord(record: Record<string, number | number[]>) {
+		const unwrapped: Record<string, number> = {};
+		for (const [key, value] of Object.entries(record)) {
+			unwrapped[key] = Array.isArray(value) ? value[0] : value;
+		}
+		return unwrapped;
+	}
+
+	function buildCurrentSolutions(rpmState: RPMState | null): Solution[] {
+		if (!rpmState?.solver_results) return [];
+
+		return rpmState.solver_results.map((solverResult, index) => ({
+			state_id: rpmState.id ?? current_state.state_id ?? 0,
+			solution_index: index,
+			objective_values: unwrapSolverRecord(solverResult.optimal_objectives) as Solution['objective_values'],
+			variable_values: solverResult.optimal_variables as unknown as Solution['variable_values'],
+			name: null
+		}));
+	}
+
 	function buildRPMPageState(rpmState: RPMState | null): RPMPageState {
 		if (rpmState == null) return ({} as RPMPageState);
-		return { ...rpmState,
-			current_solutions: current_state.current_solutions,
-			saved_solutions: current_state.saved_solutions,
-			all_solutions: current_state.all_solutions,
+		return {
+			...rpmState,
+			current_solutions: buildCurrentSolutions(rpmState),
+			saved_solutions: current_state.saved_solutions ?? [],
+			all_solutions: current_state.all_solutions ?? [],
 			previous_preference: current_state.previous_preference,
 			previous_objectives: current_state.previous_objectives,
 			reference_solution_1: current_state.reference_solution_1,
 			reference_solution_2: current_state.reference_solution_2,
 			response_type: current_state.response_type,
 			final_solution: current_state.final_solution,
-			state_id: current_state.state_id,
-		}
+			state_id: rpmState.id ?? current_state.state_id ?? null,
+		};
 	}
 
 	// The optional unused values are kept for compatibility with the AppSidebar component
@@ -301,19 +323,22 @@
 			return;
 		}
 
-		const preference = buildReferencePoint(problem, data.preferenceValues);
+		const preference = buildReferencePoint(problem, current_preference);
 		const result = await handleIterateRequest(
 			problem,
-			current_state.state_id,
-			null,
 			preference,
+			current_state.state_id,
 		);
 
 		if (result) {
 			// Store the preference values that were just used for iteration
 			current_state = buildRPMPageState(result);
 
-			// Update names from saved solutions (only for all_solutions, current_solutions are new)
+			// Update names from saved solutions in every solution list we display
+			current_state.current_solutions = updateSolutionNames(
+				current_state.saved_solutions,
+				current_state.current_solutions
+			);
 			current_state.all_solutions = updateSolutionNames(
 				current_state.saved_solutions,
 				current_state.all_solutions
@@ -381,27 +406,20 @@
 				hasUtopiaMetadata = checkUtopiaMetadata(problem);
 
 				let preference: ReferencePoint = buildReferencePoint(problem, current_preference);
-				// Initialize NIMBUS state from the API
+				// Initialize RPM state from the API
 				await initialize_rpm_state(problem, preference);
 
 			}
 		}
 	});
 
-	// Initialize NIMBUS state by calling the API endpoint
+	// Initialize RPM state by calling the API endpoint
 	async function initialize_rpm_state(problem: ProblemInfo, preference: ReferencePoint) {
 		const response = await initializeRPMState(problem, null, null, preference);
 		const result = buildRPMPageState(response);
 		if (result) {
 			// Store response data
-			let current_solutions = result.current_solutions || [];
-			if (result.final_solution) {
-				current_solutions = [result.final_solution]
-			}
-			current_state = {
-				...result,
-				current_solutions: current_solutions,
-			};
+			current_state = { ...result };
 			// Update names from saved solutions
 			current_state.current_solutions = updateSolutionNames(
 				current_state.saved_solutions,
@@ -421,7 +439,7 @@
 	}
 
 	// Convert data to match AppSidebar interface
-	let type_preferences = $state(PREFERENCE_TYPES.Classification);
+	const type_preferences = PREFERENCE_TYPES.ReferencePoint;
 
 	// Add the missing callback that updates internal state
 	// This function is called when the user changes preferences in the AppSidebar
@@ -432,7 +450,6 @@
 		objectiveValues: number[];
 	}) {
 		current_num_iteration_solutions = data.numSolutions;
-		type_preferences = data.typePreferences;
 		current_preference = [...data.preferenceValues];
 	}
 </script>
@@ -533,8 +550,8 @@
 			{#if problem && mode === 'iterate'}
 				<AppSidebar
 					{problem}
-					preferenceTypes={[PREFERENCE_TYPES.Classification]}
-					showNumSolutions={true}
+					preferenceTypes={[PREFERENCE_TYPES.ReferencePoint]}
+					showNumSolutions={false}
 					numSolutions={current_num_iteration_solutions}
 					typePreferences={type_preferences}
 					preferenceValues={current_preference}
@@ -562,14 +579,6 @@
 		{/snippet}
 
 		{#snippet explorerControls()}
-			<SegmentedControl
-				bind:value={mode}
-				options={[
-					{ value: 'iterate', label: 'Iterate' },
-					{ value: 'intermediate', label: 'Find intermediate' }
-				]}
-				class="mr-10"
-			/>
 			<span>View: </span>
 			<Combobox
 				options={frameworks}
