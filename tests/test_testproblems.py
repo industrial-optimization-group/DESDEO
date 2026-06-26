@@ -9,6 +9,7 @@ from desdeo.problem import PolarsEvaluator, PyomoEvaluator
 from desdeo.problem.testproblems import (
     binh_and_korn,
     car_side_impact,
+    ctp1,
     dtlz1,
     dtlz2,
     dtlz4,
@@ -794,3 +795,25 @@ def test_car_side_impact():
     for i in range(len(res)):
         obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
         assert np.allclose(obj_values, expected_result[i])
+
+
+@pytest.mark.testproblem
+def test_ctp1():
+    """Test that CTP1 problem evaluates correctly."""
+    n = 3
+    val = 0.5
+    problem = ctp1(n)
+
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [val] for var in problem.variables}
+
+    res = evaluator.evaluate(xs)
+    f1 = res["f_1"][0]
+    f2 = res["f_2"][0]
+    g1 = res["g_1"][0]
+    g2 = res["g_2"][0]
+
+    assert np.isclose(f1, 0.5)
+    assert np.isclose(f2, 5.108953223270181)
+    assert np.isclose(g1, -4.454301025073424)
+    assert np.isclose(g2, -4.4807893681722195)
