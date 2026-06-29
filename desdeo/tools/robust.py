@@ -115,8 +115,8 @@ def add_worst_case_robust(
                 name=f"Worst-case robust epigraph variable for {sym}",
                 symbol=t_sym,
                 variable_type=VariableTypeEnum.real,
-                lowerbound=-float("Inf"),
-                upperbound=float("Inf"),
+                lowerbound=None,
+                upperbound=None,
                 initial_value=0.0,
             )
         )
