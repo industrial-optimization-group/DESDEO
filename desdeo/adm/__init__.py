@@ -1,11 +1,11 @@
 """Imports available from desdeo adm."""
 
 __all__ = [
-    "BaseADM",
     "ADMAfsar",
     "ADMChen",
+    "BaseADM",
 ]
 
-from .BaseADM import BaseADM
-from .ADMChen import ADMChen
-from .ADMAfsar import ADMAfsar
+from .adm_afsar import ADMAfsar
+from .adm_chen import ADMChen
+from .base_adm import BaseADM

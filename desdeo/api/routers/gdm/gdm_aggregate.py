@@ -198,18 +198,17 @@ async def websocket_endpoint(
         await websocket.close()
         return
 
-    # We don't need the session here any more, so we can just close it.
-    # I believe this releases connections to the pool
-    session.close()
-
     # Get the group manager object from the manager of group managers
-    group_manager = await manager.get_group_manager(group_id=group_id, method=method)
+    group_manager = await manager.get_group_manager(group_id=group_id, method=method, db_session=session)
     if group_manager is None:
+        session.close()
         await websocket.send_text(f"Unknown method: {method}")
         await websocket.close()
         return
 
-    await group_manager.connect(user.id, websocket)
+    await group_manager.connect(user.id, websocket, db_session=session)
+    # Session is only needed for manager initialization/connection bookkeeping.
+    session.close()
     logger.info(f"Group ID {group_id} manager's active connections {group_manager.sockets}")
     logger.info(f"Existing GroupManagers: {manager.group_managers}")
     while True:

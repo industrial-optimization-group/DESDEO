@@ -1,6 +1,8 @@
 """[Deprecated] Implements common evolutionary algorithms for multi-objective optimization.
 
-Use desdeo.emo.options.algorithms instead.
+.. deprecated::
+    This module is deprecated and will be removed at the end of September 2026.
+    Use :mod:`desdeo.emo.options.algorithms` instead.
 """
 
 from collections.abc import Callable
@@ -21,12 +23,23 @@ from desdeo.problem import Problem
 from desdeo.tools.indicators_binary import self_epsilon
 from desdeo.tools.patterns import Publisher
 
-warn(
-    "desdeo.emo.methods.EAs is deprecated and will be removed in future versions. "
-    "Please use desdeo.emo.options.algorithms instead.",
-    category=DeprecationWarning,
-    stacklevel=1,
-)
+_DEPRECATION_MESSAGE = """
+==============================================================================
+  DEPRECATION WARNING: desdeo.emo.methods.EAs
+------------------------------------------------------------------------------
+  This module is DEPRECATED and WILL BE REMOVED at the end of September 2026.
+
+  Please migrate to the new API in desdeo.emo.options.algorithms, for example:
+
+      from desdeo.emo import algorithms
+      solver, extras = algorithms.emo_constructor(
+          emo_options=algorithms.rvea_options(), problem=problem
+      )
+      results = solver()
+==============================================================================
+"""
+
+warn(_DEPRECATION_MESSAGE, category=DeprecationWarning, stacklevel=2)
 
 
 def rvea(

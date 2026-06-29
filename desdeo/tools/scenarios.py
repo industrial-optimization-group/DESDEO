@@ -363,8 +363,8 @@ def _combine_elements(
     scenario_problems: dict[str, Problem],
     var_maps: dict[str, dict[str, str]],
     const_maps: dict[str, dict[str, str]],
-    get_list,
-    make_update,
+    get_list: callable,
+    make_update: callable,
     extra_leaf_maps: "dict[str, dict[str, str]] | None" = None,
 ) -> tuple[list | None, dict[str, dict[str, str]]]:
     """Build a combined list for one element type across all leaf scenarios.
@@ -460,7 +460,7 @@ def build_scenario_problem(scenario_model: "ScenarioModel", scenario_name: str) 
 def solve_scenario(
     scenario_model: "ScenarioModel",
     scenario_name: str,
-    solver_callable,
+    solver_callable: callable,
     solver_options: dict | None = None,
 ) -> "SolverResults":
     """Solve a single scenario.
@@ -484,7 +484,7 @@ def solve_scenario(
 
 def solve_all_scenarios(
     scenario_model: "ScenarioModel",
-    solver_callable,
+    solver_callable: callable,
     solver_options: dict | None = None,
 ) -> dict[str, "SolverResults"]:
     """Solve every leaf scenario in the model independently.
@@ -527,9 +527,9 @@ def build_combined_scenario_problem(
         A tuple of:
         - A single Problem suitable for passing directly to a solver.
         - A symbol map ``{element_type: {original_symbol: {leaf: new_symbol}}}``.
-          Element types are ``"variables"``, ``"constants"``, ``"objectives"``,
-          ``"constraints"``, ``"extra_funcs"``, and ``"scalarization_funcs"``.
-          Leaves that do not carry a given element retain the original symbol.
+            Element types are ``"variables"``, ``"constants"``, ``"objectives"``,
+            ``"constraints"``, ``"extra_funcs"``, and ``"scalarization_funcs"``.
+            Leaves that do not carry a given element retain the original symbol.
 
     Raises:
         ValueError: if the model contains no leaf scenarios.

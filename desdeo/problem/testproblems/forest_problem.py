@@ -1,3 +1,5 @@
+"""Forest problem with TensorConstants and TensorVariables."""
+
 from pathlib import Path
 
 import numpy as np

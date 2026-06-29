@@ -10,8 +10,10 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from desdeo.emo.hooks.archivers import NonDominatedArchive
-from desdeo.emo.methods.templates import EMOResult, template1, template2
+from desdeo.emo.methods.templates import EMOResult, template1, template2, template_xlemoo
 from desdeo.emo.operators.evaluator import EMOEvaluator
+from desdeo.emo.operators.learning_mode import LearningModeOperator
+from desdeo.emo.operators.scalar_selection import ElitistSelection
 from desdeo.emo.options.crossover import (
     CrossoverOptions,
     crossover_constructor,
@@ -22,7 +24,16 @@ from desdeo.emo.options.generator import (
 )
 from desdeo.problem import Problem
 from desdeo.tools.patterns import Publisher
-from desdeo.tools.scalarization import add_desirability_funcs, add_iopis_funcs
+from desdeo.tools.scalarization import (
+    add_asf_diff,
+    add_asf_nondiff,
+    add_desirability_funcs,
+    add_guess_sf_diff,
+    add_guess_sf_nondiff,
+    add_iopis_funcs,
+    add_stom_sf_diff,
+    add_stom_sf_nondiff,
+)
 
 from .mutation import (
     MutationOptions,
@@ -38,6 +49,17 @@ from .termination import (
     TerminatorOptions,
     terminator_constructor,
 )
+
+XLEMOO_SCALARIZATIONS: dict[str, Callable[..., tuple[Problem, str]]] = {
+    "asf_nondiff": add_asf_nondiff,
+    "asf_diff": add_asf_diff,
+    "stom_nondiff": add_stom_sf_nondiff,
+    "stom_diff": add_stom_sf_diff,
+    "guess_nondiff": add_guess_sf_nondiff,
+    "guess_diff": add_guess_sf_diff,
+}
+"""Reference-point scalarizations selectable from XLEMOO. Each callable must accept
+``(problem, symbol, reference_point)`` and return ``(problem, target_symbol)``."""
 
 
 class InvalidTemplateError(Exception):
@@ -96,7 +118,48 @@ class Template2Options(BaseTemplateOptions):
     mate_selection: ScalarSelectionOptions = Field(description="The mate selection operator options.")
 
 
-TemplateOptions = Template1Options | Template2Options
+class TemplateXLEMOOOptions(BaseTemplateOptions):
+    """Options for the XLEMOO template.
+
+    The XLEMOO template alternates between Darwinian (standard EA) and Learning
+    (rule extraction + instantiation) modes. See
+    [template_xlemoo][desdeo.emo.methods.templates.template_xlemoo] for details.
+    """
+
+    name: Literal["TemplateXLEMOO"] = Field(
+        default="TemplateXLEMOO", frozen=True, description="The name of the template."
+    )
+    """The name of the template."""
+    selection: ScalarSelectionOptions = Field(  # type: ignore[assignment]
+        description="The scalar selection operator (typically ElitistSelectionOptions)."
+    )
+    """The scalar selection operator. XLEMOO is an elitist single-objective method, so the
+    selection step is a scalar (top-N by a target column) rather than a multiobjective one."""
+    n_darwin_per_cycle: int = Field(default=20, gt=0, description="Number of Darwinian iterations per cycle.")
+    """Number of Darwinian iterations per cycle."""
+    n_learning_per_cycle: int = Field(default=1, ge=0, description="Number of Learning iterations per cycle.")
+    """Number of Learning iterations per cycle. Set to 0 to disable Learning mode."""
+    h_split: float = Field(default=0.2, gt=0, le=0.5, description="Top fraction of unique individuals used as H-group.")
+    """Top fraction of unique individuals used as H-group."""
+    l_split: float = Field(
+        default=0.2, gt=0, le=0.5, description="Bottom fraction of unique individuals used as L-group."
+    )
+    """Bottom fraction of unique individuals used as L-group."""
+    instantiation_factor: float = Field(
+        default=10.0, gt=0, description="Multiplier on population_size deciding how many individuals to instantiate."
+    )
+    """Multiplier on population_size deciding how many individuals to instantiate."""
+    scalarization: Literal["asf_nondiff", "asf_diff", "stom_nondiff", "stom_diff", "guess_nondiff", "guess_diff"] = (
+        Field(
+            default="asf_nondiff",
+            description="Reference-point scalarization function added to the problem when a preference is supplied.",
+        )
+    )
+    """Reference-point scalarization function added to the problem when a preference is supplied.
+    Must be one of the keys of `XLEMOO_SCALARIZATIONS`."""
+
+
+TemplateOptions = Template1Options | Template2Options | TemplateXLEMOOOptions
 
 
 class ReferencePointOptions(BaseModel):
@@ -250,7 +313,7 @@ def preference_handler(
             problem=problem,
             aspiration_levels=preference.aspiration_levels,
             reservation_levels=preference.reservation_levels,
-            desirability_levels={name: preference.desirability_levels for name in preference.aspiration_levels},
+            desirability_levels=dict.fromkeys(preference.aspiration_levels, preference.desirability_levels),
             desirability_func="MaoMao",
         )
         return df_problem, selection
@@ -268,6 +331,8 @@ class ConstructorExtras:
     """The publisher associated with the current solver."""
     archive: NonDominatedArchive | None
     """The archive associated with the current solver, if any."""
+    learning_operator: LearningModeOperator | None = None
+    """The XLEMOO learning-mode operator, if the template is XLEMOO. ``None`` otherwise."""
 
 
 def emo_constructor(
@@ -293,19 +358,35 @@ def emo_constructor(
 
     template = emo_options.template
 
-    problem_, selector_options = preference_handler(
-        preference=emo_options.preference, problem=problem, selection=template.selection
-    )
+    if template.name == "TemplateXLEMOO":
+        problem_, selector_options = _xlemoo_preference_handler(
+            preference=emo_options.preference,
+            problem=problem,
+            selection=template.selection,
+            scalarization=template.scalarization,
+        )
+    else:
+        problem_, selector_options = preference_handler(
+            preference=emo_options.preference, problem=problem, selection=template.selection
+        )
 
     evaluator = EMOEvaluator(problem=problem_, publisher=publisher, verbosity=template.verbosity)
 
-    selector = selection_constructor(
-        problem=problem_,
-        options=selector_options,
-        publisher=publisher,
-        verbosity=template.verbosity,
-        seed=template.seed,
-    )
+    if template.name == "TemplateXLEMOO":
+        selector = scalar_selector_constructor(
+            options=selector_options,
+            publisher=publisher,
+            verbosity=template.verbosity,
+            seed=template.seed,
+        )
+    else:
+        selector = selection_constructor(
+            problem=problem_,
+            options=selector_options,
+            publisher=publisher,
+            verbosity=template.verbosity,
+            seed=template.seed,
+        )
 
     generator = generator_constructor(
         problem=problem_,
@@ -365,6 +446,22 @@ def emo_constructor(
         )
         components["mate_selection"] = scalar_selector
 
+    learning_operator: LearningModeOperator | None = None
+    if template.name == "TemplateXLEMOO":
+        if not isinstance(selector, ElitistSelection):
+            raise InvalidTemplateError("XLEMOO requires an ElitistSelection scalar selector.")
+        learning_operator = LearningModeOperator(
+            problem=problem_,
+            selector=selector,
+            publisher=publisher,
+            verbosity=template.verbosity,
+            h_split=template.h_split,
+            l_split=template.l_split,
+            instantiation_factor=template.instantiation_factor,
+            seed=template.seed,
+        )
+        components["learning_operator"] = learning_operator
+
     [publisher.auto_subscribe(x) for x in components.values()]
     [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components.values()]
 
@@ -376,8 +473,63 @@ def emo_constructor(
     template_funcs = {
         "Template1": template1,
         "Template2": template2,
+        "TemplateXLEMOO": template_xlemoo,
     }
+
+    if template.name == "TemplateXLEMOO":
+        constructor_extras = ConstructorExtras(
+            problem=problem_,
+            publisher=publisher,
+            archive=archive,
+            learning_operator=learning_operator,
+        )
+        return (
+            partial(
+                template_xlemoo,
+                **components,
+                repair=repair,
+                n_darwin_per_cycle=template.n_darwin_per_cycle,
+                n_learning_per_cycle=template.n_learning_per_cycle,
+            ),
+            constructor_extras,
+        )
 
     constructor_extras = ConstructorExtras(problem=problem_, publisher=publisher, archive=archive)
 
     return (partial(template_funcs[template.name], **components, repair=repair), constructor_extras)
+
+
+def _xlemoo_preference_handler(
+    preference: PreferenceOptions | None,
+    problem: Problem,
+    selection: ScalarSelectionOptions,
+    scalarization: str,
+) -> tuple[Problem, ScalarSelectionOptions]:
+    """Attach the chosen reference-point scalarization for XLEMOO and point the selector at it.
+
+    XLEMOO ranks solutions by a single scalarization target. If the user supplies a reference
+    point preference, the scalarization named by ``scalarization`` is added to the problem and
+    the selector's ``target_column`` is set to the resulting symbol. If no preference is given,
+    the selector's existing ``target_column`` is assumed to already match a scalarization
+    function on the problem.
+    """
+    if selection.name != "ElitistSelection":
+        raise InvalidTemplateError("XLEMOO requires an ElitistSelectionOptions scalar selection operator.")
+
+    if preference is None:
+        return problem, selection
+
+    if not isinstance(preference, ReferencePointOptions):
+        raise InvalidTemplateError("XLEMOO supports only ReferencePointOptions preferences.")
+
+    if scalarization not in XLEMOO_SCALARIZATIONS:
+        raise InvalidTemplateError(
+            f"Unknown XLEMOO scalarization {scalarization!r}. Available: {sorted(XLEMOO_SCALARIZATIONS)}."
+        )
+
+    target_symbol = selection.target_column or scalarization
+    new_problem, target_symbol = XLEMOO_SCALARIZATIONS[scalarization](
+        problem, symbol=target_symbol, reference_point=preference.preference
+    )
+    selection.target_column = target_symbol
+    return new_problem, selection

@@ -73,7 +73,7 @@ from desdeo.tools.utils import repair
 def test_nsga3():
     """Test whether the NSGA-III algorithm can be initialized and run as a whole."""
     problem = dtlz2(n_objectives=3, n_variables=12)
-    solver, publisher = nsga3(problem=problem, n_generations=100)
+    solver, _publisher = nsga3(problem=problem, n_generations=100)
 
     results = solver()
 
@@ -90,7 +90,7 @@ def test_nsga3():
 def test_rvea():
     """Test whether the RVEA algorithm can be initialized and run as a whole."""
     problem = dtlz2(n_objectives=3, n_variables=12)
-    solver, publisher = rvea(problem=problem, n_generations=100)
+    solver, _publisher = rvea(problem=problem, n_generations=100)
 
     results = solver()
 
@@ -107,7 +107,7 @@ def test_rvea():
 def test_ibea():
     """Test whether the IBEA algorithm can be initialized and run as a whole."""
     problem = dtlz2(n_objectives=3, n_variables=12)
-    solver, publisher = ibea(problem=problem, n_generations=100)
+    solver, _publisher = ibea(problem=problem, n_generations=100)
 
     results = solver()
 
@@ -800,7 +800,7 @@ def test_mixed_integer_nsga3():
     """Test whether the mixed-integer NSGA-III variant can be initialized and run as a whole."""
     problem = momip_ti2()
     with suppress(NotImplementedError):
-        solver, publisher = nsga3_mixed_integer(problem=problem, n_generations=10)
+        solver, _publisher = nsga3_mixed_integer(problem=problem, n_generations=10)
         _ = solver()
 
 
@@ -808,7 +808,7 @@ def test_mixed_integer_nsga3():
 def test_real_nsga3():
     """Test whether the 'default' NSGA-III variant can be initialized and run as a whole."""
     problem = river_pollution_problem()
-    solver, publisher = nsga3(problem=problem, n_generations=10)
+    solver, _publisher = nsga3(problem=problem, n_generations=10)
 
     _ = solver()
 
@@ -817,7 +817,7 @@ def test_real_nsga3():
 def test_mixed_integer_rvea():
     """Test whether the mixed-integer RVEA variant can be initialized and run as a whole."""
     problem = momip_ti2()
-    solver, publisher = rvea_mixed_integer(problem=problem, n_generations=10)
+    solver, _publisher = rvea_mixed_integer(problem=problem, n_generations=10)
 
     _ = solver()
 
@@ -826,7 +826,7 @@ def test_mixed_integer_rvea():
 def test_real_rvea():
     """Test whether the 'default' RVEA variant can be initialized and run as a whole."""
     problem = river_pollution_problem()
-    solver, publisher = rvea(problem=problem, n_generations=10)
+    solver, _publisher = rvea(problem=problem, n_generations=10)
 
     _ = solver()
 
@@ -848,7 +848,7 @@ def test_blend_alpha_crossover():
         problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=1
     )
 
-    population, outputs = generator.do()
+    population, _outputs = generator.do()
 
     # pick a custom mating order (odd-length to test padding)
     to_mate = [0, 9, 1, 8, 2]
@@ -877,7 +877,7 @@ def test_single_arithmetic_crossover():
         problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=1
     )
 
-    population, outputs = generator.do()
+    population, _outputs = generator.do()
 
     to_mate = [0, 9, 1, 8, 2]
     offspring = crossover.do(population=population, to_mate=to_mate)
@@ -906,7 +906,7 @@ def test_local_crossover():
         problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=1
     )
 
-    population, outputs = generator.do()
+    population, _outputs = generator.do()
 
     to_mate = [0, 9, 1, 8, 2]
     offspring = crossover.do(population=population, to_mate=to_mate)
@@ -1027,11 +1027,11 @@ def test_self_adaptive_gaussian_mutation():
     )
 
     # Perform mutation
-    mutated, step_sizes = mutation.do(offsprings=population, parents=population)
+    mutated = mutation.do(offsprings=population, parents=population)
 
     # Ensure shape consistency
     assert mutated.shape == population.shape
-    assert step_sizes.shape == (population.shape[0], population.shape[1])
+    assert mutation.step_sizes.shape == (population.shape[0], population.shape[1])
 
     # Should not be exactly equal due to mutations
     with pytest.raises(AssertionError):
@@ -1047,7 +1047,7 @@ def test_self_adaptive_gaussian_mutation():
         schema=mutation.variable_symbols,
     )
 
-    mutated, step_sizes = mutation.do(offsprings=population, parents=population)
+    mutated = mutation.do(offsprings=population, parents=population)
 
     # No change expected
     npt.assert_allclose(mutated.to_numpy(), population.to_numpy())
@@ -1107,7 +1107,7 @@ def test_bounded_exponential_crossover():
         problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=1
     )
 
-    population, outputs = generator.do()
+    population, _outputs = generator.do()
 
     # pick a custom mating order (odd-length to test padding)
     to_mate = [0, 9, 1, 8, 2]
@@ -1180,7 +1180,7 @@ def test_crossover_in_ea():
         [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
 
         try:
-            results = template1(
+            template1(
                 evaluator=evaluator,
                 crossover=crossover,
                 mutation=mutation,
@@ -1245,7 +1245,7 @@ def test_mutation_in_ea():
         [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
 
         try:
-            results = template1(
+            template1(
                 evaluator=evaluator,
                 crossover=crossover,
                 mutation=mutation,
@@ -1254,7 +1254,6 @@ def test_mutation_in_ea():
                 terminator=terminator,
                 repair=repair_func,
             )
-            print(results)
         except Exception as e:
             pytest.fail(f"Failed to run EA with mutation {mut}: {e}")
 
@@ -1370,14 +1369,14 @@ def test_composite_terminator():
     assert composite.current_evaluations >= term2.max_evaluations
 
     # Make sure that creating composite terminator fails if multiple terminators of the same type are added
-    with pytest.raises(ValueError, match="All terminators must be unique."):
+    with pytest.raises(ValueError, match="All terminators must be unique"):
         CompositeTerminator([term1, term2, term1], publisher, mode="any")
 
 
 def test_external_terminator():
     """Test the ExternalCheckTerminator."""
 
-    class extern_check:
+    class ExternCheck:
         """Pretend this is an external check."""
 
         def __init__(self):
@@ -1388,7 +1387,7 @@ def test_external_terminator():
             return self.value
 
     publisher = Publisher()
-    checker = extern_check()
+    checker = ExternCheck()
     term = ExternalCheckTerminator(checker.check, publisher)
 
     for i in range(1, 100):

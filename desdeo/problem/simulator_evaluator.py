@@ -25,6 +25,15 @@ from desdeo.problem.external import ProviderParams, get_resolver, supported_sche
 _external_resolver = get_resolver()
 
 
+def _safe_hstack(left: pl.DataFrame, right: pl.DataFrame) -> pl.DataFrame:
+    """Horizontally stack two frames, tolerating an empty (0-column) left frame.
+
+    polars >=1.41 raises a ShapeError when hstacking a non-empty frame onto an empty
+    DataFrame; older versions adopted the right frame's height.
+    """
+    return right if left.width == 0 else left.hstack(right)
+
+
 class EvaluatorError(Exception):
     """Error raised when exceptions are encountered in an Evaluator."""
 
@@ -32,7 +41,7 @@ class EvaluatorError(Exception):
 class SimulatorEvaluator:
     """A class for creating evaluators for simulator based and surrogate based objectives, constraints and extras."""
 
-    def __init__(  # noqa: PLR0912
+    def __init__(
         self,
         problem: Problem,
         params: dict[str, dict] | ProviderParams | None = None,
@@ -159,12 +168,12 @@ class SimulatorEvaluator:
             params = self.params.get(sim.name, {})
             if sim.file is not None:
                 # call the simulator with the decision variable values and parameters as dicts
-                res = subprocess.run(
+                res = subprocess.run(  # noqa: PLW1510, S603
                     [sys.executable, sim.file, "-d", str(xs), "-p", str(params)], capture_output=True, text=True
                 )
                 if res.returncode == 0:
                     # gather the simulation results (a dict) into the results dataframe
-                    res_df = res_df.hstack(pl.DataFrame(json.loads(res.stdout)))
+                    res_df = _safe_hstack(res_df, pl.DataFrame(json.loads(res.stdout)))
                 else:
                     raise EvaluatorError(res.stderr)
             elif sim.url is not None:
@@ -177,13 +186,15 @@ class SimulatorEvaluator:
                     if scheme in supported_schemes:
                         # desdeo
                         res = _external_resolver.evaluate(sim.url.url, params, xs)
-                        res_df = res_df.hstack(pl.DataFrame(res))
+                        res_df = _safe_hstack(res_df, pl.DataFrame(res))
                         # parse res
                     else:
                         # http, https, etc...
-                        res = requests.get(sim.url.url, auth=sim.url.auth, json={"d": xs, "p": params})
+                        res = requests.get(
+                            sim.url.url, auth=sim.url.auth, json={"d": xs, "p": params}, timeout=sim.url.timeout
+                        )
                         res.raise_for_status()  # raise an error if the request failed
-                        res_df = res_df.hstack(pl.DataFrame(res.json()))
+                        res_df = _safe_hstack(res_df, pl.DataFrame(res.json()))
                 except requests.RequestException as e:
                     raise EvaluatorError(
                         f"Failed to call the simulator at {sim.url}. Is the simulator server running?"
@@ -193,8 +204,8 @@ class SimulatorEvaluator:
         min_obj_columns = pl.DataFrame()
         for symbol, min_max_mult in self.objective_mix_max_mult:
             if symbol in res_df.columns:
-                min_obj_columns = min_obj_columns.hstack(
-                    res_df.select((min_max_mult * pl.col(f"{symbol}")).alias(f"{symbol}_min"))
+                min_obj_columns = _safe_hstack(
+                    min_obj_columns, res_df.select((min_max_mult * pl.col(f"{symbol}")).alias(f"{symbol}_min"))
                 )
 
         res_df = res_df.hstack(min_obj_columns)
@@ -238,8 +249,8 @@ class SimulatorEvaluator:
         min_obj_columns = pl.DataFrame()
         for symbol, min_max_mult in self.objective_mix_max_mult:
             if symbol in res.columns:
-                min_obj_columns = min_obj_columns.hstack(
-                    res.select((min_max_mult * pl.col(f"{symbol}")).alias(f"{symbol}_min"))
+                min_obj_columns = _safe_hstack(
+                    min_obj_columns, res.select((min_max_mult * pl.col(f"{symbol}")).alias(f"{symbol}_min"))
                 )
         res_df = res.hstack(min_obj_columns)
         # If there are scalarization functions, evaluate them as well
@@ -276,32 +287,14 @@ class SimulatorEvaluator:
                 if obj.surrogates is not None:
                     with Path.open(f"{obj.surrogates[0]}", "rb") as file:
                         self.surrogates[obj.symbol] = joblib.load(file)
-                        """unknown_types = sio.get_untrusted_types(file=file)
-                        if len(unknown_types) == 0:
-                            self.surrogates[obj.symbol] = sio.load(file, unknown_types)
-                        else: # TODO: if there are unknown types they should be checked
-                            self.surrogates[obj.symbol] = sio.load(file, unknown_types)
-                            #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")"""
             for con in self.problem.constraints or []:  # if there are no constraints, an empty list is used
                 if con.surrogates is not None:
                     with Path.open(f"{con.surrogates[0]}", "rb") as file:
                         self.surrogates[con.symbol] = joblib.load(file)
-                        """unknown_types = sio.get_untrusted_types(file=file)
-                        if len(unknown_types) == 0:
-                            self.surrogates[con.symbol] = sio.load(file, unknown_types)
-                        else: # TODO: if there are unknown types they should be checked
-                            self.surrogates[con.symbol] = sio.load(file, unknown_types)
-                            #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")"""
             for extra in self.problem.extra_funcs or []:  # if there are no extra functions, an empty list is used
                 if extra.surrogates is not None:
                     with Path.open(f"{extra.surrogates[0]}", "rb") as file:
                         self.surrogates[extra.symbol] = joblib.load(file)
-                        """unknown_types = sio.get_untrusted_types(file=file)
-                        if len(unknown_types) == 0:
-                            self.surrogates[extra.symbol] = sio.load(file, unknown_types)
-                        else: # TODO: if there are unknown types they should be checked
-                            self.surrogates[extra.symbol] = sio.load(file, unknown_types)
-                            #raise EvaluatorError(f"Untrusted types found in the model of {obj.symbol}: {unknown_types}")"""
 
     def evaluate(self, xs: dict[str, list[int | float]], flat: bool = False) -> pl.DataFrame:
         """Evaluate the functions for the given decision variables.
@@ -329,17 +322,19 @@ class SimulatorEvaluator:
             analytical_values = (
                 polars_evaluator._polars_evaluate(xs) if not flat else polars_evaluator._polars_evaluate_flat(xs)
             )
-            res = res.hstack(analytical_values)
+            # polars >=1.41 rejects hstack onto a 0-height frame, so seed res from the first
+            # result instead of an empty DataFrame.
+            res = analytical_values if res.width == 0 else res.hstack(analytical_values)
 
         # Evaluate the simulator based functions
         if len(self.simulator_symbols) > 0:
             simulator_values = self._evaluate_simulator(xs)
-            res = res.hstack(simulator_values)
+            res = simulator_values if res.width == 0 else res.hstack(simulator_values)
 
         # Evaluate the surrogate based functions
         if len(self.surrogate_symbols) > 0:
             surrogate_values = self._evaluate_surrogates(xs)
-            res = res.hstack(surrogate_values)
+            res = surrogate_values if res.width == 0 else res.hstack(surrogate_values)
 
         # Check that everything is evaluated
         for symbol in self.problem_symbols:

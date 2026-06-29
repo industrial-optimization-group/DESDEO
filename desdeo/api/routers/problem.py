@@ -15,6 +15,7 @@ from desdeo.api.models import (
     ProblemDB,
     ProblemInfo,
     ProblemInfoSmall,
+    Group,
     ProblemMetaDataDB,
     ProblemMetaDataGetRequest,
     ProblemSelectSolverRequest,
@@ -84,7 +85,21 @@ def get_problems(
     """
     if user.role in (UserRole.analyst, UserRole.admin):
         return list(db_session.exec(select(ProblemDB)).all())
-    return user.problems
+
+    problems_by_id: dict[int, ProblemDB] = {problem.id: problem for problem in user.problems}
+
+    groups = db_session.exec(select(Group)).all()
+    visible_group_problem_ids = {
+        group.problem_id
+        for group in groups
+        if user.id == group.owner_id or user.id in (group.user_ids or [])
+    }
+    if visible_group_problem_ids:
+        group_problems = db_session.exec(select(ProblemDB).where(ProblemDB.id.in_(visible_group_problem_ids))).all()
+        for problem in group_problems:
+            problems_by_id[problem.id] = problem
+
+    return list(problems_by_id.values())
 
 
 @router.get("/all_info")
@@ -103,7 +118,21 @@ def get_problems_info(
     """
     if user.role in (UserRole.analyst, UserRole.admin):
         return list(db_session.exec(select(ProblemDB)).all())
-    return user.problems
+
+    problems_by_id: dict[int, ProblemDB] = {problem.id: problem for problem in user.problems}
+
+    groups = db_session.exec(select(Group)).all()
+    visible_group_problem_ids = {
+        group.problem_id
+        for group in groups
+        if user.id == group.owner_id or user.id in (group.user_ids or [])
+    }
+    if visible_group_problem_ids:
+        group_problems = db_session.exec(select(ProblemDB).where(ProblemDB.id.in_(visible_group_problem_ids))).all()
+        for problem in group_problems:
+            problems_by_id[problem.id] = problem
+
+    return list(problems_by_id.values())
 
 
 @router.get("/{problem_id}")

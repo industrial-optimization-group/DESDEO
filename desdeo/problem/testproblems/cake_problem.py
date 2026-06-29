@@ -13,31 +13,36 @@ PI = 3.14159265358979323846
 
 
 ## Helper func
-def U(z: float):
+def U(z: float):  # noqa: N802
+    """Return the unimodal utility component ``4 z (1 - z)``."""
     return 4.0 * z * (1.0 - z)
 
 
 ## Helper funcs to return string representations
 
 
-def bowl_str(z: str, a: str, invD: str) -> str:
+def bowl_str(z: str, a: str, invD: str) -> str:  # noqa: N803
+    """Return the string expression for a squared, scaled bowl penalty term."""
     tmp: str = f"({z} - {a})*{invD}"
     return f"({tmp}*{tmp})"
     # return f"{clamp01_str(f"{tmp}*{tmp}")}"
 
 
-def U_str(z: str) -> str:
+def U_str(z: str) -> str:  # noqa: N802
+    """Return the string expression for the utility component ``U(z)``."""
     tmp: str = f"(4*{z}*(1.0 - {z}))"
     return f"({tmp}*{tmp})"
 
 
 def ripple_str(t: str) -> str:
+    """Return the string expression for a squared sine ripple term."""
     tmp: str = f"Sin({PI} * {t})"
     return f"({tmp}*{tmp})"
 
 
 # Objective function string representations
 def f0_str() -> str:
+    """Return the string expression for the first objective of the cake problem."""
     yliq: str = "(0.5*x5 + 0.3*x4 + 0.2*x3)"
     v: str = (
         f"(0.4 * {bowl_str('x1', 'T1', 'INV_D1')}) + "
@@ -48,6 +53,7 @@ def f0_str() -> str:
 
 
 def f1_str() -> str:
+    """Return the string expression for the second objective of the cake problem."""
     sbar: str = "((x2 + 0.5*x3)/1.5)"
     w25: str = f"({U_str('x2')}*{U_str('x5')})"
     d25: str = f"(({w25} - W25_STAR)*INV_DW25)"
@@ -56,6 +62,7 @@ def f1_str() -> str:
 
 
 def f2_str() -> str:
+    """Return the string expression for the third objective of the cake problem."""
     v: str = (
         f"(0.35*{bowl_str('x6', 'T6', 'INV_D6')}) + "
         f"(0.25*{bowl_str('x4', 'T4', 'INV_D4')}) + "
@@ -65,6 +72,7 @@ def f2_str() -> str:
 
 
 def f3_str() -> str:
+    """Return the string expression for the fourth objective of the cake problem."""
     w35: str = f"({U_str('x3')}*{U_str('x5')})"
     d35: str = f"(({w35} - W35_STAR) * INV_DW35)"
     v: str = f"(0.3*{bowl_str('x3', 'T3', 'INV_D3')}) + (0.3*{bowl_str('x5', 'T5', 'INV_D5')}) + (0.4*({d35}*{d35}))"
@@ -72,6 +80,7 @@ def f3_str() -> str:
 
 
 def f4_str() -> str:
+    """Return the string expression for the fifth objective of the cake problem."""
     v: str = (
         f"(0.25*{bowl_str('x2', 'T2', 'INV_D2')}) + "
         f"(0.25*{bowl_str('x3', 'T3', 'INV_D3')}) + "

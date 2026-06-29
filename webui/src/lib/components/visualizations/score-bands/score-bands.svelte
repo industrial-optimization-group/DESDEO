@@ -33,7 +33,7 @@
 	 * - Responsive cluster visibility
 	 */
 
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import * as d3 from 'd3';
 	import { normalize_data } from '$lib/components/visualizations/utils/math';
 	import type { AxisOptions } from './utils/types';
@@ -90,6 +90,7 @@
 	$: sortedData = normalizedData.map((row) => effectiveAxisOrder.map((i) => row[i]));
 
 	let container: HTMLDivElement;
+	let resizeObserver: ResizeObserver | null = null;
 
 	/**
 	 * Draws SCORE-bands visualization using pre-calculated bands and medians
@@ -100,13 +101,19 @@
 		// Allow rendering without data when we have bands/medians from API
 		if (data.length === 0 && !options.bands && !options.medians) return;
 
-		const width = 800;
-		const height = 600;
+		const width = Math.max(container.clientWidth || 0, 320);
+		const height = Math.max(container.clientHeight || 0, 320);
 		const margin = { top: 40, right: 40, bottom: 40, left: 40 };
 
 		// Remove previous SVG if it exists
 		d3.select(container).selectAll('svg').remove();
-		const svg = d3.select(container).append('svg').attr('width', width).attr('height', height);
+		const svg = d3
+			.select(container)
+			.append('svg')
+			.attr('width', width)
+			.attr('height', height)
+			.attr('viewBox', `0 0 ${width} ${height}`)
+			.attr('preserveAspectRatio', 'none');
 
 		// Add background click handler to clear selections
 		svg.on('click', () => {
@@ -357,7 +364,22 @@
 		});
 	}
 
-	onMount(drawChart);
+	onMount(() => {
+		drawChart();
+		if (typeof ResizeObserver !== 'undefined' && container) {
+			resizeObserver = new ResizeObserver(() => {
+				drawChart();
+			});
+			resizeObserver.observe(container);
+		}
+	});
+
+	onDestroy(() => {
+		if (resizeObserver) {
+			resizeObserver.disconnect();
+			resizeObserver = null;
+		}
+	});
 
 	// Redraw chart whenever any parameter or cluster visibility or axis order changes
 	$: data,

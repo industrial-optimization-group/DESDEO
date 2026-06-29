@@ -10,17 +10,11 @@ import numpy as np
 from scipy.optimize import linprog
 from scipy.spatial import ConvexHull
 
-from desdeo.problem import (
-    Problem,
-    numpy_array_to_objective_dict,
-    objective_dict_to_numpy_array
-)
+from desdeo.problem import Problem, numpy_array_to_objective_dict, objective_dict_to_numpy_array
 
 
 def classification_to_reference_point(
-    problem: Problem,
-    pref_info: dict[str, str],
-    current_solution: dict[str, float]
+    problem: Problem, pref_info: dict[str, str], current_solution: dict[str, float]
 ) -> dict[str, float]:
     """Convert preference information given as classification into a reference point.
 
@@ -36,15 +30,16 @@ def classification_to_reference_point(
     ideal = problem.get_ideal_point()
     nadir = problem.get_nadir_point()
 
-    for pref in pref_info:
-        if pref_info[pref] == "<":
+    for pref, pref_value in pref_info.items():
+        if pref_value == "<":
             ref.append(ideal[pref])
-        elif pref_info[pref] == ">":
+        elif pref_value == ">":
             ref.append(nadir[pref])
-        elif pref_info[pref] == "=":
+        elif pref_value == "=":
             ref.append(current_solution[pref])
 
     return numpy_array_to_objective_dict(problem, np.array(ref))
+
 
 def calculate_adjusted_speed(allowed_speeds: list[int], speed: float, scalar: float | None = 20) -> float:
     """Calculate an adjusted speed from a given float.
@@ -63,10 +58,9 @@ def calculate_adjusted_speed(allowed_speeds: list[int], speed: float, scalar: fl
     """
     return (speed / np.max(allowed_speeds)) / scalar
 
+
 def calculate_search_direction(
-    problem: Problem,
-    reference_point: dict[str, float],
-    current_point: dict[str, float]
+    problem: Problem, reference_point: dict[str, float], current_point: dict[str, float]
 ) -> dict[str, float]:
     """Calculate search direction from the current point to the reference point.
 
@@ -83,6 +77,7 @@ def calculate_search_direction(
 
     d = q - z
     return numpy_array_to_objective_dict(problem, d)
+
 
 def get_polyhedral_set(problem: Problem) -> tuple[np.ndarray, np.ndarray]:
     """Get a polyhedral set as convex hull from the set of pareto optimal solutions.
@@ -101,6 +96,7 @@ def get_polyhedral_set(problem: Problem) -> tuple[np.ndarray, np.ndarray]:
     b = -convex_hull.equations[:, -1]
     return matrix_a, b
 
+
 def construct_matrix_a(problem: Problem, matrix_a: np.ndarray) -> np.ndarray:
     """Construct the A' matrix in the linear parametric programming problem from the article.
 
@@ -113,7 +109,7 @@ def construct_matrix_a(problem: Problem, matrix_a: np.ndarray) -> np.ndarray:
     """
     ideal = objective_dict_to_numpy_array(problem, problem.get_ideal_point())
     nadir = objective_dict_to_numpy_array(problem, problem.get_nadir_point())
-    weights = 1/(nadir - ideal)
+    weights = 1 / (nadir - ideal)
 
     weights_inverse = np.reshape(np.vectorize(lambda w: -1 / w)(weights), (len(weights), 1))
     identity = np.identity(len(weights))
@@ -124,13 +120,14 @@ def construct_matrix_a(problem: Problem, matrix_a: np.ndarray) -> np.ndarray:
 
     return np.concatenate((a_upper, a_lower))
 
-def calculate_next_solution( # NOQA: PLR0913
+
+def calculate_next_solution(
     problem: Problem,
     search_direction: dict[str, float],
     current_solution: dict[str, float],
     alpha: float,
     matrix_a: np.ndarray,
-    b: np.ndarray
+    b: np.ndarray,
 ) -> dict[str, float]:
     """Calculate the next solution.
 
@@ -167,14 +164,11 @@ def calculate_next_solution( # NOQA: PLR0913
     z_new = linprog(c=c, A_ub=matrix_a, b_ub=b_new, bounds=bounds)
     if z_new["success"]:
         return numpy_array_to_objective_dict(problem, z_new["x"][1:])
-    return current_solution # should raise an exception instead
+    return current_solution  # should raise an exception instead
+
 
 def calculate_all_solutions(
-    problem: Problem,
-    current_solution: dict[str, float],
-    alpha: float,
-    num_solutions: int,
-    pref_info: dict
+    problem: Problem, current_solution: dict[str, float], alpha: float, num_solutions: int, pref_info: dict
 ) -> list[dict[str, float]]:
     """Performs a set number of steps in the current direction.
 
@@ -211,6 +205,7 @@ def calculate_all_solutions(
         solutions.append(solution)
     return solutions
 
+
 # Testing
 if __name__ == "__main__":
     from desdeo.problem import pareto_navigator_test_problem
@@ -225,7 +220,7 @@ if __name__ == "__main__":
     starting_point = {"f_1": 1.38, "f_2": 0.62, "f_3": -35.33}
 
     preference_info = {
-        #"reference_point": {"f_1": ideal["f_1"], "f_2": ideal["f_2"], "f_3": nadir["f_3"]}
+        # "reference_point": {"f_1": ideal["f_1"], "f_2": ideal["f_2"], "f_3": nadir["f_3"]}
         "classification": {"f_1": "<", "f_2": "<", "f_3": ">"}
     }
 
@@ -235,35 +230,29 @@ if __name__ == "__main__":
     navigated_point = starting_point
 
     for i in range(len(solutions)):
-        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
-                         - np.array([0.35, -0.51, -26.26])) < acc):
-            print("Values close enough to the ones in the article reached. ", solutions[i])
+        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i]) - np.array([0.35, -0.51, -26.26])) < acc):
             navigated_point = solutions[i]
             break
 
     preference_info = {
-        #"reference_point": {"f_1": ideal["f_1"], "f_2": nadir["f_2"], "f_3": navigated_point["f_3"]}
+        # "reference_point": {"f_1": ideal["f_1"], "f_2": nadir["f_2"], "f_3": navigated_point["f_3"]}
         "classification": {"f_1": "<", "f_2": ">", "f_3": "="}
     }
 
     solutions = calculate_all_solutions(problem, navigated_point, adjusted_speed, num_solutions, preference_info)
 
     for i in range(len(solutions)):
-        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
-                         - np.array([-0.89, 2.91, -24.98])) < acc):
-            print("Values close enough to the ones in the article reached. ", solutions[i])
+        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i]) - np.array([-0.89, 2.91, -24.98])) < acc):
             navigated_point = solutions[i]
             break
 
     preference_info = {
-        #"reference_point": {"f_1": nadir["f_1"], "f_2": ideal["f_2"], "f_3": ideal["f_3"]}
+        # "reference_point": {"f_1": nadir["f_1"], "f_2": ideal["f_2"], "f_3": ideal["f_3"]}
         "classification": {"f_1": ">", "f_2": "<", "f_3": "<"}
     }
     solutions = calculate_all_solutions(problem, navigated_point, adjusted_speed, num_solutions, preference_info)
 
     for i in range(len(solutions)):
-        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i])
-                         - np.array([-0.32, 2.33, -27.85])) < acc):
-            print("Values close enough to the ones in the article reached. ", solutions[i])
+        if np.all(np.abs(objective_dict_to_numpy_array(problem, solutions[i]) - np.array([-0.32, 2.33, -27.85])) < acc):
             navigated_point = solutions[i]
             break

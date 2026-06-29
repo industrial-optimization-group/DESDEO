@@ -1,18 +1,15 @@
+"""Defines a rocket injector desing problem with two different possible versions."""
+
 from desdeo.problem.schema import (
-    Constant,
-    Constraint,
-    ConstraintTypeEnum,
-    DiscreteRepresentation,
-    ExtraFunction,
     Objective,
-    ObjectiveTypeEnum,
     Problem,
     Variable,
     VariableTypeEnum,
 )
 
+
 def rocket_injector_design(original_version=False) -> Problem:
-    """The rocekt injector design problem as published in Vaidyanathan, et al. (2003).
+    """The rocket injector design problem as published in Vaidyanathan, et al. (2003).
 
     The original version of the problem has 4 objectives. In Goel et al. (2007), the TW4 objective is dropped
     due to high correlation with one of the other objectives. Hence, the default version of the problem is the
@@ -35,15 +32,15 @@ def rocket_injector_design(original_version=False) -> Problem:
     # Variables
     alpha = Variable(name="alpha", symbol="a", variable_type=VariableTypeEnum.real, lowerbound=0.0, upperbound=1.0)
 
-    deltaHA = Variable(
+    deltaha = Variable(
         name="deltaHA", symbol="DHA", variable_type=VariableTypeEnum.real, lowerbound=0.0, upperbound=1.0
     )
 
-    deltaOA = Variable(
+    deltaoa = Variable(
         name="deltaOA", symbol="DOA", variable_type=VariableTypeEnum.real, lowerbound=0.0, upperbound=1.0
     )
 
-    OPTT = Variable(name="OPTT", symbol="OPTT", variable_type=VariableTypeEnum.real, lowerbound=0.0, upperbound=1.0)
+    optt = Variable(name="OPTT", symbol="OPTT", variable_type=VariableTypeEnum.real, lowerbound=0.0, upperbound=1.0)
 
     # Objectives
 
@@ -135,6 +132,6 @@ def rocket_injector_design(original_version=False) -> Problem:
             "R. Vaidyanathan, K. Tucker, N. Papila, W. Shyy, CFD-Based Design Optimization For Single Element"
             " Rocket Injector, in: AIAA Aerospace Sciences Meeting, 2003, pp. 1-21."
         ),
-        variables=[alpha, deltaHA, deltaOA, OPTT],
+        variables=[alpha, deltaha, deltaoa, optt],
         objectives=objectives,
     )

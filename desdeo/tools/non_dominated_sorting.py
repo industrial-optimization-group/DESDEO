@@ -19,7 +19,7 @@ def dominates(x: np.ndarray, y: np.ndarray) -> bool:
     for i in range(len(x)):
         if x[i] > y[i]:
             return False
-        elif x[i] < y[i]:
+        if x[i] < y[i]:
             dom = True
     return dom
 

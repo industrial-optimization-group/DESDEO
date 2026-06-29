@@ -11,6 +11,7 @@ nav:
       - "": "home/index.md"
       - "About": "home/about.md"
       - "The structure": "home/structure.md"
+      - "Implemented methods and features": "home/features.md"
       - "Citing DESDEO": "home/citing.md"
   - "Tutorials":
       - "": "tutorials/index.md"
@@ -28,13 +29,12 @@ nav:
       - "Evolutionary algorithms": "explanation/templates_and_pub_sub.ipynb"
       - "Scenarios": "explanation/scenarios.md"
       - "Pydantic interface": "explanation/pydantic_interface.md"
-      - "Group decision making and websockets": "explanation/group_decision_making_and_websockets.md"
       - "Web-API models and schema": "explanation/database_models_and_schema.md"
+      - "Group decision making and websockets": "explanation/group_decision_making_and_websockets.md"
   - "Guides":
       - "": "howtoguides/index.md"
       - "How to install DESDEO": "howtoguides/installing.md"
       - "How to get started using DESDEO": "howtoguides/full_example.ipynb"
-      - "How to define multiobjective optimization problems": "howtoguides/problem.md"
       - "How to define a multiobjective optimization problem": "howtoguides/how_to_define_a_problem.ipynb"
       - "How to host a DESDEO web application on Kubernetes": "howtoguides/kubernetes.md"
       - "How to deploy DESDEO on OpenShift": "howtoguides/deploying_on_openshift.md"
@@ -47,24 +47,27 @@ nav:
       - "How to user evolutionary algorithms": "howtoguides/ea.ipynb"
       - "How to configure evolutionary algorithms": "howtoguides/ea_options.ipynb"
       - "How to implement evolutionary algorithms": "howtoguides/how_to_implement_ea.md"
+      - "How to use the XLEMOO method": "howtoguides/xlemoo.ipynb"
       - "How to define problems with surrogates": "howtoguides/advancedSurrogates.ipynb"
       - "How to use ADMS": "howtoguides/how_to_use_adms.ipynb"
       - "How to use GDM score": "howtoguides/gdm_score.ipynb"
       - "How to generate a representative set of solutions": "howtoguides/IPR.ipynb"
   - "Core-Logic API Reference":
       - "": "api/index.md"
-      - "api": "api/desdeo_api.md"
       - "problem": "api/desdeo_problem.md"
       - "mcdm": "api/desdeo_mcdm.md"
       - "emo": "api/desdeo_emo.md"
       - "EMO Pydantic Interface": "api/EMO Options.md"
       - "tools": "api/desdeo_tools.md"
-  - "Web-API":
+      - "adm": "api/desdeo_adm.md"
+      - "gdm": "api/desdeo_gdm.md"
+      - "explanations": "api/desdeo_explanations.md"
+  - "Web-API (WIP)":
       - "": "web_api/index.md"
       - "OpenAPI reference": "web_api/openapi.md"
       - "Database models": "web_api/models.md"
       - "Database relations mapping": "web_api/relations.md"
-  - "Web-GUI":
+  - "Web-GUI (WIP)":
       - "": "web_gui/index.md"
 
 watch:
@@ -117,6 +120,9 @@ plugins:
   - include-markdown
   - mkdocs-jupyter:
       execute: false # locally, see mkdocs.rtd.yml for RTD conf
+      # Only treat notebooks as notebooks; skips a slow jupytext.read() on every .md.
+      ignore:
+        - "*.md"
       include_requirejs: true
       custom_mathjax_url: "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML-full,Safe"
       remove_tag_config:
@@ -154,5 +160,4 @@ extra_css:
 extra_javascript:
   - extrajs/extra.js
   - extrajs/mathjax.js
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js

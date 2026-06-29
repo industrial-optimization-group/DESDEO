@@ -1,3 +1,5 @@
+"""Defines a problem that is utilized in the convex Pareto navigator article."""
+
 from desdeo.problem.schema import (
     Constraint,
     ConstraintTypeEnum,
@@ -8,6 +10,7 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
+
 
 def pareto_navigator_test_problem() -> Problem:
     r"""Defines the problem utilized in the (convex) Pareto navigator article.

@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Literal
 
 import nevergrad as ng
+import numpy as np
 from pydantic import BaseModel, Field
 
 from desdeo.problem import Problem, SympyEvaluator
@@ -46,6 +47,12 @@ class NevergradGenericOptions(BaseModel):
     """The optimizer to be used. Must be one of `NGOpt`, `TwoPointsDE`, `PortfolioDiscreteOnePlusOne`,
     `OnePlusOne`, `CMA`, `TBPSA`, `PSO`, `ScrHammersleySearchPlusMiddlePoint`, or `RandomSearch`.
     Defaults to `NGOpt`."""
+
+    seed: int | None = Field(
+        description="An optional random seed for reproducible optimization. Defaults to None.", default=None
+    )
+    """An optional random seed for reproducible optimization. If `None`, the optimizer's
+    random state is left unseeded. Defaults to None."""
 
 
 _default_nevergrad_generic_options = NevergradGenericOptions()
@@ -155,10 +162,22 @@ class NevergradGenericSolver(BaseSolver):
             return scalar
 
         parametrization = ng.p.Dict(**{var.symbol: _make_scalar(var) for var in self.problem.variables})
+        
+        # When a seed is given, make the run reproducible. nevergrad (and NGOpt's optimizer selection)
+        # draws from numpy's global RNG as well as the parametrization's own random state, so the global
+        # RNG must be seeded before anything is constructed. It is restored in the `finally` below so the
+        # caller's global numpy state is not mutated.
+        rng_state = None
+        if self.options.seed is not None:
+            rng_state = np.random.get_state()  # noqa: NPY002
+            np.random.seed(self.options.seed)  # noqa: NPY002
 
         optimizer = ng.optimizers.registry[self.options.optimizer](
-            parametrization=parametrization, **self.options.model_dump(exclude="optimizer")
+            parametrization=parametrization, **self.options.model_dump(exclude={"optimizer", "seed"})
         )
+
+        if self.options.seed is not None:
+            optimizer.parametrization.random_state.seed(self.options.seed)
 
         constraint_symbols = (
             None if self.problem.constraints is None else [con.symbol for con in self.problem.constraints]
@@ -196,6 +215,9 @@ class NevergradGenericSolver(BaseSolver):
         except Exception as e:
             msg = f"{self.options.optimizer} failed. Possible reason: {e}"
             success = False
+        finally:
+            if rng_state is not None:
+                np.random.set_state(rng_state)  # noqa: NPY002
 
         result = {"recommendation": recommendation, "message": msg, "success": success}
 

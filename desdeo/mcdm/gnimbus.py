@@ -16,9 +16,9 @@ from desdeo.problem import (
 )
 from desdeo.tools import (
     BaseSolver,
+    GurobipySolver,
     SolverOptions,
     SolverResults,
-    GurobipySolver,
     add_group_asf,
     add_group_asf_agg,
     add_group_asf_agg_diff,
@@ -28,8 +28,6 @@ from desdeo.tools import (
     add_group_guess_agg_diff,
     add_group_guess_diff,
     add_group_nimbus,
-    add_group_nimbus_compromise,
-    add_group_nimbus_compromise_diff,
     add_group_nimbus_diff,
     add_group_stom,
     add_group_stom_agg,
@@ -45,6 +43,7 @@ class GNIMBUSError(Exception):
 
 def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) -> SolverResults:
     """More general procedure for GNIMBUS for any number of DMs.
+
     TODO(@jpajasmaa): docs and cleaning up.
     """
     # winner_idx = None
@@ -57,12 +56,12 @@ def voting_procedure(problem: Problem, solutions, votes_idxs: dict[str, int]) ->
     """
     # call plurality
     winners = plurality_rule(votes_idxs)
-    print("winners")
+    print("winners")  # noqa: T201
     if len(winners) == 1:
-        print("Plurality winner", winners[0])
+        print("Plurality winner", winners[0])  # noqa: T201
         return solutions[winners[0]]  # need to unlist the winners list
 
-    print("TIE-breaking, select a solution randomly among top voted ones")
+    print("TIE-breaking, select a solution randomly among top voted ones")  # noqa: T201
     """
         # if two same solutions with same number of votes, call intermediate
         # TODO:(@jpajasmaa) not perfect check as it is possible to have a problem that we can calculate more solutions
@@ -106,7 +105,7 @@ def infer_group_classifications(
     for dm, reference_point in reference_points.items():
         # for rp in reference_point:
         if not all(obj.symbol in reference_point for obj in problem.objectives):
-            print(reference_point)
+            print(reference_point)  # noqa: T201
             msg = (
                 f"The reference point {reference_point} of {dm} is missing entries "
                 "for one or more of the objective functions."
@@ -148,19 +147,19 @@ def infer_group_classifications(
         if not silent:
             for symbol, value in group_classifications.items():
                 if value[0] == "improve":
-                    print(f"The group wants to improve objective {symbol}")
-                    print(value[1])
+                    print(f"The group wants to improve objective {symbol}")  # noqa: T201
+                    print(value[1])  # noqa: T201
                 if value[0] == "worsen":
-                    print(f"The group wants to worsen objective {symbol}")
-                    print(value[1])
+                    print(f"The group wants to worsen objective {symbol}")  # noqa: T201
+                    print(value[1])  # noqa: T201
                 if value[0] == "conflict":
-                    print(f"The group has conflicting views about objective {symbol}")
-                    print(value[1])
+                    print(f"The group has conflicting views about objective {symbol}")  # noqa: T201
+                    print(value[1])  # noqa: T201
 
     return group_classifications
 
 
-def solve_group_sub_problems(  # noqa: PLR0913, RET503
+def solve_group_sub_problems(  # noqa: C901
     problem: Problem,
     current_objectives: dict[str, float],
     reference_points: dict[str, dict[str, float]],
@@ -196,10 +195,12 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
         problem(Problem): the problem being solved.
         current_objectives(dict[str, float]): an objective dictionary with the objective functions values
             the classifications have been given with respect to.
-        reference_points(dict[str, dict[str, float]]): A dictionary containing an objective dictionary with a reference point for each DM.
+        reference_points(dict[str, dict[str, float]]): A dictionary containing an objective
+            dictionary with a reference point for each DM.
             The classifications utilized in the sub problems are derived from
             the reference points.
-        phase(str): The selected phase of the solution process. Must be one of "learning", "crp", "decision" or "compromise".
+        phase(str): The selected phase of the solution process. Must be one of
+            "learning", "crp", "decision" or "compromise".
         scalarization_options(dict | None, optional): optional kwargs passed to the scalarization function.
             Defaults to None.
         create_solver(CreateSolverType | None, optional): a function that given a problem, will return a solver.
@@ -217,12 +218,12 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
         msg = "The given problem must have both an ideal and nadir point defined."
         raise GNIMBUSError(msg)
 
-    DMs = reference_points.keys()
+    DMs = reference_points.keys()  # noqa: N806
     for dm in DMs:
         reference_point = reference_points[dm]
         # for rp in reference_point:
         if not all(obj.symbol in reference_point for obj in problem.objectives):
-            print(reference_point)
+            print(reference_point)  # noqa: T201
             msg = (
                 f"The reference point {reference_point} is missing entries for one or more of the objective functions."
             )
@@ -244,7 +245,7 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
 
     init_solver = create_solver if create_solver is not None else guess_best_solver(problem)
     if init_solver is GurobipySolver and not solver_options:
-        solver_options = {"OutputFlag": 0} #TODO: how does one want this to behave?
+        solver_options = {"OutputFlag": 0}  # TODO: how does one want this to behave?
     _solver_options = solver_options if solver_options is not None else None
     # print("solver is ", init_solver)
 
@@ -257,14 +258,16 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
 
     # Solve for individual solutions using nimbus scalarization.
     for dm_rp in reference_points:
-        ind_sols.append(solve_sub_problems(
-            problem=problem,
-            current_objectives=current_objectives,
-            reference_point=reference_points[dm_rp],
-            num_desired=1,
-            scalarization_options=None,
-            solver=init_solver,
-            solver_options=_solver_options)[0],
+        ind_sols.append(
+            solve_sub_problems(
+                problem=problem,
+                current_objectives=current_objectives,
+                reference_point=reference_points[dm_rp],
+                num_desired=1,
+                scalarization_options=None,
+                solver=init_solver,
+                solver_options=_solver_options,
+            )[0],
         )
 
     achievable_prefs = []
@@ -275,13 +278,19 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
     delta = scale_delta(problem, d=1e-6)
 
     if phase == "decision":
-        for dm_rp in reference_points:
-            classification_list.append(infer_classifications(problem, current_objectives, reference_points[dm_rp]))
+        for rp in reference_points.values():
+            classification_list.append(infer_classifications(problem, current_objectives, rp))
         gnimbus_scala = add_group_nimbus_diff if problem.is_twice_differentiable else add_group_nimbus
         add_nimbus_sf = gnimbus_scala
 
         problem_g_nimbus, gnimbus_target = add_nimbus_sf(
-            problem, "nimbus_sf", classification_list, current_objectives, agg_bounds, delta, **(scalarization_options or {})
+            problem,
+            "nimbus_sf",
+            classification_list,
+            current_objectives,
+            agg_bounds,
+            delta,
+            **(scalarization_options or {}),
         )
 
         if _solver_options:
@@ -295,7 +304,7 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
 
         return solutions
 
-    elif phase == "compromise":
+    if phase == "compromise":
         # Run compromise phase with applying group-asf.
         reference_points_list = dict_of_rps_to_list_of_rps(reference_points)
         # solve ASF
@@ -303,7 +312,7 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
         problem_w_asf, asf_target = add_asf(
             problem, "asf", reference_points_list, agg_bounds, delta, **(scalarization_options or {})
         )
-        if _solver_options:
+        if _solver_options:  # noqa: SIM108
             asf_solver = init_solver(problem_w_asf, _solver_options)  # type:ignore
         else:
             asf_solver = init_solver(problem_w_asf)  # type:ignore
@@ -338,7 +347,7 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
         return solutions
         """
 
-    elif phase == "learning":
+    if phase == "learning":
         reference_points_list = dict_of_rps_to_list_of_rps(reference_points)
 
         # Add individual solutions
@@ -346,9 +355,9 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
             solutions.append(ind_sols[i])
         """ Group nimbus scalarization with delta and added hard_constraints  """
         classification_list = []
-        for dm_rp in reference_points:
-            classification_list.append(infer_classifications(problem, current_objectives, reference_points[dm_rp]))
-        print(classification_list)
+        for rp in reference_points.values():
+            classification_list.append(infer_classifications(problem, current_objectives, rp))
+        print(classification_list)  # noqa: T201
         gnimbus_scala = add_group_nimbus_diff if problem.is_twice_differentiable else add_group_nimbus
         add_nimbus_sf = gnimbus_scala
 
@@ -375,7 +384,7 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
         problem_w_stom, stom_target = add_stom_sf(
             problem, "stom_sf", reference_points_list, agg_bounds, delta, **(scalarization_options or {})
         )
-        if _solver_options:
+        if _solver_options:  # noqa: SIM108
             stom_solver = init_solver(problem_w_stom, _solver_options)  # type:ignore
         else:
             stom_solver = init_solver(problem_w_stom)  # type:ignore
@@ -387,7 +396,7 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
         problem_w_asf, asf_target = add_asf(
             problem, "asf", reference_points_list, agg_bounds, delta, **(scalarization_options or {})
         )
-        if _solver_options:
+        if _solver_options:  # noqa: SIM108
             asf_solver = init_solver(problem_w_asf, _solver_options)  # type:ignore
         else:
             asf_solver = init_solver(problem_w_asf)  # type:ignore
@@ -410,75 +419,75 @@ def solve_group_sub_problems(  # noqa: PLR0913, RET503
 
         return solutions
 
-    else:  # phase is concsensus reaching
-        # Add individual solutions
-        for i in range(len(ind_sols)):
-            solutions.append(ind_sols[i])
+    # phase is concsensus reaching
+    # Add individual solutions
+    for i in range(len(ind_sols)):
+        solutions.append(ind_sols[i])
 
-        """ Group nimbus scalarization with delta and added hard_constraints  """
-        classification_list = []
-        for dm_rp in reference_points:
-            print("RPS", reference_points[dm_rp])
-            classification_list.append(infer_classifications(problem, current_objectives, reference_points[dm_rp]))
-        print(classification_list)
-        gnimbus_scala = add_group_nimbus_diff if problem.is_twice_differentiable else add_group_nimbus
-        add_nimbus_sf = gnimbus_scala
+    """ Group nimbus scalarization with delta and added hard_constraints  """
+    classification_list = []
+    for rp in reference_points.values():
+        print("RPS", rp)  # noqa: T201
+        classification_list.append(infer_classifications(problem, current_objectives, rp))
+    print(classification_list)  # noqa: T201
+    gnimbus_scala = add_group_nimbus_diff if problem.is_twice_differentiable else add_group_nimbus
+    add_nimbus_sf = gnimbus_scala
 
-        problem_w_nimbus, nimbus_target = add_nimbus_sf(
-            problem,
-            "nimbus_sf",
-            classification_list,
-            current_objectives,
-            agg_bounds,
-            delta,
-            **(scalarization_options or {}),
-        )
+    problem_w_nimbus, nimbus_target = add_nimbus_sf(
+        problem,
+        "nimbus_sf",
+        classification_list,
+        current_objectives,
+        agg_bounds,
+        delta,
+        **(scalarization_options or {}),
+    )
 
-        if _solver_options:
-            nimbus_solver = init_solver(problem_w_nimbus, _solver_options)  # type:ignore
-        else:
-            nimbus_solver = init_solver(problem_w_nimbus)  # type:ignore
+    if _solver_options:  # noqa: SIM108
+        nimbus_solver = init_solver(problem_w_nimbus, _solver_options)  # type:ignore
+    else:
+        nimbus_solver = init_solver(problem_w_nimbus)  # type:ignore
 
-        solutions.append(nimbus_solver.solve(nimbus_target))
+    solutions.append(nimbus_solver.solve(nimbus_target))
 
-        """ SOLVING Group Scals with scaled delta, agg. aspirations and hard_constraints """
+    """ SOLVING Group Scals with scaled delta, agg. aspirations and hard_constraints """
 
-        add_stom_sf2 = add_group_stom_agg_diff if problem.is_twice_differentiable else add_group_stom_agg
+    add_stom_sf2 = add_group_stom_agg_diff if problem.is_twice_differentiable else add_group_stom_agg
 
-        problem_g_stom, stomg_target = add_stom_sf2(
-            problem, "stom_sf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})
-        )
-        if _solver_options:
-            stomg_solver = init_solver(problem_g_stom, _solver_options)  # type:ignore
-        else:
-            stomg_solver = init_solver(problem_g_stom)  # type:ignore
+    problem_g_stom, stomg_target = add_stom_sf2(
+        problem, "stom_sf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})
+    )
+    if _solver_options:  # noqa: SIM108
+        stomg_solver = init_solver(problem_g_stom, _solver_options)  # type:ignore
+    else:
+        stomg_solver = init_solver(problem_g_stom)  # type:ignore
 
-        solutions.append(stomg_solver.solve(stomg_target))
+    solutions.append(stomg_solver.solve(stomg_target))
 
-        add_asf2 = add_group_asf_agg_diff if problem.is_twice_differentiable else add_group_asf_agg
-        problem_g_asf, asfg_target = add_asf2(
-            problem, "asf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})
-        )
-        if _solver_options:
-            asfg_solver = init_solver(problem_g_asf, _solver_options)  # type:ignore
-        else:
-            asfg_solver = init_solver(problem_g_asf)  # type:ignore
+    add_asf2 = add_group_asf_agg_diff if problem.is_twice_differentiable else add_group_asf_agg
+    problem_g_asf, asfg_target = add_asf2(
+        problem, "asf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})
+    )
+    if _solver_options:  # noqa: SIM108
+        asfg_solver = init_solver(problem_g_asf, _solver_options)  # type:ignore
+    else:
+        asfg_solver = init_solver(problem_g_asf)  # type:ignore
 
-        solutions.append(asfg_solver.solve(asfg_target))
+    solutions.append(asfg_solver.solve(asfg_target))
 
-        add_guess_sf2 = add_group_guess_agg_diff if problem.is_twice_differentiable else add_group_guess_agg
+    add_guess_sf2 = add_group_guess_agg_diff if problem.is_twice_differentiable else add_group_guess_agg
 
-        problem_g_guess, guess2_target = add_guess_sf2(
-            problem, "guess_sf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})
-        )
+    problem_g_guess, guess2_target = add_guess_sf2(
+        problem, "guess_sf2", agg_aspirations, agg_bounds, delta, **(scalarization_options or {})
+    )
 
-        if _solver_options:
-            guess2_solver = init_solver(problem_g_guess, _solver_options)  # type:ignore
-        else:
-            guess2_solver = init_solver(problem_g_guess)  # type:ignore
+    if _solver_options:  # noqa: SIM108
+        guess2_solver = init_solver(problem_g_guess, _solver_options)  # type:ignore
+    else:
+        guess2_solver = init_solver(problem_g_guess)  # type:ignore
 
-        solutions.append(guess2_solver.solve(guess2_target))
+    solutions.append(guess2_solver.solve(guess2_target))
 
-        infer_group_classifications(problem, current_objectives, reference_points, silent=False)
+    infer_group_classifications(problem, current_objectives, reference_points, silent=False)
 
-        return solutions
+    return solutions

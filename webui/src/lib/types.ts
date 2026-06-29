@@ -18,7 +18,7 @@ export type DialogConfig = {
 	onCancel?: () => void;
 	confirmVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
 };
-/*Related to UTOPIA: SHUOLD BE MOVED ELSEWHERE */
+/*Related to UTOPIA: SHOULD BE MOVED ELSEWHERE */
 export type PeriodKey = 'period1' | 'period2' | 'period3';
 
 // Common base response type that all NIMBUS method responses share

@@ -37,7 +37,7 @@ class NimbusError(Exception):
     """Raised when an error with a NIMBUS method is encountered."""
 
 
-def solve_intermediate_solutions(  # noqa: PLR0913
+def solve_intermediate_solutions(
     problem: Problem,
     solution_1: dict[str, VariableType],
     solution_2: dict[str, VariableType],
@@ -188,13 +188,11 @@ def infer_classifications(
         raise NimbusError(msg)
 
     if not all(obj.symbol in reference_point for obj in problem.objectives):
-        msg = f"The reference point {reference_point} is missing entries " "for one or more of the objective functions."
+        msg = f"The reference point {reference_point} is missing entries for one or more of the objective functions."
         raise NimbusError(msg)
 
     if not all(obj.symbol in current_objectives for obj in problem.objectives):
-        msg = (
-            f"The current point {current_objectives} is missing entries " "for one or more of the objective functions."
-        )
+        msg = f"The current point {current_objectives} is missing entries for one or more of the objective functions."
         raise NimbusError(msg)
 
     # derive the classifications based on the reference point and and previous
@@ -236,7 +234,7 @@ def infer_classifications(
     return classifications
 
 
-def solve_sub_problems(  # noqa: PLR0913
+def solve_sub_problems(
     problem: Problem,
     current_objectives: dict[str, float],
     reference_point: dict[str, float],
@@ -293,11 +291,11 @@ def solve_sub_problems(  # noqa: PLR0913
         raise NimbusError(msg)
 
     if not all(obj.symbol in reference_point for obj in problem.objectives):
-        msg = f"The reference point {reference_point} is missing entries " "for one or more of the objective functions."
+        msg = f"The reference point {reference_point} is missing entries for one or more of the objective functions."
         raise NimbusError(msg)
 
     if not all(obj.symbol in current_objectives for obj in problem.objectives):
-        msg = f"The current point {reference_point} is missing entries " "for one or more of the objective functions."
+        msg = f"The current point {reference_point} is missing entries for one or more of the objective functions."
         raise NimbusError(msg)
 
     init_solver = solver if solver is not None else guess_best_solver(problem)

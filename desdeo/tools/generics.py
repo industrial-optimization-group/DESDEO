@@ -71,7 +71,7 @@ class BaseSolver(ABC):
     evaluator: object
     problem: Problem
 
-    def __init__(self, problem: Problem, options: dict[str, any] | None = None):
+    def __init__(self, problem: Problem, options: dict[str, Any] | None = None):
         """Initializer for the persistent solver.
 
         Args:
@@ -102,7 +102,7 @@ class PersistentSolver:
     evaluator: object
     problem: Problem
 
-    def __init__(self, problem: Problem, options: dict[str, any] | None = None):
+    def __init__(self, problem: Problem, options: dict[str, Any] | None = None):
         """Initializer for the persistent solver.
 
         Args:
@@ -154,7 +154,7 @@ class PersistentSolver:
             symbol (str): a str representing the symbol of the variable to be removed.
         """
 
-    def solve(self, target: str) -> SolverResults:
+    def solve(self, target: str) -> SolverResults | None:
         """Solves the current problem with the specified target.
 
         Args:
