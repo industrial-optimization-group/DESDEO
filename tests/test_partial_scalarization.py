@@ -53,14 +53,14 @@ def test_only_active_objectives_in_scalarization(river):
 
     rp = {"f_1": -6.0, "f_2": -3.0}
     w = {"f_1": 1.0, "f_2": 1.0}
-    problem, sym = add_asf_partial_diff(river, "partial_asf", rp, w)
+    problem, sym = add_asf_partial_diff(river, "partial_asf", rp, w)  # noqa: RUF059
 
     scal_flat = flatten(problem.scalarization_funcs[-1].func)
 
     for sym_active in active:
-        assert f"{sym_active}_min" in scal_flat
+        assert sym_active in scal_flat
     for sym_inactive in inactive:
-        assert f"{sym_inactive}_min" not in scal_flat
+        assert sym_inactive not in scal_flat
 
 
 @pytest.mark.scalarization
@@ -94,7 +94,7 @@ def test_reference_point_values_in_constraints(river):
             con_flat = flatten(con.func)
             # objective symbol must be referenced
             obj_sym = con.symbol.replace("_con", "")
-            assert f"{obj_sym}_min" in con_flat
+            assert obj_sym in con_flat
             # The infix parser represents -6.5 as ["Negate", 6.5], so check magnitude.
             assert abs(rp[obj_sym]) in con_flat
             assert w[obj_sym] in con_flat
@@ -131,13 +131,15 @@ def test_alpha_variable_added(river):
 def test_maximized_objective_sign_flipped(river):
     """Reference point components for maximized objectives must be sign-flipped.
 
-    When the infix expression `f_i_min - (-rp)` is serialised to MathJSON the
-    negation appears as a double-Negate wrapper, so the rp magnitude appears as
-    a positive literal with *two* Negate tokens around it (plus one more for the
-    - _alpha term, three total), whereas for a minimised objective the rp has
-    only one Negate (two total).
+    The constraint for a maximised objective uses `(-1 * f_i)` (a Multiply by
+    -1), and the corrected reference point is `-rp` (Negate(rp)).  So the
+    expression `(-1 * f_i) - (-rp)` produces three Negate tokens: one from the
+    `-1` literal, one from `Negate(rp)`, and one extra from `--rp` becoming
+    `Negate(Negate(rp))`, plus one from `- _alpha`, totalling 4 Negates.
+    For a minimised objective (no sign-flip) the expression `f_i - rp - _alpha`
+    produces only 2 Negates.
 
-    In the river pollution problem f_1–f_4 are maximised and f_5 is minimised.
+    In the river pollution problem f_1-f_4 are maximised and f_5 is minimised.
     """
     rp = {"f_1": 3.5}
     w = {"f_1": 1.0}
@@ -146,8 +148,9 @@ def test_maximized_objective_sign_flipped(river):
     con = next(c for c in (problem.constraints or []) if c.symbol == "f_1_con")
     con_flat = flatten(con.func)
     assert rp["f_1"] in con_flat
-    # Negate(Negate(rp)) for the sign-flip + Negate(_alpha) = 3 Negates total
-    assert con_flat.count("Negate") == 3
+    assert "f_1" in con_flat
+    # Negate(1) for -1*f_i + Negate(Negate(rp)) for the double-negation + Negate(_alpha) = 4 Negates
+    assert con_flat.count("Negate") == 4
 
 
 @pytest.mark.scalarization
@@ -333,7 +336,7 @@ def test_partial_vs_full_scalarization_different_results(river):
     With the partial ASF (f_1 and f_5 only) the unconstrained objectives (f_2, f_3, f_4)
     are free to take values that differ from the full-ASF solution, which steers all five.
     """
-    from desdeo.tools.scalarization import add_asf_generic_diff
+    from desdeo.tools.scalarization import add_asf_generic_diff  # noqa: PLC0415
 
     rp_partial = {"f_1": -6.0, "f_5": 5.0}
     w_partial = {"f_1": 1.0, "f_5": 1.0}
@@ -423,12 +426,12 @@ def test_nondiff_only_active_objectives_in_expression(river):
     inactive = {"f_3", "f_4", "f_5"}
     rp = {"f_1": -6.0, "f_2": -3.0}
     w = {"f_1": 1.0, "f_2": 1.0}
-    result_problem, sym = add_asf_partial_nondiff(river, "partial_asf_nd", rp, w)
+    result_problem, sym = add_asf_partial_nondiff(river, "partial_asf_nd", rp, w)  # noqa: RUF059
     scal_flat = flatten(result_problem.scalarization_funcs[-1].func)
     for s in active:
-        assert f"{s}_min" in scal_flat
+        assert s in scal_flat
     for s in inactive:
-        assert f"{s}_min" not in scal_flat
+        assert s not in scal_flat
 
 
 @pytest.mark.scalarization
@@ -586,9 +589,9 @@ def test_cumulonimbus_only_active_objectives_in_scalarization(river_current):
     scal_flat = flatten(result_problem.scalarization_funcs[-1].func)
 
     for sym in active:
-        assert f"{sym}_min" in scal_flat
+        assert sym in scal_flat
     for sym in inactive:
-        assert f"{sym}_min" not in scal_flat
+        assert sym not in scal_flat
 
 
 @pytest.mark.scalarization
@@ -613,7 +616,7 @@ def test_cumulonimbus_lt_classification_adds_two_constraints(river_current):
     """Classification '<' should add _lt and _eq constraints for the objective."""
     problem, current = river_current
     cls = {"f_1": ("<", None)}
-    n_before = len(problem.constraints or [])
+    n_before = len(problem.constraints or [])  # noqa: F841
     result_problem, _ = add_cumulonimbus_diff(problem, "cumulonimbus", cls, current)
     added = [c for c in (result_problem.constraints or []) if c.symbol.startswith("f_1")]
     symbols = {c.symbol for c in added}
@@ -665,7 +668,7 @@ def test_cumulonimbus_free_classification_adds_no_constraint(river_current):
     problem, current = river_current
     # Must include at least one other active objective in the augmentation.
     cls = {"f_1": ("0", None), "f_2": (">=", -3.0)}
-    n_before = len(problem.constraints or [])
+    n_before = len(problem.constraints or [])  # noqa: F841
     result_problem, _ = add_cumulonimbus_diff(problem, "cumulonimbus", cls, current)
     added = [c for c in (result_problem.constraints or []) if c.symbol.startswith("f_1")]
     assert len(added) == 0
@@ -740,11 +743,11 @@ def test_cumulonimbus_weights_aug_appear_in_scalarization(river_current):
     """When weights_aug is given its values should appear in the augmentation expression."""
     problem, current = river_current
     cls = {"f_1": ("<", None), "f_2": (">=", -3.0)}
-    w_aug = {"f_1": 0.3, "f_2": 0.7}
+    w_aug = {"f_1": -0.3, "f_2": -0.7}  # negative: maximize objectives (nadir < ideal)
     result_problem, _ = add_cumulonimbus_diff(problem, "cumulonimbus", cls, current, weights_aug=w_aug)
     scal_flat = flatten(result_problem.scalarization_funcs[-1].func)
     for val in w_aug.values():
-        assert val in scal_flat
+        assert abs(val) in scal_flat
 
 
 @pytest.mark.scalarization
@@ -753,7 +756,7 @@ def test_cumulonimbus_reference_point_aug_appear_in_scalarization(river_current)
     problem, current = river_current
     cls = {"f_1": ("<", None), "f_2": (">=", -3.0)}
     rp_aug = {"f_1": -6.0, "f_2": -3.0}
-    w_aug = {"f_1": 1.0, "f_2": 1.0}
+    w_aug = {"f_1": -1.0, "f_2": -1.0}  # negative: maximize objectives
     result_problem, _ = add_cumulonimbus_diff(
         problem, "cumulonimbus", cls, current, reference_point_aug=rp_aug, weights_aug=w_aug
     )
@@ -768,7 +771,7 @@ def test_cumulonimbus_aug_params_do_not_affect_constraints(river_current):
     problem, current = river_current
     cls = {"f_1": ("<", None), "f_2": (">=", -3.0)}
     rp_aug = {"f_1": -5.0, "f_2": -2.5}
-    w_aug = {"f_1": 0.42, "f_2": 0.58}
+    w_aug = {"f_1": -0.42, "f_2": -0.58}  # negative: maximize objectives
     result_problem, _ = add_cumulonimbus_diff(
         problem, "cumulonimbus", cls, current, reference_point_aug=rp_aug, weights_aug=w_aug
     )
@@ -786,7 +789,7 @@ def test_cumulonimbus_solves_with_aug_params(river_current):
     problem, current = river_current
     cls = {"f_1": ("<", None), "f_5": (">=", 10.0)}
     rp_aug = {"f_1": -6.5, "f_5": 9.0}
-    w_aug = {"f_1": 1.0, "f_5": 1.0}
+    w_aug = {"f_1": -1.0, "f_5": 1.0}  # f_1 maximize (negative), f_5 minimize (positive)
     result_problem, target = add_cumulonimbus_diff(
         problem, "cumulonimbus", cls, current, reference_point_aug=rp_aug, weights_aug=w_aug
     )
@@ -816,7 +819,7 @@ def test_cumulonimbus_fewer_constraints_than_full_nimbus(river_current):
     This verifies that unclassified objectives genuinely produce no constraints,
     so the partial problem is strictly less constrained than its full-NIMBUS counterpart.
     """
-    from desdeo.tools.scalarization import add_nimbus_sf_diff
+    from desdeo.tools.scalarization import add_nimbus_sf_diff  # noqa: PLC0415
 
     problem, current = river_current
 

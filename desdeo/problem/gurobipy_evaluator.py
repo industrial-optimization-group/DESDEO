@@ -263,7 +263,7 @@ class GurobipyEvaluator:
             objective_functions[obj.symbol] = gp_expr
 
             # the obj.symbol_min objectives are used when optimizing and building scalarizations etc...
-            objective_functions[f"{obj.symbol}_min"] = -gp_expr if obj.maximize else gp_expr
+            objective_functions[f"{obj.symbol}_min"] = -(gp_expr) if obj.maximize else gp_expr
 
         return objective_functions
 
@@ -368,7 +368,7 @@ class GurobipyEvaluator:
             warnings.warn(
                 "One or more of the problem objectives seems to be a constant.", GurobipyEvaluatorWarning, stacklevel=2
             )
-        if isinstance(gp.GenExpr, int):
+        if isinstance(gp_expr, gp.GenExpr):
             msg = f"Gurobi does not support objective functions that are not linear or quadratic {gp_expr}"
             raise GurobipyEvaluatorError(msg)
 

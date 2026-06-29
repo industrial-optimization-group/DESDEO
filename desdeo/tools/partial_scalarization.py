@@ -67,58 +67,8 @@ def add_asf_partial_diff(
         ScalarizationError: if ``reference_point_aug`` or ``weights_aug`` are provided but
             do not cover the same subset as ``reference_point``.
     """
-    valid_symbols = {obj.symbol for obj in problem.objectives}
-
-    invalid = set(reference_point) - valid_symbols
-    if invalid:
-        msg = f"reference_point contains keys that are not objective symbols: {invalid}."
-        raise ScalarizationError(msg)
-
-    active_symbols = set(reference_point)
-    active_objectives = [obj for obj in problem.objectives if obj.symbol in active_symbols]
-
-    if weights is not None:
-        missing_weights = active_symbols - set(weights)
-        if missing_weights:
-            msg = f"weights is missing values for objectives: {missing_weights}."
-            raise ScalarizationError(msg)
-        effective_weights = weights
-    else:
-        missing_ideal = [obj.symbol for obj in active_objectives if obj.ideal is None]
-        missing_nadir = [obj.symbol for obj in active_objectives if obj.nadir is None]
-        if missing_ideal:
-            msg = f"weights not provided and ideal is missing for objectives: {missing_ideal}."
-            raise ScalarizationError(msg)
-        if missing_nadir:
-            msg = f"weights not provided and nadir is missing for objectives: {missing_nadir}."
-            raise ScalarizationError(msg)
-        # Compute corrected nadir - corrected ideal in the minimization space.
-        effective_weights = {obj.symbol: abs(obj.nadir - obj.ideal) for obj in active_objectives}
-
-    if reference_point_aug is not None:
-        missing_aug = active_symbols - set(reference_point_aug)
-        if missing_aug:
-            msg = f"reference_point_aug is missing values for objectives: {missing_aug}."
-            raise ScalarizationError(msg)
-
-    if weights_aug is not None:
-        missing_waug = active_symbols - set(weights_aug)
-        if missing_waug:
-            msg = f"weights_aug is missing values for objectives: {missing_waug}."
-            raise ScalarizationError(msg)
-
-    # Flip reference point values for maximized objectives.
-    corrected_rp = {
-        obj.symbol: reference_point[obj.symbol] * -1 if obj.maximize else reference_point[obj.symbol]
-        for obj in active_objectives
-    }
-    corrected_rp_aug = (
-        {
-            obj.symbol: reference_point_aug[obj.symbol] * -1 if obj.maximize else reference_point_aug[obj.symbol]
-            for obj in active_objectives
-        }
-        if reference_point_aug is not None
-        else None
+    active_objectives, effective_weights, corrected_rp, corrected_rp_aug = _resolve_partial_asf_params(
+        problem, reference_point, weights, reference_point_aug, weights_aug
     )
 
     alpha = Variable(
@@ -130,10 +80,9 @@ def add_asf_partial_diff(
         initial_value=1.0,
     )
 
-    aug_obj_list, aug_weights_dict = _resolve_aug_objectives(
-        weights_aug, active_objectives, effective_weights, list(problem.objectives)
+    aug_expr = _build_aug_expr(
+        weights_aug, active_objectives, effective_weights, list(problem.objectives), corrected_rp_aug
     )
-    aug_expr = _build_aug_expr(aug_obj_list, corrected_rp_aug if weights_aug is None else None, aug_weights_dict)
 
     target_expr = f"_alpha + {rho}*({aug_expr})"
     scalarization = ScalarizationFunction(
@@ -147,7 +96,8 @@ def add_asf_partial_diff(
 
     constraints = []
     for obj in active_objectives:
-        expr = f"({obj.symbol}_min - {corrected_rp[obj.symbol]}) / {effective_weights[obj.symbol]} - _alpha"
+        obj_term = f"(-1 * {obj.symbol})" if obj.maximize else obj.symbol
+        expr = f"({obj_term} - {corrected_rp[obj.symbol]}) / {effective_weights[obj.symbol]} - _alpha"
         constraints.append(
             Constraint(
                 name=f"Constraint for {obj.symbol}",
@@ -215,8 +165,58 @@ def add_asf_partial_nondiff(
         ScalarizationError: if ``reference_point_aug`` or ``weights_aug`` are provided but
             do not cover the same subset as ``reference_point``.
     """
-    valid_symbols = {obj.symbol for obj in problem.objectives}
+    active_objectives, effective_weights, corrected_rp, corrected_rp_aug = _resolve_partial_asf_params(
+        problem, reference_point, weights, reference_point_aug, weights_aug
+    )
 
+    # Build the max term over active objectives only.
+    max_operands = []
+    for obj in active_objectives:
+        obj_term = f"(-1 * {obj.symbol})" if obj.maximize else obj.symbol
+        max_operands.append(f"({obj_term} - {corrected_rp[obj.symbol]}) / ({effective_weights[obj.symbol]})")
+    max_term = f"{Op.MAX}({', '.join(max_operands)})"
+
+    aug_expr = _build_aug_expr(
+        weights_aug, active_objectives, effective_weights, list(problem.objectives), corrected_rp_aug
+    )
+
+    sf = f"{max_term} + {rho} * ({aug_expr})"
+    scalarization = ScalarizationFunction(
+        name="Partial non-differentiable ASF scalarization",
+        symbol=symbol,
+        func=sf,
+        is_linear=False,
+        is_convex=False,
+        is_twice_differentiable=False,
+    )
+    return problem.add_scalarization(scalarization), symbol
+
+
+def _validate_aug_params(
+    active_symbols: set[str],
+    reference_point_aug: dict[str, float] | None,
+    weights_aug: dict[str, float] | None,
+) -> None:
+    if reference_point_aug is not None:
+        missing_aug = active_symbols - set(reference_point_aug)
+        if missing_aug:
+            msg = f"reference_point_aug is missing values for objectives: {missing_aug}."
+            raise ScalarizationError(msg)
+    if weights_aug is not None:
+        missing_waug = active_symbols - set(weights_aug)
+        if missing_waug:
+            msg = f"weights_aug is missing values for objectives: {missing_waug}."
+            raise ScalarizationError(msg)
+
+
+def _resolve_partial_asf_params(
+    problem: Problem,
+    reference_point: dict[str, float],
+    weights: dict[str, float] | None,
+    reference_point_aug: dict[str, float] | None,
+    weights_aug: dict[str, float] | None,
+) -> tuple[list, dict[str, float], dict[str, float], dict[str, float] | None]:
+    valid_symbols = {obj.symbol for obj in problem.objectives}
     invalid = set(reference_point) - valid_symbols
     if invalid:
         msg = f"reference_point contains keys that are not objective symbols: {invalid}."
@@ -242,19 +242,8 @@ def add_asf_partial_nondiff(
             raise ScalarizationError(msg)
         effective_weights = {obj.symbol: abs(obj.nadir - obj.ideal) for obj in active_objectives}
 
-    if reference_point_aug is not None:
-        missing_aug = active_symbols - set(reference_point_aug)
-        if missing_aug:
-            msg = f"reference_point_aug is missing values for objectives: {missing_aug}."
-            raise ScalarizationError(msg)
+    _validate_aug_params(active_symbols, reference_point_aug, weights_aug)
 
-    if weights_aug is not None:
-        missing_waug = active_symbols - set(weights_aug)
-        if missing_waug:
-            msg = f"weights_aug is missing values for objectives: {missing_waug}."
-            raise ScalarizationError(msg)
-
-    # Flip reference point values for maximized objectives.
     corrected_rp = {
         obj.symbol: reference_point[obj.symbol] * -1 if obj.maximize else reference_point[obj.symbol]
         for obj in active_objectives
@@ -267,41 +256,7 @@ def add_asf_partial_nondiff(
         if reference_point_aug is not None
         else None
     )
-
-    # Build the max term over active objectives only.
-    max_operands = [
-        f"({obj.symbol}_min - {corrected_rp[obj.symbol]}) / ({effective_weights[obj.symbol]})"
-        for obj in active_objectives
-    ]
-    max_term = f"{Op.MAX}({', '.join(max_operands)})"
-
-    aug_obj_list, aug_weights_dict = _resolve_aug_objectives(
-        weights_aug, active_objectives, effective_weights, list(problem.objectives)
-    )
-    aug_expr = _build_aug_expr(aug_obj_list, corrected_rp_aug if weights_aug is None else None, aug_weights_dict)
-
-    sf = f"{max_term} + {rho} * ({aug_expr})"
-    scalarization = ScalarizationFunction(
-        name="Partial non-differentiable ASF scalarization",
-        symbol=symbol,
-        func=sf,
-        is_linear=False,
-        is_convex=False,
-        is_twice_differentiable=False,
-    )
-    return problem.add_scalarization(scalarization), symbol
-
-
-def _make_constraint(name: str, symbol: str, func: str, problem: Problem) -> Constraint:
-    return Constraint(
-        name=name,
-        symbol=symbol,
-        func=func,
-        cons_type=ConstraintTypeEnum.LTE,
-        is_linear=problem.is_linear,
-        is_convex=problem.is_convex,
-        is_twice_differentiable=problem.is_twice_differentiable,
-    )
+    return active_objectives, effective_weights, corrected_rp, corrected_rp_aug
 
 
 def _resolve_ideal_nadir(
@@ -329,45 +284,30 @@ def _resolve_ideal_nadir(
 
 
 def _build_aug_expr(
-    aug_objectives: list,
-    corrected_rp_aug: dict[str, float] | None,
-    effective_aug_weights: dict[str, float],
-) -> str:
-    """Build the augmentation sum expression string.
-
-    Handles an empty objective list (returns "0") and partial coverage of
-    ``corrected_rp_aug``: objectives missing from it fall back to the plain
-    ``f_i_min / w_i`` form.
-    """
-    if not aug_objectives:
-        return "0"
-    terms = []
-    for obj in aug_objectives:
-        w = effective_aug_weights[obj.symbol]
-        if corrected_rp_aug is not None and obj.symbol in corrected_rp_aug:
-            terms.append(f"({obj.symbol}_min - {corrected_rp_aug[obj.symbol]}) / ({w})")
-        else:
-            terms.append(f"{obj.symbol}_min / ({w})")
-    return " + ".join(terms)
-
-
-def _resolve_aug_objectives(
     weights_aug: dict[str, float] | None,
     active_objectives: list,
     default_weights: dict[str, float],
     all_objectives: list,
-) -> tuple[list, dict[str, float]]:
-    """Return ``(aug_obj_list, aug_weights_dict)`` for the augmentation term.
-
-    When ``weights_aug`` is provided it defines the full augmentation set:
-    objectives with a non-zero weight are included (whether active or not),
-    objectives with weight 0 are excluded.  When ``weights_aug`` is ``None``
-    the default falls back to ``active_objectives`` and ``default_weights``.
-    """
+    corrected_rp_aug: dict[str, float] | None,
+) -> str:
+    """Build the augmentation sum expression string."""
     if weights_aug is not None:
-        aug_obj_list = [obj for obj in all_objectives if obj.symbol in weights_aug and weights_aug[obj.symbol] != 0]
-        return aug_obj_list, weights_aug
-    return active_objectives, default_weights
+        objectives = [obj for obj in all_objectives if obj.symbol in weights_aug and weights_aug[obj.symbol] != 0]
+        weights = weights_aug
+    else:
+        objectives = active_objectives
+        weights = default_weights
+
+    if not objectives:
+        return "0"
+    terms = []
+    for obj in objectives:
+        w = weights[obj.symbol]
+        if corrected_rp_aug is not None and obj.symbol in corrected_rp_aug:
+            terms.append(f"({obj.symbol} - {corrected_rp_aug[obj.symbol]}) / ({w})")
+        else:
+            terms.append(f"({obj.symbol}) / ({w})")
+    return " + ".join(terms)
 
 
 def _classification_constraints(
@@ -381,53 +321,60 @@ def _classification_constraints(
     problem: Problem,
 ) -> list[Constraint]:
     sym = obj.symbol
+    obj_term = f"(-1 * {sym})" if obj.maximize else sym
+    kw = {
+        "cons_type": ConstraintTypeEnum.LTE,
+        "is_linear": problem.is_linear,
+        "is_convex": problem.is_convex,
+        "is_twice_differentiable": problem.is_twice_differentiable,
+    }
     match (cls, level):
         case ("<", _):
             return [
-                _make_constraint(
-                    f"improvement constraint for {sym}",
-                    f"{sym}_lt",
-                    f"({sym}_min - {ideal_val}) / ({range_}) - _alpha",
-                    problem,
+                Constraint(
+                    name=f"improvement constraint for {sym}",
+                    symbol=f"{sym}_lt",
+                    func=f"({obj_term} - {ideal_val}) / ({range_}) - _alpha",
+                    **kw,
                 ),
-                _make_constraint(
-                    f"stay at least equal constraint for {sym}",
-                    f"{sym}_eq",
-                    f"{sym}_min - {current_val}{maximize_flip}",
-                    problem,
+                Constraint(
+                    name=f"stay at least equal constraint for {sym}",
+                    symbol=f"{sym}_eq",
+                    func=f"{obj_term} - {current_val}{maximize_flip}",
+                    **kw,
                 ),
             ]
         case ("<=", aspiration):
             return [
-                _make_constraint(
-                    f"improvement until constraint for {sym}",
-                    f"{sym}_lte",
-                    f"({sym}_min - {aspiration}{maximize_flip}) / ({range_}) - _alpha",
-                    problem,
+                Constraint(
+                    name=f"improvement until constraint for {sym}",
+                    symbol=f"{sym}_lte",
+                    func=f"({obj_term} - {aspiration}{maximize_flip}) / ({range_}) - _alpha",
+                    **kw,
                 ),
-                _make_constraint(
-                    f"stay at least equal constraint for {sym}",
-                    f"{sym}_eq",
-                    f"{sym}_min - {current_val}{maximize_flip}",
-                    problem,
+                Constraint(
+                    name=f"stay at least equal constraint for {sym}",
+                    symbol=f"{sym}_eq",
+                    func=f"{obj_term} - {current_val}{maximize_flip}",
+                    **kw,
                 ),
             ]
         case ("=", _):
             return [
-                _make_constraint(
-                    f"stay at least equal constraint for {sym}",
-                    f"{sym}_eq",
-                    f"{sym}_min - {current_val}{maximize_flip}",
-                    problem,
+                Constraint(
+                    name=f"stay at least equal constraint for {sym}",
+                    symbol=f"{sym}_eq",
+                    func=f"{obj_term} - {current_val}{maximize_flip}",
+                    **kw,
                 ),
             ]
         case (">=", reservation):
             return [
-                _make_constraint(
-                    f"worsen until constraint for {sym}",
-                    f"{sym}_gte",
-                    f"{sym}_min - {reservation}{maximize_flip}",
-                    problem,
+                Constraint(
+                    name=f"worsen until constraint for {sym}",
+                    symbol=f"{sym}_gte",
+                    func=f"{obj_term} - {reservation}{maximize_flip}",
+                    **kw,
                 ),
             ]
         case ("0", _):
@@ -495,7 +442,7 @@ def add_cumulonimbus_diff(
         weights_aug: optional weights for the augmentation term. Replaces the default
             ``nadir - utopian`` weights. Must cover every objective present in ``classifications``.
         delta: small scalar for the utopian offset. Defaults to 1e-6.
-        rho: small scalar for the augmentation term. Defaults to 1e-6.
+        rho: small scalar for the augmentation term. Defaults to 1e-3.
 
     Returns:
         A tuple of the updated Problem and the symbol of the added scalarization.
@@ -523,17 +470,7 @@ def add_cumulonimbus_diff(
         msg = f"current_objective_vector is missing entries for objectives: {missing_current}."
         raise ScalarizationError(msg)
 
-    if reference_point_aug is not None:
-        missing_aug = active_symbols - set(reference_point_aug)
-        if missing_aug:
-            msg = f"reference_point_aug is missing values for objectives: {missing_aug}."
-            raise ScalarizationError(msg)
-
-    if weights_aug is not None:
-        missing_waug = active_symbols - set(weights_aug)
-        if missing_waug:
-            msg = f"weights_aug is missing values for objectives: {missing_waug}."
-            raise ScalarizationError(msg)
+    _validate_aug_params(active_symbols, reference_point_aug, weights_aug)
 
     ideal_point, nadir_point = _resolve_ideal_nadir(problem, ideal, nadir)
 
@@ -554,13 +491,10 @@ def add_cumulonimbus_diff(
         initial_value=1.0,
     )
 
-    default_aug_weights = {
-        obj.symbol: nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta) for obj in active_objectives
-    }
-    aug_obj_list, aug_weights_dict = _resolve_aug_objectives(
-        weights_aug, active_objectives, default_aug_weights, list(problem.objectives)
+    default_aug_weights = {obj.symbol: obj.nadir - (obj.ideal - delta) for obj in active_objectives}
+    aug_expr = _build_aug_expr(
+        weights_aug, active_objectives, default_aug_weights, list(problem.objectives), corrected_rp_aug
     )
-    aug_expr = _build_aug_expr(aug_obj_list, corrected_rp_aug if weights_aug is None else None, aug_weights_dict)
     scalarization = ScalarizationFunction(
         name="Cumulonimbus scalarization objective function",
         symbol=symbol,

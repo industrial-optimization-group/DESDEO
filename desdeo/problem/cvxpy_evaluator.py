@@ -253,7 +253,7 @@ class CVXPYEvaluator:
         self.objective_functions[obj.symbol] = expr
 
         # the obj.symbol_min objectives are used when optimizing and building scalarizations etc...
-        self.objective_functions[f"{obj.symbol}_min"] = -expr if obj.maximize else expr
+        self.objective_functions[f"{obj.symbol}_min"] = -(expr) if obj.maximize else expr
 
     def add_scalarization_function(self, scal: ScalarizationFunction):
         """Adds a scalarization expression to the CVXPY evaluator.

@@ -62,6 +62,7 @@ __all__ = [
     "available_solvers",
     "build_combined_scenario_problem",
     "build_scenario_problem",
+    "build_scenario_symbol_maps",
     "find_compatible_solvers",
     "flip_maximized_objective_values",
     "get_corrected_ideal_and_nadir",
@@ -133,6 +134,7 @@ from desdeo.tools.scalarization import (
 from desdeo.tools.scenarios import (
     build_combined_scenario_problem,
     build_scenario_problem,
+    build_scenario_symbol_maps,
     solve_all_scenarios,
     solve_scenario,
 )

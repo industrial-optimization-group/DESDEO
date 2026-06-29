@@ -628,3 +628,50 @@ def build_combined_scenario_problem(
     )
 
     return problem, symbol_maps
+
+
+def build_scenario_symbol_maps(
+    problem: "Problem",
+    scenario_model: "ScenarioModel",
+) -> "dict[str, dict[str, dict[str, str]]]":
+    """Derive element symbol maps from an already-built combined scenario problem.
+
+    A lightweight alternative to calling :func:`build_combined_scenario_problem`
+    when the combined problem is already available.  Infers the per-leaf symbol
+    for each base element by checking whether ``{leaf}_{orig}`` exists among the
+    combined problem's element symbols.
+
+    Covers ``objectives``, ``extra_funcs``, ``constraints``, and
+    ``scalarization_funcs``; variables are excluded because their naming depends
+    on ``anticipation_stop`` and cannot be inferred from symbol presence alone.
+
+    Args:
+        problem: the combined scenario problem (as returned by
+            :func:`build_combined_scenario_problem` or after appending
+            aggregation elements).
+        scenario_model: the scenario model used to build ``problem``.
+
+    Returns:
+        Symbol maps dict with keys ``"objectives"``, ``"extra_funcs"``,
+        ``"constraints"``, and ``"scalarization_funcs"``, compatible with
+        the same-named keys from :func:`build_combined_scenario_problem`.
+    """
+    leaf_scenarios = list(scenario_model.leaf_scenarios)
+    base = scenario_model.base_problem
+
+    def _map(base_elems, combined_elems):
+        combined_syms = {e.symbol for e in (combined_elems or [])}
+        return {
+            elem.symbol: {
+                leaf: f"{leaf}_{elem.symbol}" if f"{leaf}_{elem.symbol}" in combined_syms else elem.symbol
+                for leaf in leaf_scenarios
+            }
+            for elem in (base_elems or [])
+        }
+
+    return {
+        "objectives": _map(base.objectives, problem.objectives),
+        "extra_funcs": _map(base.extra_funcs, problem.extra_funcs),
+        "constraints": _map(base.constraints, problem.constraints),
+        "scalarization_funcs": _map(base.scalarization_funcs, problem.scalarization_funcs),
+    }
