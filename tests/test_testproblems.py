@@ -10,6 +10,13 @@ from desdeo.problem.testproblems import (
     binh_and_korn,
     car_side_impact,
     ctp1,
+    ctp2,
+    ctp3,
+    ctp4,
+    ctp5,
+    ctp6,
+    ctp7,
+    ctp8,
     dtlz1,
     dtlz2,
     dtlz4,
@@ -774,3 +781,36 @@ def test_ctp1():
     assert np.isclose(f2, 5.108953223270181)
     assert np.isclose(g1, -4.454301025073424)
     assert np.isclose(g2, -4.4807893681722195)
+
+
+@pytest.mark.testproblem
+@pytest.mark.parametrize(
+    ("problem_func", "expected_f2", "expected_constraints"),
+    [
+        (ctp2, 5.0, (-3.3365765309197597,)),
+        (ctp3, 5.0, (-3.430240537273866,)),
+        (ctp4, 5.0, (-2.7820601058548213,)),
+        (ctp5, 5.0, (-3.472729748823802,)),
+        (ctp6, 5.0, (21.935713778922732,)),
+        (ctp7, 5.0, (31.125778196131336,)),
+        (ctp8, 5.0, (21.935713778922732, 28.53828532201262)),
+    ],
+)
+def test_ctp2_to_ctp8(problem_func, expected_f2, expected_constraints):
+    """Test that the generated CTP2-CTP8 problems evaluate correctly."""
+    n = 3
+    val = 0.5
+    problem = problem_func(n)
+
+    # CTP8 has two constraints, the rest have one
+    assert len(problem.constraints) == len(expected_constraints)
+
+    evaluator = PolarsEvaluator(problem)
+    xs = {f"{var.symbol}": [val] for var in problem.variables}
+
+    res = evaluator.evaluate(xs)
+
+    assert np.isclose(res["f_1"][0], val)
+    assert np.isclose(res["f_2"][0], expected_f2)
+    for idx, expected in enumerate(expected_constraints, start=1):
+        assert np.isclose(res[f"g_{idx}"][0], expected)

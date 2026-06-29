@@ -8,6 +8,13 @@ __all__ = [  # noqa: RUF022
     "binh_and_korn",
     "car_side_impact",
     "ctp1",
+    "ctp2",
+    "ctp3",
+    "ctp4",
+    "ctp5",
+    "ctp6",
+    "ctp7",
+    "ctp8",
     "dtlz1",
     "dtlz2",
     "dtlz4",
@@ -64,7 +71,7 @@ __all__ = [  # noqa: RUF022
 from .binh_and_korn_problem import binh_and_korn
 from .cake_problem import best_cake_problem
 from .car_side_impact_problem import car_side_impact
-from .ctp_problems import ctp1
+from .ctp_problems import ctp1, ctp2, ctp3, ctp4, ctp5, ctp6, ctp7, ctp8
 from .dmitry_forest_problem_discrete import dmitry_forest_problem_disc
 from .dtlz_problems import dtlz1, dtlz2, dtlz4
 from .forest_problem import forest_problem, forest_problem_discrete
