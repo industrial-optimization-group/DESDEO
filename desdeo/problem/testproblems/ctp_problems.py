@@ -65,10 +65,6 @@ def ctp1(n_variables: int) -> Problem:
         for i in range(1, n_variables + 1)
     ]
 
-    g_sum = " + ".join([f"x_{i}" for i in range(2, n_variables + 1)])
-
-    g_expr = f"(1 + 9 * ({g_sum}) / {n_variables - 1})"
-
     objective_1 = Objective(
         name="f_1",
         symbol="f_1",
