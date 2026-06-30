@@ -8,6 +8,7 @@ from desdeo.mcdm.cumulus import (
     CumulusError,
     CumulusScalarization,
     _fix_worst_case_epigraphs,
+    _scenario_aug_weights,
     generate_starting_point,
     infer_classifications,
     solve_sub_problems,
@@ -613,3 +614,37 @@ def test_fix_worst_case_epigraphs_ignores_variable_with_unrecognized_name(scenar
     fixed = _fix_worst_case_epigraphs(result, combined, symbol_maps)
 
     assert fixed.optimal_variables["_t_decoy_f_1"] == pytest.approx(42.0)
+
+
+@pytest.mark.cumulus
+def test_scenario_aug_weights_positive_for_maximized_objective():
+    """_scenario_aug_weights must return a positive weight for a maximized per-scenario objective.
+
+    f_1 is maximized in the river pollution problem, so the raw `nadir - ideal`
+    is negative. `add_*_diff`/`add_cumulonimbus_diff` sign-flip the objective
+    itself inside the augmentation term, so weights_aug must always be
+    positive -- a negative weight here would double-flip the sign.
+    """
+    problem = river_pollution_problem()
+    symbol_maps = {"objectives": {"f_1": {"s_1": "f_1"}, "f_5": {"s_1": "f_5"}}}
+    reference_point = {"f_1": 5.0}
+
+    weights = _scenario_aug_weights(problem, reference_point, symbol_maps)
+
+    obj_1 = next(o for o in problem.objectives if o.symbol == "f_1")
+    obj_5 = next(o for o in problem.objectives if o.symbol == "f_5")
+    assert obj_1.nadir - obj_1.ideal < 0
+    assert weights["f_1"] == pytest.approx(abs(obj_1.nadir - obj_1.ideal))
+    assert weights["f_5"] == pytest.approx(abs(obj_5.nadir - obj_5.ideal))
+
+
+@pytest.mark.cumulus
+def test_scenario_aug_weights_zeroes_aggregation_objective_not_in_symbol_maps():
+    """An objective present in reference_point but absent from symbol_maps must get weight 0."""
+    problem = river_pollution_problem()
+    symbol_maps = {"objectives": {"f_5": {"s_1": "f_5"}}}
+    reference_point = {"f_1": 5.0, "f_5": 0.2}
+
+    weights = _scenario_aug_weights(problem, reference_point, symbol_maps)
+
+    assert weights["f_1"] == 0.0

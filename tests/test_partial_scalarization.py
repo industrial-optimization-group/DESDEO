@@ -6,6 +6,7 @@ from desdeo.problem.testproblems import dtlz2, river_pollution_problem
 from desdeo.tools.partial_scalarization import add_asf_partial_diff, add_asf_partial_nondiff, add_cumulonimbus_diff
 from desdeo.tools.scalarization import ScalarizationError
 from desdeo.tools.scipy_solver_interfaces import ScipyDeSolver, ScipyMinimizeSolver
+from desdeo.tools.utils import get_corrected_ideal, get_corrected_nadir
 
 
 def flatten(nested):
@@ -208,6 +209,25 @@ def test_reference_point_aug_appear_in_scalarization(dtlz2_4obj):
         assert val in scal_flat
 
 
+@pytest.mark.scalarization
+def test_reference_point_aug_flips_maximized_objective(river):
+    """The augmentation term for a maximised objective must sign-flip f_i, like the alpha-constraint does.
+
+    f_1 is maximised in the river pollution problem, and corrected_rp_aug is
+    already sign-flipped for it. The aug term must therefore be built from
+    `(-1 * f_1)`, producing `["Multiply", ["Negate", 1], "f_1"]` plus a double
+    Negate from `- (-rp_aug)`: 3 "Negate" tokens in total. Before the fix, the
+    raw (unflipped) `f_1` was used, giving only 2.
+    """
+    rp = {"f_1": 3.5}
+    w = {"f_1": 1.0}
+    rp_aug = {"f_1": 2.0}
+    problem, _ = add_asf_partial_diff(river, "partial_asf", rp, w, reference_point_aug=rp_aug)
+
+    scal_flat = flatten(problem.scalarization_funcs[-1].func)
+    assert scal_flat.count("Negate") == 3
+
+
 # ---------------------------------------------------------------------------
 # Default-weights (nadir - ideal) tests
 # ---------------------------------------------------------------------------
@@ -235,6 +255,48 @@ def test_default_weights_solves_successfully(river):
     problem_w_asf, target = add_asf_partial_diff(river, "asf", rp)
     res = ScipyMinimizeSolver(problem_w_asf).solve(target)
     assert res.success
+
+
+@pytest.mark.scalarization
+@pytest.mark.parametrize("add_fn", [add_asf_partial_diff, add_asf_partial_nondiff])
+def test_default_weight_falls_back_to_one_when_ideal_equals_nadir(river, add_fn):
+    """When weights=None and ideal == nadir (zero range), the weight must default to 1, not 0.
+
+    A weight of 0 would produce a literal division by zero in the generated
+    expression. Since the objective can't vary, the exact weight value is
+    irrelevant -- it just must not be zero.
+    """
+    problem = river.model_copy(
+        update={
+            "objectives": [
+                obj.model_copy(update={"nadir": obj.ideal}) if obj.symbol == "f_1" else obj for obj in river.objectives
+            ]
+        }
+    )
+    rp = {"f_1": 5.0}
+    result_problem, _ = add_fn(problem, "asf", rp)
+
+    scal_flat = flatten(result_problem.scalarization_funcs[-1].func)
+    assert 0.0 not in scal_flat
+    assert 1.0 in scal_flat
+
+
+@pytest.mark.scalarization
+@pytest.mark.parametrize("add_fn", [add_asf_partial_diff, add_asf_partial_nondiff])
+def test_error_explicit_zero_weight(river, add_fn):
+    """An explicit weights value of 0 (or negative) must raise ScalarizationError, not divide by zero."""
+    rp = {"f_1": 5.0}
+    with pytest.raises(ScalarizationError, match="weights must be positive"):
+        add_fn(river, "asf", rp, weights={"f_1": 0.0})
+
+
+@pytest.mark.scalarization
+@pytest.mark.parametrize("add_fn", [add_asf_partial_diff, add_asf_partial_nondiff])
+def test_error_explicit_negative_weight(river, add_fn):
+    """An explicit negative weights value must raise ScalarizationError."""
+    rp = {"f_1": 5.0}
+    with pytest.raises(ScalarizationError, match="weights must be positive"):
+        add_fn(river, "asf", rp, weights={"f_1": -1.0})
 
 
 @pytest.mark.scalarization
@@ -731,6 +793,33 @@ def test_cumulonimbus_error_missing_weights_aug_coverage(river_current):
     w_aug_incomplete = {"f_1": 1.0}  # missing f_2
     with pytest.raises(ScalarizationError, match="weights_aug is missing"):
         add_cumulonimbus_diff(problem, "cumulonimbus", cls, current, weights_aug=w_aug_incomplete)
+
+
+@pytest.mark.scalarization
+def test_cumulonimbus_default_aug_weight_is_positive_for_maximized(river_current):
+    """The default augmentation weight for a maximised objective must use the corrected (positive) range.
+
+    f_1 is maximised, so raw `obj.nadir - obj.ideal` is negative. The default
+    augmentation weight must instead be built from the already sign-corrected
+    ideal/nadir points (as used for the alpha-constraint range), giving a
+    positive weight.
+    """
+    problem, current = river_current
+    cls = {"f_1": ("<", None)}
+    delta = 1e-6
+    result_problem, _ = add_cumulonimbus_diff(problem, "cumulonimbus", cls, current, delta=delta)
+
+    scal_flat = flatten(result_problem.scalarization_funcs[-1].func)
+    obj = next(o for o in problem.objectives if o.symbol == "f_1")
+    raw_weight = obj.nadir - (obj.ideal - delta)
+    corrected_ideal = get_corrected_ideal(problem)["f_1"]
+    corrected_nadir = get_corrected_nadir(problem)["f_1"]
+    expected_weight = corrected_nadir - (corrected_ideal - delta)
+
+    assert raw_weight < 0
+    assert expected_weight > 0
+    assert raw_weight not in scal_flat
+    assert expected_weight in scal_flat
 
 
 # ---------------------------------------------------------------------------

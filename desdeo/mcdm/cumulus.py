@@ -221,8 +221,9 @@ def _scenario_aug_weights(
 
     - every objective in ``reference_point`` is initialised to weight ``0``;
     - every per-scenario objective that has both ``ideal`` and ``nadir`` defined receives
-      weight ``nadir - ideal`` (positive for minimize, negative for maximize), overwriting
-      the initial 0 if the objective also appears in ``reference_point``;
+      weight ``abs(nadir - ideal)``, overwriting the initial 0 if the objective also
+      appears in ``reference_point``. The augmentation term itself sign-flips maximized
+      objectives internally, so the weight must always be positive;
     - per-scenario objectives missing ``ideal`` or ``nadir`` are omitted (no augmentation
       contribution, avoiding division-by-zero).
 
@@ -242,7 +243,7 @@ def _scenario_aug_weights(
     for sym in per_scenario_syms:
         obj = obj_by_sym.get(sym)
         if obj is not None and obj.ideal is not None and obj.nadir is not None:
-            weights_aug[sym] = obj.nadir - obj.ideal
+            weights_aug[sym] = abs(obj.nadir - obj.ideal)
     return weights_aug
 
 

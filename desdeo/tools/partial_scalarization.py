@@ -48,10 +48,13 @@ def add_asf_partial_diff(
         reference_point: maps objective symbols to aspiration levels.  Only objectives
             whose symbols appear here are included in the scalarization.
         weights: maps the same objective symbols to positive weight values.  If ``None``,
-            defaults to ``nadir - ideal`` for each active objective.
+            defaults to ``nadir - ideal`` for each active objective (or ``1.0`` if ``ideal``
+            equals ``nadir``).
         reference_point_aug: optional separate reference point for the augmentation term.
             Must cover the same subset as ``reference_point`` when provided.
-        weights_aug: optional separate weights for the augmentation term.
+        weights_aug: optional separate weights for the augmentation term, must be positive.
+            The augmentation term sign-flips maximized objectives internally, so unlike the
+            pre-correction ``f_i`` values these weights should never be negative.
             Must cover the same subset as ``reference_point`` when provided.
         rho: small scalar multiplier for the augmentation sum. Defaults to 1e-6.
 
@@ -62,6 +65,8 @@ def add_asf_partial_diff(
         ScalarizationError: if any key in ``reference_point`` is not a valid objective
             symbol in the problem.
         ScalarizationError: if ``weights`` is provided but does not cover all active objectives.
+        ScalarizationError: if ``weights`` is provided and contains a non-positive value for
+            an active objective.
         ScalarizationError: if ``weights`` is ``None`` and any active objective is missing
             an ``ideal`` or ``nadir`` value.
         ScalarizationError: if ``reference_point_aug`` or ``weights_aug`` are provided but
@@ -147,10 +152,13 @@ def add_asf_partial_nondiff(
         reference_point: maps objective symbols to aspiration levels.  Only objectives
             whose symbols appear here are included in the scalarization.
         weights: maps the same objective symbols to positive weight values.  If ``None``,
-            defaults to ``nadir - ideal`` for each active objective.
+            defaults to ``nadir - ideal`` for each active objective (or ``1.0`` if ``ideal``
+            equals ``nadir``).
         reference_point_aug: optional separate reference point for the augmentation term.
             Must cover the same subset as ``reference_point`` when provided.
-        weights_aug: optional separate weights for the augmentation term.
+        weights_aug: optional separate weights for the augmentation term, must be positive.
+            The augmentation term sign-flips maximized objectives internally, so unlike the
+            pre-correction ``f_i`` values these weights should never be negative.
             Must cover the same subset as ``reference_point`` when provided.
         rho: small scalar multiplier for the augmentation sum. Defaults to 1e-6.
 
@@ -160,6 +168,8 @@ def add_asf_partial_nondiff(
     Raises:
         ScalarizationError: if any key in ``reference_point`` is not a valid objective symbol.
         ScalarizationError: if ``weights`` is provided but does not cover all active objectives.
+        ScalarizationError: if ``weights`` is provided and contains a non-positive value for
+            an active objective.
         ScalarizationError: if ``weights`` is ``None`` and any active objective is missing
             an ``ideal`` or ``nadir`` value.
         ScalarizationError: if ``reference_point_aug`` or ``weights_aug`` are provided but
@@ -230,6 +240,10 @@ def _resolve_partial_asf_params(
         if missing_weights:
             msg = f"weights is missing values for objectives: {missing_weights}."
             raise ScalarizationError(msg)
+        non_positive = [sym for sym in active_symbols if weights[sym] <= 0]
+        if non_positive:
+            msg = f"weights must be positive, but got non-positive values for objectives: {non_positive}."
+            raise ScalarizationError(msg)
         effective_weights = weights
     else:
         missing_ideal = [obj.symbol for obj in active_objectives if obj.ideal is None]
@@ -240,7 +254,9 @@ def _resolve_partial_asf_params(
         if missing_nadir:
             msg = f"weights not provided and nadir is missing for objectives: {missing_nadir}."
             raise ScalarizationError(msg)
-        effective_weights = {obj.symbol: abs(obj.nadir - obj.ideal) for obj in active_objectives}
+        # When ideal == nadir the range is degenerate (no division by zero allowed); the
+        # weight value is otherwise irrelevant since the objective can't vary, so default to 1.
+        effective_weights = {obj.symbol: abs(obj.nadir - obj.ideal) or 1.0 for obj in active_objectives}
 
     _validate_aug_params(active_symbols, reference_point_aug, weights_aug)
 
@@ -303,10 +319,11 @@ def _build_aug_expr(
     terms = []
     for obj in objectives:
         w = weights[obj.symbol]
+        obj_term = f"(-1 * {obj.symbol})" if obj.maximize else obj.symbol
         if corrected_rp_aug is not None and obj.symbol in corrected_rp_aug:
-            terms.append(f"({obj.symbol} - {corrected_rp_aug[obj.symbol]}) / ({w})")
+            terms.append(f"({obj_term} - {corrected_rp_aug[obj.symbol]}) / ({w})")
         else:
-            terms.append(f"({obj.symbol}) / ({w})")
+            terms.append(f"({obj_term}) / ({w})")
     return " + ".join(terms)
 
 
@@ -439,8 +456,10 @@ def add_cumulonimbus_diff(
         reference_point_aug: optional reference point for the augmentation term. When provided,
             each augmentation term becomes ``(f_i - q_i^aug) / w_i^aug`` instead of
             ``f_i / w_i^aug``. Must cover every objective present in ``classifications``.
-        weights_aug: optional weights for the augmentation term. Replaces the default
-            ``nadir - utopian`` weights. Must cover every objective present in ``classifications``.
+        weights_aug: optional weights for the augmentation term, must be positive. Replaces
+            the default ``nadir - utopian`` weights. The augmentation term sign-flips
+            maximized objectives internally, so these weights should never be negative.
+            Must cover every objective present in ``classifications``.
         delta: small scalar for the utopian offset. Defaults to 1e-6.
         rho: small scalar for the augmentation term. Defaults to 1e-3.
 
@@ -491,7 +510,9 @@ def add_cumulonimbus_diff(
         initial_value=1.0,
     )
 
-    default_aug_weights = {obj.symbol: obj.nadir - (obj.ideal - delta) for obj in active_objectives}
+    default_aug_weights = {
+        obj.symbol: nadir_point[obj.symbol] - (ideal_point[obj.symbol] - delta) for obj in active_objectives
+    }
     aug_expr = _build_aug_expr(
         weights_aug, active_objectives, default_aug_weights, list(problem.objectives), corrected_rp_aug
     )
