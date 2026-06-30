@@ -1,17 +1,23 @@
 """Tests related to the CUMULUS method."""
 
 import numpy as np
+import polars as pl
 import pytest
 
 from desdeo.mcdm.cumulus import (
     CumulusError,
     CumulusScalarization,
+    _fix_worst_case_epigraphs,
     generate_starting_point,
     infer_classifications,
     solve_sub_problems,
 )
-from desdeo.problem.schema import Constraint, ConstraintTypeEnum
-from desdeo.problem.testproblems import nimbus_test_problem, river_pollution_problem
+from desdeo.problem import PolarsEvaluator, Problem
+from desdeo.problem.schema import Constraint, ConstraintTypeEnum, Variable, VariableTypeEnum
+from desdeo.problem.testproblems import nimbus_test_problem, river_pollution_problem, simple_scenario_model
+from desdeo.tools import SolverResults
+from desdeo.tools.robust import add_single_objective_worst_case_regret, add_worst_case_robust
+from desdeo.tools.scenarios import build_combined_scenario_problem
 from desdeo.tools.scipy_solver_interfaces import ScipyDeSolver, ScipyMinimizeSolver
 
 # ---------------------------------------------------------------------------
@@ -469,3 +475,141 @@ def test_generate_starting_point_succeeds(river):
     assert result.success
     for obj in river.objectives:
         assert obj.symbol in result.optimal_objectives
+
+
+# ---------------------------------------------------------------------------
+# _fix_worst_case_epigraphs
+# ---------------------------------------------------------------------------
+
+
+def _evaluate_to_solver_results(problem: Problem, variable_values: dict[str, float]) -> SolverResults:
+    """Evaluate problem at variable_values and package the result as a SolverResults."""
+    df = pl.DataFrame({k: [v] for k, v in variable_values.items()})
+    row = PolarsEvaluator(problem).evaluate(df).row(0, named=True)
+    obj_syms = {o.symbol for o in problem.objectives or []}
+    con_syms = {c.symbol for c in problem.constraints or []}
+    return SolverResults(
+        optimal_variables=dict(variable_values),
+        optimal_objectives={s: row[s] for s in obj_syms if s in row},
+        constraint_values={s: row[s] for s in con_syms if s in row},
+        success=True,
+        message="synthetic",
+    )
+
+
+@pytest.fixture
+def scenario_combined_with_epigraphs():
+    """simple_scenario_model combined problem with worst-case robust and regret epigraphs added for f_1."""
+    model = simple_scenario_model()
+    combined, symbol_maps = build_combined_scenario_problem(model)
+    combined, _ = add_worst_case_robust(model, ["f_1"], prefix="robust_", combined=combined, symbol_maps=symbol_maps)
+    ideals = {"f_1": {"s_1": 1.0, "s_2": 2.0, "s_3": 3.0}}
+    combined, _ = add_single_objective_worst_case_regret(
+        model, ["f_1"], ideals=ideals, prefix="regret_wc_", combined=combined, symbol_maps=symbol_maps
+    )
+    return combined, symbol_maps
+
+
+@pytest.mark.cumulus
+@pytest.mark.scenario
+def test_fix_worst_case_epigraphs_tightens_robust_minimize(scenario_combined_with_epigraphs):
+    """A loose (too-large) t for a minimised worst-case robust objective is tightened to the max leaf value."""
+    combined, symbol_maps = scenario_combined_with_epigraphs
+    # f_1 leaves evaluate to 3, 13, 25 (minimised) -> worst case is the max, 25.
+    variable_values = {
+        "x_1": 1.0,
+        "s_1_x_2": 2.0,
+        "s_2_x_2": 3.0,
+        "s_3_x_2": 4.0,
+        "_t_robust_f_1": 1000.0,
+        "_t_regret_wc_f_1": 1000.0,
+    }
+    result = _evaluate_to_solver_results(combined, variable_values)
+
+    fixed = _fix_worst_case_epigraphs(result, combined, symbol_maps)
+
+    assert fixed.optimal_objectives["robust_f_1"] == pytest.approx(25.0)
+    assert fixed.optimal_variables["_t_robust_f_1"] == pytest.approx(25.0)
+
+
+@pytest.mark.cumulus
+@pytest.mark.scenario
+def test_fix_worst_case_epigraphs_tightens_regret(scenario_combined_with_epigraphs):
+    """A loose t for a worst-case regret objective is tightened using the ideal baked into the constraint.
+
+    This is the case `_fix_worst_case_epigraphs` previously missed entirely: the regret bound
+    (leaf value minus its per-leaf ideal) isn't present anywhere in the solved result, only in
+    the per-leaf bound constraint.
+    """
+    combined, symbol_maps = scenario_combined_with_epigraphs
+    # regrets: (3-1)=2, (13-2)=11, (25-3)=22 -> worst case is the max, 22.
+    variable_values = {
+        "x_1": 1.0,
+        "s_1_x_2": 2.0,
+        "s_2_x_2": 3.0,
+        "s_3_x_2": 4.0,
+        "_t_robust_f_1": 1000.0,
+        "_t_regret_wc_f_1": 1000.0,
+    }
+    result = _evaluate_to_solver_results(combined, variable_values)
+
+    fixed = _fix_worst_case_epigraphs(result, combined, symbol_maps)
+
+    assert fixed.optimal_objectives["regret_wc_f_1"] == pytest.approx(22.0)
+    assert fixed.optimal_variables["_t_regret_wc_f_1"] == pytest.approx(22.0)
+
+
+@pytest.mark.cumulus
+@pytest.mark.scenario
+def test_fix_worst_case_epigraphs_tightens_robust_maximize():
+    """For a maximised objective, worst case is the min leaf value, tightened up from a too-low t."""
+    model = simple_scenario_model()
+    flipped = [o.model_copy(update={"maximize": True}) if o.symbol == "f_1" else o for o in model.objectives]
+    model = model.model_copy(update={"objectives": flipped})
+    combined, symbol_maps = build_combined_scenario_problem(model)
+    combined, _ = add_worst_case_robust(model, ["f_1"], prefix="robust_", combined=combined, symbol_maps=symbol_maps)
+
+    # f_1 leaves: 3, 13, 25 (maximised) -> worst case is the min, 3.
+    variable_values = {
+        "x_1": 1.0,
+        "s_1_x_2": 2.0,
+        "s_2_x_2": 3.0,
+        "s_3_x_2": 4.0,
+        "_t_robust_f_1": -1000.0,
+    }
+    result = _evaluate_to_solver_results(combined, variable_values)
+
+    fixed = _fix_worst_case_epigraphs(result, combined, symbol_maps)
+
+    assert fixed.optimal_objectives["robust_f_1"] == pytest.approx(3.0)
+
+
+@pytest.mark.cumulus
+@pytest.mark.scenario
+def test_fix_worst_case_epigraphs_ignores_variable_with_unrecognized_name(scenario_combined_with_epigraphs):
+    """A `_t_`-prefixed variable whose name doesn't match a known epigraph constructor is left untouched."""
+    combined, symbol_maps = scenario_combined_with_epigraphs
+    decoy = Variable(
+        name="Custom epigraph variable for f_1",
+        symbol="_t_decoy_f_1",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=None,
+        upperbound=None,
+        initial_value=0.0,
+    )
+    combined = combined.model_copy(update={"variables": [*combined.variables, decoy]})
+
+    variable_values = {
+        "x_1": 1.0,
+        "s_1_x_2": 2.0,
+        "s_2_x_2": 3.0,
+        "s_3_x_2": 4.0,
+        "_t_robust_f_1": 1000.0,
+        "_t_regret_wc_f_1": 1000.0,
+        "_t_decoy_f_1": 42.0,
+    }
+    result = _evaluate_to_solver_results(combined, variable_values)
+
+    fixed = _fix_worst_case_epigraphs(result, combined, symbol_maps)
+
+    assert fixed.optimal_variables["_t_decoy_f_1"] == pytest.approx(42.0)

@@ -379,36 +379,60 @@ def _fix_worst_case_epigraphs(
 
     Solvers have no incentive to minimise ``t`` when it backs an extra function rather
     than the optimisation target; this replaces each such ``t`` with the actual worst
-    case computed from the solved leaf values.
+    case implied by the per-leaf bound constraints (`add_worst_case_robust`,
+    `add_single_objective_worst_case_regret`).  The per-leaf bound is recovered from
+    `constraint_values` rather than the raw leaf objective/extra/scalarization value, so
+    this also covers regret-style epigraphs whose bound is offset by a per-leaf ideal
+    value baked into the constraint rather than present anywhere in the solved leaf
+    values.
     """
+    _epigraph_name_prefixes = (
+        "Worst-case robust epigraph variable for ",
+        "Worst-case regret epigraph variable for ",
+    )
+
     all_base_syms = {s for m in symbol_maps.values() for s in m}
     obj_by_sym = {obj.symbol: obj for obj in problem.objectives}
     new_vars = dict(result.optimal_variables)
     new_objs = dict(result.optimal_objectives)
     new_extra = dict(result.extra_func_values or {})
     new_scal = dict(result.scalarization_values or {})
+    constraint_values = result.constraint_values or {}
 
     for var in problem.variables:
         t_sym = var.symbol
-        if not t_sym.startswith("_t_") or not var.name.startswith("Worst-case robust epigraph variable"):
+        if not t_sym.startswith("_t_") or not var.name.startswith(_epigraph_name_prefixes):
             continue
-        robust_sym = t_sym[len("_t_") :]
-        candidates = [s for s in all_base_syms if robust_sym.endswith(s)]
+        agg_sym = t_sym[len("_t_") :]
+        candidates = [s for s in all_base_syms if agg_sym.endswith(s)]
         if not candidates:
             continue
         original_sym = max(candidates, key=len)
-        leaf_syms = next((list(m[original_sym].values()) for m in symbol_maps.values() if original_sym in m), [])
-        dicts = (new_objs, new_extra, new_scal)
-        leaf_vals = [float(next(d[s] for d in dicts if s in d)) for s in leaf_syms if any(s in d for d in dicts)]
-        if not leaf_vals:
+        leaf_map = next((m[original_sym] for m in symbol_maps.values() if original_sym in m), None)
+        if leaf_map is None or t_sym not in new_vars:
             continue
-        obj = obj_by_sym.get(robust_sym)
-        true_worst = min(leaf_vals) if (obj and obj.maximize) else max(leaf_vals)
-        if t_sym in new_vars:
-            new_vars[t_sym] = true_worst
-        for d in dicts:
-            if robust_sym in d:
-                d[robust_sym] = true_worst
+
+        t_val = float(new_vars[t_sym])
+        obj = obj_by_sym.get(agg_sym)
+        is_maximize_t = bool(obj and obj.maximize)
+
+        # LTE constraints are normalised to `func <= 0`.  The per-leaf bound constraint
+        # is either `g_s - t <= 0` (minimise-t formulation) or `t - g_s <= 0`
+        # (maximise-t formulation), so `g_s` can be recovered from the constraint value.
+        bound_vals = []
+        for leaf in leaf_map:
+            con_sym = f"{leaf}_{agg_sym}_con"
+            if con_sym not in constraint_values:
+                continue
+            cv = float(constraint_values[con_sym])
+            bound_vals.append(t_val - cv if is_maximize_t else cv + t_val)
+        if not bound_vals:
+            continue
+        true_worst = min(bound_vals) if is_maximize_t else max(bound_vals)
+        new_vars[t_sym] = true_worst
+        for d in (new_objs, new_extra, new_scal):
+            if agg_sym in d:
+                d[agg_sym] = true_worst
                 break
 
     return result.model_copy(
