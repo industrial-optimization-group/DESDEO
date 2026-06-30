@@ -210,11 +210,6 @@ _RESERVED: frozenset[str] = frozenset(
 )
 
 
-# ---------------------------------------------------------------------------
-# Private helpers
-# ---------------------------------------------------------------------------
-
-
 def _rename_symbols(expr: str | list, symbol_map: dict[str, str]) -> list:
     """Rename symbols in a MathJSON expression (list) or infix string.
 
@@ -389,8 +384,8 @@ def _combine_elements(
 
     Returns:
         A tuple of (combined list or None, symbol map).  The symbol map has the
-        original symbol as key and a {leaf -> new_symbol} dict as value.  Leaves
-        that do not carry an element keep the original symbol as their value.
+            original symbol as key and a {leaf -> new_symbol} dict as value. Leaves
+            that do not carry an element keep the original symbol as their value.
     """
     combined: list = []
     seen: set[str] = set()
@@ -431,11 +426,6 @@ def _combine_elements(
                 combined.append(elem.model_copy(update=make_update(elem, new_func, name_leaf)))
 
     return combined or None, symbol_map
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 
 def build_scenario_problem(scenario_model: "ScenarioModel", scenario_name: str) -> Problem:
@@ -636,7 +626,7 @@ def build_scenario_symbol_maps(
 ) -> "dict[str, dict[str, dict[str, str]]]":
     """Derive element symbol maps from an already-built combined scenario problem.
 
-    A lightweight alternative to calling :func:`build_combined_scenario_problem`
+    A lightweight alternative to calling `build_combined_scenario_problem`
     when the combined problem is already available.  Infers the per-leaf symbol
     for each base element by checking whether ``{leaf}_{orig}`` exists among the
     combined problem's element symbols.
@@ -647,14 +637,14 @@ def build_scenario_symbol_maps(
 
     Args:
         problem: the combined scenario problem (as returned by
-            :func:`build_combined_scenario_problem` or after appending
+            `build_combined_scenario_problem` or after appending
             aggregation elements).
         scenario_model: the scenario model used to build ``problem``.
 
     Returns:
         Symbol maps dict with keys ``"objectives"``, ``"extra_funcs"``,
-        ``"constraints"``, and ``"scalarization_funcs"``, compatible with
-        the same-named keys from :func:`build_combined_scenario_problem`.
+            ``"constraints"``, and ``"scalarization_funcs"``, compatible with
+            the same-named keys from `build_combined_scenario_problem`.
     """
     leaf_scenarios = list(scenario_model.leaf_scenarios)
     base = scenario_model.base_problem

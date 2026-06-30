@@ -199,7 +199,7 @@ def add_conditional_value_at_risk(
 
     Returns:
         A tuple of the updated combined Problem and a dict mapping each original
-        symbol to its CVaR symbol.
+            symbol to its CVaR symbol.
 
     Raises:
         ValueError: if a requested symbol is not found in the combined problem.

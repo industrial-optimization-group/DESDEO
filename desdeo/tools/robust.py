@@ -2,12 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from desdeo.problem.schema import (
-    Constraint,
-    ConstraintTypeEnum,
-    Variable,
-    VariableTypeEnum,
-)
+from desdeo.problem.schema import Constraint, ConstraintTypeEnum, Variable, VariableTypeEnum
 from desdeo.tools.scenarios import append_aggregated_elem, build_combined_scenario_problem, resolve_elem
 
 if TYPE_CHECKING:
@@ -79,8 +74,8 @@ def add_worst_case_robust(
         is_maximize = info.found_type == "objectives" and info.maximize
 
         # Epigraph variable t.
-        # Minimise objective: t >= f_s for all s  →  t = max_s f_s  →  minimise t.
-        # Maximise objective: t <= f_s for all s  →  t = min_s f_s  →  maximise t.
+        # Minimise objective: t >= f_s for all s  ->  t = max_s f_s  ->  minimise t.
+        # Maximise objective: t <= f_s for all s  ->  t = min_s f_s  ->  maximise t.
         new_variables.append(
             Variable(
                 name=f"Worst-case robust epigraph variable for {info.elem_name}",
@@ -93,7 +88,7 @@ def add_worst_case_robust(
         )
 
         for leaf, leaf_sym in info.per_leaf.items():
-            # Maximise: t - f_s <= 0  →  t <= f_s.  Minimise: f_s - t <= 0  →  f_s <= t.
+            # Maximise: t - f_s <= 0  ->  t <= f_s.  Minimise: f_s - t <= 0  ->  f_s <= t.
             con_func = ["Add", t_sym, ["Negate", leaf_sym]] if is_maximize else ["Add", leaf_sym, ["Negate", t_sym]]
             new_constraints.append(
                 Constraint(
@@ -214,8 +209,8 @@ def add_single_objective_worst_case_regret(
 
         for leaf, leaf_sym in info.per_leaf.items():
             ideal_val = sym_ideals[leaf]
-            # Minimise: regret_s = f_s - ideal_s  →  f_s - ideal_s - t <= 0
-            # Maximise: regret_s = ideal_s - f_s  →  ideal_s - f_s - t <= 0
+            # Minimise: regret_s = f_s - ideal_s  ->  f_s - ideal_s - t <= 0
+            # Maximise: regret_s = ideal_s - f_s  ->  ideal_s - f_s - t <= 0
             if info.maximize:
                 con_func = ["Add", ideal_val, ["Negate", leaf_sym], ["Negate", t_sym]]
             else:

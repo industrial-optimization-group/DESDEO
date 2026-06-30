@@ -181,6 +181,38 @@ def test_add_soft_constraint_raises_on_none_func(simple_problem):
 
 
 @pytest.mark.utils
+def test_add_soft_constraint_on_already_present_constraint_keeps_symbols_unique(simple_problem):
+    """Softening a constraint already present must not leave a duplicate-symbol hard copy.
+
+    Regression test for the dedup gap in add_soft_constraint: the softened constraint
+    reuses the original symbol and is only ever appended. When the same hard constraint
+    is already in the problem, the result contains two constraints named 'g1', i.e. an
+    invalid Problem whose original hard 'g(x) <= 0' still makes it infeasible (defeating
+    the softening). model_copy does not re-run validation, so this slips through silently.
+    """
+    constraint = Constraint(
+        name="upper bound on x1",
+        symbol="g1",
+        cons_type=ConstraintTypeEnum.LTE,
+        func=["Subtract", "x1", 3],
+    )
+    # The constraint is already part of the problem as a hard constraint.
+    problem_with_hard = simple_problem.model_copy(update={"constraints": [constraint]})
+
+    new_problem, _ = add_soft_constraint(problem_with_hard, constraint)
+
+    # The result must remain a valid problem with globally unique symbols.
+    symbols = new_problem.get_all_symbols()
+    duplicates = sorted({s for s in symbols if symbols.count(s) > 1})
+    assert not duplicates, f"add_soft_constraint produced duplicate symbols: {duplicates}"
+
+    # There must be exactly one constraint named 'g1', and it must be the softened one.
+    g1_cons = [c for c in (new_problem.constraints or []) if c.symbol == "g1"]
+    assert len(g1_cons) == 1
+    assert "_g1_lte_violation" in str(g1_cons[0].func)
+
+
+@pytest.mark.utils
 def test_objective_dict_to_numpy_array_and_back():
     """Tests the conversion from an objective dict to a numpy array."""
     problem = river_pollution_problem()

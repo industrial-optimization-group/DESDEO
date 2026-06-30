@@ -634,7 +634,7 @@ def solve_intermediate(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"The index {solution_info.solution_index} is out of bounds "
-                "for results with len={len(_var_values)}",
+                f"for results with len={len(_var_values)}",
             ) from exc
 
         try:

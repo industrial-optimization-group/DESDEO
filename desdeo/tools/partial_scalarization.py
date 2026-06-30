@@ -23,7 +23,7 @@ def add_asf_partial_diff(
 ) -> tuple[Problem, str]:
     r"""Adds a differentiable generic ASF that scalarizes only the objectives in ``reference_point``.
 
-    This is the partial version of :func:`desdeo.tools.scalarization.add_asf_generic_diff`.
+    This is the partial version of `add_asf_generic_diff`.
     The subset of objectives to scalarize is determined by the keys of ``reference_point``;
     objectives not present in ``reference_point`` are left out of both the max-term constraints
     and the augmentation sum.
@@ -40,7 +40,7 @@ def add_asf_partial_diff(
     When ``weights`` is ``None`` the weights default to ``nadir_i - ideal_i`` (in the
     minimization-corrected space) for each active objective.  In that case every active
     objective must have both ``ideal`` and ``nadir`` defined on its ``Objective`` instance,
-    otherwise a :class:`ScalarizationError` is raised.
+    otherwise a `ScalarizationError` is raised.
 
     Args:
         problem: the problem the scalarization is added to.
@@ -126,7 +126,7 @@ def add_asf_partial_nondiff(
 ) -> tuple[Problem, str]:
     r"""Adds a non-differentiable partial ASF that scalarizes only the objectives in ``reference_point``.
 
-    This is the non-differentiable counterpart of :func:`add_asf_partial_diff`.  The max
+    This is the non-differentiable counterpart of `add_asf_partial_diff`.  The max
     operator is expressed directly in the objective function rather than being linearised
     with an auxiliary variable and constraints, making the scalarization non-differentiable.
 
@@ -401,7 +401,7 @@ def add_cumulonimbus_diff(
 ) -> tuple[Problem, str]:
     r"""Adds a differentiable partial NIMBUS scalarization that only covers classified objectives.
 
-    This is the partial variant of :func:`desdeo.tools.scalarization.add_nimbus_sf_diff`.
+    This is the partial variant of `add_nimbus_sf_diff`.
     Unlike the full NIMBUS scalarization, ``classifications`` does not need to cover every
     objective in the problem — objectives whose symbols are absent from ``classifications``
     are left unconstrained (treated as free, equivalent to the ``"0"`` class).
@@ -424,7 +424,7 @@ def add_cumulonimbus_diff(
     $z_i^{\star\star} = z_i^\star - \delta$ is the utopian point component,
     $w_i^{\text{aug}}$ are the augmentation weights (defaulting to $z_i^{\text{nad}} - z_i^{\star\star}$),
     $q_i^{\text{aug}}$ is the optional augmentation reference point (omitted when not provided),
-    and all other notation follows :func:`desdeo.tools.scalarization.add_nimbus_sf_diff`.
+    and all other notation follows `add_nimbus_sf_diff`.
 
     Args:
         problem: the problem to be scalarized.

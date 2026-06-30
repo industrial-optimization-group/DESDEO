@@ -60,7 +60,7 @@ def test_infer_classifications_all_six_types(nimbus):
     problem = nimbus
     current = {"f_1": 4.5, "f_2": 3.2, "f_3": -5.2, "f_4": -1.2, "f_5": 120.0, "f_6": 9001.0}
 
-    # f_1: improve until (rp < current, minimised)
+    # f_1: improve until (rp < current, maximized)
     # f_2: keep as is   (rp == current)
     # f_3: improve      (rp == ideal)
     # f_4: free         (rp == nadir)

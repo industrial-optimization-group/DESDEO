@@ -371,7 +371,7 @@ class CumulusSaveState(ResultInterface, SQLModel, table=True):
         return len(self.solutions)
 
 
-class CumulusModificationState(SQLModel, table=True):
+class CumulusModificationState(ResultInterface, SQLModel, table=True):
     """CUMULUS: problem modification — records the new problem created after a modification step."""
 
     id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
@@ -381,6 +381,11 @@ class CumulusModificationState(SQLModel, table=True):
     scenario_model_id: int | None = Field(default=None)
     is_ready: bool = Field(default=False, description="True once the background feasibility check has completed.")
     error: str | None = Field(default=None, description="Error message if the feasibility check failed.")
+
+    @property
+    def num_solutions(self) -> int:
+        """Problem modification states hold no solutions."""
+        return 0
 
 
 class CumulusObjectiveConstraintState(ResultInterface, SQLModel, table=True):

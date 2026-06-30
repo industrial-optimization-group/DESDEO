@@ -21,7 +21,7 @@ class CumulusClassificationRequest(SQLModel):
     scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     solver: str | None = Field(default=None)
     solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
-    preference: ReferencePoint = Field(Column(JSON))
+    preference: ReferencePoint = Field(sa_column=Column(JSON))
 
     current_objectives: dict[str, float] = Field(
         sa_column=Column(JSON), description="Current objective values for classification."

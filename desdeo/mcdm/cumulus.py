@@ -40,12 +40,12 @@ class CumulusScalarization(Enum):
 
     All variants operate on a partial reference point — they only scalarize
     the objectives whose symbols appear in the reference point supplied to
-    :func:`solve_sub_problems`.  Objectives absent from the reference point
+    `solve_sub_problems`.  Objectives absent from the reference point
     are left unconstrained.
     """
 
     CUMULONIMBUS = "cumulonimbus"
-    """Partial NIMBUS scalarization (:func:`~desdeo.tools.add_cumulonimbus_diff`).
+    """Partial NIMBUS scalarization (`add_cumulonimbus_diff`).
 
     Derives classifications from the reference point and current objective
     values, then builds NIMBUS-style improvement/reservation constraints only
@@ -54,7 +54,7 @@ class CumulusScalarization(Enum):
     """
 
     ASF_PARTIAL = "asf_partial"
-    """Partial ASF (:func:`~desdeo.tools.add_asf_partial_diff` or :func:`~desdeo.tools.add_asf_partial_nondiff`).
+    """Partial ASF (`add_asf_partial_diff` or `add_asf_partial_nondiff`).
 
     Minimizes an achievement scalarizing function over the subset of objectives
     in the reference point.  No classification step is performed.  The
@@ -230,7 +230,7 @@ def _scenario_aug_weights(
     Args:
         problem: the combined scenario problem being solved.
         reference_point: the partial reference point passed to the scalarization.
-        symbol_maps: symbol maps from :func:`~desdeo.tools.build_scenario_symbol_maps`.
+        symbol_maps: symbol maps from `build_scenario_symbol_maps`.
 
     Returns:
         dict[str, float]: augmentation weights keyed by objective symbol.
@@ -345,8 +345,8 @@ def _minimize_soft_constraint_violations(
 
     Returns:
         A 4-tuple ``(slack_vars, modified_soft_constraints, violation_sum_func, optimal_violation)``
-        where *slack_vars* are the new :class:`Variable` objects, *modified_soft_constraints* are
-        the slackened :class:`Constraint` objects, *violation_sum_func* is the MathJSON expression
+        where *slack_vars* are the new `Variable` objects, *modified_soft_constraints* are
+        the slackened `Constraint` objects, *violation_sum_func* is the MathJSON expression
         for the sum of slacks, and *optimal_violation* is the minimized total violation value.
     """
     slack_vars: list[Variable] = []
@@ -452,10 +452,10 @@ def solve_sub_problems(
 
     Each entry in ``scalarizations`` triggers one solver run:
 
-    - :attr:`CumulusScalarization.CUMULONIMBUS`: derives classifications from
+    - `CumulusScalarization.CUMULONIMBUS`: derives classifications from
       ``reference_point`` and ``current_objectives``, then solves a partial NIMBUS
       scalarization.  Requires ideal and nadir to be defined for every active objective.
-    - :attr:`CumulusScalarization.ASF_PARTIAL`: solves a partial ASF directly from
+    - `CumulusScalarization.ASF_PARTIAL`: solves a partial ASF directly from
       ``reference_point``.  Automatically selects the differentiable variant unless
       the problem is non-differentiable and has no constraints.
 
@@ -468,7 +468,7 @@ def solve_sub_problems(
     Raises:
         CumulusError: ``scalarizations`` is empty.
         CumulusError: ``reference_point`` contains keys that are not objective symbols.
-        CumulusError: :attr:`CumulusScalarization.CUMULONIMBUS` is requested but an active
+        CumulusError: `CumulusScalarization.CUMULONIMBUS` is requested but an active
             objective is missing an ideal or nadir value, or ``current_objectives`` does not
             cover all active objectives.
 
@@ -476,7 +476,7 @@ def solve_sub_problems(
         problem (Problem): the problem being solved.
         current_objectives (dict[str, float]): current objective values.  Only entries for
             objectives present in ``reference_point`` are required (and only when
-            :attr:`CumulusScalarization.CUMULONIMBUS` is included in ``scalarizations``).
+            `CumulusScalarization.CUMULONIMBUS` is included in ``scalarizations``).
         reference_point (dict[str, float]): partial objective dict with reference point
             values.  Only the objectives listed here participate in the scalarizations.
         scalarizations (list[CumulusScalarization]): ordered list of scalarizations to solve.
@@ -502,8 +502,8 @@ def solve_sub_problems(
     Returns:
         dict[CumulusScalarization, SolverResults | None]: maps each scalarization type to
             its result.  A value of ``None`` means the sub-problem was infeasible even after
-            any applicable relaxation; a :class:`SolverResults` instance means the solver
-            returned a result (check :attr:`~SolverResults.success` for whether it is
+            any applicable relaxation; a `SolverResults` instance means the solver
+            returned a result (check `success` for whether it is
             optimal).
     """
     if not scalarizations:

@@ -1360,8 +1360,8 @@ class Problem(BaseModel):
         the problem for each objective function. These values may be `None`.
 
         Returns:
-            dict[str, float | None] | None: an objective dict with the ideal
-                point values (which may be `None`), or `None`.
+            dict[str, float | None]: an objective dict with the ideal
+                point values (which may be `None`).
         """
         return {f"{obj.symbol}": obj.ideal for obj in self.objectives}
 
@@ -1372,8 +1372,8 @@ class Problem(BaseModel):
         the problem for each objective function. These values may be `None`.
 
         Returns:
-            dict[str, float | None] | None: an objective dict with the nadir
-                point values (which may be `None`), or `None`.
+            dict[str, float | None]: an objective dict with the nadir
+                point values (which may be `None`).
         """
         return {f"{obj.symbol}": obj.nadir for obj in self.objectives}
 

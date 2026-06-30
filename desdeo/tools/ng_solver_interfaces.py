@@ -162,7 +162,7 @@ class NevergradGenericSolver(BaseSolver):
             return scalar
 
         parametrization = ng.p.Dict(**{var.symbol: _make_scalar(var) for var in self.problem.variables})
-        
+
         # When a seed is given, make the run reproducible. nevergrad (and NGOpt's optimizer selection)
         # draws from numpy's global RNG as well as the parametrization's own random state, so the global
         # RNG must be seeded before anything is constructed. It is restored in the `finally` below so the

@@ -117,16 +117,8 @@ from .summer_cabin_electricity import (
     summer_cabin_battery_problem,
     summer_cabin_battery_problem_split,
     summer_cabin_battery_problem_split_scenario,
-)
-from .summer_cabin_electricity import (
-    generate_solar_profile,
-    generate_summer_cabin_electricity_data,
-    summer_cabin_battery_problem,
-    summer_cabin_battery_problem_split,
-    summer_cabin_battery_problem_split_scenario,
     summer_cabin_battery_robust_ev_problem,
 )
-from .zdt_problem import zdt1, zdt2, zdt3
 from .vehicle_crashworthiness_problem import vehicle_crashworthiness
 from .water_management_problem import water_management
 from .zdt_problem import zdt1, zdt2, zdt3, zdt4, zdt6
