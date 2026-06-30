@@ -183,7 +183,7 @@ def infer_classifications(
             element is either a reservation level (in case of classification `>=`) or an
             aspiration level (in case of classification `<=`).
     """
-    if None in problem.get_ideal_point() or None in problem.get_nadir_point():
+    if None in problem.get_ideal_point().values() or None in problem.get_nadir_point().values():
         msg = "The given problem must have both an ideal and nadir point defined."
         raise NimbusError(msg)
 
@@ -286,7 +286,7 @@ def solve_sub_problems(
         list[SolverResults]: a list of `SolverResults` objects. Contains as many elements
             as defined in `num_desired`.
     """
-    if None in problem.get_ideal_point() or None in problem.get_nadir_point():
+    if None in problem.get_ideal_point().values() or None in problem.get_nadir_point().values():
         msg = "The given problem must have both an ideal and nadir point defined."
         raise NimbusError(msg)
 
@@ -392,15 +392,14 @@ def generate_starting_point(
     """
     ideal = problem.get_ideal_point()
     nadir = problem.get_nadir_point()
-    if None in ideal or None in nadir:
+    if None in ideal.values() or None in nadir.values():
         msg = "The given problem must have both an ideal and nadir point defined."
         raise NimbusError(msg)
 
-    if reference_point is None:
-        reference_point = {}
+    _reference_point = dict(reference_point) if reference_point is not None else {}
     for obj in problem.objectives:
-        if obj.symbol not in reference_point:
-            reference_point[obj.symbol] = ideal[obj.symbol]
+        if obj.symbol not in _reference_point:
+            _reference_point[obj.symbol] = ideal[obj.symbol]
 
     init_solver = solver if solver is not None else guess_best_solver(problem)
     _solver_options = solver_options if solver_options is not None else None
@@ -408,7 +407,7 @@ def generate_starting_point(
     # solve ASF
     add_asf = add_asf_diff if problem.is_twice_differentiable else add_asf_nondiff
 
-    problem_w_asf, asf_target = add_asf(problem, "asf", reference_point, **(scalarization_options or {}))
+    problem_w_asf, asf_target = add_asf(problem, "asf", _reference_point, **(scalarization_options or {}))
 
     asf_solver = init_solver(problem_w_asf, _solver_options) if _solver_options else init_solver(problem_w_asf)
 
