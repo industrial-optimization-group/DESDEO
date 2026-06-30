@@ -19,7 +19,7 @@ def add_asf_partial_diff(
     weights: dict[str, float] | None = None,
     reference_point_aug: dict[str, float] | None = None,
     weights_aug: dict[str, float] | None = None,
-    rho: float = 1e-6,
+    rho: float = 1e-3,
 ) -> tuple[Problem, str]:
     r"""Adds a differentiable generic ASF that scalarizes only the objectives in ``reference_point``.
 
