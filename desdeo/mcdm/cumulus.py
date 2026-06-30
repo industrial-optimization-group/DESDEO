@@ -339,6 +339,10 @@ def _minimize_soft_constraint_violations(
         init_solver: solver class or factory.
         solver_options: options forwarded to the solver (or ``None``).
 
+    Raises:
+        CumulusError: no optimal solution could be found for the violation-minimization
+            sub-problem, e.g. because the hard constraints alone are infeasible.
+
     Returns:
         A 3-tuple ``(relaxed_problem, violation_symbol, optimal_violation)`` where
         *relaxed_problem* has the soft constraints slackened and a violation objective
@@ -355,6 +359,12 @@ def _minimize_soft_constraint_violations(
 
     viol_inst = init_solver(relaxed_problem, solver_options) if solver_options else init_solver(relaxed_problem)
     viol_result = viol_inst.solve(violation_symbol)
+    if viol_result is None or not viol_result.success:
+        msg = (
+            "Could not find an optimal solution while minimizing soft constraint violations. "
+            "The hard constraints may be infeasible on their own."
+        )
+        raise CumulusError(msg)
     optimal_violation: float = viol_result.optimal_objectives[violation_symbol]
 
     return relaxed_problem, violation_symbol, optimal_violation

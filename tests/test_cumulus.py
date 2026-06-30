@@ -426,6 +426,37 @@ def test_solve_sub_problems_hard_constraint_infeasible_without_soft(river_curren
     assert results[CumulusScalarization.ASF_PARTIAL] is None
 
 
+@pytest.mark.cumulus
+def test_solve_sub_problems_error_hard_constraint_infeasible_with_soft(river_current):
+    """An infeasible hard constraint should raise CumulusError, even with soft constraints present.
+
+    x_1 is bounded to [0.3, 1.0], so a hard upper bound of -0.2 can never be satisfied,
+    regardless of how the soft constraints are relaxed. The relaxation attempt should
+    fail to find an optimal solution and raise CumulusError instead of silently
+    returning a bogus result.
+    """
+    problem, current = river_current
+    rp = {"f_1": -6.0, "f_5": 8.0}
+
+    hard = [
+        Constraint(name="impossible", symbol="g_bad", cons_type=ConstraintTypeEnum.LTE, func=["Subtract", "x_1", -0.2])
+    ]
+    soft = [
+        Constraint(name="x1 soft ub", symbol="g_soft", cons_type=ConstraintTypeEnum.LTE, func=["Subtract", "x_1", 0.5])
+    ]
+
+    with pytest.raises(CumulusError, match="Could not find an optimal solution"):
+        solve_sub_problems(
+            problem,
+            current,
+            rp,
+            [CumulusScalarization.ASF_PARTIAL],
+            solver=ScipyMinimizeSolver,
+            hard_constraints=hard,
+            soft_constraints=soft,
+        )
+
+
 # ---------------------------------------------------------------------------
 # generate_starting_point
 # ---------------------------------------------------------------------------
