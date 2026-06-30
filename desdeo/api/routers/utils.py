@@ -127,12 +127,11 @@ def copy_problem_metadata(source_problem_db: ProblemDB, target_problem_db: Probl
         )
 
 
-def _apply_soft_constraints(problem: Problem, mods: ProblemModification) -> Problem:
+def _apply_soft_constraints(
+    problem: Problem, mods: ProblemModification, soft_candidate_constraints: dict[str, Constraint]
+) -> Problem:
     for soft_spec in mods.soft_constraints or []:
-        constraint = next(
-            (c for c in (problem.constraints or []) if c.symbol == soft_spec.constraint_symbol),
-            None,
-        )
+        constraint = soft_candidate_constraints.get(soft_spec.constraint_symbol)
         if constraint is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -321,8 +320,15 @@ def _parse_and_merge_elements(
     new_variables = [e for e in _merge(problem.variables, parsed_mods["variables"]) if _keep(e)]
     new_objectives = [e for e in _merge(problem.objectives, parsed_mods["objectives"]) if _keep(e)]
     new_constants = [e for e in _merge(problem.constants or [], parsed_mods["constants"]) if _keep(e)] or None
-    new_constraints = [e for e in _merge(problem.constraints or [], parsed_mods["constraints"]) if _keep(e)] or None
     new_extra_funcs = [e for e in _merge(problem.extra_funcs or [], parsed_mods["extra_funcs"]) if _keep(e)] or None
+
+    # Constraints referenced by soft_constraints are never added/kept as hard constraints:
+    # add_soft_constraint always creates the slackened version fresh, so a symbol marked soft
+    # here is set aside instead and resolved by _apply_soft_constraints.
+    soft_symbols = {s.constraint_symbol for s in (mods.soft_constraints or [])}
+    merged_constraints = [e for e in _merge(problem.constraints or [], parsed_mods["constraints"]) if _keep(e)]
+    soft_candidate_constraints = {e.symbol: e for e in merged_constraints if e.symbol in soft_symbols}
+    new_constraints = [e for e in merged_constraints if e.symbol not in soft_symbols] or None
 
     # Scalarization functions may have None symbols; only named ones are merged/removed by symbol
     existing_named_scal = {s.symbol: s for s in (problem.scalarization_funcs or []) if s.symbol is not None}
@@ -341,6 +347,7 @@ def _parse_and_merge_elements(
         "constraints": new_constraints,
         "extra_funcs": new_extra_funcs,
         "scalarization_funcs": new_scal_funcs,
+        "soft_candidate_constraints": soft_candidate_constraints,
     }
 
 
@@ -350,10 +357,11 @@ def apply_problem_modifications(problem: Problem, mods: ProblemModification, db_
     Operations are applied in this order:
     1. Validate ``remove`` symbols.
     2. Parse and type-check incoming element modifications.
-    3. Merge additions/replacements into the existing element lists.
+    3. Merge additions/replacements into the existing element lists, setting aside any
+       constraint referenced by ``soft_constraints`` instead of keeping it as a hard constraint.
     4. Filter removed symbols.
     5. Rebuild the problem via ``model_copy``.
-    6. Apply soft-constraint transformations.
+    6. Add each soft constraint via ``add_soft_constraint``.
     7. Expand and apply uncertainty-measure aggregates.
 
     Args:
@@ -380,12 +388,13 @@ def apply_problem_modifications(problem: Problem, mods: ProblemModification, db_
         symbols_to_remove.add(sym)
 
     updates = _parse_and_merge_elements(problem, mods, symbol_to_type, symbols_to_remove)
+    soft_candidate_constraints = updates.pop("soft_candidate_constraints")
     try:
         modified_problem = problem.model_copy(update=updates)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
 
-    modified_problem = _apply_soft_constraints(modified_problem, mods)
+    modified_problem = _apply_soft_constraints(modified_problem, mods, soft_candidate_constraints)
 
     if mods.uncertainty_measures:
         modified_problem = _apply_uncertainty_measures(modified_problem, mods, db_session)

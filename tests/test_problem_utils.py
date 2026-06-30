@@ -185,7 +185,7 @@ def test_add_soft_constraint_raises_on_duplicate_constraint_symbol(simple_proble
     """ProblemUtilsError is raised when a constraint with the same symbol already exists.
 
     Softening pre-existing constraint reuses the original constraint's symbol and appends the result, so
-    silently allowing a duplicate symbol would produce an invalid Problem with two
+    allowing a duplicate symbol would produce an invalid Problem with two
     constraints named 'g1' (the original hard constraint and the softened copy).
     """
     constraint = Constraint(

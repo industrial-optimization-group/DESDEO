@@ -193,15 +193,19 @@ class CumulusIntermediateSolutionResponse(SQLModel):
 
 
 class SoftConstraintSpec(BaseModel):
-    """Specification for converting a regular constraint into a soft penalty-based one.
+    """Specification for adding a constraint as a soft, penalty-based one.
 
-    After standard element modifications are applied, any constraint listed here is passed
-    to ``add_soft_constraint``, which introduces non-negative slack variables that absorb
+    A constraint referenced here is never added as a hard constraint, even if it is also
+    defined in this request's ``constraints`` list. Instead it is passed to
+    ``add_soft_constraint``, which introduces non-negative slack variables that absorb
     violations and accumulates them into a minimisation objective.
     """
 
     constraint_symbol: str = Field(
-        description="Symbol of the constraint to soften. Must exist in the problem after standard modifications."
+        description=(
+            "Symbol of the constraint to add as soft. Must be defined either in this request's "
+            "'constraints' list or already present in the problem."
+        )
     )
     violation_symbol: str = Field(
         default="constraint_violation", description="Symbol for the aggregated constraint-violation objective."
