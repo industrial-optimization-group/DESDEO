@@ -275,7 +275,7 @@ def add_soft_constraint(
 
     Args:
         problem (Problem): the problem to add the soft constraint to.
-        constraint (Constraint): the constraint to soften. Must have ``func`` defined.
+        constraint (Constraint): the constraint to add as a soft constraint. Must have ``func`` defined.
         symbol (str): symbol for the constraint violation objective. Defaults to
             ``"constraint_violation"``.
         lte_violation_symbol (str | None): symbol for the LTE slack variable. Defaults
@@ -285,7 +285,8 @@ def add_soft_constraint(
             ``f"_{constraint.symbol}_gte_violation"``.
 
     Raises:
-        ProblemUtilsError: if ``constraint.func`` is ``None``.
+        ProblemUtilsError: if ``constraint.func`` is ``None``, or if a constraint with the
+            symbol ``constraint.symbol`` already exists in ``problem``.
 
     Returns:
         tuple[Problem, str]: a copy of the problem with the soft constraint and
@@ -293,7 +294,11 @@ def add_soft_constraint(
             objective.
     """
     if constraint.func is None:
-        msg = f"Cannot soften constraint '{constraint.symbol}': its 'func' field is None."
+        msg = f"Cannot create soft constraint '{constraint.symbol}': its 'func' field is None."
+        raise ProblemUtilsError(msg)
+
+    if problem.constraints is not None and any(c.symbol == constraint.symbol for c in problem.constraints):
+        msg = f"A constraint with the symbol '{constraint.symbol}' already exists in the problem."
         raise ProblemUtilsError(msg)
 
     if lte_violation_symbol is None:
@@ -366,8 +371,9 @@ def add_soft_constraint(
     existing_constraints = list(problem.constraints) if problem.constraints is not None else []
     new_constraints = [*existing_constraints, modified_constraint]
 
-    new_problem = problem.model_copy(
-        update={
+    new_problem = Problem.model_validate(
+        problem.model_dump(by_alias=True)
+        | {
             "variables": new_variables,
             "objectives": new_objectives,
             "constraints": new_constraints,

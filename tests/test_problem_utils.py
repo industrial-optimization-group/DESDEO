@@ -181,14 +181,12 @@ def test_add_soft_constraint_raises_on_none_func(simple_problem):
 
 
 @pytest.mark.utils
-def test_add_soft_constraint_on_already_present_constraint_keeps_symbols_unique(simple_problem):
-    """Softening a constraint already present must not leave a duplicate-symbol hard copy.
+def test_add_soft_constraint_raises_on_duplicate_constraint_symbol(simple_problem):
+    """ProblemUtilsError is raised when a constraint with the same symbol already exists.
 
-    Regression test for the dedup gap in add_soft_constraint: the softened constraint
-    reuses the original symbol and is only ever appended. When the same hard constraint
-    is already in the problem, the result contains two constraints named 'g1', i.e. an
-    invalid Problem whose original hard 'g(x) <= 0' still makes it infeasible (defeating
-    the softening). model_copy does not re-run validation, so this slips through silently.
+    Softening pre-existing constraint reuses the original constraint's symbol and appends the result, so
+    silently allowing a duplicate symbol would produce an invalid Problem with two
+    constraints named 'g1' (the original hard constraint and the softened copy).
     """
     constraint = Constraint(
         name="upper bound on x1",
@@ -199,17 +197,8 @@ def test_add_soft_constraint_on_already_present_constraint_keeps_symbols_unique(
     # The constraint is already part of the problem as a hard constraint.
     problem_with_hard = simple_problem.model_copy(update={"constraints": [constraint]})
 
-    new_problem, _ = add_soft_constraint(problem_with_hard, constraint)
-
-    # The result must remain a valid problem with globally unique symbols.
-    symbols = new_problem.get_all_symbols()
-    duplicates = sorted({s for s in symbols if symbols.count(s) > 1})
-    assert not duplicates, f"add_soft_constraint produced duplicate symbols: {duplicates}"
-
-    # There must be exactly one constraint named 'g1', and it must be the softened one.
-    g1_cons = [c for c in (new_problem.constraints or []) if c.symbol == "g1"]
-    assert len(g1_cons) == 1
-    assert "_g1_lte_violation" in str(g1_cons[0].func)
+    with pytest.raises(ProblemUtilsError):
+        add_soft_constraint(problem_with_hard, constraint)
 
 
 @pytest.mark.utils
