@@ -313,6 +313,7 @@ def add_soft_constraint(
         variable_type=VariableTypeEnum.real,
         lowerbound=0,
         upperbound=None,
+        initial_value=0.0,
     )
     new_variables = [*problem.variables, lte_var]
     new_violation_symbols: list[str] = [lte_violation_symbol]
@@ -324,6 +325,7 @@ def add_soft_constraint(
             variable_type=VariableTypeEnum.real,
             lowerbound=0,
             upperbound=None,
+            initial_value=0.0,
         )
         new_variables = [*new_variables, gte_var]
         new_violation_symbols.append(gte_violation_symbol)

@@ -10,6 +10,7 @@ from desdeo.mcdm.cumulus import (
     infer_classifications,
     solve_sub_problems,
 )
+from desdeo.problem.schema import Constraint, ConstraintTypeEnum
 from desdeo.problem.testproblems import nimbus_test_problem, river_pollution_problem
 from desdeo.tools.scipy_solver_interfaces import ScipyDeSolver, ScipyMinimizeSolver
 
@@ -320,6 +321,109 @@ def test_solve_sub_problems_error_invalid_reference_point_key(river_current):
             {"bad": 1.0},
             [CumulusScalarization.ASF_PARTIAL],
         )
+
+
+# ---------------------------------------------------------------------------
+# solve_sub_problems - hard and soft constraints
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.cumulus
+def test_solve_sub_problems_feasible_soft_constraint_is_not_relaxed(river_current):
+    """When hard and soft constraints are jointly feasible, no relaxation should occur.
+
+    x_1 is bounded to [0.3, 1.0]. A hard upper bound of 0.4 and a soft upper bound of
+    0.6 are jointly satisfiable, so the solver should find a solution directly, with no
+    violation variable present in the result.
+    """
+    problem, current = river_current
+    rp = {"f_1": -6.0, "f_5": 8.0}
+
+    hard = [
+        Constraint(name="x1 hard ub", symbol="g_hard", cons_type=ConstraintTypeEnum.LTE, func=["Subtract", "x_1", 0.4])
+    ]
+    soft = [
+        Constraint(name="x1 soft ub", symbol="g_soft", cons_type=ConstraintTypeEnum.LTE, func=["Subtract", "x_1", 0.6])
+    ]
+
+    results = solve_sub_problems(
+        problem,
+        current,
+        rp,
+        [CumulusScalarization.ASF_PARTIAL],
+        solver=ScipyMinimizeSolver,
+        hard_constraints=hard,
+        soft_constraints=soft,
+    )
+
+    result = results[CumulusScalarization.ASF_PARTIAL]
+    assert result is not None
+    assert result.success
+    assert result.optimal_variables["x_1"] <= 0.4 + 1e-6
+    assert "_g_soft_lte_violation" not in result.optimal_variables
+
+
+@pytest.mark.cumulus
+def test_solve_sub_problems_relaxes_conflicting_soft_constraint(river_current):
+    """When the soft constraint conflicts with the hard constraint, it should be relaxed.
+
+    The hard constraint forces x_1 >= 0.8; the soft constraint asks for x_1 <= 0.5,
+    which is infeasible together. The solver should fall back to minimizing the
+    violation, satisfy the hard constraint, and land exactly at the minimum possible
+    violation (0.3) for the soft constraint.
+    """
+    problem, current = river_current
+    rp = {"f_1": -6.0, "f_5": 8.0}
+
+    hard = [
+        Constraint(name="x1 hard lb", symbol="g_hard", cons_type=ConstraintTypeEnum.LTE, func=["Subtract", 0.8, "x_1"])
+    ]
+    soft = [
+        Constraint(name="x1 soft ub", symbol="g_soft", cons_type=ConstraintTypeEnum.LTE, func=["Subtract", "x_1", 0.5])
+    ]
+
+    results = solve_sub_problems(
+        problem,
+        current,
+        rp,
+        [CumulusScalarization.ASF_PARTIAL],
+        solver=ScipyMinimizeSolver,
+        hard_constraints=hard,
+        soft_constraints=soft,
+    )
+
+    result = results[CumulusScalarization.ASF_PARTIAL]
+    assert result is not None
+    assert result.success
+    assert result.optimal_variables["x_1"] >= 0.8 - 1e-6
+    assert np.isclose(result.optimal_variables["_g_soft_lte_violation"], 0.3, atol=1e-4)
+
+
+@pytest.mark.cumulus
+def test_solve_sub_problems_hard_constraint_infeasible_without_soft(river_current):
+    """An infeasible hard constraint with no soft constraints to relax should yield None.
+
+    x_1 is bounded to [0.3, 1.0], so a hard upper bound of -0.2 can never be satisfied.
+    With no soft constraints supplied, there is nothing to relax, so the sub-problem
+    should be reported as infeasible.
+    """
+    problem, current = river_current
+    rp = {"f_1": -6.0, "f_5": 8.0}
+
+    hard = [
+        Constraint(name="impossible", symbol="g_bad", cons_type=ConstraintTypeEnum.LTE, func=["Subtract", "x_1", -0.2])
+    ]
+
+    results = solve_sub_problems(
+        problem,
+        current,
+        rp,
+        [CumulusScalarization.ASF_PARTIAL],
+        solver=ScipyMinimizeSolver,
+        hard_constraints=hard,
+    )
+
+    assert results[CumulusScalarization.ASF_PARTIAL] is None
 
 
 # ---------------------------------------------------------------------------

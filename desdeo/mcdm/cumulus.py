@@ -12,9 +12,8 @@ from desdeo.mcdm.reference_point_method import rpm_intermediate_solutions
 from desdeo.problem import (
     ConstraintTypeEnum,
     Problem,
-    ScalarizationFunction,
     ScenarioModel,
-    Variable,
+    add_soft_constraint,
 )
 from desdeo.problem.schema import Constraint
 from desdeo.tools import (
@@ -268,6 +267,9 @@ def _apply_scalarization(
                     problem, "asf_partial_sf", reference_point, **(scalarization_options or {})
                 )
             return add_asf_partial_diff(problem, "asf_partial_sf", reference_point, **(scalarization_options or {}))
+        case _:
+            msg = f"Unsupported scalarization function: {sf}."
+            raise CumulusError(msg)
 
 
 def _solve_with_constraints(
@@ -283,7 +285,7 @@ def _solve_with_constraints(
 
     Builds the base problem with hard and soft constraints attached, solves every
     scalarization, and returns immediately if at least one succeeded.  When every
-    sub-problem is infeasible, relaxes the soft constraints via slack variables,
+    sub-problem is infeasible, relaxes the soft constraints via `add_soft_constraint`,
     locks in the minimum total violation as a budget constraint, and re-solves.
     """
     base_problem = problem
@@ -299,22 +301,17 @@ def _solve_with_constraints(
     if any(r is not None for r in solutions.values()) or not soft_constraints:
         return solutions
 
-    slack_vars, modified_soft, violation_sum_func, optimal_violation = _minimize_soft_constraint_violations(
+    relaxed_problem, violation_symbol, optimal_violation = _minimize_soft_constraint_violations(
         problem, hard_constraints, soft_constraints, init_solver, solver_options
     )
 
-    relaxed_problem = problem
-    if hard_constraints:
-        relaxed_problem = relaxed_problem.add_constraints(hard_constraints)
-    relaxed_problem = relaxed_problem.add_variables(slack_vars)
-    relaxed_problem = relaxed_problem.add_constraints(modified_soft)
     relaxed_problem = relaxed_problem.add_constraints(
         [
             Constraint(
                 name="Soft constraint violation budget",
                 symbol="_violation_budget",
                 cons_type=ConstraintTypeEnum.LTE,
-                func=["Subtract", violation_sum_func, optimal_violation],
+                func=["Subtract", f"{violation_symbol}_min", optimal_violation],
             )
         ]
     )
@@ -328,13 +325,12 @@ def _minimize_soft_constraint_violations(
     soft_constraints: list[Constraint],
     init_solver,
     solver_options,
-) -> tuple[list[Variable], list[Constraint], list, float]:
-    """Minimizes total soft-constraint violation and returns the relaxation artefacts.
+) -> tuple[Problem, str, float]:
+    """Builds a relaxed problem and minimizes its total soft-constraint violation.
 
-    Adds a non-negative slack variable for each soft constraint so that
-    ``g_i(x) - s_i <= 0`` replaces the original ``g_i(x) <= 0``.  The sum of
-    all slack variables is then minimized subject to the hard constraints and
-    the slackened soft constraints.
+    Slackens each soft constraint via `add_soft_constraint`, which accumulates all
+    violations into a single objective, then solves for the minimum total violation
+    subject to the hard constraints.
 
     Args:
         problem: the base problem (no constraints already attached).
@@ -344,41 +340,24 @@ def _minimize_soft_constraint_violations(
         solver_options: options forwarded to the solver (or ``None``).
 
     Returns:
-        A 4-tuple ``(slack_vars, modified_soft_constraints, violation_sum_func, optimal_violation)``
-        where *slack_vars* are the new `Variable` objects, *modified_soft_constraints* are
-        the slackened `Constraint` objects, *violation_sum_func* is the MathJSON expression
-        for the sum of slacks, and *optimal_violation* is the minimized total violation value.
+        A 3-tuple ``(relaxed_problem, violation_symbol, optimal_violation)`` where
+        *relaxed_problem* has the soft constraints slackened and a violation objective
+        added, *violation_symbol* is that objective's symbol, and *optimal_violation*
+        is the minimized total violation value.
     """
-    slack_vars: list[Variable] = []
-    modified_soft: list[Constraint] = []
-    for sc in soft_constraints:
-        slack_sym = f"_slack_{sc.symbol}"
-        slack_vars.append(Variable(name=f"Slack for {sc.name}", symbol=slack_sym, lowerbound=0.0, initial_value=0.0))
-        modified_soft.append(sc.model_copy(update={"func": ["Subtract", sc.func, slack_sym]}))
-
-    if len(slack_vars) == 1:
-        violation_sum_func: list = ["Multiply", 1, slack_vars[0].symbol]
-    else:
-        violation_sum_func = ["Add", *[sv.symbol for sv in slack_vars]]
-
-    viol_problem = problem
+    relaxed_problem = problem
     if hard_constraints:
-        viol_problem = viol_problem.add_constraints(hard_constraints)
-    viol_problem = viol_problem.add_variables(slack_vars)
-    viol_problem = viol_problem.add_constraints(modified_soft)
-    viol_problem = viol_problem.add_scalarization_func(
-        ScalarizationFunction(
-            name="Total soft constraint violation",
-            symbol="_total_violation",
-            func=violation_sum_func,
-        )
-    )
+        relaxed_problem = relaxed_problem.add_constraints(hard_constraints)
 
-    viol_inst = init_solver(viol_problem, solver_options) if solver_options else init_solver(viol_problem)
-    viol_result = viol_inst.solve("_total_violation")
-    optimal_violation: float = viol_result.scalarization_values["_total_violation"]
+    violation_symbol = "_soft_constraint_violation"
+    for sc in soft_constraints:
+        relaxed_problem, violation_symbol = add_soft_constraint(relaxed_problem, sc, symbol=violation_symbol)
 
-    return slack_vars, modified_soft, violation_sum_func, optimal_violation
+    viol_inst = init_solver(relaxed_problem, solver_options) if solver_options else init_solver(relaxed_problem)
+    viol_result = viol_inst.solve(violation_symbol)
+    optimal_violation: float = viol_result.optimal_objectives[violation_symbol]
+
+    return relaxed_problem, violation_symbol, optimal_violation
 
 
 def _fix_worst_case_epigraphs(
