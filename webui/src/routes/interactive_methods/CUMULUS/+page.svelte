@@ -598,7 +598,7 @@
 			return;
 		}
 
-		apply_initialization_result(result);
+		await apply_initialization_result(result);
 	}
 
 	async function apply_initialization_result(result: Response) {
@@ -809,13 +809,17 @@
 
 			<span
 				class="inline-block"
-				title={selectedIndexes.length !== 1
-					? 'Please select exactly one solution to finish with it.'
-					: 'Select final solution and finish the CUMULUS method with it'}
+				title={current_state.response_type === 'cumulus.initialization'
+					? 'Please perform at least one iteration before finishing.'
+					: selectedIndexes.length !== 1
+						? 'Please select exactly one solution to finish with it.'
+						: 'Select final solution and finish the CUMULUS method with it'}
 			>
 				<Button
 					onclick={selectedIndexes.length === 1 ? confirm_finish : undefined}
-					disabled={selectedIndexes.length !== 1 || current_state.response_type === 'cumulus.finalize'}
+					disabled={selectedIndexes.length !== 1 ||
+						current_state.response_type === 'cumulus.finalize' ||
+						current_state.response_type === 'cumulus.initialization'}
 					variant="destructive"
 					class="ml-10"
 				>

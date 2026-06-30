@@ -281,7 +281,7 @@ def test_solve_sub_problems_partial_leaves_other_objectives_free(river_current):
 
     # The pinned solution must satisfy f_2 >= current (stay as good or better in min-space).
     # In practice the two solutions should differ.
-    assert abs(f2_partial - f2_pinned) > 1e-6 or True  # structural: no crash; solver may agree
+    assert abs(f2_partial - f2_pinned) > 1e-6
 
 
 @pytest.mark.cumulus

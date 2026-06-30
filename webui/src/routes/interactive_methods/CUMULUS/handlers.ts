@@ -26,10 +26,12 @@ import type {
 	SolutionInfo,
 	CumulusObjectiveConstraintRequest,
 	SolutionDescriptionRequest,
-	ConstraintTypeEnum
+	ConstraintTypeEnum,
+	ProblemInfo,
+	SolutionReferenceResponse as Solution,
+	ReferencePoint
 } from '$lib/gen/endpoints/DESDEOFastAPI';
-import type { ProblemInfo, Solution } from '$lib/types';
-import type { Response, ReferencePoint } from './types';
+import type { Response } from './types';
 import { errorMessage, isLoading } from '../../../stores/uiState';
 
 /** Convert a Solution to a SolutionInfo for API requests. */
