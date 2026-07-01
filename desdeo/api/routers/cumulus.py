@@ -60,6 +60,7 @@ from .utils import (
     collect_all_solutions,
     collect_saved_solutions,
     copy_problem_metadata,
+    get_solver_results_at,
     iter_states_of_kinds,
 )
 
@@ -569,7 +570,7 @@ def finalize(
     final_state = CumulusFinalState(
         solution_origin_state_id=solution_state_id,
         solution_result_index=solution_index,
-        solver_results=actual_state.solver_results[solution_index],
+        solver_results=get_solver_results_at(actual_state, solution_index),
         original_problem_id=request.original_problem_id,
     )
 

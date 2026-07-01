@@ -53,11 +53,30 @@ from desdeo.problem.schema import (
     Variable,
 )
 from desdeo.problem.utils import ProblemUtilsError, add_soft_constraint
-from desdeo.tools import guess_best_solver
+from desdeo.tools import SolverResults, guess_best_solver
 from desdeo.tools.robust import add_weighted_scenarios, add_worst_case_robust
 from desdeo.tools.scenarios import build_combined_scenario_problem
 from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_value
 from desdeo.tools.utils import payoff_table_method
+
+
+def get_solver_results_at(actual_state, index: int) -> SolverResults:
+    """Return the SolverResults at index, handling all three storage shapes.
+
+    - list[SolverResults] (classification, intermediate): index normally.
+    - single SolverResults (init, final): ignore index (always one solution).
+    - no solver_results (save states): reconstruct from stored objective/variable values.
+    """
+    if not hasattr(actual_state, "solver_results"):
+        saved = actual_state.solutions[index]
+        return SolverResults(
+            optimal_objectives=saved.objective_values,
+            optimal_variables=saved.variable_values,
+            success=True,
+            message="Saved solution",
+        )
+    results = actual_state.solver_results
+    return results[index] if isinstance(results, list) else results
 
 
 def copy_problem_metadata(source_problem_db: ProblemDB, target_problem_db: ProblemDB, db_session: Session) -> None:

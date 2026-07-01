@@ -44,7 +44,14 @@ from desdeo.mcdm.nimbus import generate_starting_point, solve_sub_problems
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
 
-from .utils import ContextField, SessionContext, SessionContextGuard, collect_all_solutions, collect_saved_solutions
+from .utils import (
+    ContextField,
+    SessionContext,
+    SessionContextGuard,
+    collect_all_solutions,
+    collect_saved_solutions,
+    get_solver_results_at,
+)
 
 router = APIRouter(prefix="/method/nimbus")
 
@@ -424,7 +431,7 @@ def finalize_nimbus(
     final_state = NIMBUSFinalState(
         solution_origin_state_id=solution_state_id,
         solution_result_index=solution_index,
-        solver_results=actual_state.solver_results[solution_index],
+        solver_results=get_solver_results_at(actual_state, solution_index),
     )
 
     state = StateDB.create(
