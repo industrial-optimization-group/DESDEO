@@ -96,6 +96,12 @@
 			preferencesType: ['reference point']
 		},
 		{
+			name: 'Cumulus',
+			path: '/interactive_methods/CUMULUS',
+			description: 'Cumulus method for MOO.',
+			preferencesType: ['reference point']
+		},
+		{
 			name: 'Group NIMBUS',
 			path: '/interactive_methods/GNIMBUS',
 			description: 'Group NIMBUS method for collaborative MOO.',

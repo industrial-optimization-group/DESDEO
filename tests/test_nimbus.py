@@ -4,7 +4,7 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
-from desdeo.mcdm import (
+from desdeo.mcdm.nimbus import (
     infer_classifications,
     solve_intermediate_solutions,
     solve_sub_problems,
@@ -184,7 +184,7 @@ def test_solve_sub_problems():
     for solution in solutions:
         assert solution.success
         npt.assert_almost_equal(
-            [solution.optimal_variables[f"x_{i+1}"] for i in range(n_objectives - 1, n_variables)], 0.5
+            [solution.optimal_variables[f"x_{i + 1}"] for i in range(n_objectives - 1, n_variables)], 0.5
         )
         npt.assert_almost_equal(
             sum(solution.optimal_objectives[f"{obj.symbol}"] ** 2 for obj in problem.objectives), 1.0

@@ -17,6 +17,9 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
+from desdeo.tools import add_expected_value, add_worst_case_robust, build_combined_scenario_problem
+from desdeo.tools.cvxpy_solver_interfaces import CVXPYSolver
+from desdeo.tools.utils import payoff_table_method
 
 _PRICES_PATH = Path(__file__).parents[3] / "datasets" / "prices_summer.npz"
 
@@ -874,3 +877,54 @@ def summer_cabin_battery_problem_split_scenario(
             "S2": [*s2_sched, *s2_unmet],
         },
     )
+
+
+def summer_cabin_battery_robust_ev_problem(initial_soc: float = 0.0, n_panels_max: int = 50) -> Problem:
+    """Build a robust multi-objective problem from the split summer cabin battery scenario model.
+
+    Wraps `summer_cabin_battery_problem_split_scenario` (4-leaf outage scenario tree) and adds
+    both worst-case robust and expected-value scalarization objectives for f_1 (electricity cost),
+    f_2 (investment cost), and f_3 (unmet demand).  Ideal and nadir bounds are computed via the
+    payoff table method so that scalarization functions can be properly scaled.
+
+    Args:
+        initial_soc: initial state of charge in kWh.
+        n_panels_max: upper bound on number of solar panels.
+
+    Returns:
+        Combined scenario problem with ideal and nadir populated.
+    """
+    scenario_model = summer_cabin_battery_problem_split_scenario(initial_soc=initial_soc, n_panels_max=n_panels_max)
+
+    combined_problem, symbol_maps = build_combined_scenario_problem(scenario_model)
+    combined_problem, _ = add_worst_case_robust(
+        scenario_model=scenario_model,
+        symbols=["f_1", "f_2", "f_3"],
+        combined=combined_problem,
+        symbol_maps=symbol_maps,
+    )
+    combined_problem, _ = add_expected_value(
+        scenario_model=scenario_model,
+        symbols=["f_1", "f_2", "f_3"],
+        combined=combined_problem,
+        symbol_maps=symbol_maps,
+    )
+
+    ideal, nadir1 = payoff_table_method(combined_problem, CVXPYSolver)
+    # payoff table does not find the actual nadir, so we need some trickery
+    helper = combined_problem.add_constraints(
+        [
+            Constraint(
+                name="helper",
+                symbol="help",
+                cons_type=ConstraintTypeEnum.LTE,
+                func=["Subtract", "E_f_3", 0.75],
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            )
+        ]
+    )
+    _, nadir2 = payoff_table_method(helper, CVXPYSolver)
+    nadir = {key: max(nadir1[key], nadir2[key]) for key in ideal}
+    return combined_problem.update_ideal_and_nadir(ideal, nadir)

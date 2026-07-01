@@ -37,7 +37,8 @@ from desdeo.api.models import (
 from desdeo.api.models.gdm.gnimbus import (
     OptimizationPreference,
 )
-from desdeo.mcdm import enautilus_step, generate_starting_point, rpm_solve_solutions, solve_sub_problems
+from desdeo.mcdm import enautilus_step, rpm_solve_solutions
+from desdeo.mcdm.nimbus import generate_starting_point, solve_sub_problems
 from desdeo.problem.schema import (
     Constant,
     Constraint,

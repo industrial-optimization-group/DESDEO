@@ -1,9 +1,15 @@
+"""Tests for problem metadata API endpoints.
+
+Covers representative solution sets and solution description metadata.
+"""
+
 from types import SimpleNamespace
 
-from fastapi.testclient import TestClient  # noqa: D100
+from fastapi.testclient import TestClient
 from sqlmodel import select
 
 from desdeo.api.models import ProblemDB, ProblemMetaDataDB, RepresentativeNonDominatedSolutions
+from desdeo.api.models.problem import SolutionDescriptionMetaData
 from desdeo.api.models.representative_solution import RepresentativeSolutionSetBase
 from desdeo.api.routers.utils import SessionContextGuard
 from desdeo.problem.testproblems import dtlz2
@@ -80,6 +86,7 @@ def test_add_representative_solution_set(client: TestClient, session_and_user: d
     assert repr_metadata.ideal == solution_set_model.ideal
     assert repr_metadata.nadir == solution_set_model.nadir
 
+
 def test_get_all_representative_solution_sets(client: TestClient, session_and_user: dict):
     """Test that all representative solution sets for a problem can be fetched (meta-level)."""
     session = session_and_user["session"]
@@ -121,8 +128,7 @@ def test_get_all_representative_solution_sets(client: TestClient, session_and_us
 
     # Call GET endpoint
     response = client.get(
-        f"/problem/{problem.id}/all_representative_solution_sets",
-        headers={"Authorization": f"Bearer {access_token}"}
+        f"/problem/{problem.id}/all_representative_solution_sets", headers={"Authorization": f"Bearer {access_token}"}
     )
 
     assert response.status_code == 200
@@ -136,6 +142,7 @@ def test_get_all_representative_solution_sets(client: TestClient, session_and_us
     assert repr_meta["description"] == "Description GET"
     assert repr_meta["ideal"] == {"f_1": 0.1}
     assert repr_meta["nadir"] == {"f_1": 0.2}
+
 
 def test_get_representative_solution_set(client: TestClient, session_and_user: dict):
     """Test that a single representative solution set can be fetched by its ID."""
@@ -175,8 +182,9 @@ def test_get_representative_solution_set(client: TestClient, session_and_user: d
 
     # Fetch the added representative set from DB
     repr_metadata = session.exec(
-        select(RepresentativeNonDominatedSolutions)
-        .where(RepresentativeNonDominatedSolutions.name == "Full Test Solution Set")
+        select(RepresentativeNonDominatedSolutions).where(
+            RepresentativeNonDominatedSolutions.name == "Full Test Solution Set"
+        )
     ).first()
     assert repr_metadata is not None
 
@@ -195,6 +203,7 @@ def test_get_representative_solution_set(client: TestClient, session_and_user: d
     assert data["solution_data"] == solution_set_payload["solution_data"]
     assert data["ideal"] == solution_set_payload["ideal"]
     assert data["nadir"] == solution_set_payload["nadir"]
+
 
 def test_delete_representative_solution_set(client: TestClient, session_and_user: dict):
     """Test that a representative solution set can be deleted by its ID."""
@@ -240,3 +249,118 @@ def test_delete_representative_solution_set(client: TestClient, session_and_user
     # Verify DB deletion
     deleted_set = session.get(RepresentativeNonDominatedSolutions, repr_metadata.id)
     assert deleted_set is None
+
+
+def test_update_solution_description_metadata(client: TestClient, session_and_user: dict):
+    """Test that solution description metadata can be added via the update endpoint."""
+    session = session_and_user["session"]
+    user = session_and_user["user"]
+    access_token = login(client)
+
+    problem = ProblemDB.from_problem(dtlz2(5, 3), user=user)
+    session.add(problem)
+    session.commit()
+    session.refresh(problem)
+
+    problem_metadata = ProblemMetaDataDB(problem_id=problem.id, problem=problem)
+    session.add(problem_metadata)
+    session.commit()
+    session.refresh(problem_metadata)
+
+    payload = {
+        "problem_id": problem.id,
+        "separator": " | ",
+        "parts": [
+            {"text": "Solution quality"},
+            {"symbol": "f_1", "label": "Objective 1", "format_spec": ".2f", "suffix": "%"},
+        ],
+    }
+
+    response = client.post(
+        "/solution-description/update_metadata",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json=payload,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["separator"] == " | "
+    assert len(data["parts"]) == 2
+    assert data["parts"][0]["text"] == "Solution quality"
+    assert data["parts"][1]["symbol"] == "f_1"
+
+    # Verify the row is in the DB and linked to the metadata record
+    db_entry = session.get(SolutionDescriptionMetaData, data["id"])
+    assert db_entry is not None
+    assert db_entry.metadata_id == problem_metadata.id
+    assert db_entry.separator == " | "
+
+
+def test_update_solution_description_metadata_appends(client: TestClient, session_and_user: dict):
+    """Test that calling update twice appends a second entry, and the latest is used."""
+    session = session_and_user["session"]
+    user = session_and_user["user"]
+    access_token = login(client)
+
+    problem = ProblemDB.from_problem(dtlz2(5, 3), user=user)
+    session.add(problem)
+    session.commit()
+    session.refresh(problem)
+
+    problem_metadata = ProblemMetaDataDB(problem_id=problem.id, problem=problem)
+    session.add(problem_metadata)
+    session.commit()
+    session.refresh(problem_metadata)
+
+    for sep in ["\n", " -- "]:
+        response = client.post(
+            "/solution-description/update_metadata",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={"problem_id": problem.id, "separator": sep, "parts": [{"text": "hello"}]},
+        )
+        assert response.status_code == 200
+
+    session.refresh(problem_metadata)
+    assert len(problem_metadata.solution_description_metadata) == 2
+    assert problem_metadata.solution_description_metadata[-1].separator == " -- "
+
+
+def test_update_solution_description_metadata_invalid_expression(client: TestClient, session_and_user: dict):
+    """Test that an unparseable expression is rejected with 422."""
+    session = session_and_user["session"]
+    user = session_and_user["user"]
+    access_token = login(client)
+
+    problem = ProblemDB.from_problem(dtlz2(5, 3), user=user)
+    session.add(problem)
+    session.commit()
+    session.refresh(problem)
+
+    problem_metadata = ProblemMetaDataDB(problem_id=problem.id, problem=problem)
+    session.add(problem_metadata)
+    session.commit()
+
+    response = client.post(
+        "/solution-description/update_metadata",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={
+            "problem_id": problem.id,
+            "separator": "\n",
+            "parts": [{"expression": "this is not valid mathjson"}],
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_update_solution_description_metadata_missing_problem(client: TestClient, session_and_user: dict):
+    """Test that updating metadata for a non-existent problem metadata record returns 404."""
+    access_token = login(client)
+
+    response = client.post(
+        "/solution-description/update_metadata",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"problem_id": 99999, "separator": "\n", "parts": [{"text": "hi"}]},
+    )
+
+    assert response.status_code == 404

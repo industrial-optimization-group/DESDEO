@@ -84,8 +84,9 @@ def get_variable_bounds_pairs(problem: Problem) -> list[tuple[float | int, float
 def set_initial_guess(problem: Problem) -> list[float | int]:
     """Sets or gets the initial guess for each variable defined in a Problem.
 
-    For variables without initial guess, the initial guess is set to be the middle point of said
-    variable's lower and upper bound.
+    For variables without an initial guess, the initial guess is set to the middle point of
+    the variable's lower and upper bound. If only one of the bounds is defined, that bound is
+    used instead. If neither bound is defined, the initial guess defaults to 0.
 
     Args:
         problem (Problem): the problem with the variables of which the initial values are of interest.
@@ -93,12 +94,19 @@ def set_initial_guess(problem: Problem) -> list[float | int]:
     Returns:
         list[float | int]: a list of numbers, each number represents the initial guess of each variable in the problem.
     """
-    return [
-        variable.initial_value
-        if variable.initial_value is not None
-        else ((variable.upperbound - variable.lowerbound) / 2 + variable.lowerbound)
-        for variable in problem.variables
-    ]
+    guesses = []
+    for variable in problem.variables:
+        if variable.initial_value is not None:
+            guesses.append(variable.initial_value)
+        elif variable.lowerbound is not None and variable.upperbound is not None:
+            guesses.append((variable.upperbound - variable.lowerbound) / 2 + variable.lowerbound)
+        elif variable.lowerbound is not None:
+            guesses.append(variable.lowerbound)
+        elif variable.upperbound is not None:
+            guesses.append(variable.upperbound)
+        else:
+            guesses.append(0)
+    return guesses
 
 
 def create_scipy_dict_constraints(problem: Problem, evaluator: PolarsEvaluator) -> dict:

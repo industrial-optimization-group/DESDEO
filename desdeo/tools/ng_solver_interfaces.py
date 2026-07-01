@@ -144,6 +144,25 @@ class NevergradGenericSolver(BaseSolver):
         Returns:
             SolverResults: the results of the optimization.
         """
+
+        def _make_scalar(var):
+            if var.initial_value is not None:
+                init = var.initial_value
+            elif var.lowerbound is not None and var.upperbound is not None:
+                init = (var.lowerbound + var.upperbound) / 2
+            elif var.lowerbound is not None:
+                init = var.lowerbound
+            elif var.upperbound is not None:
+                init = var.upperbound
+            else:
+                init = 0.0
+            scalar = ng.p.Scalar(init=init)
+            if var.lowerbound is not None or var.upperbound is not None:
+                scalar.set_bounds(var.lowerbound, var.upperbound)
+            return scalar
+
+        parametrization = ng.p.Dict(**{var.symbol: _make_scalar(var) for var in self.problem.variables})
+
         # When a seed is given, make the run reproducible. nevergrad (and NGOpt's optimizer selection)
         # draws from numpy's global RNG as well as the parametrization's own random state, so the global
         # RNG must be seeded before anything is constructed. It is restored in the `finally` below so the
@@ -152,18 +171,6 @@ class NevergradGenericSolver(BaseSolver):
         if self.options.seed is not None:
             rng_state = np.random.get_state()  # noqa: NPY002
             np.random.seed(self.options.seed)  # noqa: NPY002
-
-        parametrization = ng.p.Dict(
-            **{
-                var.symbol: ng.p.Scalar(
-                    # sets the initial value of the variables, if None, then the
-                    # mid-point of the lower and upper bounds is chosen as the
-                    # initial value.
-                    init=var.initial_value if var.initial_value is not None else (var.lowerbound + var.upperbound) / 2
-                ).set_bounds(var.lowerbound, var.upperbound)
-                for var in self.problem.variables
-            }
-        )
 
         optimizer = ng.optimizers.registry[self.options.optimizer](
             parametrization=parametrization, **self.options.model_dump(exclude={"optimizer", "seed"})

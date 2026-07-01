@@ -8,6 +8,21 @@ from fastapi.testclient import TestClient
 
 from desdeo.api.models import (
     CreateSessionRequest,
+    CumulusClassificationRequest,
+    CumulusClassificationResponse,
+    CumulusDeleteSaveRequest,
+    CumulusDeleteSaveResponse,
+    CumulusFinalizeRequest,
+    CumulusFinalizeResponse,
+    CumulusInitializationRequest,
+    CumulusInitializationResponse,
+    CumulusIntermediateSolutionResponse,
+    CumulusModificationRequest,
+    CumulusModificationResponse,
+    CumulusObjectiveConstraintRequest,
+    CumulusObjectiveConstraintResponse,
+    CumulusSaveRequest,
+    CumulusSaveResponse,
     EMOFetchRequest,
     EMOIterateRequest,
     EMOIterateResponse,
@@ -37,6 +52,8 @@ from desdeo.api.models import (
     ProblemSelectSolverRequest,
     ReferencePoint,
     RPMSolveRequest,
+    ScenarioModelDB,
+    SolutionDescriptionMetaData,
     SolutionInfo,
     SolverSelectionMetadata,
     User,
@@ -47,12 +64,14 @@ from desdeo.api.models.nimbus import (
     NIMBUSMultiplierRequest,
     NIMBUSMultiplierResponse,
 )
+from desdeo.api.models.problem import ProblemMetaDataDB
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.emo.options.algorithms import rvea_options
 from desdeo.emo.options.templates import ReferencePointOptions
 from desdeo.gdm.score_bands import SCOREBandsGDMConfig
 from desdeo.problem import Problem
 from desdeo.problem.testproblems import dtlz2, simple_knapsack_vectors
+from desdeo.problem.testproblems.simple_problem import simple_scenario_model
 from desdeo.tools.score_bands import KMeansOptions, SCOREBandsConfig
 from desdeo.tools.utils import available_solvers
 
@@ -1372,3 +1391,924 @@ def test_xnimbus_get_multipliers(client: TestClient):
     assert mult_response.status_code == status.HTTP_200_OK
     result = NIMBUSMultiplierResponse.model_validate(json.loads(mult_response.content.decode("utf-8")))
     assert result is not None
+
+
+# ---------------------------------------------------------------------------
+# Cumulus tests
+# All tests use problem 1 (dtlz2, 5 vars, 3 min objectives f_1/f_2/f_3) since
+# it is twice-differentiable (fast solver) and has ideal/nadir defined.
+# ---------------------------------------------------------------------------
+
+
+def test_cumulus_initialize(client: TestClient):
+    """Initializing Cumulus should return one starting solution."""
+    access_token = login(client)
+
+    request = CumulusInitializationRequest(problem_id=1)
+    response = post_json(client, "/method/cumulus/initialize", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusInitializationResponse.model_validate(json.loads(response.content))
+
+    assert result.response_type == "cumulus.initialization"
+    assert result.state_id is not None
+    assert len(result.current_solutions) == 1
+    assert len(result.saved_solutions) == 0
+    assert len(result.all_solutions) == 1
+
+
+def test_cumulus_solve_asf_partial(client: TestClient):
+    """Solve with ASF_PARTIAL and a partial reference point should succeed."""
+    access_token = login(client)
+
+    init_request = CumulusInitializationRequest(problem_id=1)
+    init_response = post_json(client, "/method/cumulus/initialize", init_request.model_dump(), access_token)
+    assert init_response.status_code == status.HTTP_200_OK
+    init_result = CumulusInitializationResponse.model_validate(json.loads(init_response.content))
+    current_objectives = init_result.current_solutions[0].objective_values
+
+    # Partial reference point: only f_1 (minimized, so a lower value is "better")
+    aspiration_f1 = max(current_objectives["f_1"] - 0.1, 0.01)
+    preference = ReferencePoint(aspiration_levels={"f_1": aspiration_f1})
+
+    solve_request = CumulusClassificationRequest(
+        problem_id=1,
+        preference=preference,
+        current_objectives=current_objectives,
+        scalarizations=["asf_partial"],
+        parent_state_id=init_result.state_id,
+    )
+
+    response = post_json(client, "/method/cumulus/solve", solve_request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusClassificationResponse.model_validate(json.loads(response.content))
+
+    assert result.response_type == "cumulus.classification"
+    assert result.state_id is not None
+    assert len(result.current_solutions) == 1
+    assert result.previous_preference == preference
+    # All objectives should appear in the solution
+    for sym in ["f_1", "f_2", "f_3"]:
+        assert sym in result.current_solutions[0].objective_values
+
+
+def test_cumulus_solve_cumulonimbus(client: TestClient):
+    """Solve with CUMULONIMBUS and a partial reference point should succeed."""
+    access_token = login(client)
+
+    init_request = CumulusInitializationRequest(problem_id=1)
+    init_response = post_json(client, "/method/cumulus/initialize", init_request.model_dump(), access_token)
+    assert init_response.status_code == status.HTTP_200_OK
+    init_result = CumulusInitializationResponse.model_validate(json.loads(init_response.content))
+    current_objectives = init_result.current_solutions[0].objective_values
+
+    # For cumulonimbus, aspiration level better than current triggers "<=" classification
+    aspiration_f1 = max(current_objectives["f_1"] - 0.1, 0.01)
+    preference = ReferencePoint(aspiration_levels={"f_1": aspiration_f1})
+
+    solve_request = CumulusClassificationRequest(
+        problem_id=1,
+        preference=preference,
+        current_objectives=current_objectives,
+        scalarizations=["cumulonimbus"],
+        parent_state_id=init_result.state_id,
+    )
+
+    response = post_json(client, "/method/cumulus/solve", solve_request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusClassificationResponse.model_validate(json.loads(response.content))
+
+    assert result.state_id is not None
+    assert len(result.current_solutions) == 1
+
+
+def test_cumulus_solve_multiple_scalarizations(client: TestClient):
+    """Solve with multiple scalarizations should return one solution per scalarization."""
+    access_token = login(client)
+
+    init_request = CumulusInitializationRequest(problem_id=1)
+    init_response = post_json(client, "/method/cumulus/initialize", init_request.model_dump(), access_token)
+    assert init_response.status_code == status.HTTP_200_OK
+    init_result = CumulusInitializationResponse.model_validate(json.loads(init_response.content))
+    current_objectives = init_result.current_solutions[0].objective_values
+
+    aspiration_f1 = max(current_objectives["f_1"] - 0.1, 0.01)
+    preference = ReferencePoint(aspiration_levels={"f_1": aspiration_f1})
+
+    solve_request = CumulusClassificationRequest(
+        problem_id=1,
+        preference=preference,
+        current_objectives=current_objectives,
+        scalarizations=["cumulonimbus", "asf_partial"],
+        parent_state_id=init_result.state_id,
+    )
+
+    response = post_json(client, "/method/cumulus/solve", solve_request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusClassificationResponse.model_validate(json.loads(response.content))
+
+    assert len(result.current_solutions) == 2
+    assert len(result.all_solutions) >= 2
+
+
+def test_cumulus_save_and_delete(client: TestClient):
+    """Saving a Cumulus solution and then deleting it should update the saved list."""
+    access_token = login(client)
+
+    # Initialize
+    init_request = CumulusInitializationRequest(problem_id=1)
+    init_response = post_json(client, "/method/cumulus/initialize", init_request.model_dump(), access_token)
+    assert init_response.status_code == status.HTTP_200_OK
+    init_result = CumulusInitializationResponse.model_validate(json.loads(init_response.content))
+    current_objectives = init_result.current_solutions[0].objective_values
+
+    # Solve
+    aspiration_f1 = max(current_objectives["f_1"] - 0.1, 0.01)
+    solve_request = CumulusClassificationRequest(
+        problem_id=1,
+        preference=ReferencePoint(aspiration_levels={"f_1": aspiration_f1}),
+        current_objectives=current_objectives,
+        scalarizations=["asf_partial"],
+        parent_state_id=init_result.state_id,
+    )
+    solve_response = post_json(client, "/method/cumulus/solve", solve_request.model_dump(), access_token)
+    assert solve_response.status_code == status.HTTP_200_OK
+    solve_result = CumulusClassificationResponse.model_validate(json.loads(solve_response.content))
+
+    # Save
+    save_request = CumulusSaveRequest(
+        problem_id=1,
+        parent_state_id=solve_result.state_id,
+        solution_info=[SolutionInfo(state_id=solve_result.state_id, solution_index=0, name="My solution")],
+    )
+    save_response = post_json(client, "/method/cumulus/save", save_request.model_dump(), access_token)
+    assert save_response.status_code == status.HTTP_200_OK
+    save_result = CumulusSaveResponse.model_validate(json.loads(save_response.content))
+    assert save_result.state_id is not None
+
+    # Verify the saved solution appears in a subsequent solve
+    solve_request2 = CumulusClassificationRequest(
+        problem_id=1,
+        preference=ReferencePoint(aspiration_levels={"f_1": aspiration_f1}),
+        current_objectives=current_objectives,
+        scalarizations=["asf_partial"],
+        parent_state_id=save_result.state_id,
+    )
+    solve_response2 = post_json(client, "/method/cumulus/solve", solve_request2.model_dump(), access_token)
+    solve_result2 = CumulusClassificationResponse.model_validate(json.loads(solve_response2.content))
+    assert len(solve_result2.saved_solutions) >= 1
+
+    # Delete the saved solution
+    delete_request = CumulusDeleteSaveRequest(state_id=solve_result.state_id, solution_index=0, problem_id=1)
+    delete_response = post_json(client, "/method/cumulus/delete_save", delete_request.model_dump(), access_token)
+    assert delete_response.status_code == status.HTTP_200_OK
+    delete_result = CumulusDeleteSaveResponse.model_validate(json.loads(delete_response.content))
+    assert delete_result.message == "Save deleted."
+
+    # Verify the saved solution is gone
+    solve_response3 = post_json(client, "/method/cumulus/solve", solve_request2.model_dump(), access_token)
+    solve_result3 = CumulusClassificationResponse.model_validate(json.loads(solve_response3.content))
+    assert len(solve_result3.saved_solutions) == 0
+
+
+def test_cumulus_finalize(client: TestClient):
+    """Finalizing Cumulus should select a specific solution as the final result."""
+    access_token = login(client)
+
+    # Initialize
+    init_request = CumulusInitializationRequest(problem_id=1)
+    init_response = post_json(client, "/method/cumulus/initialize", init_request.model_dump(), access_token)
+    assert init_response.status_code == status.HTTP_200_OK
+    init_result = CumulusInitializationResponse.model_validate(json.loads(init_response.content))
+    current_objectives = init_result.current_solutions[0].objective_values
+
+    # Solve
+    aspiration_f1 = max(current_objectives["f_1"] - 0.1, 0.01)
+    solve_request = CumulusClassificationRequest(
+        problem_id=1,
+        preference=ReferencePoint(aspiration_levels={"f_1": aspiration_f1}),
+        current_objectives=current_objectives,
+        scalarizations=["asf_partial"],
+        parent_state_id=init_result.state_id,
+    )
+    solve_response = post_json(client, "/method/cumulus/solve", solve_request.model_dump(), access_token)
+    assert solve_response.status_code == status.HTTP_200_OK
+    solve_result = CumulusClassificationResponse.model_validate(json.loads(solve_response.content))
+
+    chosen_obj = solve_result.current_solutions[0].objective_values
+    chosen_var = solve_result.current_solutions[0].variable_values
+
+    # Finalize
+    finalize_request = CumulusFinalizeRequest(
+        problem_id=1,
+        solution_info=SolutionInfo(state_id=solve_result.state_id, solution_index=0),
+    )
+    finalize_response = post_json(client, "/method/cumulus/finalize", finalize_request.model_dump(), access_token)
+    assert finalize_response.status_code == status.HTTP_200_OK
+    finalize_result = CumulusFinalizeResponse.model_validate(json.loads(finalize_response.content))
+
+    assert finalize_result.response_type == "cumulus.finalize"
+    assert finalize_result.state_id is not None
+    assert finalize_result.final_solution.objective_values == chosen_obj
+    assert finalize_result.final_solution.variable_values == chosen_var
+    # The finalize state id differs from the origin solution state id
+    assert finalize_result.final_solution.state_id != finalize_result.state_id
+
+
+def test_cumulus_get_or_initialize(client: TestClient):
+    """get-or-initialize should create a new state on the first call and return it on the second."""
+    access_token = login(client)
+
+    request = CumulusInitializationRequest(problem_id=1)
+
+    # First call: no existing Cumulus state → initialize
+    response1 = post_json(client, "/method/cumulus/get-or-initialize", request.model_dump(), access_token)
+    assert response1.status_code == status.HTTP_200_OK
+    result1 = CumulusInitializationResponse.model_validate(json.loads(response1.content))
+    assert result1.state_id is not None
+
+    # Second call: should return the same state (not create a new one)
+    response2 = post_json(client, "/method/cumulus/get-or-initialize", request.model_dump(), access_token)
+    assert response2.status_code == status.HTTP_200_OK
+    result2 = CumulusInitializationResponse.model_validate(json.loads(response2.content))
+    assert result2.state_id == result1.state_id
+
+
+def test_cumulus_get_or_initialize_after_finalize(client: TestClient):
+    """get-or-initialize should return a finalize response when the latest state is a final state."""
+    access_token = login(client)
+
+    # Initialize
+    init_request = CumulusInitializationRequest(problem_id=1)
+    init_response = post_json(client, "/method/cumulus/get-or-initialize", init_request.model_dump(), access_token)
+    assert init_response.status_code == status.HTTP_200_OK
+    init_result = CumulusInitializationResponse.model_validate(json.loads(init_response.content))
+
+    # Solve
+    current_objectives = init_result.current_solutions[0].objective_values
+    aspiration_f1 = max(current_objectives["f_1"] - 0.1, 0.01)
+    solve_request = CumulusClassificationRequest(
+        problem_id=1,
+        preference=ReferencePoint(aspiration_levels={"f_1": aspiration_f1}),
+        current_objectives=current_objectives,
+        scalarizations=["asf_partial"],
+    )
+    solve_response = post_json(client, "/method/cumulus/solve", solve_request.model_dump(), access_token)
+    solve_result = CumulusClassificationResponse.model_validate(json.loads(solve_response.content))
+
+    # Finalize
+    finalize_request = CumulusFinalizeRequest(
+        problem_id=1,
+        solution_info=SolutionInfo(state_id=solve_result.state_id, solution_index=0),
+    )
+    post_json(client, "/method/cumulus/finalize", finalize_request.model_dump(), access_token)
+
+    # get-or-initialize should now return a finalize response
+    response = post_json(client, "/method/cumulus/get-or-initialize", init_request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    data = json.loads(response.content)
+    assert data.get("response_type") == "cumulus.finalize"
+
+
+def test_cumulus_session_isolation_from_nimbus(client: TestClient):
+    """Cumulus and NIMBUS get-or-initialize should create separate states for the same problem."""
+    access_token = login(client)
+
+    # Initialize NIMBUS
+    nimbus_request = NIMBUSInitializationRequest(problem_id=1)
+    nimbus_response = post_json(client, "/method/nimbus/get-or-initialize", nimbus_request.model_dump(), access_token)
+    assert nimbus_response.status_code == status.HTTP_200_OK
+    nimbus_state_id = json.loads(nimbus_response.content)["state_id"]
+
+    # Initialize Cumulus — should create its own state, not reuse the NIMBUS one
+    cumulus_request = CumulusInitializationRequest(problem_id=1)
+    cumulus_response = post_json(
+        client, "/method/cumulus/get-or-initialize", cumulus_request.model_dump(), access_token
+    )
+    assert cumulus_response.status_code == status.HTTP_200_OK
+    cumulus_state_id = json.loads(cumulus_response.content)["state_id"]
+
+    # Each method got its own state
+    assert nimbus_state_id != cumulus_state_id
+
+    # Cumulus get-or-initialize called again should return the same Cumulus state
+    cumulus_response2 = post_json(
+        client, "/method/cumulus/get-or-initialize", cumulus_request.model_dump(), access_token
+    )
+    assert cumulus_response2.status_code == status.HTTP_200_OK
+    assert json.loads(cumulus_response2.content)["state_id"] == cumulus_state_id
+
+
+def test_cumulus_invalid_scalarization(client: TestClient):
+    """An unrecognized scalarization string should return HTTP 422."""
+    access_token = login(client)
+
+    init_request = CumulusInitializationRequest(problem_id=1)
+    init_response = post_json(client, "/method/cumulus/initialize", init_request.model_dump(), access_token)
+    init_result = CumulusInitializationResponse.model_validate(json.loads(init_response.content))
+    current_objectives = init_result.current_solutions[0].objective_values
+
+    solve_request = CumulusClassificationRequest(
+        problem_id=1,
+        preference=ReferencePoint(aspiration_levels={"f_1": 0.3}),
+        current_objectives=current_objectives,
+        scalarizations=["not_a_real_scalarization"],
+    )
+
+    response = post_json(client, "/method/cumulus/solve", solve_request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_cumulus_intermediate(client: TestClient):
+    """Intermediate solutions between two Cumulus solutions should use rpm_intermediate_solutions."""
+    access_token = login(client)
+
+    # Initialize to get a starting solution
+    init_request = CumulusInitializationRequest(problem_id=1)
+    init_response = post_json(client, "/method/cumulus/initialize", init_request.model_dump(), access_token)
+    init_result = CumulusInitializationResponse.model_validate(json.loads(init_response.content))
+    init_state_id = init_result.state_id
+    current_objectives = init_result.current_solutions[0].objective_values
+
+    # Solve once to get a second solution
+    solve_request = CumulusClassificationRequest(
+        problem_id=1,
+        preference=ReferencePoint(aspiration_levels={"f_1": current_objectives["f_1"] - 0.1}),
+        current_objectives=current_objectives,
+        scalarizations=["cumulonimbus"],
+    )
+    solve_response = post_json(client, "/method/cumulus/solve", solve_request.model_dump(), access_token)
+    solve_result = CumulusClassificationResponse.model_validate(json.loads(solve_response.content))
+    solve_state_id = solve_result.state_id
+
+    # Request intermediate solutions between init solution and solve solution
+    intermediate_request = IntermediateSolutionRequest(
+        problem_id=1,
+        num_desired=2,
+        reference_solution_1={"state_id": init_state_id, "solution_index": 0},
+        reference_solution_2={"state_id": solve_state_id, "solution_index": 0},
+    )
+    response = post_json(client, "/method/cumulus/intermediate", intermediate_request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+
+    result = CumulusIntermediateSolutionResponse.model_validate(json.loads(response.content))
+    assert result.response_type == "cumulus.intermediate"
+    assert result.state_id is not None
+    assert len(result.current_solutions) == 2
+    assert all(s.objective_values for s in result.current_solutions)
+
+
+def test_cumulus_modify_problem_replace_variable(client: TestClient):
+    """Replacing a variable with the same symbol should create a new problem and return is_ready=False."""
+    access_token = login(client)
+
+    # x_1 in dtlz2 has lowerbound=0, upperbound=1; narrow the bounds
+    request = CumulusModificationRequest(
+        problem_id=1,
+        original_problem_id=1,
+        modifications={
+            "variables": [
+                {
+                    "name": "x_1",
+                    "symbol": "x_1",
+                    "variable_type": "real",
+                    "lowerbound": 0.1,
+                    "upperbound": 0.9,
+                }
+            ]
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+
+    assert result.response_type == "cumulus.modify"
+    assert result.state_id is not None
+    assert result.problem_id != 1, "A new problem should have been created"
+    assert result.original_problem_id == 1
+    assert result.is_ready is False  # background task hasn't run against the test DB
+
+
+def test_cumulus_modify_problem_add_constraint(client: TestClient):
+    """Adding a new constraint should create a new problem."""
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        original_problem_id=1,
+        modifications={
+            "constraints": [
+                {
+                    "name": "x_1 upper",
+                    "symbol": "g_new",
+                    "func": "x_1 - 0.8",
+                    "cons_type": "<=",
+                }
+            ]
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+    assert result.problem_id != 1
+    assert result.is_ready is False
+
+
+def test_cumulus_modify_problem_cross_type_conflict(client: TestClient):
+    """Using a variable symbol for an objective should return 422."""
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "objectives": [
+                {
+                    "name": "bad objective",
+                    "symbol": "x_1",  # x_1 is a variable, not an objective
+                    "func": "x_1",
+                    "maximize": False,
+                }
+            ]
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert "x_1" in response.json()["detail"]
+
+
+def test_cumulus_modify_problem_invalid_element(client: TestClient):
+    """A malformed element (missing required fields) should return 422."""
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "variables": [{"symbol": "x_1"}]  # missing name and variable_type
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_cumulus_modify_problem_status(client: TestClient):
+    """Status endpoint should return the modification state including is_ready."""
+    access_token = login(client)
+
+    modify_request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "variables": [
+                {
+                    "name": "x_1",
+                    "symbol": "x_1",
+                    "variable_type": "real",
+                    "lowerbound": 0.05,
+                    "upperbound": 0.95,
+                }
+            ]
+        },
+    )
+    modify_response = post_json(client, "/method/cumulus/modify-problem", modify_request.model_dump(), access_token)
+    assert modify_response.status_code == status.HTTP_200_OK
+    state_id = json.loads(modify_response.content)["state_id"]
+
+    status_response = client.get(
+        f"/method/cumulus/modify-problem/status/{state_id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert status_response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(status_response.content))
+    assert result.state_id == state_id
+    assert result.problem_id != 1
+    assert result.original_problem_id == 1
+
+
+def test_cumulus_modify_problem_status_wrong_id(client: TestClient):
+    """Status endpoint with a non-existent state id should return 404."""
+    access_token = login(client)
+    response = client.get(
+        "/method/cumulus/modify-problem/status/99999",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_cumulus_modify_problem_remove_element(client: TestClient):
+    """Removing an existing element by symbol should create a new problem without it."""
+    access_token = login(client)
+
+    # DTLZ2(5, 3) has variables x_1..x_5 and objectives f_1..f_3.
+    # Remove x_5 (a variable that appears in objective expressions but let's just verify the
+    # endpoint accepts it; the payoff table running in the background may fail, which is fine).
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={"remove": ["x_5"]},
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+    assert result.problem_id != 1
+    assert result.is_ready is False
+
+
+def test_cumulus_modify_problem_remove_nonexistent(client: TestClient):
+    """Trying to remove a symbol that doesn't exist should return 422."""
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={"remove": ["does_not_exist"]},
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert "does_not_exist" in response.json()["detail"]
+
+
+def test_cumulus_modify_problem_remove_and_replace(client: TestClient):
+    """Removing one element and replacing another in the same request should both apply."""
+    access_token = login(client)
+
+    # Add a new constraint and simultaneously remove x_5.
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "constraints": [
+                {"name": "x_1 upper", "symbol": "g_new", "func": "x_1 - 0.9", "cons_type": "<="},
+            ],
+            "remove": ["x_5"],
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+    assert result.problem_id != 1
+
+
+def test_cumulus_modify_problem_soft_constraint(client: TestClient):
+    """Adding a new constraint and then softening it should succeed and create a new problem."""
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "constraints": [
+                {"name": "x_1 upper", "symbol": "g_soft", "func": "x_1 - 0.8", "cons_type": "<="},
+            ],
+            "soft_constraints": [
+                {"constraint_symbol": "g_soft"},
+            ],
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+    assert result.problem_id != 1, "A new problem should have been created"
+    assert result.is_ready is False
+
+
+def test_cumulus_modify_problem_soft_constraint_missing(client: TestClient):
+    """Softening a constraint that doesn't exist in the problem should return 422."""
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "soft_constraints": [
+                {"constraint_symbol": "nonexistent_g"},
+            ],
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert "nonexistent_g" in response.json()["detail"]
+
+
+def _setup_simple_scenario(session_and_user: dict) -> tuple:
+    """Store simple_scenario_model's base problem and ScenarioModelDB; return (problem_db_id, sm_db_id)."""
+    session = session_and_user["session"]
+    user = session_and_user["user"]
+
+    sm = simple_scenario_model()
+    base_problem_db = ProblemDB.from_problem(sm.base_problem, user=user)
+    session.add(base_problem_db)
+    session.commit()
+    session.refresh(base_problem_db)
+
+    scenario_model_db = ScenarioModelDB.from_scenario_model(sm, user=user, base_problem_id=base_problem_db.id)
+    session.add(scenario_model_db)
+    session.commit()
+    session.refresh(scenario_model_db)
+
+    return base_problem_db.id, scenario_model_db.id
+
+
+def test_cumulus_modify_problem_uncertainty_expected_value(client: TestClient, session_and_user: dict):
+    """Adding an expected-value aggregate via a ScenarioModelDB should populate ideal/nadir and succeed."""
+    access_token = login(client)
+    problem_id, sm_id = _setup_simple_scenario(session_and_user)
+
+    request = CumulusModificationRequest(
+        problem_id=problem_id,
+        modifications={
+            "uncertainty_measures": [
+                {
+                    "measure_type": "expected_value",
+                    "scenario_model_id": sm_id,
+                    "symbols": ["f_3"],
+                }
+            ],
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+    assert result.problem_id != problem_id, "A new combined problem should have been created"
+    assert result.is_ready is False
+
+
+def test_cumulus_modify_problem_uncertainty_missing_scenario_model(client: TestClient):
+    """Referencing a nonexistent ScenarioModelDB should return 404."""
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "uncertainty_measures": [
+                {
+                    "measure_type": "expected_value",
+                    "scenario_model_id": 99999,
+                    "symbols": ["f_1"],
+                }
+            ],
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_cumulus_modify_problem_uncertainty_cvar_missing_alpha(client: TestClient, session_and_user: dict):
+    """Requesting CVaR without specifying alpha should return 422."""
+    access_token = login(client)
+    problem_id, sm_id = _setup_simple_scenario(session_and_user)
+
+    request = CumulusModificationRequest(
+        problem_id=problem_id,
+        modifications={
+            "uncertainty_measures": [
+                {
+                    "measure_type": "conditional_value_at_risk",
+                    "scenario_model_id": sm_id,
+                    "symbols": ["f_3"],
+                    # alpha intentionally omitted
+                }
+            ],
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert "alpha" in response.json()["detail"]
+
+
+def test_cumulus_modify_problem_inherits_metadata(client: TestClient, session_and_user: dict):
+    """Modified problem should inherit all metadata (e.g. solver selection, solution description) from the original."""
+    access_token = login(client)
+    session = session_and_user["session"]
+    user = session_and_user["user"]  # noqa: F841
+
+    # Attach metadata to the default DTLZ2 problem (problem_id=1).
+    meta = ProblemMetaDataDB(problem_id=1)
+    session.add(meta)
+    session.commit()
+    session.refresh(meta)
+
+    session.add(
+        SolverSelectionMetadata(
+            metadata_id=meta.id,
+            solver_string_representation="scipy_minimize",
+        )
+    )
+    session.add(
+        SolutionDescriptionMetaData(
+            metadata_id=meta.id,
+            parts=[{"text": "test description"}],
+            separator="\n",
+        )
+    )
+    session.commit()
+
+    # Apply a trivial modification so a new problem is created.
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={"constants": [{"name": "dummy", "symbol": "dummy_c", "value": 42.0}]},
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    new_problem_id = CumulusModificationResponse.model_validate(json.loads(response.content)).problem_id
+
+    # Fetch the new problem's metadata directly from the DB.
+    new_problem_db = session.get(ProblemDB, new_problem_id)
+    session.refresh(new_problem_db)
+    new_meta = new_problem_db.problem_metadata
+    assert new_meta is not None, "Modified problem has no ProblemMetaDataDB row"
+
+    solver_meta = new_meta.solver_selection_metadata
+    assert len(solver_meta) == 1
+    assert solver_meta[0].solver_string_representation == "scipy_minimize"
+
+    desc_meta = new_meta.solution_description_metadata
+    assert len(desc_meta) == 1
+    assert desc_meta[0].separator == "\n"
+
+
+# ---------------------------------------------------------------------------
+# Cumulus objective-constraint tests
+# All tests use problem 1 (dtlz2, minimised objectives f_1/f_2/f_3).
+# Constraint dicts use ConstraintDB-compatible format: name, symbol, cons_type, func.
+# func is MathJSON; cons_type "<=" means func(x) <= 0.
+# ---------------------------------------------------------------------------
+
+_HARD_CONSTRAINT = {
+    "name": "f1 upper bound",
+    "symbol": "oc_hard_1",
+    "cons_type": "<=",
+    "func": ["Subtract", "f_1", 0.5],
+}
+_SOFT_CONSTRAINT = {
+    "name": "f2 upper bound",
+    "symbol": "oc_soft_1",
+    "cons_type": "<=",
+    "func": ["Subtract", "f_2", 0.6],
+}
+
+
+def test_cumulus_objective_constraint_hard_only(client: TestClient):
+    """Setting only hard constraints should persist them and return their DB ids."""
+    access_token = login(client)
+
+    request = CumulusObjectiveConstraintRequest(
+        problem_id=1,
+        hard_constraints=[_HARD_CONSTRAINT],
+    )
+    response = post_json(client, "/method/cumulus/objective-constraint", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusObjectiveConstraintResponse.model_validate(json.loads(response.content))
+
+    assert result.response_type == "cumulus.objective_constraint"
+    assert result.state_id is not None
+    assert len(result.hard_constraint_ids) == 1
+    assert len(result.soft_constraint_ids) == 0
+
+
+def test_cumulus_objective_constraint_soft_only(client: TestClient):
+    """Setting only soft constraints should persist them and return their DB ids."""
+    access_token = login(client)
+
+    request = CumulusObjectiveConstraintRequest(
+        problem_id=1,
+        soft_constraints=[_SOFT_CONSTRAINT],
+    )
+    response = post_json(client, "/method/cumulus/objective-constraint", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusObjectiveConstraintResponse.model_validate(json.loads(response.content))
+
+    assert len(result.hard_constraint_ids) == 0
+    assert len(result.soft_constraint_ids) == 1
+
+
+def test_cumulus_objective_constraint_hard_and_soft(client: TestClient):
+    """Setting both hard and soft constraints in one call should persist both lists."""
+    access_token = login(client)
+
+    request = CumulusObjectiveConstraintRequest(
+        problem_id=1,
+        hard_constraints=[_HARD_CONSTRAINT],
+        soft_constraints=[_SOFT_CONSTRAINT],
+    )
+    response = post_json(client, "/method/cumulus/objective-constraint", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusObjectiveConstraintResponse.model_validate(json.loads(response.content))
+
+    assert len(result.hard_constraint_ids) == 1
+    assert len(result.soft_constraint_ids) == 1
+    # The two IDs must be distinct DB rows
+    assert result.hard_constraint_ids[0] != result.soft_constraint_ids[0]
+
+
+def test_cumulus_objective_constraint_empty_lists(client: TestClient):
+    """Sending empty lists should succeed and return an empty-id state."""
+    access_token = login(client)
+
+    request = CumulusObjectiveConstraintRequest(problem_id=1)
+    response = post_json(client, "/method/cumulus/objective-constraint", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusObjectiveConstraintResponse.model_validate(json.loads(response.content))
+
+    assert result.state_id is not None
+    assert result.hard_constraint_ids == []
+    assert result.soft_constraint_ids == []
+
+
+def test_cumulus_objective_constraint_replace_semantics(client: TestClient):
+    """A second call should create a new state with the new constraint list."""
+    access_token = login(client)
+
+    first = CumulusObjectiveConstraintRequest(
+        problem_id=1,
+        hard_constraints=[_HARD_CONSTRAINT],
+    )
+    r1 = post_json(client, "/method/cumulus/objective-constraint", first.model_dump(), access_token)
+    assert r1.status_code == status.HTTP_200_OK
+    result1 = CumulusObjectiveConstraintResponse.model_validate(json.loads(r1.content))
+
+    second = CumulusObjectiveConstraintRequest(
+        problem_id=1,
+        hard_constraints=[],
+        soft_constraints=[_SOFT_CONSTRAINT],
+    )
+    r2 = post_json(client, "/method/cumulus/objective-constraint", second.model_dump(), access_token)
+    assert r2.status_code == status.HTTP_200_OK
+    result2 = CumulusObjectiveConstraintResponse.model_validate(json.loads(r2.content))
+
+    # A new state is created for each call
+    assert result2.state_id != result1.state_id
+    # Second call has no hard and one soft
+    assert result2.hard_constraint_ids == []
+    assert len(result2.soft_constraint_ids) == 1
+
+
+def test_cumulus_initialize_includes_constraint_ids_after_set(client: TestClient):
+    """After setting constraints, initialize should reflect the current constraint IDs."""
+    access_token = login(client)
+
+    # Set constraints before initialization
+    constraint_request = CumulusObjectiveConstraintRequest(
+        problem_id=1,
+        hard_constraints=[_HARD_CONSTRAINT],
+        soft_constraints=[_SOFT_CONSTRAINT],
+    )
+    post_json(client, "/method/cumulus/objective-constraint", constraint_request.model_dump(), access_token)
+
+    # Initialize — response should carry the active constraint IDs
+    init_request = CumulusInitializationRequest(problem_id=1)
+    init_response = post_json(client, "/method/cumulus/initialize", init_request.model_dump(), access_token)
+    assert init_response.status_code == status.HTTP_200_OK
+    init_result = CumulusInitializationResponse.model_validate(json.loads(init_response.content))
+
+    assert len(init_result.hard_constraint_ids) == 1
+    assert len(init_result.soft_constraint_ids) == 1
+
+
+def test_cumulus_get_or_initialize_includes_constraint_ids(client: TestClient):
+    """get-or-initialize should include constraint IDs from the latest constraint state."""
+    access_token = login(client)
+
+    # Set constraints
+    constraint_request = CumulusObjectiveConstraintRequest(
+        problem_id=1,
+        hard_constraints=[_HARD_CONSTRAINT],
+    )
+    post_json(client, "/method/cumulus/objective-constraint", constraint_request.model_dump(), access_token)
+
+    # get-or-initialize (first call — creates a new init state)
+    init_request = CumulusInitializationRequest(problem_id=1)
+    response = post_json(client, "/method/cumulus/get-or-initialize", init_request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusInitializationResponse.model_validate(json.loads(response.content))
+
+    assert len(result.hard_constraint_ids) == 1
+    assert len(result.soft_constraint_ids) == 0
+
+    # get-or-initialize (second call — returns existing init state) should also carry the IDs
+    response2 = post_json(client, "/method/cumulus/get-or-initialize", init_request.model_dump(), access_token)
+    assert response2.status_code == status.HTTP_200_OK
+    result2 = CumulusInitializationResponse.model_validate(json.loads(response2.content))
+
+    assert len(result2.hard_constraint_ids) == 1
+    assert len(result2.soft_constraint_ids) == 0
+
+
+def test_cumulus_initialize_no_constraints_returns_empty_ids(client: TestClient):
+    """When no constraints have been set, initialize should return empty constraint ID lists."""
+    access_token = login(client)
+
+    init_request = CumulusInitializationRequest(problem_id=1)
+    response = post_json(client, "/method/cumulus/initialize", init_request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusInitializationResponse.model_validate(json.loads(response.content))
+
+    assert result.hard_constraint_ids == []
+    assert result.soft_constraint_ids == []

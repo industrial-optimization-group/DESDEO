@@ -346,8 +346,8 @@ def add_group_asf_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
 
@@ -496,8 +496,8 @@ def add_group_asf_agg_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
     # Correct the aspirations and hard_constraints
@@ -1221,8 +1221,8 @@ def add_group_nimbus_compromise_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
 
@@ -1694,8 +1694,8 @@ def add_group_nimbus_diff(  # noqa: C901
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
 
@@ -2126,8 +2126,8 @@ def add_group_stom_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
 
@@ -2277,8 +2277,8 @@ def add_group_stom_agg_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
     # Correct the aspirations and hard_constraints
@@ -2677,8 +2677,8 @@ def add_group_guess_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
 
@@ -2829,8 +2829,8 @@ def add_group_guess_agg_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=1.0,
     )
 
@@ -3026,8 +3026,8 @@ def add_group_scenario_sf_diff(
         name="alpha",
         symbol="_alpha",
         variable_type=VariableTypeEnum.real,
-        lowerbound=-float("Inf"),
-        upperbound=float("Inf"),
+        lowerbound=None,
+        upperbound=None,
         initial_value=0.0,
     )
 

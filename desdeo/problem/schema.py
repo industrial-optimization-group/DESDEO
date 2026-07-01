@@ -1078,6 +1078,30 @@ class Problem(BaseModel):
 
         return symbols
 
+    def get_symbol_type_map(self) -> dict[str, str]:
+        """Return a mapping of every named symbol to its element type.
+
+        The type strings match the field names used in `Problem`:
+        ``"variables"``, ``"constants"``, ``"objectives"``, ``"constraints"``,
+        ``"extra_funcs"``, ``"scalarization_funcs"``.
+        Scalarization functions with ``symbol=None`` are omitted.
+        """
+        mapping: dict[str, str] = {}
+        for v in self.variables:
+            mapping[v.symbol] = "variables"
+        for c in self.constants or []:
+            mapping[c.symbol] = "constants"
+        for o in self.objectives:
+            mapping[o.symbol] = "objectives"
+        for c in self.constraints or []:
+            mapping[c.symbol] = "constraints"
+        for f in self.extra_funcs or []:
+            mapping[f.symbol] = "extra_funcs"
+        for s in self.scalarization_funcs or []:
+            if s.symbol is not None:
+                mapping[s.symbol] = "scalarization_funcs"
+        return mapping
+
     def add_scalarization(self, new_scal: ScalarizationFunction) -> "Problem":
         """Adds a new scalarization function to the model.
 
@@ -1336,8 +1360,8 @@ class Problem(BaseModel):
         the problem for each objective function. These values may be `None`.
 
         Returns:
-            dict[str, float | None] | None: an objective dict with the ideal
-                point values (which may be `None`), or `None`.
+            dict[str, float | None]: an objective dict with the ideal
+                point values (which may be `None`).
         """
         return {f"{obj.symbol}": obj.ideal for obj in self.objectives}
 
@@ -1348,8 +1372,8 @@ class Problem(BaseModel):
         the problem for each objective function. These values may be `None`.
 
         Returns:
-            dict[str, float | None] | None: an objective dict with the nadir
-                point values (which may be `None`), or `None`.
+            dict[str, float | None]: an objective dict with the nadir
+                point values (which may be `None`).
         """
         return {f"{obj.symbol}": obj.nadir for obj in self.objectives}
 

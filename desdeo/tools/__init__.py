@@ -25,7 +25,9 @@ __all__ = [
     "add_asf_generic_nondiff",
     "add_asf_nondiff",
     "add_asf_partial_diff",
+    "add_asf_partial_nondiff",
     "add_conditional_value_at_risk",
+    "add_cumulonimbus_diff",
     "add_epsilon_constraints",
     "add_expected_asf",
     "add_expected_value",
@@ -50,6 +52,7 @@ __all__ = [
     "add_nimbus_sf_diff",
     "add_nimbus_sf_nondiff",
     "add_objective_as_scalarization",
+    "add_single_objective_worst_case_regret",
     "add_stom_sf_diff",
     "add_stom_sf_nondiff",
     "add_weighted_scenarios",
@@ -59,6 +62,7 @@ __all__ = [
     "available_solvers",
     "build_combined_scenario_problem",
     "build_scenario_problem",
+    "build_scenario_symbol_maps",
     "find_compatible_solvers",
     "flip_maximized_objective_values",
     "get_corrected_ideal_and_nadir",
@@ -100,7 +104,7 @@ from desdeo.tools.ng_solver_interfaces import (
     NevergradGenericSolver,
     available_nevergrad_optimizers,
 )
-from desdeo.tools.partial_scalarization import add_asf_partial_diff
+from desdeo.tools.partial_scalarization import add_asf_partial_diff, add_asf_partial_nondiff, add_cumulonimbus_diff
 from desdeo.tools.proximal_solver import ProximalSolver
 from desdeo.tools.pyomo_solver_interfaces import (
     BonminOptions,
@@ -110,7 +114,7 @@ from desdeo.tools.pyomo_solver_interfaces import (
     PyomoGurobiSolver,
     PyomoIpoptSolver,
 )
-from desdeo.tools.robust import add_weighted_scenarios, add_worst_case_robust
+from desdeo.tools.robust import add_single_objective_worst_case_regret, add_weighted_scenarios, add_worst_case_robust
 from desdeo.tools.scalarization import (
     ScalarizationError,
     add_asf_diff,
@@ -130,6 +134,7 @@ from desdeo.tools.scalarization import (
 from desdeo.tools.scenarios import (
     build_combined_scenario_problem,
     build_scenario_problem,
+    build_scenario_symbol_maps,
     solve_all_scenarios,
     solve_scenario,
 )

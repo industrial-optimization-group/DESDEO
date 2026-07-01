@@ -3,15 +3,28 @@
 # ruff: noqa: N806
 import pytest
 
+from desdeo.mcdm.cumulus import (
+    CumulusScalarization,
+    _scenario_aug_weights,
+    infer_classifications,
+    solve_sub_problems,
+)
 from desdeo.problem.schema import ConstraintTypeEnum, TensorVariable
 from desdeo.problem.testproblems import (
     summer_cabin_battery_problem,
     summer_cabin_battery_problem_split,
     summer_cabin_battery_problem_split_scenario,
+    summer_cabin_battery_robust_ev_problem,
 )
 from desdeo.tools import CVXPYSolver, GurobipySolver, PyomoBonminSolver, PyomoGurobiSolver, PyomoIpoptSolver
+from desdeo.tools.partial_scalarization import add_cumulonimbus_diff
 from desdeo.tools.robust import add_worst_case_robust
-from desdeo.tools.scenarios import build_scenario_problem
+from desdeo.tools.scenarios import (
+    build_combined_scenario_problem,
+    build_scenario_problem,
+    build_scenario_symbol_maps,
+    resolve_elem,
+)
 from desdeo.tools.stochastic import add_expected_value
 from desdeo.tools.utils import payoff_table_method
 
@@ -317,6 +330,15 @@ def test_anticipation_stop_symbols_in_pool(scenario_model):
 
 
 @pytest.mark.scenario
+def test_f3_elem_name_derived_from_scenario_names(scenario_model):
+    """resolve_elem for f_3 (scenario-only) should use the common scenario name, not the symbol."""
+    combined, symbol_maps = build_combined_scenario_problem(scenario_model)
+    info = resolve_elem("f_3", symbol_maps, combined, scenario_model)
+    assert info.elem_name == "Power outage"
+    assert info.elem_name != "f_3"
+
+
+@pytest.mark.scenario
 def test_build_scenario_problem_works_for_all_leaves(scenario_model):
     """build_scenario_problem succeeds for each leaf and has 3 objectives."""
     for name in ("S1a", "S1b", "S2a", "S2b"):
@@ -324,6 +346,55 @@ def test_build_scenario_problem_works_for_all_leaves(scenario_model):
         assert prob is not None
         obj_syms = [o.symbol for o in prob.objectives]
         assert "f_3" in obj_syms, f"Scenario {name} problem missing f_3"
+
+
+# ---------------------------------------------------------------------------
+# CUMULUS augmentation weights for scenario problems
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(name="robust_ev_problem")
+def robust_ev_problem_fixture():
+    """Return summer_cabin_battery_robust_ev_problem with real ideal/nadir from the payoff table."""
+    return summer_cabin_battery_robust_ev_problem()
+
+
+@pytest.mark.cvxpy
+@pytest.mark.scenario
+@pytest.mark.slow
+@pytest.mark.githubskip(reason="Gurobi license issues")
+def test_cumulus_scenario_aug_weights_structure(robust_ev_problem, scenario_model):
+    """_scenario_aug_weights zeros aggregation objectives and assigns |nadir-ideal| to per-scenario ones."""
+    _, symbol_maps = build_combined_scenario_problem(scenario_model)
+
+    # Reference point over the EV (aggregation) objectives as a DM would use.
+    reference_point = {"E_f_1": 5.0, "E_f_2": 5.0, "E_f_3": 0.5}
+
+    weights_aug = _scenario_aug_weights(robust_ev_problem, reference_point, symbol_maps)
+
+    # Aggregation objectives in reference_point must have weight 0.
+    for sym in reference_point:
+        assert weights_aug[sym] == pytest.approx(0.0), f"{sym} (aggregation) should have weight 0"
+
+    # Every per-scenario / shared objective must appear with its real |nadir - ideal|.
+    per_scenario_syms = {
+        combined_sym for leaf_map in symbol_maps.get("objectives", {}).values() for combined_sym in leaf_map.values()
+    }
+    obj_by_sym = {obj.symbol: obj for obj in robust_ev_problem.objectives}
+    for sym in per_scenario_syms:
+        obj = obj_by_sym.get(sym)
+        assert obj is not None and obj.ideal is not None and obj.nadir is not None, (
+            f"{sym} is missing ideal/nadir on the robust_ev_problem"
+        )
+        assert sym in weights_aug, f"{sym} missing from weights_aug"
+        assert weights_aug[sym] == pytest.approx(obj.nadir - obj.ideal), (
+            f"{sym}: expected {obj.nadir - obj.ideal}, got {weights_aug[sym]}"
+        )
+
+    # Objectives outside both groups must be absent.
+    all_obj_syms = {obj.symbol for obj in robust_ev_problem.objectives}
+    for sym in all_obj_syms - per_scenario_syms - set(reference_point):
+        assert sym not in weights_aug, f"Unexpected objective {sym} in weights_aug"
 
 
 # ---------------------------------------------------------------------------
@@ -476,3 +547,198 @@ def test_payoff_table_cvxpy_wc(combined_wc_problem):
     """Payoff table method runs to completion with CVXPYSolver on the worst-case robust problem."""
     ideal, nadir = payoff_table_method(combined_wc_problem, CVXPYSolver)
     _check_wc_payoff_table(ideal, nadir)
+
+
+# ---------------------------------------------------------------------------
+# CUMULUS / CUMULONIMBUS scalarization on the robust EV problem
+# ---------------------------------------------------------------------------
+
+_ASPIRATION_CALL = {
+    "current_objectives": {"f_2": 6340, "E_f_1": 400, "robust_f_3": 0},
+    "reference_point": {"f_2": 0, "E_f_1": 0, "robust_f_3": 0},
+}
+_RESERVATION_CALL = {
+    "current_objectives": {"f_2": 6340, "E_f_1": 197.33, "robust_f_3": 0},
+    "reference_point": {"f_2": 0, "E_f_1": 400.57, "robust_f_3": 0},
+}
+
+
+@pytest.mark.cvxpy
+@pytest.mark.scenario
+@pytest.mark.slow
+@pytest.mark.githubskip(reason="Gurobi license issues")
+def test_cumulonimbus_aspiration_call_classifications(robust_ev_problem):
+    """When rp < current for a minimized objective, classification is '<' or '<='."""
+    classifications = infer_classifications(
+        robust_ev_problem,
+        _ASPIRATION_CALL["current_objectives"],
+        _ASPIRATION_CALL["reference_point"],
+    )
+
+    # robust_f_3: rp=0 == ideal=0 → "improve" ("<"), which with the stay-equal
+    # constraint reduces to robust_f_3 ≤ 0 (same effective behaviour as "=").
+    assert classifications["robust_f_3"][0] == "<"
+
+    # f_2 and E_f_1: rp=0 < current → aspiration or full-improve
+    assert classifications["f_2"][0] in ("<", "<="), f"f_2 got unexpected class {classifications['f_2']}"
+    assert classifications["E_f_1"][0] in ("<", "<="), f"E_f_1 got unexpected class {classifications['E_f_1']}"
+
+
+@pytest.mark.cvxpy
+@pytest.mark.scenario
+@pytest.mark.slow
+@pytest.mark.githubskip(reason="Gurobi license issues")
+def test_cumulonimbus_reservation_call_classifications(robust_ev_problem):
+    """When rp > current for a minimized objective, classification is '>=' with that level."""
+    classifications = infer_classifications(
+        robust_ev_problem,
+        _RESERVATION_CALL["current_objectives"],
+        _RESERVATION_CALL["reference_point"],
+    )
+
+    # robust_f_3: rp=0 == ideal=0 → "<" (improve toward ideal, same effective behaviour as "=")
+    assert classifications["robust_f_3"][0] == "<"
+
+    # f_2: rp=0 < current=6340 → aspiration or full-improve
+    assert classifications["f_2"][0] in ("<", "<="), f"f_2 got unexpected class {classifications['f_2']}"
+
+    # E_f_1: rp=400.57 > current=197.33 → reservation
+    cls, level = classifications["E_f_1"]
+    assert cls == ">=", f"E_f_1 should be reservation (>=), got {cls}"
+    assert level == pytest.approx(400.57)
+
+
+@pytest.mark.cvxpy
+@pytest.mark.scenario
+@pytest.mark.slow
+@pytest.mark.githubskip(reason="Gurobi license issues")
+def test_cumulonimbus_aspiration_adds_two_constraints_per_aspiration_obj(robust_ev_problem, scenario_model):
+    """Aspiration classification ('<' or '<=') adds both a cap constraint and a stay-equal constraint."""
+    classifications = infer_classifications(
+        robust_ev_problem,
+        _ASPIRATION_CALL["current_objectives"],
+        _ASPIRATION_CALL["reference_point"],
+    )
+    weights_aug = _scenario_aug_weights(
+        robust_ev_problem,
+        _ASPIRATION_CALL["reference_point"],
+        build_scenario_symbol_maps(robust_ev_problem, scenario_model),
+    )
+
+    p_scal, _ = add_cumulonimbus_diff(
+        robust_ev_problem,
+        "cn_sf",
+        classifications,
+        _ASPIRATION_CALL["current_objectives"],
+        weights_aug=weights_aug,
+    )
+
+    new_con_syms = {c.symbol for c in p_scal.constraints} - {c.symbol for c in robust_ev_problem.constraints}
+
+    # Every "<" or "<=" objective adds a cap constraint and a stay-equal constraint.
+    # robust_f_3 is classified "<" (rp=0 == ideal=0), so it also contributes two constraints.
+    aspiration_objs = [sym for sym, (cls, _) in classifications.items() if cls in ("<", "<=")]
+    for sym in aspiration_objs:
+        cap_sym = f"{sym}_lt" if classifications[sym][0] == "<" else f"{sym}_lte"
+        eq_sym = f"{sym}_eq"
+        assert cap_sym in new_con_syms, f"Missing cap constraint {cap_sym}"
+        assert eq_sym in new_con_syms, f"Missing stay-equal constraint {eq_sym}"
+
+
+@pytest.mark.cvxpy
+@pytest.mark.scenario
+@pytest.mark.slow
+@pytest.mark.githubskip(reason="Gurobi license issues")
+def test_cumulonimbus_reservation_adds_only_one_constraint_per_reservation_obj(robust_ev_problem, scenario_model):
+    """Reservation classification ('>=') adds only the upper-bound constraint, no stay-equal."""
+    classifications = infer_classifications(
+        robust_ev_problem,
+        _RESERVATION_CALL["current_objectives"],
+        _RESERVATION_CALL["reference_point"],
+    )
+    weights_aug = _scenario_aug_weights(
+        robust_ev_problem,
+        _RESERVATION_CALL["reference_point"],
+        build_scenario_symbol_maps(robust_ev_problem, scenario_model),
+    )
+
+    p_scal, _ = add_cumulonimbus_diff(
+        robust_ev_problem,
+        "cn_sf",
+        classifications,
+        _RESERVATION_CALL["current_objectives"],
+        weights_aug=weights_aug,
+    )
+
+    new_con_syms = {c.symbol for c in p_scal.constraints} - {c.symbol for c in robust_ev_problem.constraints}
+
+    # E_f_1 is reservation: only the gte constraint, no eq constraint
+    assert "E_f_1_gte" in new_con_syms, "Missing reservation constraint E_f_1_gte"
+    assert "E_f_1_eq" not in new_con_syms, (
+        "Reservation class must NOT add a stay-equal constraint, but E_f_1_eq is present"
+    )
+    assert "E_f_1_lt" not in new_con_syms
+    assert "E_f_1_lte" not in new_con_syms
+
+
+@pytest.mark.gurobipy
+@pytest.mark.scenario
+@pytest.mark.slow
+@pytest.mark.githubskip(reason="Gurobi license issues")
+def test_cumulonimbus_different_rp_solutions_not_dominated(robust_ev_problem, scenario_model):
+    """Two CUMULONIMBUS solves with different reference points must not dominate each other."""
+    scals = [CumulusScalarization.CUMULONIMBUS]
+
+    # Tighter MIPGap so Gurobi fully optimises the battery scheduling in both calls.
+    gurobi_opts = {"OutputFlag": 0, "LogToConsole": 0, "MIPGap": 1e-8}
+
+    r1 = solve_sub_problems(
+        problem=robust_ev_problem,
+        scenario_model=scenario_model,
+        scalarizations=scals,
+        solver=GurobipySolver,
+        solver_options=gurobi_opts,
+        **_ASPIRATION_CALL,
+    )[CumulusScalarization.CUMULONIMBUS]
+
+    r2 = solve_sub_problems(
+        problem=robust_ev_problem,
+        scenario_model=scenario_model,
+        scalarizations=scals,
+        solver=GurobipySolver,
+        solver_options=gurobi_opts,
+        **_RESERVATION_CALL,
+    )[CumulusScalarization.CUMULONIMBUS]
+
+    assert r1 is not None and r1.success, "Aspiration call did not find a feasible solution"
+    assert r2 is not None and r2.success, "Reservation call did not find a feasible solution"
+
+    obj_syms = list(_ASPIRATION_CALL["reference_point"])
+    maximize_flags = {obj.symbol: obj.maximize for obj in robust_ev_problem.objectives}
+
+    o1 = r1.optimal_objectives
+    o2 = r2.optimal_objectives
+
+    # After the rho and weights_aug fixes both calls find the same optimal scheduling
+    # (E_f_1 ≈ 197 EUR with y=1, E=14 kWh, n=0).  The two feasible sets differ only
+    # by the E_f_1 aspiration/reservation constraints, which are non-binding at the
+    # optimum.  Use atol=1.0 EUR to absorb numerical noise from the MIP solver.
+    def dominates(a: dict, b: dict, atol: float = 1.0) -> bool:
+        """True if a dominates b beyond numerical noise (atol per objective)."""
+
+        def better_or_equal(sym: str, va, vb) -> bool:
+            return va <= vb + atol if not maximize_flags[sym] else va >= vb - atol
+
+        def strictly_better(sym: str, va, vb) -> bool:
+            return va < vb - atol if not maximize_flags[sym] else va > vb + atol
+
+        return all(better_or_equal(s, a[s], b[s]) for s in obj_syms) and any(
+            strictly_better(s, a[s], b[s]) for s in obj_syms
+        )
+
+    assert not dominates(o1, o2), (
+        f"Aspiration solution dominates reservation solution by >1 EUR.\n  sol1={o1}\n  sol2={o2}"
+    )
+    assert not dominates(o2, o1), (
+        f"Reservation solution dominates aspiration solution by >1 EUR.\n  sol1={o1}\n  sol2={o2}"
+    )

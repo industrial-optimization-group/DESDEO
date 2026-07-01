@@ -2,16 +2,8 @@
 
 from typing import TYPE_CHECKING
 
-from desdeo.problem.schema import (
-    Constraint,
-    ConstraintTypeEnum,
-    ExtraFunction,
-    Objective,
-    ScalarizationFunction,
-    Variable,
-    VariableTypeEnum,
-)
-from desdeo.tools.scenarios import build_combined_scenario_problem
+from desdeo.problem.schema import Constraint, ConstraintTypeEnum, Variable, VariableTypeEnum
+from desdeo.tools.scenarios import append_aggregated_elem, build_combined_scenario_problem, resolve_elem
 
 if TYPE_CHECKING:
     from desdeo.problem.scenario import ScenarioModel
@@ -65,7 +57,6 @@ def add_worst_case_robust(
     """
     if combined is None or symbol_maps is None:
         combined, symbol_maps = build_combined_scenario_problem(scenario_model)
-    weights = scenario_model.leaf_scenarios
 
     new_variables = list(combined.variables)
     new_objectives = list(combined.objectives or [])
@@ -75,102 +66,183 @@ def add_worst_case_robust(
     added_symbols: dict[str, str] = {}
 
     for sym in symbols:
-        found_type: str | None = None
-        per_leaf: dict[str, str] | None = None
-        for elem_type, smap in symbol_maps.items():
-            if sym in smap:
-                found_type = elem_type
-                per_leaf = smap[sym]
-                break
-
-        if per_leaf is None:
-            raise ValueError(f"Symbol '{sym}' not found in the combined problem.")
-
-        first_leaf_sym = per_leaf[next(iter(weights))]
-        elem_lists = {
-            "objectives": combined.objectives,
-            "scalarization_funcs": combined.scalarization_funcs,
-            "extra_funcs": combined.extra_funcs,
-            "constraints": combined.constraints,
-        }
-        ref_elem = next(
-            (e for e in (elem_lists.get(found_type) or []) if e.symbol == first_leaf_sym),
-            None,
-        )
-        is_linear = ref_elem.is_linear if ref_elem is not None else False
-        is_convex = ref_elem.is_convex if ref_elem is not None else False
-        is_twice_diff = ref_elem.is_twice_differentiable if ref_elem is not None else False
-
+        info = resolve_elem(sym, symbol_maps, combined, scenario_model)
         robust_sym = f"{prefix}{sym}"
         t_sym = f"_t_{robust_sym}"
         added_symbols[sym] = robust_sym
 
-        is_maximize = found_type == "objectives" and ref_elem is not None and ref_elem.maximize
+        is_maximize = info.found_type == "objectives" and info.maximize
 
         # Epigraph variable t.
-        # Minimise objective: t >= f_s for all s  →  t = max_s f_s  →  minimise t.
-        # Maximise objective: t <= f_s for all s  →  t = min_s f_s  →  maximise t.
+        # Minimise objective: t >= f_s for all s  ->  t = max_s f_s  ->  minimise t.
+        # Maximise objective: t <= f_s for all s  ->  t = min_s f_s  ->  maximise t.
         new_variables.append(
             Variable(
-                name=f"Worst-case robust epigraph variable for {sym}",
+                name=f"Worst-case robust epigraph variable for {info.elem_name}",
                 symbol=t_sym,
                 variable_type=VariableTypeEnum.real,
-                lowerbound=-float("Inf"),
-                upperbound=float("Inf"),
+                lowerbound=None,
+                upperbound=None,
                 initial_value=0.0,
             )
         )
 
-        for leaf, leaf_sym in per_leaf.items():
-            # Maximise: t - f_s <= 0  →  t <= f_s.  Minimise: f_s - t <= 0  →  f_s <= t.
+        for leaf, leaf_sym in info.per_leaf.items():
+            # Maximise: t - f_s <= 0  ->  t <= f_s.  Minimise: f_s - t <= 0  ->  f_s <= t.
             con_func = ["Add", t_sym, ["Negate", leaf_sym]] if is_maximize else ["Add", leaf_sym, ["Negate", t_sym]]
-
             new_constraints.append(
                 Constraint(
-                    name=f"Worst-case robust bound for {sym} in {leaf}",
+                    name=f"Worst-case robust bound for {info.elem_name} in {leaf}",
                     symbol=f"{leaf}_{robust_sym}_con",
                     func=con_func,
                     cons_type=ConstraintTypeEnum.LTE,
-                    is_linear=is_linear,
-                    is_convex=is_convex,
-                    is_twice_differentiable=is_twice_diff,
+                    is_linear=info.is_linear,
+                    is_convex=info.is_convex,
+                    is_twice_differentiable=info.is_twice_diff,
                 )
             )
 
-        if found_type == "objectives":
-            new_objectives.append(
-                Objective(
-                    name=f"Worst-case robust value of {sym}",
-                    symbol=robust_sym,
-                    func=t_sym,
-                    maximize=is_maximize,
-                    is_linear=True,
-                    is_convex=True,
-                    is_twice_differentiable=True,
+        append_aggregated_elem(
+            info.found_type,
+            new_objectives,
+            new_scal_funcs,
+            new_extra_funcs,
+            name=f"Worst-case {info.elem_name}",
+            description=f"Worst-case robust value of {info.elem_desc}"
+            if info.elem_desc
+            else f"Worst-case robust value of {info.elem_name}",
+            symbol=robust_sym,
+            func=t_sym,
+            maximize=is_maximize,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+        )
+
+    return combined.model_copy(
+        update={
+            "variables": new_variables,
+            "objectives": new_objectives or None,
+            "scalarization_funcs": new_scal_funcs or None,
+            "extra_funcs": new_extra_funcs or None,
+            "constraints": new_constraints or None,
+        }
+    ), added_symbols
+
+
+def add_single_objective_worst_case_regret(
+    scenario_model: "ScenarioModel",
+    symbols: list[str],
+    ideals: "dict[str, dict[str, float]]",
+    prefix: str = "regret_wc_",
+    combined: "Problem | None" = None,
+    symbol_maps: "dict[str, dict[str, dict[str, str]]] | None" = None,
+) -> "tuple[Problem, dict[str, str]]":
+    """Add worst-case regret aggregations for selected symbols to the combined scenario problem.
+
+    For each symbol, the per-scenario regret is the difference between the objective
+    value in that scenario and its ideal (best achievable) value in that scenario:
+
+    * **Minimise** objectives: ``regret_s = f_s - ideal_s``  (ideal is the minimum).
+    * **Maximise** objectives: ``regret_s = ideal_s - f_s``  (ideal is the maximum).
+
+    The worst-case regret across all scenarios is then expressed via the standard
+    epigraph reformulation: minimise ``t`` subject to ``regret_s - t <= 0`` for
+    every leaf scenario ``s``.  The resulting element is always a **minimise**
+    objective (or extra function / scalarization function matching the original type)
+    regardless of the original optimisation direction.
+
+    Args:
+        scenario_model: the ScenarioModel to expand.
+        symbols: original symbols whose worst-case regret should be added.
+        ideals: mapping ``{symbol -> {leaf -> ideal_value}}`` giving the ideal
+            (best achievable) value of each symbol in each leaf scenario.  Every
+            leaf returned by ``scenario_model.leaf_scenarios`` must have an entry
+            for each symbol.
+        prefix: prefix prepended to each original symbol to form the new symbol.
+            Defaults to ``'regret_wc_'``.
+        combined: pre-built combined Problem.  If provided together with
+            ``symbol_maps``, ``build_combined_scenario_problem`` is not called.
+            Must match ``scenario_model``.
+        symbol_maps: pre-built symbol maps from ``build_combined_scenario_problem``.
+            Must be provided together with ``combined``; ignored otherwise.
+
+    Returns:
+        A tuple of the combined Problem with worst-case regret elements appended,
+        and a dict mapping each original symbol to its regret symbol.
+
+    Raises:
+        ValueError: if a requested symbol is not found in the combined problem.
+        ValueError: if ``ideals`` is missing a leaf entry for any requested symbol.
+    """
+    if combined is None or symbol_maps is None:
+        combined, symbol_maps = build_combined_scenario_problem(scenario_model)
+
+    new_variables = list(combined.variables)
+    new_objectives = list(combined.objectives or [])
+    new_scal_funcs = list(combined.scalarization_funcs or [])
+    new_extra_funcs = list(combined.extra_funcs or [])
+    new_constraints = list(combined.constraints or [])
+    added_symbols: dict[str, str] = {}
+
+    for sym in symbols:
+        info = resolve_elem(sym, symbol_maps, combined, scenario_model)
+        regret_sym = f"{prefix}{sym}"
+        t_sym = f"_t_{regret_sym}"
+        added_symbols[sym] = regret_sym
+
+        sym_ideals = ideals.get(sym, {})
+        missing_leaves = set(info.per_leaf) - set(sym_ideals)
+        if missing_leaves:
+            raise ValueError(f"ideals is missing entries for symbol '{sym}' in leaves: {missing_leaves}")
+
+        new_variables.append(
+            Variable(
+                name=f"Worst-case regret epigraph variable for {info.elem_name}",
+                symbol=t_sym,
+                variable_type=VariableTypeEnum.real,
+                lowerbound=None,
+                upperbound=None,
+                initial_value=0.0,
+            )
+        )
+
+        for leaf, leaf_sym in info.per_leaf.items():
+            ideal_val = sym_ideals[leaf]
+            # Minimise: regret_s = f_s - ideal_s  ->  f_s - ideal_s - t <= 0
+            # Maximise: regret_s = ideal_s - f_s  ->  ideal_s - f_s - t <= 0
+            if info.maximize:
+                con_func = ["Add", ideal_val, ["Negate", leaf_sym], ["Negate", t_sym]]
+            else:
+                con_func = ["Add", leaf_sym, -ideal_val, ["Negate", t_sym]]
+            new_constraints.append(
+                Constraint(
+                    name=f"Worst-case regret bound for {info.elem_name} in {leaf}",
+                    symbol=f"{leaf}_{regret_sym}_con",
+                    func=con_func,
+                    cons_type=ConstraintTypeEnum.LTE,
+                    is_linear=info.is_linear,
+                    is_convex=info.is_convex,
+                    is_twice_differentiable=info.is_twice_diff,
                 )
             )
-        elif found_type == "scalarization_funcs":
-            new_scal_funcs.append(
-                ScalarizationFunction(
-                    name=f"Min-max robust value of {sym}",
-                    symbol=robust_sym,
-                    func=t_sym,
-                    is_linear=True,
-                    is_convex=True,
-                    is_twice_differentiable=True,
-                )
-            )
-        else:
-            new_extra_funcs.append(
-                ExtraFunction(
-                    name=f"Min-max robust value of {sym}",
-                    symbol=robust_sym,
-                    func=t_sym,
-                    is_linear=True,
-                    is_convex=True,
-                    is_twice_differentiable=True,
-                )
-            )
+
+        append_aggregated_elem(
+            info.found_type,
+            new_objectives,
+            new_scal_funcs,
+            new_extra_funcs,
+            name=f"Worst-case regret {info.elem_name}",
+            description=f"Worst-case regret of {info.elem_desc}"
+            if info.elem_desc
+            else f"Worst-case regret of {info.elem_name}",
+            symbol=regret_sym,
+            func=t_sym,
+            maximize=False,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+        )
 
     return combined.model_copy(
         update={
@@ -236,71 +308,27 @@ def add_weighted_scenarios(
     added_symbols: dict[str, str] = {}
 
     for sym in symbols:
-        found_type: str | None = None
-        per_leaf: dict[str, str] | None = None
-        for elem_type, smap in symbol_maps.items():
-            if sym in smap:
-                found_type = elem_type
-                per_leaf = smap[sym]
-                break
-
-        if per_leaf is None:
-            raise ValueError(f"Symbol '{sym}' not found in the combined problem.")
-
-        terms = [["Multiply", weights[leaf], per_leaf[leaf]] for leaf in leaf_scenarios]
-        weighted_expr = terms[0] if len(terms) == 1 else ["Add", *terms]
+        info = resolve_elem(sym, symbol_maps, combined, scenario_model)
+        terms = [["Multiply", weights[leaf], info.per_leaf[leaf]] for leaf in leaf_scenarios]
         weighted_sym = f"{prefix}{sym}"
         added_symbols[sym] = weighted_sym
 
-        first_leaf_sym = per_leaf[next(iter(leaf_scenarios))]
-        elem_lists = {
-            "objectives": combined.objectives,
-            "scalarization_funcs": combined.scalarization_funcs,
-            "extra_funcs": combined.extra_funcs,
-            "constraints": combined.constraints,
-        }
-        ref_elem = next(
-            (e for e in (elem_lists.get(found_type) or []) if e.symbol == first_leaf_sym),
-            None,
+        append_aggregated_elem(
+            info.found_type,
+            new_objectives,
+            new_scal_funcs,
+            new_extra_funcs,
+            name=f"Weighted {info.elem_name}",
+            description=f"Weighted scenario value of {info.elem_desc}"
+            if info.elem_desc
+            else f"Weighted scenario value of {info.elem_name}",
+            symbol=weighted_sym,
+            func=terms[0] if len(terms) == 1 else ["Add", *terms],
+            maximize=info.maximize,
+            is_linear=info.is_linear,
+            is_convex=info.is_convex,
+            is_twice_differentiable=info.is_twice_diff,
         )
-        is_linear = ref_elem.is_linear if ref_elem is not None else False
-        is_convex = ref_elem.is_convex if ref_elem is not None else False
-        is_twice_diff = ref_elem.is_twice_differentiable if ref_elem is not None else False
-
-        if found_type == "objectives":
-            new_objectives.append(
-                Objective(
-                    name=f"Weighted scenario value of {sym}",
-                    symbol=weighted_sym,
-                    func=weighted_expr,
-                    maximize=ref_elem.maximize if ref_elem is not None else False,
-                    is_linear=is_linear,
-                    is_convex=is_convex,
-                    is_twice_differentiable=is_twice_diff,
-                )
-            )
-        elif found_type == "scalarization_funcs":
-            new_scal_funcs.append(
-                ScalarizationFunction(
-                    name=f"Weighted scenario value of {sym}",
-                    symbol=weighted_sym,
-                    func=weighted_expr,
-                    is_linear=is_linear,
-                    is_convex=is_convex,
-                    is_twice_differentiable=is_twice_diff,
-                )
-            )
-        else:
-            new_extra_funcs.append(
-                ExtraFunction(
-                    name=f"Weighted scenario value of {sym}",
-                    symbol=weighted_sym,
-                    func=weighted_expr,
-                    is_linear=is_linear,
-                    is_convex=is_convex,
-                    is_twice_differentiable=is_twice_diff,
-                )
-            )
 
     return combined.model_copy(
         update={

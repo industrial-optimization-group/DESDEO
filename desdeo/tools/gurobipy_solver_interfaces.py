@@ -33,6 +33,32 @@ def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvalua
     Returns:
         SolverResults: DESDEO solver results.
     """
+    model_status = evaluator.model.status
+    success = model_status == gp.GRB.OPTIMAL
+    if model_status == gp.GRB.OPTIMAL:
+        status = "Optimal solution found."
+    elif model_status == gp.GRB.INFEASIBLE:
+        status = "Model is infeasible."
+    elif model_status == gp.GRB.UNBOUNDED:
+        status = "Model is unbounded."
+    elif model_status == gp.GRB.INF_OR_UNBD:
+        status = "Model is either infeasible or unbounded."
+    else:
+        status = f"Optimization ended with status: {model_status}"
+    msg = f"Gurobipy solver status is: '{status}'"
+
+    if not success:
+        return SolverResults(
+            optimal_variables={var.symbol: float("nan") for var in problem.variables},
+            optimal_objectives={obj.symbol: float("nan") for obj in problem.objectives},
+            constraint_values=None,
+            extra_func_values=None,
+            scalarization_values=None,
+            lagrange_multipliers=None,
+            success=False,
+            message=msg,
+        )
+
     results = evaluator.get_values()
 
     variable_values = {var.symbol: results[var.symbol] for var in problem.variables}
@@ -59,19 +85,6 @@ def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvalua
             if any(obj_sym in con.symbol for obj_sym in objective_symbols)
         }
 
-    success = evaluator.model.status == gp.GRB.OPTIMAL
-    if evaluator.model.status == gp.GRB.OPTIMAL:
-        status = "Optimal solution found."
-    elif evaluator.model.status == gp.GRB.INFEASIBLE:
-        status = "Model is infeasible."
-    elif evaluator.model.status == gp.GRB.UNBOUNDED:
-        status = "Model is unbounded."
-    elif evaluator.model.status == gp.GRB.INF_OR_UNBD:
-        status = "Model is either infeasible or unbounded."
-    else:
-        status = f"Optimization ended with status: {evaluator.model.status}"
-    msg = f"Gurobipy solver status is: '{status}'"
-
     return SolverResults(
         optimal_variables=variable_values,
         optimal_objectives=objective_values,
@@ -79,7 +92,7 @@ def parse_gurobipy_optimizer_results(problem: Problem, evaluator: GurobipyEvalua
         extra_func_values=extra_func_values,
         scalarization_values=scalarization_values,
         lagrange_multipliers=lagrange_multipliers,
-        success=success,
+        success=True,
         message=msg,
     )
 
