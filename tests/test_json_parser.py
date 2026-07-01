@@ -1,3 +1,4 @@
+# ruff: noqa: T201, FURB163, N806, E501
 """Tests for the MathJSON parser."""
 
 import copy
