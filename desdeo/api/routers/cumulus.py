@@ -645,7 +645,7 @@ def solve_intermediate(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"The index {solution_info.solution_index} is out of bounds "
-                "for results with len={len(_obj_values)}",
+                f"for results with len={len(_obj_values)}",
             ) from exc
 
         var_and_obj_values_of_references.append((var_values, obj_values))
