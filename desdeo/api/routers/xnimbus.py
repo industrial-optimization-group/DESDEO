@@ -38,10 +38,6 @@ from desdeo.api.models.nimbus import NIMBUSMultiplierRequest, NIMBUSMultiplierRe
 from desdeo.api.models.state import IntermediateSolutionState
 from desdeo.api.routers.generic import solve_intermediate
 from desdeo.api.routers.nimbus import (
-    collect_all_solutions,
-    collect_saved_solutions,
-)
-from desdeo.api.routers.nimbus import (
     get_multipliers_info as nimbus_get_multipliers_info,
 )
 from desdeo.api.routers.problem import check_solver
@@ -49,7 +45,7 @@ from desdeo.mcdm.nimbus import generate_starting_point, solve_sub_problems
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
 
-from .utils import ContextField, SessionContext, SessionContextGuard
+from .utils import ContextField, SessionContext, SessionContextGuard, collect_all_solutions, collect_saved_solutions
 
 router = APIRouter(prefix="/method/xnimbus")
 

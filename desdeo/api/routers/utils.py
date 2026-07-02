@@ -9,6 +9,7 @@ from enum import StrEnum
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
+from numpy import allclose
 from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
@@ -20,12 +21,405 @@ from desdeo.api.models import (
     NautilusNavigatorNavigateRequest,
     ProblemDB,
     RPMSolveRequest,
+    SavedSolutionReference,
+    ScenarioModelDB,
+    SolutionReference,
     StateDB,
     User,
     UserRole,
+    UserSavedSolutionDB,
+)
+from desdeo.api.models.cumulus import ProblemModification
+from desdeo.api.models.generic_states import StateKind
+from desdeo.api.models.problem import (
+    ForestProblemMetaData,
+    ProblemMetaDataDB,
+    RepresentativeNonDominatedSolutions,
+    SiteSelectionMetaData,
+    SolutionDescriptionMetaData,
+    SolverSelectionMetadata,
 )
 from desdeo.api.models.session import CreateSessionRequest
 from desdeo.api.routers.user_authentication import get_current_user
+from desdeo.problem import Problem
+from desdeo.problem.schema import (
+    Constant,
+    Constraint,
+    ExtraFunction,
+    Objective,
+    ScalarizationFunction,
+    TensorConstant,
+    TensorVariable,
+    Variable,
+)
+from desdeo.problem.utils import ProblemUtilsError, add_soft_constraint
+from desdeo.tools import SolverResults, guess_best_solver
+from desdeo.tools.robust import add_weighted_scenarios, add_worst_case_robust
+from desdeo.tools.scenarios import build_combined_scenario_problem
+from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_value
+from desdeo.tools.utils import payoff_table_method
+
+
+def get_solver_results_at(actual_state, index: int) -> SolverResults:
+    """Return the SolverResults at index, handling all three storage shapes.
+
+    - list[SolverResults] (classification, intermediate): index normally.
+    - single SolverResults (init, final): ignore index (always one solution).
+    - no solver_results (save states): reconstruct from stored objective/variable values.
+    """
+    if not hasattr(actual_state, "solver_results"):
+        saved = actual_state.solutions[index]
+        return SolverResults(
+            optimal_objectives=saved.objective_values,
+            optimal_variables=saved.variable_values,
+            success=True,
+            message="Saved solution",
+        )
+    results = actual_state.solver_results
+    return results[index] if isinstance(results, list) else results
+
+
+def copy_problem_metadata(source_problem_db: ProblemDB, target_problem_db: ProblemDB, db_session: Session) -> None:
+    """Copy all ProblemMetaDataDB entries from source to target.
+
+    target_problem_db must already have a valid id (i.e. committed and refreshed).
+    Does nothing if the source has no metadata.
+    """
+    db_session.refresh(source_problem_db)
+    source_meta = source_problem_db.problem_metadata
+    if source_meta is None:
+        return
+
+    new_meta = ProblemMetaDataDB(problem_id=target_problem_db.id, problem=target_problem_db)
+    db_session.add(new_meta)
+    db_session.commit()
+    db_session.refresh(new_meta)
+
+    for item in source_meta.forest_metadata or []:
+        db_session.add(
+            ForestProblemMetaData(
+                metadata_id=new_meta.id,
+                map_json=item.map_json,
+                schedule_dict=item.schedule_dict,
+                years=item.years,
+                stand_id_field=item.stand_id_field,
+                stand_descriptor=item.stand_descriptor,
+                compensation=item.compensation,
+            )
+        )
+    for item in source_meta.representative_nd_metadata or []:
+        db_session.add(
+            RepresentativeNonDominatedSolutions(
+                metadata_id=new_meta.id,
+                solution_data=item.solution_data,
+                ideal=item.ideal,
+                nadir=item.nadir,
+            )
+        )
+    for item in source_meta.solver_selection_metadata or []:
+        db_session.add(
+            SolverSelectionMetadata(
+                metadata_id=new_meta.id,
+                solver_string_representation=item.solver_string_representation,
+            )
+        )
+    for item in source_meta.site_selection_metadata or []:
+        db_session.add(
+            SiteSelectionMetaData(
+                metadata_id=new_meta.id,
+                sites_json=item.sites_json,
+                nodes_json=item.nodes_json,
+                travel_time_matrix_json=item.travel_time_matrix_json,
+                site_variable_symbols=item.site_variable_symbols,
+                coverage_variable_symbols=item.coverage_variable_symbols,
+                coverage_threshold=item.coverage_threshold,
+            )
+        )
+    for item in source_meta.solution_description_metadata or []:
+        raw_parts = [p.model_dump() if hasattr(p, "model_dump") else p for p in (item.parts or [])]
+        db_session.add(
+            SolutionDescriptionMetaData(
+                metadata_id=new_meta.id,
+                parts=raw_parts,
+                separator=item.separator,
+            )
+        )
+
+
+def _apply_soft_constraints(
+    problem: Problem, mods: ProblemModification, soft_candidate_constraints: dict[str, Constraint]
+) -> Problem:
+    for soft_spec in mods.soft_constraints or []:
+        constraint = soft_candidate_constraints.get(soft_spec.constraint_symbol)
+        if constraint is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Constraint '{soft_spec.constraint_symbol}' not found in the problem.",
+            )
+        try:
+            problem, _ = add_soft_constraint(
+                problem,
+                constraint,
+                symbol=soft_spec.violation_symbol,
+                lte_violation_symbol=soft_spec.lte_violation_symbol,
+                gte_violation_symbol=soft_spec.gte_violation_symbol,
+            )
+        except ProblemUtilsError as e:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
+    return problem
+
+
+def _apply_uncertainty_measures(problem: Problem, mods: ProblemModification, db_session: Session) -> Problem:
+    specs = mods.uncertainty_measures or []
+    sm_ids = {spec.scenario_model_id for spec in specs}
+    if len(sm_ids) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="All uncertainty measures in a single request must reference the same scenario_model_id.",
+        )
+    sm_id = next(iter(sm_ids))
+    scenario_model_db = db_session.get(ScenarioModelDB, sm_id)
+    if scenario_model_db is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ScenarioModelDB with id={sm_id} not found.",
+        )
+    scenario_model = scenario_model_db.to_scenario_model(base_problem=problem)
+    combined, symbol_maps = build_combined_scenario_problem(scenario_model)
+
+    for spec in specs:
+        if spec.measure_type == "conditional_value_at_risk" and spec.alpha is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="'alpha' is required for 'conditional_value_at_risk'.",
+            )
+        if spec.measure_type == "weighted_scenarios" and spec.leaf_weights is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="'leaf_weights' is required for 'weighted_scenarios'.",
+            )
+        try:
+            if spec.measure_type == "expected_value":
+                combined, _ = add_expected_value(
+                    scenario_model,
+                    spec.symbols,
+                    prefix=spec.prefix or "E_",
+                    combined=combined,
+                    symbol_maps=symbol_maps,
+                )
+            elif spec.measure_type == "worst_case_robust":
+                combined, _ = add_worst_case_robust(
+                    scenario_model,
+                    spec.symbols,
+                    prefix=spec.prefix or "robust_",
+                    combined=combined,
+                    symbol_maps=symbol_maps,
+                )
+            elif spec.measure_type == "conditional_value_at_risk":
+                combined, _ = add_conditional_value_at_risk(
+                    scenario_model,
+                    spec.symbols,
+                    alpha=spec.alpha,
+                    cvar_prefix=spec.prefix or "CVAR_",
+                    combined=combined,
+                    symbol_maps=symbol_maps,
+                )
+            elif spec.measure_type == "weighted_scenarios":
+                combined, _ = add_weighted_scenarios(
+                    scenario_model,
+                    spec.symbols,
+                    weights=spec.leaf_weights,
+                    prefix=spec.prefix or "weighted_",
+                    combined=combined,
+                    symbol_maps=symbol_maps,
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Failed to apply uncertainty measure '{spec.measure_type}': {e}",
+            ) from e
+
+    # Run the payoff table synchronously so the combined problem already has correct
+    # ideal/nadir when it is saved to the database. Combined objectives are new symbols
+    # with no bounds; we can't safely inherit from the originals.
+    # If the payoff table fails (e.g. an unsupported problem structure), continue
+    # without bounds — the background task will retry and record the error.
+    try:
+        solver = guess_best_solver(combined)
+        estimated_ideal, estimated_nadir = payoff_table_method(combined, solver=solver)
+        updated_objectives = [
+            obj.model_copy(
+                update={
+                    "ideal": estimated_ideal.get(obj.symbol, obj.ideal),
+                    "nadir": estimated_nadir.get(obj.symbol, obj.nadir),
+                }
+            )
+            for obj in combined.objectives
+        ]
+        combined = combined.model_copy(update={"objectives": updated_objectives})
+    except Exception:  # noqa: S110
+        pass
+
+    return combined
+
+
+def _parse_and_merge_elements(
+    problem: Problem,
+    mods: ProblemModification,
+    symbol_to_type: dict,
+    symbols_to_remove: set[str],
+) -> dict:
+    """Parse mods elements, merge them into the existing problem lists, and filter removals.
+
+    Returns a dict suitable for passing to ``problem.model_copy(update=...)``.
+    """
+
+    def _parse_variable(d: dict) -> Variable | TensorVariable:
+        if "shape" in d:
+            return TensorVariable.model_validate(d, by_name=True)
+        return Variable.model_validate(d, by_name=True)
+
+    def _parse_constant(d: dict) -> Constant | TensorConstant:
+        if "shape" in d:
+            return TensorConstant.model_validate(d, by_name=True)
+        return Constant.model_validate(d, by_name=True)
+
+    type_parsers = {
+        "variables": _parse_variable,
+        "constants": _parse_constant,
+        "objectives": lambda d: Objective.model_validate(d, by_name=True),
+        "constraints": lambda d: Constraint.model_validate(d, by_name=True),
+        "extra_funcs": lambda d: ExtraFunction.model_validate(d, by_name=True),
+        "scalarization_funcs": lambda d: ScalarizationFunction.model_validate(d, by_name=True),
+    }
+    mod_fields = [
+        ("variables", mods.variables),
+        ("constants", mods.constants),
+        ("objectives", mods.objectives),
+        ("constraints", mods.constraints),
+        ("extra_funcs", mods.extra_funcs),
+        ("scalarization_funcs", mods.scalarization_funcs),
+    ]
+
+    parsed_mods: dict[str, list] = {k: [] for k in type_parsers}
+    for field_name, raw_list in mod_fields:
+        if not raw_list:
+            continue
+        for raw in raw_list:
+            raw_dict = raw if isinstance(raw, dict) else raw.model_dump()
+            try:
+                element = type_parsers[field_name](raw_dict)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Failed to parse '{field_name}' element: {e}",
+                ) from e
+            sym = element.symbol
+            if sym in symbol_to_type and symbol_to_type[sym] != field_name:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=(
+                        f"Symbol '{sym}' already exists as type '{symbol_to_type[sym]}';"
+                        f" cannot modify it as '{field_name}'."
+                    ),
+                )
+            parsed_mods[field_name].append(element)
+
+    def _merge(existing: list, new_elements: list) -> list:
+        by_symbol = {e.symbol: e for e in existing}
+        for elem in new_elements:
+            by_symbol[elem.symbol] = elem
+        return list(by_symbol.values())
+
+    def _keep(e) -> bool:
+        return e.symbol not in symbols_to_remove
+
+    new_variables = [e for e in _merge(problem.variables, parsed_mods["variables"]) if _keep(e)]
+    new_objectives = [e for e in _merge(problem.objectives, parsed_mods["objectives"]) if _keep(e)]
+    new_constants = [e for e in _merge(problem.constants or [], parsed_mods["constants"]) if _keep(e)] or None
+    new_extra_funcs = [e for e in _merge(problem.extra_funcs or [], parsed_mods["extra_funcs"]) if _keep(e)] or None
+
+    # Constraints referenced by soft_constraints are never added/kept as hard constraints:
+    # add_soft_constraint always creates the slackened version fresh, so a symbol marked soft
+    # here is set aside instead and resolved by _apply_soft_constraints.
+    soft_symbols = {s.constraint_symbol for s in (mods.soft_constraints or [])}
+    merged_constraints = [e for e in _merge(problem.constraints or [], parsed_mods["constraints"]) if _keep(e)]
+    soft_candidate_constraints = {e.symbol: e for e in merged_constraints if e.symbol in soft_symbols}
+    new_constraints = [e for e in merged_constraints if e.symbol not in soft_symbols] or None
+
+    # Scalarization functions may have None symbols; only named ones are merged/removed by symbol
+    existing_named_scal = {s.symbol: s for s in (problem.scalarization_funcs or []) if s.symbol is not None}
+    existing_unnamed_scal = [s for s in (problem.scalarization_funcs or []) if s.symbol is None]
+    for s in parsed_mods["scalarization_funcs"]:
+        if s.symbol is not None:
+            existing_named_scal[s.symbol] = s
+        else:
+            existing_unnamed_scal.append(s)
+    new_scal_funcs = ([s for s in existing_named_scal.values() if _keep(s)] + existing_unnamed_scal) or None
+
+    return {
+        "variables": new_variables,
+        "constants": new_constants,
+        "objectives": new_objectives,
+        "constraints": new_constraints,
+        "extra_funcs": new_extra_funcs,
+        "scalarization_funcs": new_scal_funcs,
+        "soft_candidate_constraints": soft_candidate_constraints,
+    }
+
+
+def apply_problem_modifications(problem: Problem, mods: ProblemModification, db_session: Session) -> Problem:
+    """Apply a ProblemModification spec to a Problem and return the modified result.
+
+    Operations are applied in this order:
+    1. Validate ``remove`` symbols.
+    2. Parse and type-check incoming element modifications.
+    3. Merge additions/replacements into the existing element lists, setting aside any
+       constraint referenced by ``soft_constraints`` instead of keeping it as a hard constraint.
+    4. Filter removed symbols.
+    5. Rebuild the problem via ``model_copy``.
+    6. Add each soft constraint via ``add_soft_constraint``.
+    7. Expand and apply uncertainty-measure aggregates.
+
+    Args:
+        problem: the current Problem instance to modify.
+        mods: the modification specification from the request.
+        db_session: an active database session (needed for uncertainty-measure look-ups).
+
+    Raises:
+        HTTPException 404: a referenced ScenarioModelDB does not exist.
+        HTTPException 422: any validation, parse, or conflict error.
+
+    Returns:
+        The modified Problem instance.
+    """
+    symbol_to_type = problem.get_symbol_type_map()
+
+    symbols_to_remove: set[str] = set()
+    for sym in mods.remove or []:
+        if sym not in symbol_to_type:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Symbol '{sym}' does not exist in the problem and cannot be removed.",
+            )
+        symbols_to_remove.add(sym)
+
+    updates = _parse_and_merge_elements(problem, mods, symbol_to_type, symbols_to_remove)
+    soft_candidate_constraints = updates.pop("soft_candidate_constraints")
+    try:
+        modified_problem = problem.model_copy(update=updates)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
+
+    modified_problem = _apply_soft_constraints(modified_problem, mods, soft_candidate_constraints)
+
+    if mods.uncertainty_measures:
+        modified_problem = _apply_uncertainty_measures(modified_problem, mods, db_session)
+
+    return modified_problem
+
 
 RequestType = (
     RPMSolveRequest
@@ -232,6 +626,23 @@ def fetch_parent_state(
     return parent_state
 
 
+def iter_states_of_kinds(
+    problem_id: int,
+    session_id: int | None,
+    db_session: Session,
+    kinds: tuple[StateKind, ...],
+):
+    """Yield resolved substates (newest first) for *problem_id*/*session_id* whose kind is in *kinds*."""
+    statement = (
+        select(StateDB)
+        .where(StateDB.problem_id == problem_id, StateDB.session_id == session_id)
+        .order_by(StateDB.id.desc())
+    )
+    for state_db in db_session.exec(statement).all():
+        if state_db.base_state is not None and state_db.base_state.kind in kinds:
+            yield state_db.state
+
+
 class ContextField(StrEnum):
     """Enum class to specify context fields."""
 
@@ -372,3 +783,48 @@ class SessionContextGuard:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"{field} context missing.",
                 )
+
+
+def filter_duplicates(solutions: list[SavedSolutionReference]) -> list[SavedSolutionReference]:
+    """Filters out the duplicate values of objectives."""
+    if len(solutions) < 2:  # noqa: PLR2004
+        return solutions
+
+    objective_values_list = [sol.objective_values for sol in solutions]
+    objective_keys = list(objective_values_list[0])
+    valuelists = [[dictionary[key] for key in objective_keys] for dictionary in objective_values_list]
+    duplicate_indices = []
+    for i in range(len(solutions) - 1):
+        for j in range(i + 1, len(solutions)):
+            if allclose(valuelists[i], valuelists[j]):  # TODO: "similarity tolerance" from problem metadata
+                duplicate_indices.append(i)
+
+    return [sol for i, sol in enumerate(solutions) if i not in duplicate_indices]
+
+
+def collect_saved_solutions(user: User, problem_id: int, session: Session) -> list[SavedSolutionReference]:
+    """Collects all saved solutions for the user and problem."""
+    user_saved_solutions = session.exec(
+        select(UserSavedSolutionDB).where(
+            UserSavedSolutionDB.problem_id == problem_id, UserSavedSolutionDB.user_id == user.id
+        )
+    ).all()
+
+    saved_solutions = [SavedSolutionReference(saved_solution=saved_solution) for saved_solution in user_saved_solutions]
+    return filter_duplicates(saved_solutions)
+
+
+def collect_all_solutions(user: User, problem_id: int, session: Session) -> list[SolutionReference]:
+    """Collects all solutions for the user and problem."""
+    statement = (
+        select(StateDB)
+        .where(StateDB.problem_id == problem_id, StateDB.session_id == user.active_session_id)
+        .order_by(StateDB.id.desc())
+    )
+    states = session.exec(statement).all()
+    all_solutions = []
+    for state in states:
+        for i in range(state.state.num_solutions):
+            all_solutions.append(SolutionReference(state=state, solution_index=i))
+
+    return filter_duplicates(all_solutions)

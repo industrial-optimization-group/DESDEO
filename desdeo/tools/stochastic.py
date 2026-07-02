@@ -5,14 +5,11 @@ from typing import TYPE_CHECKING
 from desdeo.problem.schema import (
     Constraint,
     ConstraintTypeEnum,
-    ExtraFunction,
-    Objective,
-    ScalarizationFunction,
     Variable,
     VariableTypeEnum,
 )
 from desdeo.tools.scalarization import add_asf_diff, add_asf_nondiff
-from desdeo.tools.scenarios import build_combined_scenario_problem
+from desdeo.tools.scenarios import append_aggregated_elem, build_combined_scenario_problem, resolve_elem
 
 if TYPE_CHECKING:
     from desdeo.problem.scenario import ScenarioModel
@@ -118,86 +115,44 @@ def add_expected_value(
     new_extra_funcs = list(combined.extra_funcs or [])
     added_symbols: dict[str, str] = {}
 
+    # Variables and constants are direct values; everything else is a computed
+    # expression whose func must be inlined rather than referenced by symbol.
+    _func_bearing = {"objectives", "extra_funcs", "scalarization_funcs", "constraints"}
+
     for sym in symbols:
-        found_type: str | None = None
-        per_leaf: dict[str, str] | None = None
-        for elem_type, smap in symbol_maps.items():
-            if sym in smap:
-                found_type = elem_type
-                per_leaf = smap[sym]
-                break
-
-        if per_leaf is None:
-            raise ValueError(f"Symbol '{sym}' not found in the combined problem.")
-
+        info = resolve_elem(sym, symbol_maps, combined, scenario_model)
         expected_sym = f"{prefix}{sym}"
         added_symbols[sym] = expected_sym
 
-        # Variables and constants are direct values; everything else (objectives,
-        # extra_funcs, scalarization_funcs, constraints) is a computed expression
-        # whose func must be inlined rather than referenced by symbol.
-        _func_bearing = {"objectives", "extra_funcs", "scalarization_funcs", "constraints"}
-        elem_lists = {
-            "objectives": combined.objectives,
-            "scalarization_funcs": combined.scalarization_funcs,
-            "extra_funcs": combined.extra_funcs,
-            "constraints": combined.constraints,
-        }
-        elem_list = elem_lists.get(found_type) or []
-
-        if found_type in _func_bearing:
+        if info.found_type in _func_bearing:
             terms = [
                 [
                     "Multiply",
                     weights[leaf],
-                    next((e.func for e in elem_list if e.symbol == per_leaf[leaf]), per_leaf[leaf]),
+                    next((e.func for e in info.elem_list if e.symbol == info.per_leaf[leaf]), info.per_leaf[leaf]),
                 ]
                 for leaf in weights
             ]
         else:
-            terms = [["Multiply", weights[leaf], per_leaf[leaf]] for leaf in weights]
+            terms = [["Multiply", weights[leaf], info.per_leaf[leaf]] for leaf in weights]
         expected_expr = terms[0] if len(terms) == 1 else ["Add", *terms]
 
-        first_leaf_sym = per_leaf[next(iter(weights))]
-        ref_elem = next((e for e in elem_list if e.symbol == first_leaf_sym), None)
-        is_linear = ref_elem.is_linear if ref_elem is not None else False
-        is_convex = ref_elem.is_convex if ref_elem is not None else False
-        is_twice_diff = ref_elem.is_twice_differentiable if ref_elem is not None else False
-
-        if found_type == "objectives":
-            new_objectives.append(
-                Objective(
-                    name=f"Expected value of {sym}",
-                    symbol=expected_sym,
-                    func=expected_expr,
-                    maximize=ref_elem.maximize if ref_elem is not None else False,
-                    is_linear=is_linear,
-                    is_convex=is_convex,
-                    is_twice_differentiable=is_twice_diff,
-                )
-            )
-        elif found_type == "scalarization_funcs":
-            new_scal_funcs.append(
-                ScalarizationFunction(
-                    name=f"Expected value of {sym}",
-                    symbol=expected_sym,
-                    func=expected_expr,
-                    is_linear=is_linear,
-                    is_convex=is_convex,
-                    is_twice_differentiable=is_twice_diff,
-                )
-            )
-        else:
-            new_extra_funcs.append(
-                ExtraFunction(
-                    name=f"Expected value of {sym}",
-                    symbol=expected_sym,
-                    func=expected_expr,
-                    is_linear=is_linear,
-                    is_convex=is_convex,
-                    is_twice_differentiable=is_twice_diff,
-                )
-            )
+        append_aggregated_elem(
+            info.found_type,
+            new_objectives,
+            new_scal_funcs,
+            new_extra_funcs,
+            name=f"Expected {info.elem_name}",
+            description=f"Expected value of {info.elem_desc}"
+            if info.elem_desc
+            else f"Expected value of {info.elem_name}",
+            symbol=expected_sym,
+            func=expected_expr,
+            maximize=info.maximize,
+            is_linear=info.is_linear,
+            is_convex=info.is_convex,
+            is_twice_differentiable=info.is_twice_diff,
+        )
 
     return combined.model_copy(
         update={
@@ -244,7 +199,7 @@ def add_conditional_value_at_risk(
 
     Returns:
         A tuple of the updated combined Problem and a dict mapping each original
-        symbol to its CVaR symbol.
+            symbol to its CVaR symbol.
 
     Raises:
         ValueError: if a requested symbol is not found in the combined problem.
@@ -262,33 +217,7 @@ def add_conditional_value_at_risk(
     added_symbols: dict[str, str] = {}
 
     for sym in symbols:
-        found_type: str | None = None
-        per_leaf: dict[str, str] | None = None
-        for elem_type, smap in symbol_maps.items():
-            if sym in smap:
-                found_type = elem_type
-                per_leaf = smap[sym]
-                break
-
-        if per_leaf is None:
-            raise ValueError(f"Symbol '{sym}' not found in the combined problem.")
-
-        first_leaf_sym = per_leaf[next(iter(weights))]
-        elem_lists = {
-            "objectives": combined.objectives,
-            "scalarization_funcs": combined.scalarization_funcs,
-            "extra_funcs": combined.extra_funcs,
-            "constraints": combined.constraints,
-        }
-        elem_list = elem_lists.get(found_type) or []
-        ref_elem = next(
-            (e for e in elem_list if e.symbol == first_leaf_sym),
-            None,
-        )
-        is_linear = ref_elem.is_linear if ref_elem is not None else False
-        is_convex = ref_elem.is_convex if ref_elem is not None else False
-        is_twice_diff = ref_elem.is_twice_differentiable if ref_elem is not None else False
-
+        info = resolve_elem(sym, symbol_maps, combined, scenario_model)
         var_sym = f"{var_prefix}{sym}"
         cvar_sym = f"{cvar_prefix}{sym}"
         added_symbols[sym] = cvar_sym
@@ -296,88 +225,65 @@ def add_conditional_value_at_risk(
         # VaR threshold η — shared across all scenarios.
         new_variables.append(
             Variable(
-                name=f"VaR threshold for {sym}",
+                name=f"VaR threshold for {info.elem_name}",
                 symbol=var_sym,
                 variable_type=VariableTypeEnum.real,
-                lowerbound=-float("Inf"),
-                upperbound=float("Inf"),
+                lowerbound=None,
+                upperbound=None,
                 initial_value=0.0,
             )
         )
 
         # Per-leaf auxiliary variables z_s and their constraints.
         leaf_z_syms: dict[str, str] = {}
-        for leaf, leaf_sym in per_leaf.items():
+        for leaf, leaf_sym in info.per_leaf.items():
             z_sym = f"{leaf}_{var_sym}"
             leaf_z_syms[leaf] = z_sym
 
             new_variables.append(
                 Variable(
-                    name=f"CVaR auxiliary for {sym} in {leaf}",
+                    name=f"CVaR auxiliary for {info.elem_name} in {leaf}",
                     symbol=z_sym,
                     variable_type=VariableTypeEnum.real,
                     lowerbound=0.0,
-                    upperbound=float("Inf"),
+                    upperbound=None,
                     initial_value=0.0,
                 )
             )
 
             # z_s >= sym_s - eta  ->  sym_s - eta - z_s <= 0
             # Use the func expression of the per-leaf element rather than its symbol.
-            leaf_func = next((e.func for e in elem_list if e.symbol == leaf_sym), leaf_sym)
-            constraint_func = ["Add", leaf_func, ["Negate", var_sym], ["Negate", z_sym]]
-
+            leaf_func = next((e.func for e in info.elem_list if e.symbol == leaf_sym), leaf_sym)
             new_constraints.append(
                 Constraint(
-                    name=f"CVaR constraint for {sym} in {leaf}",
+                    name=f"CVaR constraint for {info.elem_name} in {leaf}",
                     symbol=f"{z_sym}_con",
-                    func=constraint_func,
+                    func=["Add", leaf_func, ["Negate", var_sym], ["Negate", z_sym]],
                     cons_type=ConstraintTypeEnum.LTE,
-                    is_linear=is_linear,
-                    is_convex=is_convex,
-                    is_twice_differentiable=is_twice_diff,
+                    is_linear=info.is_linear,
+                    is_convex=info.is_convex,
+                    is_twice_differentiable=info.is_twice_diff,
                 )
             )
 
         # CVaR = η + scale · Σ_s p_s · z_s
         weighted_z = [["Multiply", weights[leaf], leaf_z_syms[leaf]] for leaf in weights]
         sum_z = weighted_z[0] if len(weighted_z) == 1 else ["Add", *weighted_z]
-        cvar_expr = ["Add", var_sym, ["Multiply", scale, sum_z]]
 
-        if found_type == "objectives":
-            new_objectives.append(
-                Objective(
-                    name=f"CVaR of {sym}",
-                    symbol=cvar_sym,
-                    func=cvar_expr,
-                    maximize=ref_elem.maximize if ref_elem is not None else False,
-                    is_linear=True,
-                    is_convex=True,
-                    is_twice_differentiable=True,
-                )
-            )
-        elif found_type == "scalarization_funcs":
-            new_scal_funcs.append(
-                ScalarizationFunction(
-                    name=f"CVaR of {sym}",
-                    symbol=cvar_sym,
-                    func=cvar_expr,
-                    is_linear=True,
-                    is_convex=True,
-                    is_twice_differentiable=True,
-                )
-            )
-        else:
-            new_extra_funcs.append(
-                ExtraFunction(
-                    name=f"CVaR of {sym}",
-                    symbol=cvar_sym,
-                    func=cvar_expr,
-                    is_linear=True,
-                    is_convex=True,
-                    is_twice_differentiable=True,
-                )
-            )
+        append_aggregated_elem(
+            info.found_type,
+            new_objectives,
+            new_scal_funcs,
+            new_extra_funcs,
+            name=f"CVaR of {info.elem_name}",
+            description=f"CVaR of {info.elem_desc}" if info.elem_desc else f"CVaR of {info.elem_name}",
+            symbol=cvar_sym,
+            func=["Add", var_sym, ["Multiply", scale, sum_z]],
+            maximize=info.maximize,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+        )
 
     return combined.model_copy(
         update={

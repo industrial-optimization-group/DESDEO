@@ -6,7 +6,7 @@ from types import UnionType
 from typing import TYPE_CHECKING
 
 from fastapi import UploadFile
-from pydantic import BaseModel, ConfigDict, create_model
+from pydantic import BaseModel, ConfigDict, create_model, field_validator
 from sqlalchemy.types import JSON, String, TypeDecorator
 from sqlmodel import Column, Field, Relationship, SQLModel
 
@@ -27,6 +27,7 @@ from desdeo.problem.schema import (
     Variable,
     VariableDomainTypeEnum,
     VariableType,
+    parse_infix_to_func,
 )
 from desdeo.tools.utils import available_solvers
 
@@ -343,6 +344,42 @@ class SiteSelectionMetaData(SQLModel, table=True):
     metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="site_selection_metadata")
 
 
+class DescriptionPart(BaseModel):
+    """A single part of a solution description template.
+
+    A part is either a static text string or a computed value derived from solver results.
+    Exactly one of `text`, `symbol`, or `expression` should be set.
+
+    - `text`: included verbatim in the output.
+    - `symbol`: looks up a key from `optimal_variables` or `optimal_objectives`.
+    - `expression`: a MathJSON expression evaluated against the solver result values.
+
+    When `symbol` or `expression` is used, `label` is prepended and `suffix` is appended.
+    `format_spec` is a Python format spec string (e.g. `".0f"`, `".2f"`) applied to the value.
+    """
+
+    text: str | None = None
+    label: str | None = None
+    symbol: str | None = None
+    expression: list | None = None
+    format_spec: str | None = None
+    suffix: str | None = None
+
+
+class SolutionDescriptionMetaData(SQLModel, table=True):
+    """Metadata for generating a human-readable description of a solution."""
+
+    id: int | None = Field(primary_key=True, default=None)
+    metadata_id: int | None = Field(foreign_key="problemmetadatadb.id", default=None)
+
+    metadata_type: str = "solution_description_metadata"
+
+    parts: list[DescriptionPart] = Field(sa_column=Column(JSON))
+    separator: str = Field(default="\n")
+
+    metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="solution_description_metadata")
+
+
 class ProblemMetaDataDB(SQLModel, table=True):
     """Store Problem MetaData to DB with this class."""
 
@@ -359,13 +396,20 @@ class ProblemMetaDataDB(SQLModel, table=True):
     site_selection_metadata: list[SiteSelectionMetaData] = Relationship(
         back_populates="metadata_instance", cascade_delete=True
     )
+    solution_description_metadata: list[SolutionDescriptionMetaData] = Relationship(
+        back_populates="metadata_instance", cascade_delete=True
+    )
     problem: ProblemDB = Relationship(back_populates="problem_metadata")
 
     @property
     def all_metadata(
         self,
     ) -> list[
-        ForestProblemMetaData | RepresentativeNonDominatedSolutions | SolverSelectionMetadata | SiteSelectionMetaData
+        ForestProblemMetaData
+        | RepresentativeNonDominatedSolutions
+        | SolverSelectionMetadata
+        | SiteSelectionMetaData
+        | SolutionDescriptionMetaData
     ]:
         """Return all metadata in one list."""
         return (
@@ -373,6 +417,7 @@ class ProblemMetaDataDB(SQLModel, table=True):
             + (self.representative_nd_metadata or [])
             + (self.solver_selection_metadata or [])
             + (self.site_selection_metadata or [])
+            + (self.solution_description_metadata or [])
         )
 
 
@@ -384,6 +429,7 @@ class ProblemMetaDataPublic(SQLModel):
     forest_metadata: list[ForestProblemMetaData] | None
     representative_nd_metadata: list[RepresentativeNonDominatedSolutions] | None
     site_selection_metadata: list[SiteSelectionMetaData] | None
+    solution_description_metadata: list[SolutionDescriptionMetaData] | None
 
 
 class ProblemMetaDataGetRequest(SQLModel):
@@ -649,6 +695,8 @@ class _Constraint(SQLModel):
     func: list = Field(sa_column=Column(JSON))
     surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
     simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
+
+    _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
 
 
 _ConstraintDB = from_pydantic(

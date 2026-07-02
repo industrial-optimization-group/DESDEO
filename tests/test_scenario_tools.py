@@ -2,9 +2,10 @@
 
 import pytest
 
-from desdeo.problem.schema import ConstraintTypeEnum, Problem
+from desdeo.problem.scenario import Scenario, ScenarioModel
+from desdeo.problem.schema import ConstraintTypeEnum, Objective, Problem, Variable, VariableTypeEnum
 from desdeo.problem.testproblems import simple_scenario_model
-from desdeo.tools.robust import add_worst_case_robust, add_weighted_scenarios
+from desdeo.tools.robust import add_single_objective_worst_case_regret, add_weighted_scenarios, add_worst_case_robust
 from desdeo.tools.scenarios import build_combined_scenario_problem, build_scenario_problem
 from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_asf, add_expected_value
 
@@ -475,8 +476,8 @@ def test_cvar_threshold_variable_is_unbounded(cvar_result):
     """The VaR threshold variable has no finite bounds."""
     problem, _ = cvar_result
     var = next(v for v in problem.variables if v.symbol == "VAR_f_1")
-    assert var.lowerbound == -float("Inf")
-    assert var.upperbound == float("Inf")
+    assert var.lowerbound is None
+    assert var.upperbound is None
 
 
 @pytest.mark.schema
@@ -626,8 +627,8 @@ def test_robust_epigraph_variable_is_unbounded(robust_result):
     """The epigraph variable has no finite bounds."""
     problem, _ = robust_result
     t_var = next(v for v in problem.variables if v.symbol == "_t_robust_f_1")
-    assert t_var.lowerbound == -float("Inf")
-    assert t_var.upperbound == float("Inf")
+    assert t_var.lowerbound is None
+    assert t_var.upperbound is None
 
 
 @pytest.mark.schema
@@ -781,19 +782,223 @@ def test_weighted_custom_prefix(model):
 def test_weighted_multiple_aggregations(model):
     """Multiple calls to add_weighted_scenarios with different symbols and weights work correctly."""
     combined, symbol_maps = build_combined_scenario_problem(model)
-    problem, added1 = add_worst_case_robust(
+    problem, _added1 = add_worst_case_robust(
         scenario_model=model, symbols=["f_1", "f_2", "f_3"], combined=combined, symbol_maps=symbol_maps
     )
-    problem, added2 = add_expected_value(
+    problem, _added2 = add_expected_value(
         scenario_model=model, symbols=["f_1", "f_2", "f_3"], combined=problem, symbol_maps=symbol_maps
     )
-    problem, added3 = add_conditional_value_at_risk(
+    problem, _added3 = add_conditional_value_at_risk(
         scenario_model=model, symbols=["f_1", "f_2", "f_3"], alpha=0.95, combined=problem, symbol_maps=symbol_maps
     )
-    problem, added4 = add_weighted_scenarios(
+    problem, _added4 = add_weighted_scenarios(
         scenario_model=model,
         symbols=["f_1", "f_2", "f_3"],
         weights=_WEIGHTS,
         combined=problem,
         symbol_maps=symbol_maps,
     )
+
+
+# ---------------------------------------------------------------------------
+# add_single_objective_worst_case_regret — schema tests
+# ---------------------------------------------------------------------------
+
+_IDEALS = {
+    "f_1": {"s_1": -2.0, "s_2": -5.0, "s_3": -8.0},
+    "f_2": {"s_1": 0.0, "s_2": -1.0, "s_3": -3.0},
+    "f_3": {"s_1": 1.0, "s_2": 0.5, "s_3": 0.0},
+}
+
+
+@pytest.fixture(name="regret_result")
+def regret_result_fixture(model):
+    """Return (problem, added_symbols) from add_single_objective_worst_case_regret on f_1, f_2, f_3."""
+    combined, symbol_maps = build_combined_scenario_problem(model)
+    return add_single_objective_worst_case_regret(
+        model, ["f_1", "f_2", "f_3"], ideals=_IDEALS, combined=combined, symbol_maps=symbol_maps
+    )
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_regret_returns_problem_and_dict(regret_result):
+    """add_single_objective_worst_case_regret returns a Problem and a symbol mapping dict."""
+    problem, added = regret_result
+    assert isinstance(problem, Problem)
+    assert isinstance(added, dict)
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_regret_added_symbols_have_default_prefix(regret_result):
+    """Each original symbol maps to regret_wc_{sym} with the default prefix."""
+    _, added = regret_result
+    for orig, regret_sym in added.items():
+        assert regret_sym == f"regret_wc_{orig}"
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_regret_result_added_as_objective(regret_result):
+    """Regret elements for objectives are added as objectives."""
+    problem, added = regret_result
+    obj_syms = {o.symbol for o in problem.objectives or []}
+    for regret_sym in added.values():
+        assert regret_sym in obj_syms
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_regret_objective_is_always_minimization(regret_result):
+    """Regret objectives always have maximize=False regardless of original direction."""
+    problem, added = regret_result
+    for regret_sym in added.values():
+        obj = next(o for o in problem.objectives or [] if o.symbol == regret_sym)
+        assert obj.maximize is False
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_regret_epigraph_variable_added(regret_result):
+    """An epigraph variable _t_regret_wc_{sym} is added for each requested symbol."""
+    problem, _ = regret_result
+    var_syms = {v.symbol for v in problem.variables}
+    assert "_t_regret_wc_f_1" in var_syms
+    assert "_t_regret_wc_f_2" in var_syms
+    assert "_t_regret_wc_f_3" in var_syms
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_regret_epigraph_variable_is_unbounded(regret_result):
+    """The epigraph variable has no finite bounds."""
+    problem, _ = regret_result
+    t_var = next(v for v in problem.variables if v.symbol == "_t_regret_wc_f_1")
+    assert t_var.lowerbound is None
+    assert t_var.upperbound is None
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_regret_constraints_per_leaf(regret_result):
+    """A per-leaf LTE constraint is added for each symbol and leaf."""
+    problem, _ = regret_result
+    con_syms = {c.symbol for c in problem.constraints or []}
+    for f in ("f_1", "f_2", "f_3"):
+        for s in ("s_1", "s_2", "s_3"):
+            assert f"{s}_regret_wc_{f}_con" in con_syms
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_regret_constraints_are_lte(regret_result):
+    """The per-leaf regret constraints have LTE type."""
+    problem, _ = regret_result
+    for con in problem.constraints or []:
+        if con.symbol.endswith("_regret_wc_f_1_con"):
+            assert con.cons_type == ConstraintTypeEnum.LTE
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_regret_constraint_expression_minimize(regret_result):
+    """For a minimize objective the constraint is f_s - ideal_s - t <= 0."""
+    problem, _ = regret_result
+    # f_1 is a minimize objective; pick leaf s_1 with ideal=-2.0
+    con = next(c for c in problem.constraints or [] if c.symbol == "s_1_regret_wc_f_1_con")
+    func = con.func
+    assert func[0] == "Add"
+    func_str = str(func)
+    # leaf symbol and negated ideal (+2.0) and negated t must appear
+    assert "s_1_f_1" in func_str
+    assert "2.0" in func_str
+    assert "_t_regret_wc_f_1" in func_str
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_regret_element_func_references_epigraph_variable(regret_result):
+    """The regret objective's func is the epigraph variable symbol."""
+    problem, added = regret_result
+    obj = next(o for o in problem.objectives or [] if o.symbol == added["f_1"])
+    assert "_t_regret_wc_f_1" in str(obj.func)
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_regret_element_is_linear(regret_result):
+    """The regret objective is linear, convex, and twice differentiable."""
+    problem, added = regret_result
+    obj = next(o for o in problem.objectives or [] if o.symbol == added["f_1"])
+    assert obj.is_linear
+    assert obj.is_convex
+    assert obj.is_twice_differentiable
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_regret_missing_ideal_raises(model):
+    """Omitting a leaf from ideals raises ValueError."""
+    combined, symbol_maps = build_combined_scenario_problem(model)
+    incomplete_ideals = {"f_1": {"s_1": 0.0, "s_2": 0.0}}  # missing s_3
+    with pytest.raises(ValueError, match="missing entries"):
+        add_single_objective_worst_case_regret(
+            model, ["f_1"], ideals=incomplete_ideals, combined=combined, symbol_maps=symbol_maps
+        )
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_regret_custom_prefix(model):
+    """The prefix argument is respected."""
+    combined, symbol_maps = build_combined_scenario_problem(model)
+    problem, added = add_single_objective_worst_case_regret(
+        model, ["f_1"], ideals=_IDEALS, prefix="wr_", combined=combined, symbol_maps=symbol_maps
+    )
+    assert added["f_1"] == "wr_f_1"
+    assert any(o.symbol == "wr_f_1" for o in problem.objectives or [])
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_regret_without_prebuilt_combined(model):
+    """Calling without pre-built combined/symbol_maps builds them internally."""
+    problem, added = add_single_objective_worst_case_regret(model, ["f_1"], ideals=_IDEALS)
+    assert "f_1" in added
+    assert any(o.symbol == added["f_1"] for o in problem.objectives or [])
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_regret_constraint_expression_maximize():
+    """For a maximize objective the constraint is ideal_s - f_s - t <= 0."""
+    # Build a minimal scenario model with one maximize objective.
+    base_problem = Problem(
+        name="max_test",
+        description="Minimal maximize-objective problem for regret testing.",
+        variables=[Variable(symbol="x", name="x", variable_type=VariableTypeEnum.real, lowerbound=0, upperbound=10)],
+        objectives=[Objective(symbol="g", name="g", func="x", maximize=True)],
+    )
+    scenario_model = ScenarioModel(
+        name="max_test_model",
+        base_problem=base_problem,
+        scenarios={"leaf_a": Scenario(), "leaf_b": Scenario()},
+        scenario_tree={"ROOT": ["leaf_a", "leaf_b"]},
+        scenario_probabilities={"leaf_a": 0.5, "leaf_b": 0.5},
+    )
+    ideals = {"g": {"leaf_a": 8.0, "leaf_b": 6.0}}
+    combined, symbol_maps = build_combined_scenario_problem(scenario_model)
+    problem, added = add_single_objective_worst_case_regret(
+        scenario_model, ["g"], ideals=ideals, combined=combined, symbol_maps=symbol_maps
+    )
+    # The resulting element should be a minimization objective.
+    obj = next(o for o in problem.objectives or [] if o.symbol == added["g"])
+    assert obj.maximize is False
+
+    # The constraint for leaf_a should encode: ideal_a - g_a - t <= 0.
+    con = next(c for c in problem.constraints or [] if c.symbol == "leaf_a_regret_wc_g_con")
+    func_str = str(con.func)
+    assert "8.0" in func_str  # ideal value
+    assert "leaf_a_g" in func_str  # per-leaf objective symbol
+    assert "_t_regret_wc_g" in func_str

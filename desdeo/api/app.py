@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from desdeo.api.config import AuthConfig
 from desdeo.api.routers import (
+    cumulus,
     enautilus,
     generic,
     nautilus_navigator,
@@ -13,6 +14,7 @@ from desdeo.api.routers import (
     reference_point_method,
     session,
     site_selection,
+    solution_description,
     user_authentication,
     utopia,
     xnimbus,
@@ -33,6 +35,7 @@ app.include_router(session.router)
 app.include_router(reference_point_method.router)
 app.include_router(nimbus.router)
 app.include_router(xnimbus.router)
+app.include_router(cumulus.router)
 # app.include_router(emo.router) # TODO: what is going on? cannot serialize pl.dataframe
 app.include_router(generic.router)
 app.include_router(utopia.router)
@@ -43,10 +46,11 @@ app.include_router(enautilus.router)
 app.include_router(site_selection.router)
 app.include_router(gdm_score_bands_routers.router)
 app.include_router(nautilus_navigator.router)
+app.include_router(solution_description.router)
 
 
 @app.get("/health")
-def health():
+def health():  # noqa: D103
     return {"status": "ok"}
 
 

@@ -548,7 +548,7 @@
 {/snippet}
 
 {#if problem}
-	<div class="flex h-full flex-col items-start">
+	<div class="flex h-full w-full flex-col">
 		{#if selected_type_solutions !== 'current' && !isFrozen}
 			{#if methodPage ==='gnimbus'}
 				<SolutionTableToolbar
@@ -560,7 +560,7 @@
 				<SolutionTableToolbar {table} />
 			{/if}
 		{/if}
-		<div class="overflow-auto rounded border shadow-sm">
+		<div class="w-full overflow-x-auto rounded border shadow-sm">
 			<!-- Header and previous solutions -->
 			<Table.Root>
 				<Table.Header>

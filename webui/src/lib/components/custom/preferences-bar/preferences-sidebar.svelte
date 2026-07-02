@@ -2,6 +2,7 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import PreferenceSwitcher from './preference-switcher.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import type { Snippet } from 'svelte';
 	import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import {
 		HorizontalBar,
@@ -22,7 +23,7 @@
 	interface Props {
 		preferenceTypes: PreferenceValue[];
 		problem: ProblemInfo;
-		numSolutions: number;
+		numSolutions?: number;
 		typePreferences: PreferenceValue;
 		preferenceValues: number[];
 		objectiveValues: number[];
@@ -53,12 +54,13 @@
 		maxNumSolutions?: number;
 		lastIteratedPreference?: number[];
 		isFinishButton?: boolean;
+		footerExtra?: Snippet;
 	}
 
 	let {
 		preferenceTypes,
 		problem,
-		numSolutions,
+		numSolutions = 1,
 		typePreferences,
 		preferenceValues,
 		objectiveValues,
@@ -72,8 +74,10 @@
 		minNumSolutions = 1,
 		maxNumSolutions = 4,
 		lastIteratedPreference = [],
-		isFinishButton = true
+		isFinishButton = true,
+		footerExtra
 	}: Props = $props();
+
 
 	// Validate that preference_types only contains valid values
 	const valid_preference_types = $derived(preferenceTypes.filter((type) =>
@@ -402,15 +406,22 @@
 	</Sidebar.Content>
 
 	<Sidebar.Footer>
-		<div class="items-right flex justify-end gap-2">
-			<Button variant="default" disabled={!isIterationAllowed} size="sm" onclick={handle_iterate}>
-				Iterate
-			</Button>
-			{#if isFinishButton}
-				<Button variant="secondary" size="sm" disabled={!isFinishAllowed} onclick={handle_finish}>
-					Finish
+		<div class="flex items-center justify-between gap-2">
+			<div>
+				{#if footerExtra}
+					{@render footerExtra()}
+				{/if}
+			</div>
+			<div class="flex gap-2">
+				<Button variant="default" disabled={!isIterationAllowed} size="sm" onclick={handle_iterate}>
+					Iterate
 				</Button>
-			{/if}
+				{#if isFinishButton}
+					<Button variant="secondary" size="sm" disabled={!isFinishAllowed} onclick={handle_finish}>
+						Finish
+					</Button>
+				{/if}
+			</div>
 		</div>
 	</Sidebar.Footer>
 	<Sidebar.Rail />

@@ -4,7 +4,7 @@ import pytest
 
 from desdeo.problem import Objective, Problem, ScalarizationFunction, Variable
 from desdeo.problem.testproblems import binh_and_korn
-from desdeo.tools.scipy_solver_interfaces import ScipyDeSolver, ScipyMinimizeSolver
+from desdeo.tools.scipy_solver_interfaces import ScipyDeSolver, ScipyMinimizeSolver, set_initial_guess
 
 
 @pytest.mark.scipy
@@ -107,6 +107,61 @@ def test_scipy_minimize_respects_maximize_with_objective_target():
     assert result_min.optimal_variables["y"] == pytest.approx(0.0, abs=0.1), (
         f"Expected y ≈ 0.0 for minimized f_min_obj, got {result_min.optimal_variables['y']}."
     )
+
+
+def _make_bounds_problem(lowerbound: float | None, upperbound: float | None) -> Problem:
+    """Creates a single-variable problem with the given (possibly missing) bounds and no initial value."""
+    return Problem(
+        name="Bounds test",
+        description="A single variable with configurable bounds and no initial value.",
+        variables=[
+            Variable(
+                name="x",
+                symbol="x",
+                variable_type="real",
+                lowerbound=lowerbound,
+                upperbound=upperbound,
+            ),
+        ],
+        objectives=[
+            Objective(name="f", symbol="f", func="x", maximize=False),
+        ],
+    )
+
+
+@pytest.mark.scipy
+def test_set_initial_guess_uses_explicit_initial_value():
+    """An explicit initial_value should be used as-is, regardless of bounds."""
+    problem = _make_mixed_problem()
+    assert set_initial_guess(problem) == [5.0, 5.0]
+
+
+@pytest.mark.scipy
+def test_set_initial_guess_uses_midpoint_when_both_bounds_present():
+    """With no initial_value, both bounds present should yield their midpoint."""
+    problem = _make_bounds_problem(lowerbound=0.0, upperbound=10.0)
+    assert set_initial_guess(problem) == [5.0]
+
+
+@pytest.mark.scipy
+def test_set_initial_guess_uses_lowerbound_when_upperbound_missing():
+    """With no initial_value and no upper bound, the lower bound should be used."""
+    problem = _make_bounds_problem(lowerbound=3.0, upperbound=None)
+    assert set_initial_guess(problem) == [3.0]
+
+
+@pytest.mark.scipy
+def test_set_initial_guess_uses_upperbound_when_lowerbound_missing():
+    """With no initial_value and no lower bound, the upper bound should be used."""
+    problem = _make_bounds_problem(lowerbound=None, upperbound=7.0)
+    assert set_initial_guess(problem) == [7.0]
+
+
+@pytest.mark.scipy
+def test_set_initial_guess_defaults_to_zero_when_both_bounds_missing():
+    """With no initial_value and no bounds at all, the initial guess should default to 0."""
+    problem = _make_bounds_problem(lowerbound=None, upperbound=None)
+    assert set_initial_guess(problem) == [0]
 
 
 @pytest.mark.scipy

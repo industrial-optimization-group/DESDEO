@@ -1,3 +1,4 @@
+# ruff: noqa: T201, FURB163, N806, E501
 """Tests for the MathJSON parser."""
 
 import copy
@@ -1510,7 +1511,7 @@ def test_parse_sympy_basic_arithmetics():
         f = sp.lambdify([*variable_symbols, *constant_symbols], sympy_expr)
 
         npt.assert_almost_equal(
-            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with " f"{sympy_expr=}.")
+            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with {sympy_expr=}.")
         )
 
 
@@ -1649,7 +1650,7 @@ def test_parse_sympy_exponentation_and_logarithms():
         f = sp.lambdify([*variable_symbols, *constant_symbols], sympy_expr)
 
         npt.assert_almost_equal(
-            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with " f"{sympy_expr=}.")
+            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with {sympy_expr=}.")
         )
 
 
@@ -1723,7 +1724,7 @@ def test_parse_sympy_trigonometrics():
         f = sp.lambdify([*variable_symbols, *constant_symbols], sympy_expr)
 
         npt.assert_almost_equal(
-            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with " f"{sympy_expr=}.")
+            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with {sympy_expr=}.")
         )
 
 
@@ -1794,7 +1795,7 @@ def test_parse_sympy_rounding():
         f = sp.lambdify([*variable_symbols, *constant_symbols], sympy_expr)
 
         npt.assert_almost_equal(
-            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with " f"{sympy_expr=}.")
+            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with {sympy_expr=}.")
         )
 
 
@@ -1875,7 +1876,7 @@ def test_parse_sympy_max():
         f = sp.lambdify([*variable_symbols, *constant_symbols], sympy_expr)
 
         npt.assert_almost_equal(
-            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with " f"{sympy_expr=}.")
+            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with {sympy_expr=}.")
         )
 
 
@@ -1956,7 +1957,7 @@ def test_parse_sympy_min():
         f = sp.lambdify([*variable_symbols, *constant_symbols], sympy_expr)
 
         npt.assert_almost_equal(
-            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with " f"{sympy_expr=}.")
+            f(*variables, *constants), result, err_msg=(f"Test failed for {str_expr=}, with {sympy_expr=}.")
         )
 
 
@@ -2006,8 +2007,14 @@ def test_polars_random_access():
 
 @pytest.mark.json
 @pytest.mark.polars
+@pytest.mark.filterwarnings("ignore::RuntimeWarning")
 def test_polars_matrix_arithmetics():
-    """Test the Polars math evaluator with matrix operations and arithmetics."""
+    """Test the Polars math evaluator with matrix operations and arithmetics.
+
+    Some test expressions intentionally produce ±inf (e.g. Ln(0), 1/0) because the
+    test matrices contain zeros.  The RuntimeWarnings from those divide-by-zero and
+    log-of-zero operations are expected and suppressed at the test level.
+    """
     X = np.array([[1, 2, 3, 4.0, 5], [6, 7, 8, 9, 10]])
     Y = np.array([[-1, 1, 0, 1, -1], [2.0, -2, 1, 0, 1]])
     Xmat = np.array([[[1, 2, 3], [4, 5, 6], [7, 8, 9]], [[2, 3, 4], [5, 6, 7], [8, 9, 10]]])

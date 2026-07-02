@@ -1,33 +1,40 @@
 /**
- * NIMBUS API Client-Side Handlers
+ * CUMULUS API Client-Side Handlers
  *
- * Uses Orval-generated endpoint functions to call the backend directly,
- * replacing the previous +server.ts proxy + callNimbusAPI pattern.
+ * NOTE: The Orval-generated functions used here require running
+ * `npm run generate:client` after the backend endpoints are available.
  */
-import { customFetch } from '$lib/api/new-client'
+
 import {
-	solveSolutionsMethodNimbusSolvePost,
-	getOrInitializeMethodNimbusGetOrInitializePost,
-	saveMethodNimbusSavePost,
-	deleteSaveMethodNimbusDeleteSavePost,
-	finalizeNimbusMethodNimbusFinalizePost,
-	solveNimbusIntermediateMethodNimbusIntermediatePost,
-	getUtopiaDataUtopiaPost
+	solveSolutionsMethodCumulusSolvePost,
+	getOrInitializeMethodCumulusGetOrInitializePost,
+	saveMethodCumulusSavePost,
+	deleteSaveMethodCumulusDeleteSavePost,
+	finalizeMethodCumulusFinalizePost,
+	solveIntermediateMethodCumulusIntermediatePost,
+	getUtopiaDataUtopiaPost,
+	setObjectiveConstraintsMethodCumulusObjectiveConstraintPost,
+	getSolutionDescriptionSolutionDescriptionGetPost
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type {
-	NIMBUSClassificationRequest,
-	NIMBUSInitializationRequest,
-	NIMBUSSaveRequest,
-	NIMBUSDeleteSaveRequest,
-	NIMBUSFinalizeRequest,
+	CumulusClassificationRequest,
+	CumulusInitializationRequest,
+	CumulusSaveRequest,
+	CumulusDeleteSaveRequest,
+	CumulusFinalizeRequest,
 	IntermediateSolutionRequest,
-	SolutionInfo
+	SolutionInfo,
+	CumulusObjectiveConstraintRequest,
+	SolutionDescriptionRequest,
+	ConstraintTypeEnum,
+	ProblemInfo,
+	SolutionReferenceResponse as Solution,
+	ReferencePoint
 } from '$lib/gen/endpoints/DESDEOFastAPI';
-import type { ProblemInfo, Solution } from '$lib/types';
-import type { Response, ReferencePoint } from './types';
+import type { Response } from './types';
 import { errorMessage, isLoading } from '../../../stores/uiState';
 
-/** Convert a Solution (SolutionReferenceResponse) to a SolutionInfo for API requests. */
+/** Convert a Solution to a SolutionInfo for API requests. */
 function toSolutionInfo(solution: Solution, name?: string | null): SolutionInfo {
 	return {
 		state_id: solution.state_id,
@@ -46,12 +53,10 @@ export async function handle_intermediate(
 ): Promise<Response | null> {
 	if (!problem) {
 		errorMessage.set('No problem selected');
-		console.error('No problem selected');
 		return null;
 	}
 	if (selected_solutions.length !== 2) {
 		errorMessage.set('Exactly 2 solutions must be selected for intermediate solutions');
-		console.error('Exactly 2 solutions must be selected for intermediate solutions');
 		return null;
 	}
 
@@ -66,11 +71,10 @@ export async function handle_intermediate(
 			num_desired: num_desired
 		};
 
-		const response = await solveNimbusIntermediateMethodNimbusIntermediatePost(request);
+		const response = await solveIntermediateMethodCumulusIntermediatePost(request);
 
 		if (response.status !== 200) {
 			errorMessage.set(`Intermediate solutions failed with status ${response.status}`);
-			console.error('NIMBUS intermediate failed:', response.status);
 			return null;
 		}
 
@@ -86,13 +90,14 @@ export async function handle_intermediate(
 }
 
 /**
- * Handles a NIMBUS iteration based on user-defined preferences and classifications.
+ * Handles a CUMULUS iteration based on user-defined reference point preferences.
  */
 export async function handle_iterate(
 	problem: ProblemInfo,
 	current_preference: number[],
 	selected_iteration_objectives: Record<string, number>,
-	current_num_iteration_solutions: number
+	_current_num_iteration_solutions: number,
+	scalarizations: string[] = ['cumulonimbus']
 ): Promise<Response | null> {
 	isLoading.set(true);
 	errorMessage.set(null);
@@ -109,18 +114,17 @@ export async function handle_iterate(
 			)
 		};
 
-		const request: NIMBUSClassificationRequest = {
+		const request: CumulusClassificationRequest = {
 			problem_id: problem.id,
 			current_objectives: selected_iteration_objectives,
-			num_desired: current_num_iteration_solutions,
-			preference: preference
+			preference: preference,
+			scalarizations: scalarizations
 		};
 
-		const response = await solveSolutionsMethodNimbusSolvePost(request);
+		const response = await solveSolutionsMethodCumulusSolvePost(request);
 
 		if (response.status !== 200) {
 			errorMessage.set(`Iteration failed with status ${response.status}`);
-			console.error('NIMBUS iterate failed:', response.status);
 			return null;
 		}
 
@@ -145,7 +149,6 @@ export async function handle_save(
 ): Promise<boolean> {
 	if (!problem) {
 		errorMessage.set('No problem selected');
-		console.error('No problem selected');
 		return false;
 	}
 
@@ -153,16 +156,15 @@ export async function handle_save(
 	errorMessage.set(null);
 
 	try {
-		const request: NIMBUSSaveRequest = {
+		const request: CumulusSaveRequest = {
 			problem_id: problem.id,
 			solution_info: [toSolutionInfo(solution, name ?? null)]
 		};
 
-		const response = await saveMethodNimbusSavePost(request);
+		const response = await saveMethodCumulusSavePost(request);
 
 		if (response.status !== 200) {
 			errorMessage.set(`Save failed with status ${response.status}`);
-			console.error('NIMBUS save failed:', response.status);
 			return false;
 		}
 
@@ -186,7 +188,6 @@ export async function handle_remove_saved(
 ): Promise<boolean> {
 	if (!problem) {
 		errorMessage.set('No problem selected');
-		console.error('No problem selected');
 		return false;
 	}
 
@@ -194,17 +195,16 @@ export async function handle_remove_saved(
 	errorMessage.set(null);
 
 	try {
-		const request: NIMBUSDeleteSaveRequest = {
+		const request: CumulusDeleteSaveRequest = {
 			state_id: solution.state_id,
 			solution_index: solution.solution_index ?? 0,
 			problem_id: problem.id
 		};
 
-		const response = await deleteSaveMethodNimbusDeleteSavePost(request);
+		const response = await deleteSaveMethodCumulusDeleteSavePost(request);
 
 		if (response.status !== 200) {
 			errorMessage.set(`Delete save failed with status ${response.status}`);
-			console.error('NIMBUS delete save failed:', response.status);
 			return false;
 		}
 
@@ -225,11 +225,10 @@ export async function handle_remove_saved(
 export async function handle_finish(
 	problem: ProblemInfo | null,
 	solution: Solution,
-	preferences: ReferencePoint
+	_preferences: ReferencePoint
 ): Promise<boolean> {
 	if (!problem) {
 		errorMessage.set('No problem selected');
-		console.error('No problem selected');
 		return false;
 	}
 
@@ -237,16 +236,15 @@ export async function handle_finish(
 	errorMessage.set(null);
 
 	try {
-		const request: NIMBUSFinalizeRequest = {
+		const request: CumulusFinalizeRequest = {
 			problem_id: problem.id,
 			solution_info: toSolutionInfo(solution)
 		};
 
-		const response = await finalizeNimbusMethodNimbusFinalizePost(request);
+		const response = await finalizeMethodCumulusFinalizePost(request);
 
 		if (response.status !== 200) {
 			errorMessage.set(`Finalize failed with status ${response.status}`);
-			console.error('NIMBUS finalize failed:', response.status);
 			return false;
 		}
 
@@ -286,7 +284,6 @@ export async function get_maps(
 
 		if (response.status !== 200) {
 			errorMessage.set(`Get maps failed with status ${response.status}`);
-			console.error('NIMBUS get maps failed:', response.status);
 			return null;
 		}
 
@@ -315,49 +312,50 @@ export async function get_maps(
 
 /**
  * Fetches a textual solution description from the solution_description endpoint.
- * Returns null if unavailable or if the problem has no description metadata.
  */
 export async function get_solution_description(
 	problem: ProblemInfo,
 	solution: Solution
 ): Promise<string | null> {
 	try {
-		const response = await customFetch<{ status: number; data: { available: boolean; description: string } }>(
-			'http://localhost:8000/solution-description/get',
-			{
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					problem_id: problem.id,
-					solution: toSolutionInfo(solution)
-				})
-			}
-		)
+		const request: SolutionDescriptionRequest = {
+			problem_id: problem.id,
+			solution: toSolutionInfo(solution)
+		};
+		const response = await getSolutionDescriptionSolutionDescriptionGetPost(request);
 
-		if (response.status !== 200 || !response.data.available) return null
-		return response.data.description
+		if (response.status !== 200 || !response.data.available) return null;
+		return response.data.description;
 	} catch {
-		return null
+		return null;
 	}
 }
 
 /**
- * Initializes a new NIMBUS state for a given problem, or retrieves the latest one.
+ * Initializes a new CUMULUS state for a given problem, or retrieves the latest one.
+ *
+ * Pass `skip_scenarios = true` to bypass scenario detection and force plain initialization
+ * (used when the DM declines to build a combined scenario problem).
  */
-export async function initialize_nimbus_state(problem_id: number): Promise<Response | null> {
+export async function initialize_cumulus_state(
+	problem_id: number,
+	skip_scenarios = false
+): Promise<Response | null> {
 	isLoading.set(true);
 	errorMessage.set(null);
 
 	try {
-		const request: NIMBUSInitializationRequest = {
-			problem_id: problem_id
-		};
+		// uncertainty_measures will appear in the generated client after `npm run generate:client`.
+		const request = {
+			problem_id: problem_id,
+			// An empty array signals "skip scenario detection"; null triggers it.
+			uncertainty_measures: skip_scenarios ? [] : null
+		} as CumulusInitializationRequest;
 
-		const response = await getOrInitializeMethodNimbusGetOrInitializePost(request);
+		const response = await getOrInitializeMethodCumulusGetOrInitializePost(request);
 
 		if (response.status !== 200) {
 			errorMessage.set(`Initialization failed with status ${response.status}`);
-			console.error('NIMBUS initialization failed:', response.status);
 			return null;
 		}
 
@@ -365,7 +363,120 @@ export async function initialize_nimbus_state(problem_id: number): Promise<Respo
 	} catch (error) {
 		const msg = error instanceof Error ? error.message : 'Unknown error';
 		errorMessage.set(msg);
-		console.error('Error in initialize_nimbus_state:', msg);
+		console.error('Error in initialize_cumulus_state:', msg);
+		return null;
+	} finally {
+		isLoading.set(false);
+	}
+}
+
+export type MeasureType = 'expected_value' | 'worst_case_robust' | 'conditional_value_at_risk' | 'weighted_scenarios';
+
+export interface MeasureOptions {
+	cvar_alpha?: number;
+}
+
+/**
+ * Re-calls get-or-initialize with the DM-chosen uncertainty measures applied,
+ * building a combined multi-scenario problem before starting the method.
+ */
+export async function initialize_cumulus_state_with_scenarios(
+	problem_id: number,
+	scenario_model_id: number,
+	objective_symbols: string[],
+	selected_measures: MeasureType[],
+	measure_options: MeasureOptions = {},
+	name?: string
+): Promise<Response | null> {
+	isLoading.set(true);
+	errorMessage.set(null);
+
+	try {
+		const request = {
+			problem_id: problem_id,
+			name: name || null,
+			uncertainty_measures: selected_measures.map((measure_type) => ({
+				measure_type,
+				scenario_model_id,
+				symbols: objective_symbols,
+				...(measure_type === 'conditional_value_at_risk' && { alpha: measure_options.cvar_alpha ?? 0.95 })
+			}))
+		} as CumulusInitializationRequest;
+
+		const response = await getOrInitializeMethodCumulusGetOrInitializePost(request);
+
+		if (response.status !== 200) {
+			errorMessage.set(`Scenario initialization failed with status ${response.status}`);
+			return null;
+		}
+
+		return response.data as unknown as Response;
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : 'Unknown error';
+		errorMessage.set(msg);
+		console.error('Error in initialize_cumulus_state_with_scenarios:', msg);
+		return null;
+	} finally {
+		isLoading.set(false);
+	}
+}
+
+type UIConstraintType = '<=0' | '=0' | '<=0 (soft)' | '=0 (soft)';
+
+interface UIConstraint {
+	func: string;
+	type: UIConstraintType;
+}
+
+interface ObjectiveConstraintResult {
+	state_id: number;
+	hard_constraint_ids: number[];
+	soft_constraint_ids: number[];
+}
+
+function toConstraintDB(constraints: UIConstraint[], soft: boolean, offset: number) {
+	return constraints
+		.filter((c) => c.type.includes('soft') === soft)
+		.map((c, i) => ({
+			name: c.func,
+			symbol: `oc_${offset + i + 1}`,
+			func: c.func,
+			cons_type: (c.type.startsWith('<=') ? '<=' : '=') as ConstraintTypeEnum
+		}));
+}
+
+export async function set_objective_constraints(
+	problem: ProblemInfo,
+	parent_state_id: number | null,
+	constraints: UIConstraint[]
+): Promise<ObjectiveConstraintResult | null> {
+	isLoading.set(true);
+	errorMessage.set(null);
+
+	const hard = toConstraintDB(constraints, false, 0);
+	const soft = toConstraintDB(constraints, true, hard.length);
+
+	const request: CumulusObjectiveConstraintRequest = {
+		problem_id: problem.id,
+		parent_state_id: parent_state_id ?? null,
+		hard_constraints: hard,
+		soft_constraints: soft
+	};
+
+	try {
+		const response = await setObjectiveConstraintsMethodCumulusObjectiveConstraintPost(request);
+
+		if (response.status !== 200) {
+			const detail = (response.data as unknown as { detail?: string })?.detail;
+			errorMessage.set(detail ?? `Setting objective constraints failed with status ${response.status}`);
+			return null;
+		}
+
+		return response.data;
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : 'Unknown error';
+		errorMessage.set(msg);
+		console.error('Error in set_objective_constraints:', msg);
 		return null;
 	} finally {
 		isLoading.set(false);
