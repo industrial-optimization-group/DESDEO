@@ -1832,7 +1832,6 @@ class SMSEMOASelector(BaseSelector):
         verbosity: int,
         publisher: Publisher,
         normalised_reference_point_component: float,
-        allow_multithreading: bool = True,
         seed: int = 0,
     ):
         """Initialize the SMS-EMOA selection operator.
@@ -1844,8 +1843,6 @@ class SMSEMOASelector(BaseSelector):
             normalised_reference_point_component (float, optional): The reference point component used for hypervolume
                 calculation. The solutions are normalized to the range [0, 1] and the reference point is set to
                 a vector of ones multiplied by this component.
-            allow_multithreading (bool, optional): Whether to allow multithreading for parallel hypervolume
-                calculations. Defaults to True.
             seed (int, optional): The random seed to use. Defaults to 0.
         """
         super().__init__(
@@ -1861,7 +1858,6 @@ class SMSEMOASelector(BaseSelector):
             raise ValueError("The reference point component must be greater than or equal to 1.")
         self.reference_point_component = normalised_reference_point_component
         self.removed: int = 0
-        self.allow_multithreading = allow_multithreading
 
     def do(
         self,

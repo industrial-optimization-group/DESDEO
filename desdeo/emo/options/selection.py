@@ -98,8 +98,6 @@ class SMSEMOASelectorOptions(BaseModel):
     """The reference point component used for hypervolume calculation.
     The solutions are normalized to the range [0, 1] and the reference point is set to a vector of ones multiplied by
     this component."""
-    allow_multithreading: bool = Field(default=True)
-    """Whether to allow multithreading for parallel hypervolume calculations."""
 
 
 SelectorOptions = (
