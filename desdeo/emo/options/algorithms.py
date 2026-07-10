@@ -507,7 +507,7 @@ def sms_emoa_options() -> EMOOptions:
             ),
             termination=MaxEvaluationsTerminatorOptions(
                 name="MaxEvaluationsTerminator",
-                max_evaluations=10000,
+                max_evaluations=1000,
             ),
             use_archive=True,
             verbosity=2,
@@ -539,7 +539,7 @@ def sms_emoa_mixed_integer_options() -> EMOOptions:
             ),
             termination=MaxEvaluationsTerminatorOptions(
                 name="MaxEvaluationsTerminator",
-                max_evaluations=10000,
+                max_evaluations=1000,
             ),
             use_archive=True,
             verbosity=2,

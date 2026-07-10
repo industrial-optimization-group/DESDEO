@@ -297,8 +297,8 @@ class SinglePointBinaryCrossover(BaseCrossover):
 
         # split the population into parents, one with members with even numbered indices, the
         # other with uneven numbered indices
-        parents1 = mating_pop[[shuffled_ids[i] for i in range(0, mating_pop_size, 2)]]
-        parents2 = mating_pop[[shuffled_ids[i] for i in range(1, mating_pop_size, 2)]]
+        parents1 = mating_pop[0::2, :]
+        parents2 = mating_pop[1::2, :]
 
         cross_over_points = self.rng.integers(1, num_var - 1, mating_pop_size // 2)
 
@@ -438,8 +438,8 @@ class UniformIntegerCrossover(BaseCrossover):
 
         # split the population into parents, one with members with even numbered indices, the
         # other with uneven numbered indices
-        parents1 = mating_pop[[shuffled_ids[i] for i in range(0, mating_pop_size, 2)]]
-        parents2 = mating_pop[[shuffled_ids[i] for i in range(1, mating_pop_size, 2)]]
+        parents1 = mating_pop[0::2, :]
+        parents2 = mating_pop[1::2, :]
 
         mask = self.rng.choice([True, False], size=num_var)
 
@@ -568,8 +568,8 @@ class UniformMixedIntegerCrossover(BaseCrossover):
 
         # split the population into parents, one with members with even numbered indices, the
         # other with uneven numbered indices
-        parents1 = mating_pop[[shuffled_ids[i] for i in range(0, mating_pop_size, 2)]]
-        parents2 = mating_pop[[shuffled_ids[i] for i in range(1, mating_pop_size, 2)]]
+        parents1 = mating_pop[0::2, :]
+        parents2 = mating_pop[1::2, :]
 
         mask = self.rng.choice([True, False], size=num_var)
 
