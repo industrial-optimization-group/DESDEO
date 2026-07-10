@@ -12,11 +12,13 @@ from desdeo.emo.options.selection import (
     ParameterAdaptationStrategy,
     ReferenceVectorOptions,
     RVEASelectorOptions,
+    SMSEMOASelectorOptions,
 )
 from desdeo.emo.options.templates import (
     EMOOptions,
     Template1Options,
     Template2Options,
+    Template3Options,
     TemplateXLEMOOOptions,
     emo_constructor,
 )
@@ -457,6 +459,49 @@ def ibea_mixed_integer_options() -> EMOOptions:
                 winner_size=100,
             ),
             generator=RandomMixedIntegerGeneratorOptions(n_points=100),
+            repair=NoRepairOptions(
+                name="NoRepair",
+            ),
+            termination=MaxGenerationsTerminatorOptions(
+                name="MaxGenerationsTerminator",
+                max_generations=100,
+            ),
+            use_archive=True,
+            verbosity=2,
+            seed=42,
+        ),
+    )
+
+
+def sms_emoa_options() -> EMOOptions:
+    """Get default SMS-EMOA options as a Pydantic model.
+
+    References:
+        Beume, N., Naujoks, B., & Emmerich, M. (2007). SMS-EMOA: Multiobjective selection based on
+        dominated hypervolume. European Journal of Operational Research, 181(3), 1653-1669.
+
+    Returns:
+        EMOOptions: The default SMS-EMOA options as a Pydantic model.
+    """
+    return EMOOptions(
+        preference=None,
+        template=Template3Options(
+            algorithm_name="SMS-EMOA",
+            crossover=SimulatedBinaryCrossoverOptions(
+                name="SimulatedBinaryCrossover",
+                xover_distribution=30,
+                xover_probability=0.5,
+            ),
+            mutation=BoundedPolynomialMutationOptions(
+                name="BoundedPolynomialMutation",
+                distribution_index=20,
+                mutation_probability=None,
+            ),
+            selection=SMSEMOASelectorOptions(),
+            generator=LHSGeneratorOptions(
+                name="LHSGenerator",
+                n_points=100,
+            ),
             repair=NoRepairOptions(
                 name="NoRepair",
             ),

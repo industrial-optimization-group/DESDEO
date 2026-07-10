@@ -14,6 +14,7 @@ from desdeo.emo.operators.selection import (
     ParameterAdaptationStrategy,
     ReferenceVectorOptions,
     RVEASelector,
+    SMSEMOASelector,
 )
 from desdeo.tools.indicators_binary import self_epsilon, self_hv
 
@@ -86,7 +87,22 @@ class IBEASelectorOptions(BaseModel):
     """The binary indicator for IBEA."""
 
 
-SelectorOptions = RVEASelectorOptions | NSGA2SelectorOptions | NSGA3SelectorOptions | IBEASelectorOptions
+class SMSEMOASelectorOptions(BaseModel):
+    """Options for SMS-EMOA Selection."""
+
+    model_config = {"use_attribute_docstrings": True}
+
+    name: Literal["SMSEMOASelector"] = Field(default="SMSEMOASelector", frozen=True)
+    """The name of the selection operator."""
+    normalised_reference_point_component: float = Field(default=1.1, gt=1.0)
+    """The reference point component used for hypervolume calculation.
+    The solutions are normalized to the range [0, 1] and the reference point is set to a vector of ones multiplied by
+    this component."""
+
+
+SelectorOptions = (
+    RVEASelectorOptions | NSGA2SelectorOptions | NSGA3SelectorOptions | IBEASelectorOptions | SMSEMOASelectorOptions
+)
 
 
 def selection_constructor(
@@ -112,6 +128,7 @@ def selection_constructor(
         "NSGA2Selector": NSGA2Selector,
         "NSGA3Selector": NSGA3Selector,
         "IBEASelector": IBEASelector,
+        "SMSEMOASelector": SMSEMOASelector,
     }
     options: dict = options.model_dump()
     name = options.pop("name")

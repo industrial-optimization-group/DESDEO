@@ -10,7 +10,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from desdeo.emo.hooks.archivers import NonDominatedArchive
-from desdeo.emo.methods.templates import EMOResult, template1, template2, template_xlemoo
+from desdeo.emo.methods.templates import EMOResult, template1, template2, template3, template_xlemoo
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.learning_mode import LearningModeOperator
 from desdeo.emo.operators.scalar_selection import ElitistSelection
@@ -118,6 +118,18 @@ class Template2Options(BaseTemplateOptions):
     mate_selection: ScalarSelectionOptions = Field(description="The mate selection operator options.")
 
 
+class Template3Options(BaseTemplateOptions):
+    """Options for template 3.
+
+    Template 3 is used by methods such as SMS-EMOA. See
+    [template3][desdeo.emo.methods.templates.template3] for
+    more details.
+    """
+
+    name: Literal["Template3"] = Field(default="Template3", frozen=True, description="The name of the template.")
+    """The name of the template."""
+
+
 class TemplateXLEMOOOptions(BaseTemplateOptions):
     """Options for the XLEMOO template.
 
@@ -159,7 +171,7 @@ class TemplateXLEMOOOptions(BaseTemplateOptions):
     Must be one of the keys of `XLEMOO_SCALARIZATIONS`."""
 
 
-TemplateOptions = Template1Options | Template2Options | TemplateXLEMOOOptions
+TemplateOptions = Template1Options | Template2Options | TemplateXLEMOOOptions | Template3Options
 
 
 class ReferencePointOptions(BaseModel):
@@ -474,6 +486,7 @@ def emo_constructor(
         "Template1": template1,
         "Template2": template2,
         "TemplateXLEMOO": template_xlemoo,
+        "Template3": template3,
     }
 
     if template.name == "TemplateXLEMOO":
@@ -495,6 +508,9 @@ def emo_constructor(
         )
 
     constructor_extras = ConstructorExtras(problem=problem_, publisher=publisher, archive=archive)
+
+    if template.name == "Template3":
+        components["seed"] = template.seed
 
     return (partial(template_funcs[template.name], **components, repair=repair), constructor_extras)
 
