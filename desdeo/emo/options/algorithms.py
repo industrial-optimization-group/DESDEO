@@ -22,7 +22,7 @@ from desdeo.emo.options.templates import (
     TemplateXLEMOOOptions,
     emo_constructor,
 )
-from desdeo.emo.options.termination import MaxGenerationsTerminatorOptions
+from desdeo.emo.options.termination import MaxEvaluationsTerminatorOptions, MaxGenerationsTerminatorOptions
 
 __all__ = [
     "emo_constructor",
@@ -505,9 +505,41 @@ def sms_emoa_options() -> EMOOptions:
             repair=NoRepairOptions(
                 name="NoRepair",
             ),
-            termination=MaxGenerationsTerminatorOptions(
-                name="MaxGenerationsTerminator",
-                max_generations=100,
+            termination=MaxEvaluationsTerminatorOptions(
+                name="MaxEvaluationsTerminator",
+                max_evaluations=10000,
+            ),
+            use_archive=True,
+            verbosity=2,
+            seed=42,
+        ),
+    )
+
+
+def sms_emoa_mixed_integer_options() -> EMOOptions:
+    """Get default SMS-EMOA options for mixed integer problems as a Pydantic model.
+
+    References:
+        Beume, N., Naujoks, B., & Emmerich, M. (2007). SMS-EMOA: Multiobjective selection based on
+        dominated hypervolume. European Journal of Operational Research, 181(3), 1653-1669.
+
+    Returns:
+        EMOOptions: The default SMS-EMOA mixed integer options as a Pydantic model.
+    """
+    return EMOOptions(
+        preference=None,
+        template=Template3Options(
+            algorithm_name="SMS-EMOA_Mixed_Integer",
+            crossover=UniformMixedIntegerCrossoverOptions(),
+            mutation=MixedIntegerRandomMutationOptions(),
+            selection=SMSEMOASelectorOptions(),
+            generator=RandomMixedIntegerGeneratorOptions(n_points=100),
+            repair=NoRepairOptions(
+                name="NoRepair",
+            ),
+            termination=MaxEvaluationsTerminatorOptions(
+                name="MaxEvaluationsTerminator",
+                max_evaluations=10000,
             ),
             use_archive=True,
             verbosity=2,

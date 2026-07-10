@@ -94,10 +94,12 @@ class SMSEMOASelectorOptions(BaseModel):
 
     name: Literal["SMSEMOASelector"] = Field(default="SMSEMOASelector", frozen=True)
     """The name of the selection operator."""
-    normalised_reference_point_component: float = Field(default=1.1, gt=1.0)
+    normalised_reference_point_component: float = Field(default=2, gt=1.0)
     """The reference point component used for hypervolume calculation.
     The solutions are normalized to the range [0, 1] and the reference point is set to a vector of ones multiplied by
     this component."""
+    allow_multithreading: bool = Field(default=True)
+    """Whether to allow multithreading for parallel hypervolume calculations."""
 
 
 SelectorOptions = (
