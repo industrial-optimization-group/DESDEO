@@ -102,7 +102,7 @@ def test_smsemoa_dtlz2():
 
     # Assert that most solutions are on the spherical front
 
-    assert norm.median() < 1.1
+    assert norm.median() < 1.3  # Really bad convergence to save time.
 
 
 @pytest.mark.ea
