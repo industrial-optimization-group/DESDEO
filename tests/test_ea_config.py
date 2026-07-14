@@ -89,6 +89,23 @@ def test_ibea_dtlz2():
 
 
 @pytest.mark.ea
+def test_smsemoa_dtlz2():
+    """Test whether the SMS-EMOA algorithm can be initialized and run as a whole."""
+    problem = dtlz2(n_objectives=3, n_variables=12)
+    options = algorithms.sms_emoa_options()
+    solver, _extras = algorithms.emo_constructor(emo_options=options, problem=problem)
+    results = solver()
+
+    norm = results.optimal_outputs.with_columns(
+        (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
+    )["norm"]
+
+    # Assert that most solutions are on the spherical front
+
+    assert norm.median() < 1.3  # Really bad convergence to save time.
+
+
+@pytest.mark.ea
 def test_mixed_integer_nsga3():
     """Test whether the mixed-integer NSGA-III variant can be initialized and run as a whole."""
     problem = momip_ti2()
@@ -112,6 +129,14 @@ def test_mixed_integer_rvea():
     problem = momip_ti2()
     solver, _ = algorithms.emo_constructor(problem=problem, emo_options=algorithms.rvea_mixed_integer_options())
 
+    _ = solver()
+
+
+@pytest.mark.ea
+def test_mixed_integer_smsemoa():
+    """Test whether the mixed-integer SMS-EMOA variant can be initialized and run as a whole."""
+    problem = momip_ti2()
+    solver, _ = algorithms.emo_constructor(problem=problem, emo_options=algorithms.sms_emoa_mixed_integer_options())
     _ = solver()
 
 

@@ -25,6 +25,8 @@ from .options.algorithms import (
     nsga3_options,
     rvea_mixed_integer_options,
     rvea_options,
+    sms_emoa_mixed_integer_options,
+    sms_emoa_options,
     xlemoo_options,
 )
 from .options.crossover import (
@@ -91,9 +93,11 @@ algorithms = SimpleNamespace(
     nsga2_options=nsga2_options,
     nsga3_options=nsga3_options,
     ibea_options=ibea_options,
+    sms_emoa_options=sms_emoa_options,
     rvea_mixed_integer_options=rvea_mixed_integer_options,
     nsga3_mixed_integer_options=nsga3_mixed_integer_options,
     ibea_mixed_integer_options=ibea_mixed_integer_options,
+    sms_emoa_mixed_integer_options=sms_emoa_mixed_integer_options,
     xlemoo_options=xlemoo_options,
     emo_constructor=emo_constructor,
 )

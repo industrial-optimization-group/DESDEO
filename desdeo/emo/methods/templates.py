@@ -5,6 +5,7 @@ This can be used as a template for the implementation of the EMO methods.
 
 from collections.abc import Callable
 
+import numpy as np
 import polars as pl
 
 from desdeo.emo.operators.crossover import BaseCrossover
@@ -107,6 +108,63 @@ def template2(
         # Repair offspring if they go out of bounds
         offspring = repair(offspring)
         offspring_outputs = evaluator.evaluate(offspring)
+
+    return EMOResult(optimal_variables=solutions, optimal_outputs=outputs)
+
+
+def template3(
+    evaluator: EMOEvaluator,
+    crossover: BaseCrossover,
+    mutation: BaseMutation,
+    generator: BaseGenerator,
+    selection: BaseSelector,
+    terminator: BaseTerminator,
+    seed: int,
+    repair: Callable[[pl.DataFrame], pl.DataFrame] = lambda x: x,  # Default to identity function if no repair is needed
+) -> EMOResult:
+    """Implements a template that many steady state EMO methods such as SMS-EMOA follow.
+
+    The algorithm follows the one described in Beume et al. (2007).
+
+    Beume, N., Naujoks, B., & Emmerich, M. (2007). SMS-EMOA: Multiobjective selection based on dominated hypervolume.
+    European Journal of Operational Research, 181(3), 1653-1669. https://doi.org/10.1016/j.ejor.2006.08.008
+
+
+    Args:
+        evaluator (EMOEvaluator): A class that evaluates the solutions and provides the objective vectors, constraint
+            vectors, and targets.
+        crossover (BaseCrossover): The crossover operator.
+        mutation (BaseMutation): The mutation operator.
+        generator (BaseGenerator): A class that generates the initial population.
+        selection (BaseSelector): The selection operator.
+        terminator (BaseTerminator): The termination operator.
+        seed (int): The random seed for reproducibility.
+        repair (Callable, optional): A function that repairs the offspring if they go out of bounds. Defaults to an
+            identity function, meaning no repair is done. See [desdeo.tools.utils.repair][] as an example of a
+            repair function.
+
+    Returns:
+        EMOResult: The final population and their objective vectors, constraint vectors, and targets
+    """
+    rng = np.random.default_rng(seed)
+    solutions, outputs = generator.do()  # Algorithm 1 line 1
+
+    while not terminator.check():
+        # Generate one offspring at a time
+        # choose two random parents from the current population
+        parents_idx = rng.choice(solutions.height, size=2, replace=False).tolist()
+        offsprings = crossover.do(population=solutions, to_mate=parents_idx)  # Algorithm 1 line 4
+        offsprings = mutation.do(offsprings, solutions)  # Algorithm 1 line 4
+        # Repair offspring if they go out of bounds
+        offsprings = repair(offsprings)
+        # The crossover generates two offsprings, but we only want to keep one of them,
+        # so we randomly choose one of the two (i think just always choosing the first one is not fine)
+        offspring_idx = rng.choice(offsprings.height, size=1, replace=False).tolist()
+        offspring = offsprings[offspring_idx, :]
+        offspring_outputs = evaluator.evaluate(offspring)
+        solutions, outputs = selection.do(
+            parents=(solutions, outputs), offsprings=(offspring, offspring_outputs)
+        )  # Algorithm 1 line 5
 
     return EMOResult(optimal_variables=solutions, optimal_outputs=outputs)
 

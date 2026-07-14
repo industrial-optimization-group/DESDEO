@@ -83,7 +83,7 @@ def fast_non_dominated_sort(data: np.ndarray) -> np.ndarray:
     return fronts[: i + 1]
 
 
-def fast_non_dominated_sort_indices(data: np.ndarray) -> list[np.ndarray]:
+def fast_non_dominated_sort_indices(data: np.ndarray) -> list[list[int]]:
     """Conduct fast non-dominated sorting on a population of solutions.
 
     This function returns identical results as `fast_non_dominated_sort`, but in a different format.
@@ -93,12 +93,12 @@ def fast_non_dominated_sort_indices(data: np.ndarray) -> list[np.ndarray]:
         data (np.ndarray): 2-D array of solutions, with each row being a single solution.
 
     Returns:
-        list[np.ndarray]: A list with f elements where f is the number of fronts in the data,
-            arranged in ascending order. Each element is a numpy array of the indices of solutions
+        list[list[int]]: A list with f elements where f is the number of fronts in the data,
+            arranged in ascending order. Each element is a list of the indices of solutions
             belonging to the corresponding front.
     """
     fronts = fast_non_dominated_sort(data)
-    return [np.where(fronts[i])[0] for i in range(len(fronts))]
+    return [np.where(fronts[i])[0].tolist() for i in range(len(fronts))]
 
 
 @njit()
