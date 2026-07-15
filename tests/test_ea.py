@@ -854,7 +854,7 @@ def test_blend_alpha_crossover():
     to_mate = [0, 9, 1, 8, 2]
     offspring = crossover.do(population=population, to_mate=to_mate)
 
-    assert offspring.shape == (len(to_mate), num_vars)
+    assert offspring.shape == (len(to_mate) + 1, num_vars)
     # offspring must differ from parents
     with npt.assert_raises(AssertionError):
         npt.assert_allclose(population, offspring)

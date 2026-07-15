@@ -66,25 +66,26 @@ class UniformMixedIntegerCrossoverOptions(BaseModel):
 class BlendAlphaCrossoverOptions(BaseModel):
     """Options for Blend Alpha Crossover."""
 
+    model_config = {"use_attribute_docstrings": True}
+
     name: Literal["BlendAlphaCrossover"] = Field(
-        default="BlendAlphaCrossover", frozen=True, description="The name of the crossover operator."
+        default="BlendAlphaCrossover",
+        frozen=True,
     )
     """The name of the crossover operator."""
-    alpha: float = Field(
-        default=0.5,
-        ge=0.0,
-        description=(
-            "Non-negative blending factor 'alpha' that controls the extent to which offspring"
-            " may be sampled outside the interval defined by each pair of parent genes. "
-            "alpha = 0 restricts children strictly within the parents range, larger alpha allows some outliers."
-        ),
-    )
+    alpha: float = Field(default=0.5, ge=0.0)
     """
     Non-negative blending factor 'alpha' that controls the extent to which offspring
     may be sampled outside the interval defined by each pair of parent genes.
-    alpha = 0 restricts children strictly within the parents range, larger alpha allows some outliers.
+    alpha = 0 restricts children strictly within the parents range, larger alpha allows outliers.
     """
-    xover_probability: float = Field(default=1.0, ge=0.0, le=1.0)
+    repeats: int = Field(default=2, ge=1)
+    """Number of offspring to generate per parent pair."""
+    sample_each_component: bool = Field(
+        default=True,
+    )
+    """If True, a new random number is generated for each component of the offspring. If False, a single random number
+    is generated for the entire offspring."""
 
 
 class SingleArithmeticCrossoverOptions(BaseModel):

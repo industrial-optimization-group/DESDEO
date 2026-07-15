@@ -670,9 +670,15 @@ class BlendAlphaCrossover(BaseCrossover):
         publisher: Publisher,
         seed: int,
         alpha: float = 0.5,
-        xover_probability: float = 1.0,
+        repeats: int = 2,
+        sample_each_component: bool = True,
     ):
         """Initialize the blend alpha crossover operator.
+
+        Details here: Eshelman, L. J., & Schaffer, J. D. (1993). Real-Coded Genetic Algorithms and Interval-Schemata.
+        In L. D. Whitley (Ed.), Foundations of Genetic Algorithms (Vol. 2, pp. 187-202). Elsevier.
+        https://doi.org/10.1016/B978-0-08-094832-4.50018-0
+
 
         Args:
             problem (Problem): the problem object.
@@ -683,24 +689,26 @@ class BlendAlphaCrossover(BaseCrossover):
             alpha (float, optional): non-negative blending factor 'alpha' that controls the extent to which
                 offspring may be sampled outside the interval defined by each pair of parent
                 genes. alpha = 0 restricts children strictly within the
-                parents range, larger alpha allows some outliers. Defaults to 0.5.
-            xover_probability (float, optional): the crossover probability parameter.
-                Ranges between 0 and 1.0. Defaults to 1.0.
+                parents range, larger alpha allows outliers. Defaults to 0.5.
+            repeats (int, optional): the number of times to repeat the crossover operation for a given pair of parents.
+                Defaults to 2. Note that a value of 1 means that only one child will be generated for each pair of
+                parents.
+            sample_each_component (bool, optional): whether to sample each component of the offspring independently.
+                If `True`, a new random number is generated for each component of the offspring. If `False`, a single
+                random number is generated for the entire offspring. Defaults to `True`.
         """
         super().__init__(problem=problem, verbosity=verbosity, publisher=publisher)
 
         if problem.variable_domain is not VariableDomainTypeEnum.continuous:
             raise ValueError("BlendAlphaCrossover only works on continuous problems.")
-
-        if not 0 <= xover_probability <= 1:
-            raise ValueError("Crossover probability must be in [0,1].")
         if alpha < 0:
             raise ValueError("Alpha must be non-negative.")
 
         self.alpha = alpha
-        self.xover_probability = xover_probability
         self.seed = seed
         self.rng = np.random.default_rng(self.seed)
+        self.repeats = repeats
+        self.sample_each_component = sample_each_component
 
         self.parent_population: pl.DataFrame | None = None
         self.offspring_population: pl.DataFrame | None = None
@@ -711,7 +719,7 @@ class BlendAlphaCrossover(BaseCrossover):
         population: pl.DataFrame,
         to_mate: list[int] | None = None,
     ) -> pl.DataFrame:
-        """Perform BLX-alpha crossover.
+        """Perform BLX-alpha crossover _correctly_.
 
         Args:
             population (pl.DataFrame): the population to perform the crossover with. The DataFrame
@@ -735,40 +743,37 @@ class BlendAlphaCrossover(BaseCrossover):
             shuffled_ids = copy.copy(to_mate)
 
         mating_pop_size = len(shuffled_ids)
-        original_pop_size = mating_pop_size
         if mating_pop_size % 2 == 1:
             shuffled_ids.append(shuffled_ids[0])
             mating_pop_size += 1
 
         mating_pop = parent_decision_vars[shuffled_ids]
 
-        parents1 = mating_pop[0::2, :]
-        parents2 = mating_pop[1::2, :]
+        offspring_size = mating_pop_size / 2 * self.repeats
+        offsprings = np.zeros((int(offspring_size), num_var))
 
-        c_min = np.array(self.lower_bounds)
-        c_max = np.array(self.upper_bounds)
-        span = c_max - c_min
+        if self.sample_each_component:
+            offspring_randoms = self.rng.random((int(offspring_size), num_var))
+        else:
+            offspring_randoms = self.rng.random((int(offspring_size), 1))
 
-        lower = c_min - self.alpha * span
-        upper = c_max + self.alpha * span
+        for i in range(0, mating_pop_size, 2):
+            p1 = mating_pop[i]
+            p2 = mating_pop[i + 1]
 
-        uniform_1 = self.rng.random((mating_pop_size // 2, num_var))
-        uniform_2 = self.rng.random((mating_pop_size // 2, num_var))
+            c_min = np.minimum(p1, p2)
+            c_max = np.maximum(p1, p2)
+            span = c_max - c_min
 
-        offspring1 = lower + uniform_1 * (upper - lower)
-        offspring2 = lower + uniform_2 * (upper - lower)
+            lower = c_min - self.alpha * span
+            upper = c_max + self.alpha * span
+            lower = np.maximum(lower, self.lower_bounds)
+            upper = np.minimum(upper, self.upper_bounds)
 
-        mask = self.rng.random(mating_pop_size // 2) > self.xover_probability
-        offspring1[mask, :] = parents1[mask, :]
-        offspring2[mask, :] = parents2[mask, :]
-
-        offspring = np.vstack((offspring1, offspring2))
-        if original_pop_size % 2 == 1:
-            offspring = offspring[:-1, :]
-
-        self.offspring_population = pl.from_numpy(offspring, schema=self.variable_symbols).select(
-            pl.all().cast(pl.Float64)
-        )
+            for j in range(self.repeats):
+                idx = (i // 2) * self.repeats + j
+                offsprings[idx] = lower + offspring_randoms[idx] * (upper - lower)
+        self.offspring_population = pl.from_numpy(offsprings, schema=self.variable_symbols)
         self.notify()
         return self.offspring_population
 
@@ -781,13 +786,6 @@ class BlendAlphaCrossover(BaseCrossover):
             return []
         msgs: list[Message] = []
         if self.verbosity >= 1:
-            msgs.append(
-                FloatMessage(
-                    topic=CrossoverMessageTopics.XOVER_PROBABILITY,
-                    source=self.__class__.__name__,
-                    value=self.xover_probability,
-                )
-            )
             msgs.append(
                 FloatMessage(
                     topic=CrossoverMessageTopics.ALPHA,
