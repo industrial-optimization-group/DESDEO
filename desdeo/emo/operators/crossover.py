@@ -96,10 +96,14 @@ class SimulatedBinaryCrossover(BaseCrossover):
             verbosity (int): the verbosity level of the component. The keys in `provided_topics` tell what
                 topics are provided by the operator at each verbosity level. Recommended to be set to 1.
             publisher (Publisher): the publisher to which the operator will publish messages.
-            xover_probability (float, optional): the crossover probability
-                parameter. Ranges between 0 and 1.0. Defaults to 1.0.
-            xover_distribution (float, optional): the crossover distribution
-                parameter. Must be positive. Defaults to 30.
+            xover_probability (float, optional): the crossover probability parameter.
+                This parameter decides whether the decision variable components of the parents are swapped for the
+                offspring or not. Ranges between 0 and 1.0. Defaults to 1.0.
+            xover_distribution (float, optional): the crossover distribution parameter. Must be positive.
+                This parameter controls the distribution of the offspring. A larger value results in a distribution
+                that is more concentrated around the parents, while a smaller value results in a distribution that is
+                more spread out.
+                Defaults to 30.
         """
         # Subscribes to no topics, so no need to stroe/pass the topics to the super class.
         super().__init__(problem, verbosity=verbosity, publisher=publisher)
@@ -123,6 +127,11 @@ class SimulatedBinaryCrossover(BaseCrossover):
         to_mate: list[int] | None = None,
     ) -> pl.DataFrame:
         """Perform the simulated binary crossover operation.
+
+        Implementation based on Deb, Kalyanmoy, and Ram Bhushan Agrawal. "Simulated binary crossover for
+        continuous search space." Complex systems 9.2 (1995): 115-148. This implementation is similar to PlatEMO,
+        however, differs from deap (potentially incorrect implementation) and pymoo (they implement self-adaptive
+        simulated binary crossover, but call it simulated binary crossover).
 
         Args:
             population (pl.DataFrame): the population to perform the crossover with. The DataFrame
@@ -159,10 +168,23 @@ class SimulatedBinaryCrossover(BaseCrossover):
         for i in range(0, mate_size, 2):
             beta = np.zeros(num_var)
             miu = self.rng.random(num_var)
+            # Simulated binary crossover (SBX) operator tries to mimic the behavior of single-point crossover by
+            # trying to attain similar distribution of offspring as single-point crossover.
+            # The distribution itself can be contracting or expanding.
+            # beta is calculated such that the integral (over (0, beta)) of the distribution matches the random number
+            # mu. At mu <= 0.5, the distribution is contracting, and at mu > 0.5, the distribution is expanding.
+            # You can integrate equations 18 and 19 from the reference in the docstring to see how the equations below
+            # are derived.
             beta[miu <= HALF] = (2 * miu[miu <= HALF]) ** (1 / (self.xover_distribution + 1))
             beta[miu > HALF] = (2 - 2 * miu[miu > HALF]) ** (-1 / (self.xover_distribution + 1))
+            # if beta is negative, the offspring 1 gets decision var component closer to parent 2 and vice versa.
+            # In this implementation, there is an equal chance of beta being negative or positive.
+            # TBH, this is more similar to uniform crossover than single-point crossover.
             beta = beta * ((-1) ** self.rng.integers(low=0, high=2, size=num_var))
+            # If beta = 1, no crossover occurs and the dec var components are basically copied from the parents.
             beta[self.rng.random(num_var) > self.xover_probability] = 1
+            # Note that when mu < 0.5, abs(beta) ends up being less than 1, resulting in a contracting crossover.
+            # The opposite is true when mu > 0.5, resulting in an expanding crossover.
             avg = (mating_pop[i] + mating_pop[i + 1]) / 2
             diff = (mating_pop[i] - mating_pop[i + 1]) / 2
             offspring[i] = avg + beta * diff
