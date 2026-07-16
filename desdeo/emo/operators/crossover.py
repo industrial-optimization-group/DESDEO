@@ -54,7 +54,7 @@ class BaseCrossover(Subscriber):
 class SimulatedBinaryCrossover(BaseCrossover):
     """A class for creating a simulated binary crossover operator.
 
-    Reference:
+    Reference for unbounded version:
         Kalyanmoy Deb and Ram Bhushan Agrawal. 1995. Simulated binary crossover for continuous search space.
             Complex Systems 9, 2 (1995), 115-148.
     """
@@ -87,6 +87,7 @@ class SimulatedBinaryCrossover(BaseCrossover):
         publisher: Publisher,
         xover_probability: float = 1.0,
         xover_distribution: float = 30,
+        bounded: bool = False,
     ):
         """Initialize a simulated binary crossover operator.
 
@@ -102,8 +103,8 @@ class SimulatedBinaryCrossover(BaseCrossover):
             xover_distribution (float, optional): the crossover distribution parameter. Must be positive.
                 This parameter controls the distribution of the offspring. A larger value results in a distribution
                 that is more concentrated around the parents, while a smaller value results in a distribution that is
-                more spread out.
-                Defaults to 30.
+                more spread out. Defaults to 30.
+            bounded (bool, optional): whether to bound the offspring to the variable bounds. Defaults to False.
         """
         # Subscribes to no topics, so no need to stroe/pass the topics to the super class.
         super().__init__(problem, verbosity=verbosity, publisher=publisher)
@@ -115,6 +116,8 @@ class SimulatedBinaryCrossover(BaseCrossover):
             raise ValueError("Crossover distribution must be positive.")
         self.xover_probability = xover_probability
         self.xover_distribution = xover_distribution
+        self.bounded = bounded
+
         self.parent_population: pl.DataFrame
         self.offspring_population: pl.DataFrame
         self.rng = np.random.default_rng(seed)
@@ -127,6 +130,32 @@ class SimulatedBinaryCrossover(BaseCrossover):
         to_mate: list[int] | None = None,
     ) -> pl.DataFrame:
         """Perform the simulated binary crossover operation.
+
+        Args:
+            population (pl.DataFrame): the population to perform the crossover with. The DataFrame
+                contains the decision vectors, the target vectors, and the constraint vectors.
+            to_mate (list[int] | None): the indices of the population members that should
+                participate in the crossover. If `None`, the whole population is subject
+                to the crossover.
+
+        Returns:
+            pl.DataFrame: the offspring resulting from the crossover.
+        """
+        if self.bounded:
+            self.offspring_population = self.bounded_offsprings(population=population, to_mate=to_mate)
+        else:
+            self.offspring_population = self.unbounded_offsprings(population=population, to_mate=to_mate)
+        self.notify()
+
+        return self.offspring_population
+
+    def unbounded_offsprings(
+        self,
+        *,
+        population: pl.DataFrame,
+        to_mate: list[int] | None = None,
+    ) -> pl.DataFrame:
+        """Perform the unbounded simulated binary crossover operation.
 
         Implementation based on Deb, Kalyanmoy, and Ram Bhushan Agrawal. "Simulated binary crossover for
         continuous search space." Complex systems 9.2 (1995): 115-148. This implementation is similar to PlatEMO,
@@ -174,9 +203,11 @@ class SimulatedBinaryCrossover(BaseCrossover):
             # beta is calculated such that the integral (over (0, beta)) of the distribution matches the random number
             # mu. At mu <= 0.5, the distribution is contracting, and at mu > 0.5, the distribution is expanding.
             # You can integrate equations 18 and 19 from the reference in the docstring to see how the equations below
-            # are derived.
-            beta[miu <= HALF] = (2 * miu[miu <= HALF]) ** (1 / (self.xover_distribution + 1))
-            beta[miu > HALF] = (2 - 2 * miu[miu > HALF]) ** (-1 / (self.xover_distribution + 1))
+            # are derived. Integrate 18 from 0 to beta, and set it equal to mu. Solve for beta.
+            # for 19, first integrate 18 from 0 to 1 (which is equal to 0.5 so you don't actually need to integrate it)
+            # Then add the integral of 19 from 1 to beta, and set it equal to mu. Solve for beta.
+            beta[miu <= HALF] = (2 * miu[miu <= HALF]) ** (1 / (self.xover_distribution + 1))  # 18
+            beta[miu > HALF] = (2 - 2 * miu[miu > HALF]) ** (-1 / (self.xover_distribution + 1))  # 18 + 19
             # if beta is negative, the offspring 1 gets decision var component closer to parent 2 and vice versa.
             # In this implementation, there is an equal chance of beta being negative or positive.
             # TBH, this is more similar to uniform crossover than single-point crossover.
@@ -187,13 +218,136 @@ class SimulatedBinaryCrossover(BaseCrossover):
             # The opposite is true when mu > 0.5, resulting in an expanding crossover.
             avg = (mating_pop[i] + mating_pop[i + 1]) / 2
             diff = (mating_pop[i] - mating_pop[i + 1]) / 2
-            offspring[i] = avg + beta * diff
-            offspring[i + 1] = avg - beta * diff
+            offspring[i] = avg - beta * diff
+            offspring[i + 1] = avg + beta * diff
+        return pl.from_numpy(offspring, schema=self.variable_symbols)
 
-        self.offspring_population = pl.from_numpy(offspring, schema=self.variable_symbols)
-        self.notify()
+    def bounded_offsprings(
+        self,
+        *,
+        population: pl.DataFrame,
+        to_mate: list[int] | None = None,
+    ) -> pl.DataFrame:
+        """Perform the bounded simulated binary crossover operation.
 
-        return self.offspring_population
+        This implementation is similar to pymoo and boundedSBX in deap. I _literally cannot for the life of me_ find out
+        an original reference for this. It is not in the original SBX paper, nor in the NSGA-II paper. I suspect that
+        it just appeared in the implementation of NSGA-II one day and everyone has been copying it ever since.
+        If you know the original reference, change this docstring to include it.
+
+        But I did manage to derive the equations for the bounded version of SBX, and can confirm that the
+        implementation _makes sense_. The basic idea is as follows:
+
+        1. Take the probability distributions of the unbounded SBX operator. There are two: one for the contracting case
+            (mu <= 0.5, beta <= 1) and one for the expanding case (mu > 0.5, beta > 1).
+        2. Assume that we are bounded on the lower side. Calculate a maximum value of beta such that any potential
+            offspring will not be below the lower bound. This is done by solving for beta in the equation:
+            c = (p1+p2)/2 - beta*(p1-p2)/2, where c is the child (or in this case, the lower bound), p1 and p2
+            are parents. Thus, beta_max = (p1+p2-2*c)/(p1-p2). This is the maximum value of beta such that the child
+            will still be above the lower bound. In most implementations, this is called beta_q, and the equation is
+            slightly rearranged to be beta_q = 1 + 2*(p1-x_L)/(p2-p1), where p1<p2.
+        3. Now, integrate equations 18 + 19 from the original SBX paper. Integrating from 0 to infinity gives 1. So,
+            integrate from 0 to beta_max, we get a normalization factor.
+        4. The normalization factor turns out to be F = alpha / 2. where:
+            alpha = 2 - (1 / beta_max) ** (self.xover_distribution + 1)
+        5. Now, integrate the normalized version of equation 18 from beta = 0 to 1. This used to be equal to 0.5, but
+            now it equals 0.5 / F = 1 / alpha. This is now the new threshold for the contracting case. Integrate
+            between 0 and beta_max and set it equal to mu, if mu <= 1 / alpha.
+        6. For the expanding case, integrate the normalized version of equation 19 from beta = 1 to beta_max.
+        7. Use steps 2-6 for the child: c = (p1+p2)/2 - beta*(p1-p2)/2.
+        8. Repeat steps 2-6 but with the upper bound for the child: c = (p1+p2)/2 + beta*(p1-p2)/2.
+
+        Interestingly enough, the resulting equations are are just a generalization of the unbounded case.
+        If beta_max = infinity, then alpha = 2, and the equations reduce to the unbounded case. So, this piece of
+        code can handle the unbounded case as well, but I have kept the unbounded case separate for clarity.
+
+        Args:
+            population (pl.DataFrame): the population to perform the crossover with. The DataFrame
+                contains the decision vectors, the target vectors, and the constraint vectors.
+            to_mate (list[int] | None): the indices of the population members that should
+                participate in the crossover. If `None`, the whole population is subject
+                to the crossover.
+
+        Returns:
+            pl.DataFrame: the offspring resulting from the crossover.
+        """
+        self.parent_population = population
+        pop_size = self.parent_population.shape[0]
+        num_var = len(self.variable_symbols)
+
+        parent_decvars = self.parent_population[self.variable_symbols].to_numpy()
+
+        if to_mate is None:
+            shuffled_ids = list(range(pop_size))
+            self.rng.shuffle(shuffled_ids)
+        else:
+            shuffled_ids = to_mate
+        mating_pop = parent_decvars[shuffled_ids]
+        mate_size = len(shuffled_ids)
+
+        if len(shuffled_ids) % 2 == 1:
+            mating_pop = np.vstack((mating_pop, mating_pop[0]))
+            mate_size += 1
+
+        offspring = np.zeros_like(mating_pop)
+
+        # TODO(@light-weaver): Extract into a numba jitted function.
+        for i in range(0, mate_size, 2):
+            beta = np.zeros(num_var)
+            miu = self.rng.random(num_var)
+            avg = (mating_pop[i] + mating_pop[i + 1]) / 2
+            diff = (mating_pop[i] - mating_pop[i + 1]) / 2
+
+            x1 = np.minimum(mating_pop[i], mating_pop[i + 1])
+            x2 = np.maximum(mating_pop[i], mating_pop[i + 1])
+
+            # Offspring 1 calculations
+            with np.errstate(divide="ignore", invalid="ignore"):  # Handles x1 == x2 case
+                beta_max = 1 + 2 * (x1 - self.lower_bounds) / (x2 - x1)
+            beta_max[np.isnan(beta_max)] = np.inf  # Handles x1 == x2 == lower_bound case
+
+            # Technically, this code can handle the unbounded case by setting alpha to an array of 2s.
+            alpha = 2 - (1 / beta_max) ** (self.xover_distribution + 1)
+
+            SPLIT_POINT1 = 1 / alpha  # NOQA: N806
+            beta[miu <= SPLIT_POINT1] = (alpha[miu <= SPLIT_POINT1] * miu[miu <= SPLIT_POINT1]) ** (
+                1 / (self.xover_distribution + 1)
+            )
+            beta[miu > SPLIT_POINT1] = (2 - alpha[miu > SPLIT_POINT1] * miu[miu > SPLIT_POINT1]) ** (
+                -1 / (self.xover_distribution + 1)
+            )
+            # if beta is negative, the offspring 1 gets decision var component closer to parent 2 and vice versa.
+            # In this implementation, there is an equal chance of beta being negative or positive.
+            # TBH, this is more similar to uniform crossover than single-point crossover.
+            beta = beta * ((-1) ** self.rng.integers(low=0, high=2, size=num_var))
+            # If beta = 1, no crossover occurs and the dec var components are basically copied from the parents.
+            beta[self.rng.random(num_var) > self.xover_probability] = 1
+            offspring[i] = avg - beta * diff
+
+            # Offspring 2 calculations
+            with np.errstate(divide="ignore", invalid="ignore"):  # Handles x1 == x2 case
+                beta_max = 1 + 2 * (self.upper_bounds - x2) / (x2 - x1)
+            beta_max[np.isnan(beta_max)] = np.inf  # Handles x1 == x2 == upper_bound case
+            # The error states only occur when x1==x2, which means that the parents are equal, and thus the offspring
+            # will be equal to the parents. So, np.inf is fine.
+
+            alpha = 2 - (1 / beta_max) ** (self.xover_distribution + 1)
+
+            SPLIT_POINT2 = 1 / alpha  # NOQA: N806
+            beta[miu <= SPLIT_POINT2] = (alpha[miu <= SPLIT_POINT2] * miu[miu <= SPLIT_POINT2]) ** (
+                1 / (self.xover_distribution + 1)
+            )
+            beta[miu > SPLIT_POINT2] = (2 - alpha[miu > SPLIT_POINT2] * miu[miu > SPLIT_POINT2]) ** (
+                -1 / (self.xover_distribution + 1)
+            )
+            # if beta is negative, the offspring 1 gets decision var component closer to parent 2 and vice versa.
+            # In this implementation, there is an equal chance of beta being negative or positive.
+            # TBH, this is more similar to uniform crossover than single-point crossover.
+            beta = beta * ((-1) ** self.rng.integers(low=0, high=2, size=num_var))
+            # If beta = 1, no crossover occurs and the dec var components are basically copied from the parents.
+            beta[self.rng.random(num_var) > self.xover_probability] = 1
+            offspring[i + 1] = avg + beta * diff
+        return pl.from_numpy(offspring, schema=self.variable_symbols)
 
     def update(self, *_, **__):
         """Do nothing. This is just the basic SBX operator."""

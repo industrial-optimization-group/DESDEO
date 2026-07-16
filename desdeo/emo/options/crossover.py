@@ -34,6 +34,8 @@ class SimulatedBinaryCrossoverOptions(BaseModel):
     """The SBX crossover probability."""
     xover_distribution: float = Field(default=30.0, gt=0.0, description="The SBX distribution index.")
     """The SBX distribution index."""
+    bounded: bool = Field(default=False, description="Whether to bound the offspring within the parent range.")
+    """Whether to bound the offspring within the parent range."""
 
 
 class SinglePointBinaryCrossoverOptions(BaseModel):
