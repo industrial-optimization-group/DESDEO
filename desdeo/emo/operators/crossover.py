@@ -974,16 +974,18 @@ class SingleArithmeticCrossover(BaseCrossover):
 
 
 class LocalCrossover(BaseCrossover):
-    """Local Crossover for continuous problems."""
+    """Local Crossover for continuous problems.
+
+    Reference: D. Dumitrescu, B. Lazzerini, L. C. Jain, and A. Dumitrescu, Evolutionary Computation.
+        CRC Press, Florida, USA, 2000
+    """
 
     @property
     def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
         """The message topics provided by the local crossover operator."""
         return {
             0: [],
-            1: [
-                CrossoverMessageTopics.XOVER_PROBABILITY,
-            ],
+            1: [],
             2: [
                 CrossoverMessageTopics.XOVER_PROBABILITY,
                 CrossoverMessageTopics.PARENTS,
@@ -1002,7 +1004,6 @@ class LocalCrossover(BaseCrossover):
         verbosity: int,
         publisher: Publisher,
         seed: int,
-        xover_probability: float = 1.0,
     ):
         """Initialize the local crossover operator.
 
@@ -1011,15 +1012,10 @@ class LocalCrossover(BaseCrossover):
             verbosity (int): the verbosity level of the component. The keys in `provided_topics` tell what
                 topics are provided by the operator at each verbosity level. Recommended to be set to 1.
             publisher (Publisher): the publisher to which the operator will publish messages.
-            xover_probability (float): probability of performing crossover.
             seed (int): random seed for reproducibility.
         """
         super().__init__(problem=problem, verbosity=verbosity, publisher=publisher)
 
-        if not 0 <= xover_probability <= 1:
-            raise ValueError("Crossover probability must be in [0, 1].")
-
-        self.xover_probability = xover_probability
         self.seed = seed
         self.rng = np.random.default_rng(self.seed)
         self.parent_population: pl.DataFrame | None = None
@@ -1062,14 +1058,10 @@ class LocalCrossover(BaseCrossover):
         offspring = np.empty((mating_pop_size, num_var))
 
         for i in range(mating_pop_size // 2):
-            if self.rng.random() < self.xover_probability:
-                alpha = self.rng.random(num_var)
+            alpha = self.rng.random(num_var)
 
-                offspring[2 * i] = alpha * parents1[i] + (1 - alpha) * parents2[i]
-                offspring[2 * i + 1] = (1 - alpha) * parents1[i] + alpha * parents2[i]
-            else:
-                offspring[2 * i] = parents1[i]
-                offspring[2 * i + 1] = parents2[i]
+            offspring[2 * i] = alpha * parents1[i] + (1 - alpha) * parents2[i]
+            offspring[2 * i + 1] = (1 - alpha) * parents1[i] + alpha * parents2[i]
 
         self.offspring_population = pl.from_numpy(offspring, schema=self.variable_symbols).select(
             pl.all().cast(pl.Float64)
@@ -1088,14 +1080,6 @@ class LocalCrossover(BaseCrossover):
 
         msgs: list[Message] = []
 
-        if self.verbosity >= 1:
-            msgs.append(
-                FloatMessage(
-                    topic=CrossoverMessageTopics.XOVER_PROBABILITY,
-                    source=self.__class__.__name__,
-                    value=self.xover_probability,
-                )
-            )
         if self.verbosity >= 2:  # noqa: PLR2004
             msgs.extend(
                 [

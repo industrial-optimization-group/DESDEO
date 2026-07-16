@@ -51,7 +51,7 @@ class BaseTerminator(Subscriber):
     @property
     def interested_topics(self):
         """Return the message topics that the terminator is interested in."""
-        return [EvaluatorMessageTopics.NEW_EVALUATIONS, GeneratorMessageTopics.NEW_EVALUATIONS]
+        return [EvaluatorMessageTopics.NEW_EVALUATIONS]
 
     def __init__(self, publisher: Publisher):
         """Initialize a termination criterion."""

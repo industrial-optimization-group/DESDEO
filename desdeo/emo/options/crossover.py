@@ -106,8 +106,6 @@ class LocalCrossoverOptions(BaseModel):
         default="LocalCrossover", frozen=True, description="The name of the crossover operator."
     )
     """The name of the crossover operator."""
-    xover_probability: float = Field(default=1.0, ge=0.0, le=1.0, description="The crossover probability.")
-    """The crossover probability."""
 
 
 class BoundedExponentialCrossoverOptions(BaseModel):

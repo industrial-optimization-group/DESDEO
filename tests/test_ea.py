@@ -1145,9 +1145,7 @@ def test_crossover_in_ea():
                     problem=problem, publisher=publisher, xover_probability=1.0, verbosity=1, seed=0
                 )
             case "local":
-                crossover = LocalCrossover(
-                    problem=problem, publisher=publisher, xover_probability=1.0, verbosity=1, seed=0
-                )
+                crossover = LocalCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0)
             case _:
                 raise ValueError(f"Unknown crossover type: {crossover}")
 

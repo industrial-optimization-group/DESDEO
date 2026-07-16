@@ -13,6 +13,7 @@ from typing import Literal, TypeVar
 
 import numpy as np
 import polars as pl
+from moocore import hv_contributions
 from numba import njit
 from pydantic import BaseModel, ConfigDict, Field
 from scipy.special import comb
@@ -1932,6 +1933,12 @@ class SMSEMOASelector(BaseSelector):
         worst_index = -1
         targets = targets - np.min(targets, axis=0)  # shift to origin
         targets = targets / np.max(targets, axis=0)  # scale to [0, 1] (based on the whole population)
+        # using moocore hv contribusions
+        hv_contribs = hv_contributions(
+            targets[last_front], ref=np.ones(targets.shape[1]) * self.reference_point_component
+        )
+        min_contrib_index = np.argmin(hv_contribs)
+        return last_front[min_contrib_index]
         for i in last_front:
             remaining_front = [j for j in last_front if j != i]
             current_hv = hv(targets[remaining_front], reference_point_component=self.reference_point_component)
