@@ -64,7 +64,7 @@ from desdeo.problem.testproblems import (
     simple_knapsack_vectors,
     simple_test_problem,
 )
-from desdeo.tools.message import EvaluatorMessageTopics, GeneratorMessageTopics, IntMessage, TerminatorMessageTopics
+from desdeo.tools.message import EvaluatorMessageTopics, IntMessage, TerminatorMessageTopics
 from desdeo.tools.patterns import Publisher, Subscriber
 from desdeo.tools.utils import repair
 
@@ -898,7 +898,7 @@ def test_local_crossover():
     problem = simple_test_problem()
     assert problem.variable_domain is VariableDomainTypeEnum.continuous
 
-    crossover = LocalCrossover(problem=problem, publisher=publisher, xover_probability=1.0, verbosity=1, seed=0)
+    crossover = LocalCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0)
     num_vars = len(crossover.variable_symbols)
 
     evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
@@ -1282,8 +1282,10 @@ def test_max_eval_terminator():
     assert terminator.current_evaluations == 0
     assert terminator.max_evaluations == 1000
 
-    publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
-    assert terminator.current_evaluations == 100
+    # We no longer notify the terminator from the generator. The generator calls the evaluator, which calls the
+    # terminator.
+    # publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
+    # assert terminator.current_evaluations == 100
 
     for _ in range(100):
         if not terminator.check():
@@ -1311,9 +1313,8 @@ def test_composite_terminator():
     assert composite.max_generations == 10
     assert composite.max_evaluations == 1000
 
-    publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
-
-    assert composite.current_evaluations == 100
+    # publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
+    # assert composite.current_evaluations == 100
 
     for _ in range(100):
         if not composite.check():
@@ -1333,8 +1334,8 @@ def test_composite_terminator():
     publisher.auto_subscribe(term2)
     publisher.auto_subscribe(composite)
 
-    publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
-    assert composite.current_evaluations == 100
+    # publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
+    # assert composite.current_evaluations == 100
 
     for _ in range(100):
         if not composite.check():
@@ -1354,8 +1355,8 @@ def test_composite_terminator():
     publisher.auto_subscribe(term2)
     publisher.auto_subscribe(composite)
 
-    publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
-    assert composite.current_evaluations == 100
+    # publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
+    # assert composite.current_evaluations == 100
 
     for _ in range(100):
         if not composite.check():
