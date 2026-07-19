@@ -86,6 +86,7 @@ class SimulatedBinaryCrossover(BaseCrossover):
         verbosity: int,
         publisher: Publisher,
         xover_probability: float = 1.0,
+        uniform_xover_probability: float = 0.5,
         xover_distribution: float = 30,
         bounded: bool = False,
     ):
@@ -100,6 +101,10 @@ class SimulatedBinaryCrossover(BaseCrossover):
             xover_probability (float, optional): the crossover probability parameter.
                 This parameter decides whether the decision variable components of the parents are swapped for the
                 offspring or not. Ranges between 0 and 1.0. Defaults to 1.0.
+            uniform_xover_probability (float, optional): the uniform crossover probability parameter.
+                This parameter decides whether the decision variable components of the parents are swapped for the
+                offspring or not. Ranges between 0 and 1.0. Defaults to 0.5. Only operates on variables that
+                have already been selected for crossover by the xover_probability parameter.
             xover_distribution (float, optional): the crossover distribution parameter. Must be positive.
                 This parameter controls the distribution of the offspring. A larger value results in a distribution
                 that is more concentrated around the parents, while a smaller value results in a distribution that is
@@ -116,6 +121,7 @@ class SimulatedBinaryCrossover(BaseCrossover):
             raise ValueError("Crossover distribution must be positive.")
         self.xover_probability = xover_probability
         self.xover_distribution = xover_distribution
+        self.uniform_xover_probability = uniform_xover_probability
         self.bounded = bounded
 
         self.parent_population: pl.DataFrame
@@ -159,7 +165,7 @@ class SimulatedBinaryCrossover(BaseCrossover):
 
         Implementation based on Deb, Kalyanmoy, and Ram Bhushan Agrawal. "Simulated binary crossover for
         continuous search space." Complex systems 9.2 (1995): 115-148. This implementation is similar to PlatEMO,
-        however, differs from deap (potentially incorrect implementation) and pymoo (they implement self-adaptive
+        however, differs from deap (potentially incorrect implementation) and pymoo (they implement truncated/bounded
         simulated binary crossover, but call it simulated binary crossover).
 
         Args:
@@ -211,7 +217,9 @@ class SimulatedBinaryCrossover(BaseCrossover):
             # if beta is negative, the offspring 1 gets decision var component closer to parent 2 and vice versa.
             # In this implementation, there is an equal chance of beta being negative or positive.
             # TBH, this is more similar to uniform crossover than single-point crossover.
-            beta = beta * ((-1) ** self.rng.integers(low=0, high=2, size=num_var))
+            binary_mask = self.rng.random(num_var) <= self.uniform_xover_probability
+            binary_mask = (binary_mask * 2) - 1  # Convert to -1 or 1
+            beta = beta * binary_mask
             # If beta = 1, no crossover occurs and the dec var components are basically copied from the parents.
             beta[self.rng.random(num_var) > self.xover_probability] = 1
             # Note that when mu < 0.5, abs(beta) ends up being less than 1, resulting in a contracting crossover.
@@ -230,13 +238,10 @@ class SimulatedBinaryCrossover(BaseCrossover):
     ) -> pl.DataFrame:
         """Perform the bounded simulated binary crossover operation.
 
-        This implementation is similar to pymoo and boundedSBX in deap. I _literally cannot for the life of me_ find out
-        an original reference for this. It is not in the original SBX paper, nor in the NSGA-II paper. I suspect that
-        it just appeared in the implementation of NSGA-II one day and everyone has been copying it ever since.
-        If you know the original reference, change this docstring to include it.
+        This implementation is similar to pymoo and boundedSBX in deap. One of the first papers I can find that actually
+        describes how to calculate it is [1].
 
-        But I did manage to derive the equations for the bounded version of SBX, and can confirm that the
-        implementation _makes sense_. The basic idea is as follows:
+        The basic idea is as follows:
 
         1. Take the probability distributions of the unbounded SBX operator. There are two: one for the contracting case
             (mu <= 0.5, beta <= 1) and one for the expanding case (mu > 0.5, beta > 1).
@@ -270,6 +275,12 @@ class SimulatedBinaryCrossover(BaseCrossover):
 
         Returns:
             pl.DataFrame: the offspring resulting from the crossover.
+
+        References:
+            [1] "Deb, K., & Gulati, S. (2001). Design of truss-structures for minimum weight
+                using genetic algorithms". Finite Elements in Analysis and Design, 37(5), 447-465.
+                https://doi.org/10.1016/S0168-874X(00)00057-3
+
         """
         self.parent_population = population
         pop_size = self.parent_population.shape[0]
@@ -295,6 +306,11 @@ class SimulatedBinaryCrossover(BaseCrossover):
         for i in range(0, mate_size, 2):
             beta = np.zeros(num_var)
             miu = self.rng.random(num_var)
+            # Apply crossover only for certain decision variables
+            sbx_mask = self.rng.random(num_var) <= self.xover_probability
+            # Apply binary crossover only for certain decision variables
+            binary_mask = self.rng.random(num_var) <= self.uniform_xover_probability
+            binary_mask = binary_mask & sbx_mask  # Only apply binary crossover where SBX is applied
             avg = (mating_pop[i] + mating_pop[i + 1]) / 2
             diff = (mating_pop[i] - mating_pop[i + 1]) / 2
 
@@ -316,12 +332,11 @@ class SimulatedBinaryCrossover(BaseCrossover):
             beta[miu > SPLIT_POINT1] = (2 - alpha[miu > SPLIT_POINT1] * miu[miu > SPLIT_POINT1]) ** (
                 -1 / (self.xover_distribution + 1)
             )
-            # if beta is negative, the offspring 1 gets decision var component closer to parent 2 and vice versa.
-            # In this implementation, there is an equal chance of beta being negative or positive.
-            # TBH, this is more similar to uniform crossover than single-point crossover.
-            beta = beta * ((-1) ** self.rng.integers(low=0, high=2, size=num_var))
+            # Turning beta negative does not work for truncated SBX. Manually swap the offspring instead.
+            # beta = beta * ((-1) ** self.rng.integers(low=0, high=2, size=num_var))
             # If beta = 1, no crossover occurs and the dec var components are basically copied from the parents.
-            beta[self.rng.random(num_var) > self.xover_probability] = 1
+            # beta[self.rng.random(num_var) > self.xover_probability] = 1
+            beta[~sbx_mask] = 1  # No crossover for decision variables where SBX is not applied
             offspring[i] = avg - beta * diff
 
             # Offspring 2 calculations
@@ -340,13 +355,16 @@ class SimulatedBinaryCrossover(BaseCrossover):
             beta[miu > SPLIT_POINT2] = (2 - alpha[miu > SPLIT_POINT2] * miu[miu > SPLIT_POINT2]) ** (
                 -1 / (self.xover_distribution + 1)
             )
-            # if beta is negative, the offspring 1 gets decision var component closer to parent 2 and vice versa.
-            # In this implementation, there is an equal chance of beta being negative or positive.
-            # TBH, this is more similar to uniform crossover than single-point crossover.
-            beta = beta * ((-1) ** self.rng.integers(low=0, high=2, size=num_var))
+            # Turning beta negative does not work for truncated SBX. Manually swap the offspring instead.
+            # beta = beta * ((-1) ** self.rng.integers(low=0, high=2, size=num_var))
             # If beta = 1, no crossover occurs and the dec var components are basically copied from the parents.
-            beta[self.rng.random(num_var) > self.xover_probability] = 1
+            beta[~sbx_mask] = 1  # No crossover for decision variables where SBX is not applied
             offspring[i + 1] = avg + beta * diff
+            # Swap the offspring for decision variables where binary crossover is applied
+            offspring[i, binary_mask], offspring[i + 1, binary_mask] = (
+                offspring[i + 1, binary_mask].copy(),
+                offspring[i, binary_mask].copy(),
+            )
         return pl.from_numpy(offspring, schema=self.variable_symbols)
 
     def update(self, *_, **__):
