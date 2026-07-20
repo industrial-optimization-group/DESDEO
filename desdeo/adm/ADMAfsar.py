@@ -19,12 +19,14 @@ class ADMAfsar(BaseADM):
 
     > Afsar, B., Ruiz, A. B., & Miettinen, K. (2023).
     > Comparing interactive evolutionary multiobjective optimization methods with an artificial decision maker.
-    > Complex & Intelligent Systems, Volume 9, pages 1165–1181. Springer.
+    > Complex & Intelligent Systems, Volume 9, pages 1165-1181. Springer.
 
     Attributes:
         composite_front (list): Stores the composite front of solutions.
         max_assigned_vector (int or None): Index of the vector with the maximum assigned solutions.
         reference_vectors (np.ndarray): Array of reference vectors.
+        assigned_vectors (np.ndarray or None): Index of the reference vector assigned to each
+            solution in the current composite front.
         preference (dict): Current preference information.
     """
 
@@ -53,14 +55,19 @@ class ADMAfsar(BaseADM):
         super().__init__(problem, it_learning_phase, it_decision_phase)
         self.composite_front = []
         self.max_assigned_vector = None
+        self.assigned_vectors = None
         self.preference_type = "reference_point"
         number_of_objectives = len(problem.objectives)
 
         self.reference_vectors = create_simplex(
             number_of_objectives, lattice_resolution, number_of_vectors
         )
-        self.true_ideal, self.true_nadir = payoff_table_method(problem)
 
+        # CHANGE (point 5): removed the redundant second call to payoff_table_method.
+        # generate_initial_preference() already reads the ideal/nadir directly from
+        # self.problem (via get_ideal_point() / get_nadir_point()), which was already
+        # updated a few lines above. Recomputing it here via payoff_table_method was
+        # unnecessary duplicated work.
         self.generate_initial_preference()
 
     def generate_initial_preference(self):
@@ -78,6 +85,60 @@ class ADMAfsar(BaseADM):
                 )
             ]
         )
+
+    # ------------------------------------------------------------------
+    # CHANGE (points 3 & 4): public read-only access to the ADM's internal
+    # reference vectors and to the reference vector assigned to each solution
+    # in the current composite front.
+    # ------------------------------------------------------------------
+    @property
+    def reference_vectors_(self) -> np.ndarray:
+        """Public read-only access to the reference vectors used by this ADM."""
+        return self.reference_vectors
+
+    @property
+    def assigned_vectors_(self) -> np.ndarray:
+        """
+        Public read-only access to the reference vector index assigned to each
+        solution in the current composite front (same order as self.composite_front).
+        Returns None if get_next_preference has not been called yet.
+        """
+        return self.assigned_vectors
+
+    @staticmethod
+    def _asf_score(
+        translated_solutions: np.ndarray,
+        ideal: np.ndarray,
+        nadir: np.ndarray,
+        rho: float = 1e-6,
+    ) -> np.ndarray:
+        """
+        Compute the Achievement Scalarizing Function (ASF) value for each solution,
+        using the same formulation used elsewhere in DESDEO (e.g. rpm_solve_solutions).
+
+        Since `translated_solutions` already has the ideal point subtracted, the
+        effective reference point in this space is the origin (q = 0).
+
+        Args:
+            translated_solutions (np.ndarray): Solutions with the ideal point already
+                subtracted, shape (n_solutions, n_objectives).
+            ideal (np.ndarray): The true ideal point (untranslated), shape (n_objectives,).
+            nadir (np.ndarray): The true nadir point (untranslated), shape (n_objectives,).
+            rho (float): Small augmentation term to avoid weakly dominated solutions.
+
+        Returns:
+            np.ndarray: ASF value per solution, shape (n_solutions,). Lower is better.
+        """
+        ideal = np.asarray(ideal, dtype=float)
+        nadir = np.asarray(nadir, dtype=float)
+        span = nadir - ideal
+        span = np.where(span == 0, 1e-12, span)
+        weights = 1.0 / span
+
+        weighted = weights * translated_solutions
+        max_term = np.max(weighted, axis=1)
+        sum_term = np.sum(weighted, axis=1)
+        return max_term + rho * sum_term
 
     def get_next_preference(self, *fronts, preference_type: str = "reference_point"):
         """
@@ -101,6 +162,12 @@ class ADMAfsar(BaseADM):
         translated_front = self.translate_front(self.composite_front, ideal_point)
         normalized_front = self.normalize_front(self.composite_front, translated_front)
         assigned_vectors = self.assign_vectors(normalized_front)
+
+        # CHANGE (points 3 & 4): persist assigned_vectors on the instance so it can be
+        # exposed publicly via assigned_vectors_ and consumed by the pipeline/notebook
+        # to show which reference vector each solution was assigned to.
+        self.assigned_vectors = assigned_vectors
+
         if self.iteration_counter < self.it_learning_phase:
             self.preference = self.generate_preference_learning(
                 ideal_point, translated_front, assigned_vectors
@@ -292,7 +359,7 @@ class ADMAfsar(BaseADM):
         Generate a reference point for the learning phase.
 
         The reference point is based on the solution assigned to the reference vector with the minimum
-        number of assigned solutions and closest to the origin.
+        number of assigned solutions and best (lowest) ASF value.
 
         Args:
             ideal_point (np.ndarray): The ideal point.
@@ -317,13 +384,18 @@ class ADMAfsar(BaseADM):
             np.squeeze(np.where(assigned_vectors == min_assigned_vector[0]))
         )
         sub_population_fitness = translated_cf[sub_population_index]
-        sub_pop_fitness_magnitude = np.sqrt(
-            np.sum(np.power(sub_population_fitness, 2), axis=1)
+
+        # CHANGE (point 1): replaced the plain Euclidean norm ("distance to origin")
+        # with the existing ASF (Achievement Scalarizing Function) performance
+        # measure already used elsewhere in DESDEO (e.g. rpm_solve_solutions).
+        sub_pop_fitness_magnitude = self._asf_score(
+            sub_population_fitness, self.true_ideal, self.true_nadir
         )
         minidx = np.where(
             sub_pop_fitness_magnitude == np.nanmin(sub_pop_fitness_magnitude)
         )
         distance_selected = sub_pop_fitness_magnitude[minidx]
+
         reference_point = (
             distance_selected[0] * self.reference_vectors[min_assigned_vector[0]]
         )
@@ -337,7 +409,7 @@ class ADMAfsar(BaseADM):
         Generate a reference point for the decision phase.
 
         The reference point is based on the solution assigned to the reference vector with the maximum
-        number of assigned solutions and closest to the origin.
+        number of assigned solutions and best (lowest) ASF value.
 
         Args:
             ideal_point (np.ndarray): The ideal point.
@@ -358,15 +430,17 @@ class ADMAfsar(BaseADM):
             np.squeeze(np.where(assigned_vectors == max_assigned_vector[0]))
         )
         sub_population_fitness = translated_cf[sub_population_index]
-        sub_pop_fitness_magnitude = np.sqrt(
-            np.sum(np.power(sub_population_fitness, 2), axis=1)
+
+        # CHANGE (point 1): ASF instead of plain Euclidean norm.
+        sub_pop_fitness_magnitude = self._asf_score(
+            sub_population_fitness, self.true_ideal, self.true_nadir
         )
         minidx = np.where(
             sub_pop_fitness_magnitude == np.nanmin(sub_pop_fitness_magnitude)
         )
         distance_selected = sub_pop_fitness_magnitude[minidx]
         reference_point = (
-            # CHANGE 3: same fix—use max_assigned_vector[0] instead of the full array.
+            # CHANGE 3: same fix-use max_assigned_vector[0] instead of the full array.
             distance_selected[0] * self.reference_vectors[max_assigned_vector[0]]
         )
         reference_point = np.squeeze(reference_point + ideal_cf)
@@ -397,8 +471,10 @@ class ADMAfsar(BaseADM):
             np.squeeze(np.where(assigned_vectors == min_assigned_vector[0]))
         )
         sub_population_fitness = translated_front[sub_population_index]
-        sub_pop_fitness_magnitude = np.sqrt(
-            np.sum(np.power(sub_population_fitness, 2), axis=1)
+
+        # CHANGE (point 1): ASF instead of plain Euclidean norm.
+        sub_pop_fitness_magnitude = self._asf_score(
+            sub_population_fitness, self.true_ideal, self.true_nadir
         )
         minidx = np.where(
             sub_pop_fitness_magnitude == np.nanmin(sub_pop_fitness_magnitude)
@@ -451,20 +527,22 @@ class ADMAfsar(BaseADM):
             np.ndarray: an array of ranges.
         """
         sub_population_index = np.atleast_1d(
-            # CHANGE 4: same fix as CHANGE 3—use max_assigned_vector[0]
+            # CHANGE 4: same fix as CHANGE 3-use max_assigned_vector[0]
             # to avoid incompatible broadcasting between shapes (20,) and (N,).
             np.squeeze(np.where(assigned_vectors == max_assigned_vector[0]))
         )
         sub_population_fitness = translated_front[sub_population_index]
-        sub_pop_fitness_magnitude = np.sqrt(
-            np.sum(np.power(sub_population_fitness, 2), axis=1)
+
+        # CHANGE (point 1): ASF instead of plain Euclidean norm.
+        sub_pop_fitness_magnitude = self._asf_score(
+            sub_population_fitness, self.true_ideal, self.true_nadir
         )
         minidx = np.where(
             sub_pop_fitness_magnitude == np.nanmin(sub_pop_fitness_magnitude)
         )
         distance_selected = sub_pop_fitness_magnitude[minidx]
         reference_point = (
-            # CHANGE 4: same fix—use max_assigned_vector[0].
+            # CHANGE 4: same fix-use max_assigned_vector[0].
             distance_selected[0] * self.reference_vectors[max_assigned_vector[0]]
         )
         distance = min(
@@ -522,9 +600,9 @@ class ADMAfsar(BaseADM):
             np.squeeze(np.where(assigned_vectors == min_assigned_vector[0]))
         )
         sub_population_fitness = translated_front[sub_population_index]
-        sub_pop_fitness_magnitude = np.sqrt(
-            np.sum(np.power(sub_population_fitness, 2), axis=1)
-        )
+
+        # NOTE: kept as-is (returns the whole sub-population, not a single "closest"
+        # solution), so no distance/ASF selection is performed here.
         solution_selected = sub_population_fitness
         preferred_solution = np.squeeze(solution_selected + ideal_point)
 
@@ -546,13 +624,15 @@ class ADMAfsar(BaseADM):
             np.ndarray: The preferred solutions.
         """
         sub_population_index = np.atleast_1d(
-            # CHANGE 5: same fix as CHANGE 3—use max_assigned_vector[0]
+            # CHANGE 5: same fix as CHANGE 3-use max_assigned_vector[0]
             # to avoid incompatible broadcasting between shapes (20,) and (N,).
             np.squeeze(np.where(assigned_vectors == max_assigned_vector[0]))
         )
         sub_population_fitness = translated_front[sub_population_index]
-        sub_pop_fitness_magnitude = np.sqrt(
-            np.sum(np.power(sub_population_fitness, 2), axis=1)
+
+        # CHANGE (point 1): ASF instead of plain Euclidean norm.
+        sub_pop_fitness_magnitude = self._asf_score(
+            sub_population_fitness, self.true_ideal, self.true_nadir
         )
         minidx = np.argpartition(sub_pop_fitness_magnitude, 4)
         solution_selected = sub_population_fitness[minidx[:4]]
