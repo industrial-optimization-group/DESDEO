@@ -14,6 +14,11 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 
+from .car_side_impact_problem import car_side_impact
+from .rocket_injector_design_problem import rocket_injector_design
+from .vehicle_crashworthiness_problem import vehicle_crashworthiness
+from .water_management_problem import water_management
+
 
 def re21(f: float = 10.0, sigma: float = 10.0, e: float = 2.0 * 1e5, l: float = 200.0) -> Problem:
     r"""Defines the four bar truss design problem.
@@ -494,3 +499,37 @@ def re24() -> Problem:
         objectives=[f_1, f_2],
         constraints=[g_1, g_2, g_3, g_4],
     )
+
+
+def re34() -> Problem:
+    """The vehicle crash worthiness design problem.
+
+    The implementation of this problem is taken from the vehicle_crashworthiness_problem.py file.
+    """
+    return vehicle_crashworthiness()
+
+
+def re37() -> Problem:
+    """The rocket injector design problem.
+
+    The implementation of this problem is taken from the rocket_injector_design_problem.py file.
+    """
+    return rocket_injector_design()
+
+
+def re41() -> Problem:
+    """The car side impact design problem.
+
+    The implementation of this problem is taken from the car_side_impact_problem.py file. Removes the constraints from
+    the problem.
+    """
+    return car_side_impact(three_obj=False).model_copy(update={"constraints": None})
+
+
+def re61() -> Problem:
+    """The water management design problem.
+
+    The implementation of this problem is taken from the water_management_problem.py file. Removes the constraints from
+    the problem.
+    """
+    return water_management(six_obj=True).model_copy(update={"constraints": None})

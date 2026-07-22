@@ -11,7 +11,7 @@ from desdeo.problem.schema import (
 )
 
 
-def water_management() -> Problem:
+def water_management(six_obj=False) -> Problem:
     r"""Water resource planning problem.
 
     The constraints and objective functions for the water management problem are defined as follows:
@@ -51,6 +51,10 @@ def water_management() -> Problem:
     \qquad
     \mathbf{x}^{U} = (0.45,\,0.10,\,0.10).
     \]
+
+    Arguments:
+            six_obj (bool): If False, use the original 5 objectives. If true, use the sum of contraint violations as
+                the 6th objective. Default is False.
 
     References:
         Ray, T., Tai, K., & Seow, K. C. (2001). Multiobjective design optimization by an evolutionary algorithm.
@@ -196,11 +200,33 @@ def water_management() -> Problem:
         is_twice_differentiable=True,
     )
 
+    objectives = [f_1, f_2, f_3, f_4, f_5]
+    if six_obj:
+        big_func = (
+            "Max(0.00139 / (x_1 * x_2) + 4.94 * x_3 - 0.08 - 1.00, 0)"
+            " + Max(0.000306 / (x_1 * x_2) + 1.082 * x_3 - 0.0986 - 1.00, 0)"
+            " + Max(12.307 / (x_1 * x_2) + 49408.24 * x_3 + 4051.02 - 50000.00, 0)"
+            " + Max(2.098 / (x_1 * x_2) + 8046.33 * x_3 - 696.71 - 16000.00, 0)"
+            " + Max(2.138 / (x_1 * x_2) + 7883.39 * x_3 - 705.04 - 10000.00, 0)"
+            " + Max(0.417 / (x_1 * x_2) + 1721.26 * x_3 - 136.54 - 2000.00, 0)"
+            " + Max(0.164 / (x_1 * x_2) + 631.13 * x_3 - 54.48 - 550.00, 0)"
+        )
+        f_6 = Objective(
+            name="f_6",
+            symbol="f_6",
+            func=big_func,
+            objective_type=ObjectiveTypeEnum.analytical,
+            is_linear=False,
+            is_convex=True,
+            is_twice_differentiable=False,
+        )
+        objectives.append(f_6)
+
     return Problem(
         name="water_management_problem",
         description="Water resource planning problem",
         variables=[x_1, x_2, x_3],
-        objectives=[f_1, f_2, f_3, f_4, f_5],
+        objectives=objectives,
         constraints=[
             g_1,
             g_2,
