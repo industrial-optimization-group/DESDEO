@@ -1888,7 +1888,7 @@ class SMSEMOASelector(BaseSelector):
         if self.constraints_symbols is None or len(self.constraints_symbols) == 0:
             # No constraints, use SMS-EMOA selection
             self.removed = self._sms_emoa_selection(alltargets[self.target_symbols].to_numpy())
-        if not (alltargets.select(self.constraints_symbols) > 0).to_numpy().any():
+        elif not (alltargets.select(self.constraints_symbols) > 0).to_numpy().any():
             # All offsprings are feasible
             self.removed = self._sms_emoa_selection(alltargets[self.target_symbols].to_numpy())
         else:

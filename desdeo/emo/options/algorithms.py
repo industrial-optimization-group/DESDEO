@@ -3,7 +3,7 @@
 from desdeo.emo.options.crossover import SimulatedBinaryCrossoverOptions, UniformMixedIntegerCrossoverOptions
 from desdeo.emo.options.generator import LHSGeneratorOptions, RandomMixedIntegerGeneratorOptions
 from desdeo.emo.options.mutation import BoundedPolynomialMutationOptions, MixedIntegerRandomMutationOptions
-from desdeo.emo.options.repair import NoRepairOptions
+from desdeo.emo.options.repair import ClipRepairOptions, NoRepairOptions
 from desdeo.emo.options.scalar_selection import ElitistSelectionOptions, TournamentSelectionOptions
 from desdeo.emo.options.selection import (
     IBEASelectorOptions,
@@ -87,9 +87,7 @@ def rvea_options() -> EMOOptions:
                 name="LHSGenerator",
                 n_points=100,
             ),
-            repair=NoRepairOptions(
-                name="NoRepair",
-            ),
+            repair=ClipRepairOptions(),
             termination=MaxGenerationsTerminatorOptions(
                 name="MaxGenerationsTerminator",
                 max_generations=100,
@@ -149,9 +147,7 @@ def nsga3_options() -> EMOOptions:
                 name="LHSGenerator",
                 n_points=100,
             ),
-            repair=NoRepairOptions(
-                name="NoRepair",
-            ),
+            repair=ClipRepairOptions(),
             termination=MaxGenerationsTerminatorOptions(
                 name="MaxGenerationsTerminator",
                 max_generations=100,
@@ -203,9 +199,7 @@ def ibea_options() -> EMOOptions:
                 name="LHSGenerator",
                 n_points=100,
             ),
-            repair=NoRepairOptions(
-                name="NoRepair",
-            ),
+            repair=ClipRepairOptions(),
             termination=MaxGenerationsTerminatorOptions(
                 name="MaxGenerationsTerminator",
                 max_generations=100,
@@ -502,9 +496,7 @@ def sms_emoa_options() -> EMOOptions:
                 name="LHSGenerator",
                 n_points=100,
             ),
-            repair=NoRepairOptions(
-                name="NoRepair",
-            ),
+            repair=ClipRepairOptions(),
             termination=MaxEvaluationsTerminatorOptions(
                 name="MaxEvaluationsTerminator",
                 max_evaluations=1000,

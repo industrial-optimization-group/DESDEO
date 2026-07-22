@@ -380,6 +380,8 @@ def repair(lower_bounds: dict[str, float], upper_bounds: dict[str, float]) -> Ca
     """Repairs the offspring by clipping the values to be within the specified bounds.
 
     Useful in evolutionary algorithms where offspring may go out of bounds due to crossover or mutation operations.
+    This also fills any NaN values with the mean of the lower and upper bounds for that variable. Certain operators are
+    known to produce NaN values, e.g., the Bounded Exponential Crossover operator.
 
     Args:
         lower_bounds (dict[str, float]): The lower bounds for each variable.
@@ -391,8 +393,9 @@ def repair(lower_bounds: dict[str, float], upper_bounds: dict[str, float]) -> Ca
 
     def actual_repair(offspring: pl.DataFrame) -> pl.DataFrame:
         for var in offspring.columns:
+            mean = (upper_bounds[var] + lower_bounds[var]) / 2
             offspring = offspring.with_columns(
-                pl.col(var).clip(lower_bound=lower_bounds[var], upper_bound=upper_bounds[var])
+                pl.col(var).clip(lower_bound=lower_bounds[var], upper_bound=upper_bounds[var]).fill_nan(mean)
             )
         return offspring
 
