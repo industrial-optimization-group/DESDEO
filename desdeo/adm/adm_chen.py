@@ -81,6 +81,15 @@ class ADMChen(BaseADM):
         # Initialize problem with true ideal and nadir points
         self.true_ideal, self.true_nadir = payoff_table_method(problem)
         problem = problem.update_ideal_and_nadir(new_ideal=self.true_ideal, new_nadir=self.true_nadir)
+
+        # CHANGE (bug fix): payoff_table_method returns dicts (e.g. {'f_1': ..., 'f_2': ...}),
+        # not numpy arrays. Downstream methods like utility_function() perform arithmetic
+        # directly on self.true_ideal / self.true_nadir (e.g. zstar - eps), which requires
+        # numpy arrays, not dicts. Without this conversion, a
+        # "TypeError: unsupported operand type(s) for -: 'dict' and 'float'" is raised.
+        self.true_ideal = np.array(list(self.true_ideal.values()))
+        self.true_nadir = np.array(list(self.true_nadir.values()))
+
         super().__init__(problem, it_learning_phase, it_decision_phase, seed=seed)
 
         # Store problem dimensions
@@ -127,11 +136,16 @@ class ADMChen(BaseADM):
             if not (self.true_ideal <= initial_reference_point <= self.true_nadir).all():
                 raise ValueError("Initial reference point must be between the ideal and nadir points.")
             return initial_reference_point
-        # Generate random reference point between ideal and nadir
+        # Generate random reference point between ideal and nadir.
+        # CHANGE (bug fix): min(a, b) / max(a, b) are applied per-axis before calling
+        # rng.uniform(), since some problems internally store ideal/nadir in a
+        # maximization convention where ideal_point[i] can be greater than
+        # nadir_point[i] for a given objective i. Calling rng.uniform(high, low)
+        # with high < low raises "ValueError: high - low < 0".
         return np.array(
             [
-                self.rng.uniform(min_val, max_val)
-                for min_val, max_val in zip(
+                self.rng.uniform(min(a, b), max(a, b))
+                for a, b in zip(
                     self.problem.get_ideal_point().values(),
                     self.problem.get_nadir_point().values(),
                     strict=True,

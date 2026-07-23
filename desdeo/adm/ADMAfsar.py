@@ -66,8 +66,9 @@ class ADMAfsar(BaseADM):
         # CHANGE (point 5): removed the redundant second call to payoff_table_method.
         # generate_initial_preference() already reads the ideal/nadir directly from
         # self.problem (via get_ideal_point() / get_nadir_point()), which was already
-        # updated a few lines above. Recomputing it here via payoff_table_method was
-        # unnecessary duplicated work.
+        # updated a few lines above via update_ideal_and_nadir(). Recomputing it here
+        # via payoff_table_method was unnecessary duplicated work -- that extra call
+        # has been removed; only the assignment right after __init__() above stays.
         self.generate_initial_preference()
 
     def generate_initial_preference(self):
@@ -76,13 +77,17 @@ class ADMAfsar(BaseADM):
 
         The preference is stored in self.preference as a numpy array.
         """
+        # CHANGE (point 1, robustness fix): wrap each bound with min/max so that
+        # np.random.uniform never receives low > high, regardless of whether the
+        # objective is being minimized or maximized (which flips the ideal/nadir
+        # ordering per axis). This avoids "ValueError: low >= high" crashes.
+        ideal_values = list(self.problem.get_ideal_point().values())
+        nadir_values = list(self.problem.get_nadir_point().values())
+
         self.preference = np.array(
             [
-                np.random.uniform(min_val, max_val)
-                for min_val, max_val in zip(
-                    self.problem.get_ideal_point().values(),
-                    self.problem.get_nadir_point().values(),
-                )
+                np.random.uniform(min(a, b), max(a, b))
+                for a, b in zip(ideal_values, nadir_values)
             ]
         )
 
@@ -440,7 +445,7 @@ class ADMAfsar(BaseADM):
         )
         distance_selected = sub_pop_fitness_magnitude[minidx]
         reference_point = (
-            # CHANGE 3: same fix-use max_assigned_vector[0] instead of the full array.
+            # CHANGE 3: same fix -- use max_assigned_vector[0] instead of the full array.
             distance_selected[0] * self.reference_vectors[max_assigned_vector[0]]
         )
         reference_point = np.squeeze(reference_point + ideal_cf)
@@ -527,7 +532,7 @@ class ADMAfsar(BaseADM):
             np.ndarray: an array of ranges.
         """
         sub_population_index = np.atleast_1d(
-            # CHANGE 4: same fix as CHANGE 3-use max_assigned_vector[0]
+            # CHANGE 4: same fix as CHANGE 3 -- use max_assigned_vector[0]
             # to avoid incompatible broadcasting between shapes (20,) and (N,).
             np.squeeze(np.where(assigned_vectors == max_assigned_vector[0]))
         )
@@ -542,7 +547,7 @@ class ADMAfsar(BaseADM):
         )
         distance_selected = sub_pop_fitness_magnitude[minidx]
         reference_point = (
-            # CHANGE 4: same fix-use max_assigned_vector[0].
+            # CHANGE 4: same fix -- use max_assigned_vector[0].
             distance_selected[0] * self.reference_vectors[max_assigned_vector[0]]
         )
         distance = min(
@@ -624,7 +629,7 @@ class ADMAfsar(BaseADM):
             np.ndarray: The preferred solutions.
         """
         sub_population_index = np.atleast_1d(
-            # CHANGE 5: same fix as CHANGE 3-use max_assigned_vector[0]
+            # CHANGE 5: same fix as CHANGE 3 -- use max_assigned_vector[0]
             # to avoid incompatible broadcasting between shapes (20,) and (N,).
             np.squeeze(np.where(assigned_vectors == max_assigned_vector[0]))
         )
@@ -634,7 +639,9 @@ class ADMAfsar(BaseADM):
         sub_pop_fitness_magnitude = self._asf_score(
             sub_population_fitness, self.true_ideal, self.true_nadir
         )
-        minidx = np.argpartition(sub_pop_fitness_magnitude, 4)
+        minidx = np.argpartition(
+            sub_pop_fitness_magnitude, min(4, len(sub_pop_fitness_magnitude) - 1)
+        )
         solution_selected = sub_population_fitness[minidx[:4]]
         preferred_solution = np.squeeze(solution_selected + ideal_point)
         return preferred_solution

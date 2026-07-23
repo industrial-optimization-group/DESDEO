@@ -348,6 +348,179 @@ def get_pareto_front(solutions):
     return np.array(pareto_front)
 
 
+# CHANGE 1: missing helper -- returns the non-dominated INDICES instead of
+# the values (the existing get_pareto_front returns values). Used by the
+# phi / phi_decision classes to index the original solutions + RP array.
+def get_pareto_front_indices(solutions: np.ndarray) -> np.ndarray:
+    """Extract the indices of the non-dominated (Pareto front) solutions."""
+    nd = []
+    for i, solution in enumerate(solutions):
+        remaining_solutions = np.delete(solutions, i, axis=0)
+        if not is_dominated(solution, remaining_solutions):
+            nd.append(i)
+    return np.array(nd, dtype=int)
+
+
+# CHANGE 2: Pydantic model to type the result of phi.get_phi().
+# get_phi used to return a plain tuple; this documents the 4 fields in the
+# exact order expected by run_adm_phi_pipeline.py (pos, total, neg, rp_hv).
+class PHIResult(BaseModel):
+    """A container for the PHI indicator (positive/negative/total hypervolume)."""
+
+    positive_hypervolume: float = Field(description="Positive PHV normalized by max PHV.")
+    total_hypervolume: float = Field(description="Total PHV normalized by max PHV.")
+    negative_hypervolume: float = Field(description="Negative PHV normalized by max PHV.")
+    reference_point_hypervolume: float = Field(description="Reference point HV normalized by max PHV.")
+
+
+# CHANGE 3: Pydantic model for the aggregated decision-phase result
+# (phi_decision.assess_decision_phase). Completes the ported API from the
+# legacy desdeo-tools/utilities/quality_indicator.py.
+class PHIDecisionResult(BaseModel):
+    """A container for the aggregated PHI value across a full decision phase."""
+
+    phi: float = Field(description="Decision phase PHI value.")
+    weights: list[float] = Field(description="Weights used for each reference point.")
+
+
+# CHANGE 4: `phi` class -- this is the class imported directly by
+# run_adm_phi_pipeline.py (`from desdeo.tools.indicators_unary import phi`).
+# It did NOT exist in this file before; this is what caused the ImportError.
+# Ported from the legacy desdeo-tools/utilities/quality_indicator.py implementation.
+class phi:
+    """Preference-based hypervolume (PHI) indicator for a single iteration."""
+
+    def __init__(self, ideal: np.ndarray):
+        self.name = "phi"
+        self.ideal = np.asarray(ideal, dtype=float)
+
+    # CHANGE 4a: determines whether the reference point (RP) is dominated by
+    # any solution in the front. Decides which calculation branch to use next.
+    def check_rp_dominated(self, set_of_s: np.ndarray, RP: np.ndarray):
+        r = False
+        doms = []
+        for s in set_of_s:
+            if np.all(s <= RP) and np.any(s < RP):
+                doms.append(True)
+                r = True
+            else:
+                doms.append(False)
+        return r, doms
+
+    # CHANGE 4b: "RP dominated" case -- computes positive/negative/total HV
+    # normalized by the maximum HV with respect to the ideal point.
+    def RP_dom_cal(self, set_of_s, RP, doms, nadir):
+        ind = np.where(np.asarray(doms) == 0)[0]
+        stacked = np.vstack([set_of_s, RP])
+        nondoms = stacked[get_pareto_front_indices(stacked)]
+        max_phv = hv(np.asarray(self.ideal).reshape(1, -1), nadir)
+        all_phv = hv(nondoms, nadir)
+        rp_phv = hv(np.asarray(RP).reshape(1, -1), nadir)
+        pos_phv = hv(np.asarray(set_of_s)[ind], nadir) - rp_phv
+        neg_phv = all_phv - pos_phv - rp_phv
+        if all_phv == 0:
+            return 0.0, 0.0, 0.0, 0.0
+        return pos_phv / max_phv, all_phv / max_phv, neg_phv / max_phv, rp_phv / max_phv
+
+    # CHANGE 4c: "RP not dominated" case -- same idea but normalizing
+    # against the RP's own HV instead of the ideal point.
+    # CHANGE 6: guard against rp_phv == 0. If the reference point sits on
+    # (or beyond) the nadir boundary for at least one objective, its own
+    # hypervolume w.r.t. nadir is exactly zero, which previously caused a
+    # ZeroDivisionError at `pos_phv / rp_phv`. In that degenerate case there
+    # is no meaningful "positive" region relative to the RP, so we report
+    # pos=0.0 for the two RP-normalized ratios while still reporting the
+    # (still valid) neg_phv / all_phv ratio, unless all_phv is also zero.
+    def RP_nondom_cal(self, set_of_s, RP, nadir):
+        stacked = np.vstack([set_of_s, RP])
+        nondoms = stacked[get_pareto_front_indices(stacked)]
+        all_phv = hv(nondoms, nadir)
+        rp_phv = hv(np.asarray(RP).reshape(1, -1), nadir)
+        s_phv = hv(np.asarray(set_of_s), nadir)
+        nondom_area = all_phv - s_phv
+        pos_phv = rp_phv - nondom_area
+        neg_phv = all_phv - rp_phv
+        if all_phv == 0:
+            return 0.0, 0.0, 0.0, 0.0
+        if rp_phv == 0:
+            return 0.0, 0.0, neg_phv / all_phv, rp_phv
+        return pos_phv / rp_phv, pos_phv / all_phv, neg_phv / all_phv, rp_phv
+
+    # CHANGE 4d: public method called by run_adm_phi_pipeline.py
+    # (`self.phi_calculator.get_phi(front, pref_array, self.nadir)`).
+    # Automatically decides which branch (dominated / non-dominated) to use.
+    def get_phi(self, set_of_s: np.ndarray, RP: np.ndarray, nadir: np.ndarray):
+        set_of_s = np.asarray(set_of_s, dtype=float)
+        RP = np.asarray(RP, dtype=float)
+        nadir = np.asarray(nadir, dtype=float)
+        is_rp_dominated, doms = self.check_rp_dominated(set_of_s, RP)
+        if is_rp_dominated:
+            return self.RP_dom_cal(set_of_s, RP, doms, nadir)
+        return self.RP_nondom_cal(set_of_s, RP, nadir)
+
+
+# CHANGE 5: `phi_decision` class -- aggregates the PHI indicator at the
+# level of a full phase (several RPs across several iterations), not just
+# per iteration. Not yet used by run_adm_phi_pipeline.py, but available in
+# case phi_summary should later be weighted by phase instead of summed/averaged.
+class phi_decision:
+    """Aggregated PHI indicator across a full interaction phase (learning/decision)."""
+
+    def __init__(self, n_interactions: int, indicator_values, nadir: np.ndarray):
+        self.name = "phi_decision"
+        self.n_interactions = n_interactions
+        self.indicator_values = indicator_values
+        self.nadir = np.asarray(nadir, dtype=float)
+
+    # CHANGE 5a: computes the shared HV area between two reference points.
+    def get_areas(self, rp1: np.ndarray, rp2: np.ndarray) -> float:
+        if rp1.ndim == 1:
+            rp1 = rp1.reshape(1, -1)
+        if rp2.ndim == 1:
+            rp2 = rp2.reshape(1, -1)
+        dom21 = is_dominated(rp2.flatten(), rp1)
+        dom12 = is_dominated(rp1.flatten(), rp2)
+        hv_rp1 = hv(rp1, self.nadir)
+        hv_rp2 = hv(rp2, self.nadir)
+        hv_rp12 = hv(np.vstack([rp1, rp2]), self.nadir)
+        self.hv_rp12 = hv_rp12
+        if dom21:
+            return hv_rp1
+        elif dom12:
+            return hv_rp2
+        else:
+            extra_area_in_rp1 = abs(hv_rp12 - hv_rp2)
+            return hv_rp1 - extra_area_in_rp1
+
+    # CHANGE 5b: repeats get_areas against a "main" RP for each intermediate RP.
+    def interactions_areas(self, set_of_RPs, main_RP, n_interactions):
+        areas = []
+        if n_interactions >= 2:
+            for s in set_of_RPs:
+                areas.append(self.get_areas(s, main_RP))
+        else:
+            areas = self.get_areas(set_of_RPs, main_RP)
+        return areas
+
+    # CHANGE 5c: normalizes the shared areas into weights.
+    def get_weights(self, w, main_w):
+        return w / self.hv_rp12
+
+    # CHANGE 5d: final weighted average -- the aggregated "phase PHI".
+    def assess(self, w, assessment_values):
+        return np.mean(w * assessment_values)
+
+    # CHANGE 5e: orchestrates 5a-5d to produce the PHI for the whole decision phase.
+    def assess_decision_phase(self, set_of_RPs, main_RP):
+        if main_RP.ndim == 1:
+            main_RP = main_RP.reshape(1, -1)
+        main_area = hv(main_RP, self.nadir)
+        shared_areas = self.interactions_areas(set_of_RPs, main_RP, self.n_interactions)
+        weights = self.get_weights(np.asarray(shared_areas), main_area)
+        results = self.assess(np.asarray(weights), np.asarray(self.indicator_values))
+        return results, weights
+
+
 # Additional unary indicators can be added here.
 # E.g. The IGD+ indicator, R2 indicator, averaged Hausdorff distance, etc.
 # The function signature should be similar the already implemented functions, if reasonable.
