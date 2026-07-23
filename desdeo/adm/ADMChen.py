@@ -1,26 +1,26 @@
-"""Artificial decision maker (ADM) based on the approach by Chen et al.
+from desdeo.adm import BaseADM
+from desdeo.problem.schema import Problem
+from desdeo.tools import payoff_table_method, non_dominated_sorting as nds
+import numpy as np
+from typing import Optional
 
-This module implements the artificial decision maker proposed by Chen et al.
+"""ADMChen.py
+
+This module implements the Artificial Decision Maker (ADM) proposed by Chen et al.
 
 References:
-    Chen, L., Miettinen, K., Xin, B., & Ojalehto, V. (2023). Comparing reference
-    point based interactive multiobjective optimization methods without a human
-    decision maker. European Journal of Operational Research, 307(1), 327-345.
+    Chen, L., Miettinen, K., Xin, B., & Ojalehto, V. (2023).
+    Comparing reference point based interactive multiobjective
+    optimization methods without a human decision maker.
+    European Journal of Operational Research, 307(1), 327-345.
 
-IMPORTANT: This module is a work in progress. There are multiple things not clear
-in the article that need further clarification.
+IMPORTANT: This module is WIP. There are multiple things not clear in the article that need further clarification.
 """
-
-import numpy as np
-
-from desdeo.adm.base_adm import BaseADM
-from desdeo.problem.schema import Problem
-from desdeo.tools import non_dominated_sorting as nds
-from desdeo.tools import payoff_table_method
 
 
 class ADMChen(BaseADM):
-    """Artificial Decision Maker implementation based on Chen et al. (2023).
+    """
+    Artificial Decision Maker implementation based on Chen et al. (2023).
 
     This ADM simulates human decision-making behavior in interactive multiobjective
     optimization by operating in two phases: learning and decision-making. During the
@@ -54,7 +54,7 @@ class ADMChen(BaseADM):
         >>> problem = Problem(...)  # Define your problem
         >>> pareto_front = np.array([[1, 2], [2, 1], [1.5, 1.5]])
         >>> adm = ADMChen(problem, it_learning_phase=5, it_decision_phase=3,
-        ...               pareto_front=pareto_front)
+        ...                pareto_front=pareto_front)
         >>> preference = adm.get_next_preference(current_front)
     """
 
@@ -64,33 +64,30 @@ class ADMChen(BaseADM):
         it_learning_phase: int,
         it_decision_phase: int,
         pareto_front: np.ndarray,
-        initial_reference_point: np.ndarray | None = None,
-        seed: int | None = None,
+        initial_reference_point: Optional[np.ndarray] = None,
     ):
-        """Initialize the artificial decision maker proposed by Chen et al.
-
-        Args:
-            problem (Problem): The multiobjective optimization problem.
-            it_learning_phase (int): Number of iterations for the learning phase.
-            it_decision_phase (int): Number of iterations for the decision phase.
-            pareto_front (np.ndarray): Known Pareto front solutions for initialization.
-            initial_reference_point (np.ndarray | None): Initial reference point. If
-                None, a random point between the ideal and nadir is generated.
-            seed (int | None): Optional seed for the random number generator. Defaults to None.
-        """
         # Initialize problem with true ideal and nadir points
         self.true_ideal, self.true_nadir = payoff_table_method(problem)
-        problem = problem.update_ideal_and_nadir(new_ideal=self.true_ideal, new_nadir=self.true_nadir)
+        problem = problem.update_ideal_and_nadir(
+            new_ideal=self.true_ideal, new_nadir=self.true_nadir
+        )
+        super().__init__(problem, it_learning_phase, it_decision_phase)
 
-        # CHANGE (bug fix): payoff_table_method returns dicts (e.g. {'f_1': ..., 'f_2': ...}),
-        # not numpy arrays. Downstream methods like utility_function() perform arithmetic
-        # directly on self.true_ideal / self.true_nadir (e.g. zstar - eps), which requires
-        # numpy arrays, not dicts. Without this conversion, a
-        # "TypeError: unsupported operand type(s) for -: 'dict' and 'float'" is raised.
-        self.true_ideal = np.array(list(self.true_ideal.values()))
-        self.true_nadir = np.array(list(self.true_nadir.values()))
-
-        super().__init__(problem, it_learning_phase, it_decision_phase, seed=seed)
+        # BUGFIX: payoff_table_method returns dicts (symbol -> value), not arrays.
+        # Downstream code (utility_function, normalized_euclidean_distance, etc.)
+        # does arithmetic like `z - self.true_ideal`, which raises
+        # "TypeError: unsupported operand type(s) for -: 'dict' and 'float'"
+        # if left as a dict. Convert both to np.ndarray right after computing them.
+        self.true_ideal = (
+            np.array(list(self.true_ideal.values()))
+            if isinstance(self.true_ideal, dict)
+            else np.asarray(self.true_ideal, dtype=float)
+        )
+        self.true_nadir = (
+            np.array(list(self.true_nadir.values()))
+            if isinstance(self.true_nadir, dict)
+            else np.asarray(self.true_nadir, dtype=float)
+        )
 
         # Store problem dimensions
         self.num_objectives = len(problem.objectives)
@@ -105,18 +102,21 @@ class ADMChen(BaseADM):
         self.weights = np.ones(self.num_objectives) / self.num_objectives
 
         # Compute utility function bounds on the Pareto front
-        self.UF_max = np.max(
-            [self.utility_function(sol, self.true_ideal, self.true_nadir, self.weights) for sol in pareto_front]
-        )
-        self.UF_opt = np.min(
-            [self.utility_function(sol, self.true_ideal, self.true_nadir, self.weights) for sol in pareto_front]
-        )
+        self.UF_max = np.max([
+            self.utility_function(sol, self.true_ideal, self.true_nadir, self.weights)
+            for sol in pareto_front
+        ])
+        self.UF_opt = np.min([
+            self.utility_function(sol, self.true_ideal, self.true_nadir, self.weights)
+            for sol in pareto_front
+        ])
 
-        # Store extreme solutions from the
+        # Store extreme solutions from the Pareto front
         self.extreme_solutions = self.get_extreme_solutions(pareto_front)
 
-    def generate_initial_preference(self, initial_reference_point: np.ndarray | None = None) -> np.ndarray:
-        """Generate the initial reference point for the ADM.
+    def generate_initial_preference(self, initial_reference_point: Optional[np.ndarray] = None) -> np.ndarray:
+        """
+        Generate the initial reference point for the ADM.
 
         If an initial reference point is provided, it validates that the point lies
         between the ideal and nadir points. Otherwise, generates a random point
@@ -133,28 +133,33 @@ class ADMChen(BaseADM):
             ValueError: If the provided reference point is outside the valid range.
         """
         if initial_reference_point is not None:
-            if not (self.true_ideal <= initial_reference_point <= self.true_nadir).all():
-                raise ValueError("Initial reference point must be between the ideal and nadir points.")
-            return initial_reference_point
-        # Generate random reference point between ideal and nadir.
-        # CHANGE (bug fix): min(a, b) / max(a, b) are applied per-axis before calling
-        # rng.uniform(), since some problems internally store ideal/nadir in a
-        # maximization convention where ideal_point[i] can be greater than
-        # nadir_point[i] for a given objective i. Calling rng.uniform(high, low)
-        # with high < low raises "ValueError: high - low < 0".
-        return np.array(
-            [
-                self.rng.uniform(min(a, b), max(a, b))
-                for a, b in zip(
-                    self.problem.get_ideal_point().values(),
-                    self.problem.get_nadir_point().values(),
-                    strict=True,
+            # BUGFIX: chained comparison `a <= b <= c` does not work element-wise on
+            # numpy arrays the way one might expect for validating both bounds at
+            # once. Split into two explicit elementwise comparisons combined with
+            # `.all()` on each side to correctly validate every objective component.
+            if not (self.true_ideal <= initial_reference_point).all() or not (
+                initial_reference_point <= self.true_nadir
+            ).all():
+                raise ValueError(
+                    "Initial reference point must be between the ideal and nadir points."
                 )
-            ]
-        )
+            return initial_reference_point
+        else:
+            # BUGFIX (point 1): wrap each bound with min/max so that np.random.uniform
+            # never receives low > high, since the ideal/nadir ordering per axis can
+            # flip depending on whether that objective is minimized or maximized.
+            # Without this guard, mismatched ordering raises "ValueError: low >= high".
+            ideal_values = list(self.problem.get_ideal_point().values())
+            nadir_values = list(self.problem.get_nadir_point().values())
+
+            return np.array([
+                np.random.uniform(min(a, b), max(a, b))
+                for a, b in zip(ideal_values, nadir_values)
+            ])
 
     def get_next_preference(self, front: np.ndarray) -> np.ndarray:
-        """Get the next preference (reference point) based on the current iteration phase.
+        """
+        Get the next preference (reference point) based on the current iteration phase.
 
         This method determines whether the ADM is in the learning or decision phase
         and calls the appropriate preference generation method.
@@ -174,7 +179,8 @@ class ADMChen(BaseADM):
         return self.preference
 
     def get_extreme_solutions(self, front: np.ndarray) -> np.ndarray:
-        """Extract extreme solutions from the Pareto front.
+        """
+        Extract extreme solutions from the Pareto front.
 
         An extreme solution is defined as the objective vector that minimizes
         one of the objective functions on the Pareto front. These solutions
@@ -200,9 +206,14 @@ class ADMChen(BaseADM):
 
     @staticmethod
     def normalized_euclidean_distance(
-        za: np.ndarray, zb: np.ndarray, znad: np.ndarray, zstar: np.ndarray, eps: float | None = None
+        za: np.ndarray,
+        zb: np.ndarray,
+        znad: np.ndarray,
+        zstar: np.ndarray,
+        eps: Optional[float] = None
     ) -> float:
-        """Compute normalized Euclidean distance between two solutions.
+        """
+        Compute normalized Euclidean distance between two solutions.
 
         The normalization is performed using the range between the utopian point
         (ideal - eps) and the nadir point. This ensures that the distance metric
@@ -236,16 +247,17 @@ class ADMChen(BaseADM):
         # Compute normalization denominator
         denom = znad - z_utopian
 
-        # Avoid division by zero when nadir ≈ utopian
+        # Avoid division by zero when nadir ~= utopian
         denom = np.where(denom <= 0, 1e-12, denom)
 
         # Compute normalized difference and Euclidean distance
         diff = (za - zb) / denom
-        return np.sqrt(np.sum(diff**2))
+        return np.sqrt(np.sum(diff ** 2))
 
     @staticmethod
     def are_neighbors(za: np.ndarray, zb: np.ndarray, solutions: np.ndarray) -> bool:
-        """Check if two solutions are neighbors in the context of a solution set.
+        """
+        Check if two solutions are neighbors in the context of a solution set.
 
         Two solutions za and zb are considered neighbors if their componentwise
         minimum is not dominated by any other solution in the set.
@@ -279,7 +291,8 @@ class ADMChen(BaseADM):
         return True
 
     def generate_preference_learning(self, front: np.ndarray) -> np.ndarray:
-        """Generate preference during the learning phase through systematic exploration.
+        """
+        Generate preference during the learning phase through systematic exploration.
 
         The learning phase explores the Pareto front by identifying neighboring
         solution pairs with the maximum normalized Euclidean distance.
@@ -295,7 +308,7 @@ class ADMChen(BaseADM):
             most distant neighboring pair, which represents an aspirational
             point that is better than both neighbors in all objectives.
 
-        Todo:
+        TODO:
             Validate that the same region has not been selected before to
             avoid redundant exploration.
         """
@@ -315,14 +328,21 @@ class ADMChen(BaseADM):
                     neighbors_1.append(z1)
                     neighbors_2.append(z2)
                     euclidean_distances.append(
-                        self.normalized_euclidean_distance(z1, z2, self.true_nadir, self.true_ideal)
+                        self.normalized_euclidean_distance(
+                            z1, z2, self.true_nadir, self.true_ideal
+                        )
                     )
 
         # Select the pair with maximum distance for exploration
         max_distance_idx = np.argmax(euclidean_distances)
 
         # Generate reference point as componentwise minimum of the distant pair
-        return np.minimum(neighbors_1[max_distance_idx], neighbors_2[max_distance_idx])
+        new_ref_point = np.minimum(
+            neighbors_1[max_distance_idx],
+            neighbors_2[max_distance_idx]
+        )
+
+        return new_ref_point
 
     def utility_function(
         self,
@@ -330,10 +350,11 @@ class ADMChen(BaseADM):
         zstar: np.ndarray,
         znad: np.ndarray,
         weight: np.ndarray,
-        utility_type: str = "deterministic",
-        eps: float | None = None,
+        type: str = 'deterministic',
+        eps: Optional[float] = None
     ) -> float:
-        """Compute the utility function value for a given solution.
+        """
+        Compute the utility function value for a given solution.
 
         The utility function measures the maximum weighted normalized distance
         from the utopian point. Lower values indicate better solutions.
@@ -343,16 +364,16 @@ class ADMChen(BaseADM):
             zstar (np.ndarray): Ideal point of shape (n_objectives,).
             znad (np.ndarray): Nadir point of shape (n_objectives,).
             weight (np.ndarray): Objective weights of shape (n_objectives,).
-            utility_type (str): Type of utility function. Options: 'deterministic', 'random'.
+            type (str): Type of utility function. Options: 'deterministic', 'random'.
                 Defaults to 'deterministic'.
-            eps (float | None): Small positive value for utopian shift.
+            eps (Optional[float]): Small positive value for utopian shift.
                 Defaults to 1e-6.
 
         Returns:
             float: Utility function value (lower is better).
 
         Note:
-            When utility_type='random', Gaussian noise is added with standard deviation
+            When type='random', Gaussian noise is added with standard deviation
             that decreases over iterations to simulate learning behavior.
             The noise magnitude is based on the utility function range.
         """
@@ -373,19 +394,20 @@ class ADMChen(BaseADM):
 
         # Compute weighted normalized distances
         diff = weight * ((z - z_utopian) / denom)
-        u_minus = np.max(diff)  # Chebyshev scalarization
+        U_minus = np.max(diff)  # Chebyshev scalarization
 
         # Add random component if requested
-        if utility_type == "random":
+        if type == 'random':
             # Noise decreases over iterations to simulate learning
             sigma = (self.UF_max - self.UF_opt) * 0.2 / (2 ** (self.it_decision_phase - 1))
-            noise = self.rng.uniform(low=0, high=sigma)
-            u_minus = noise + u_minus
+            noise = np.random.uniform(low=0, high=sigma)
+            U_minus = noise + U_minus
 
-        return u_minus
+        return U_minus
 
     def generate_preference_decision(self, front: np.ndarray) -> np.ndarray:
-        """Generate preference during the decision phase by selecting the best solution.
+        """
+        Generate preference during the decision phase by selecting the best solution.
 
         In the decision phase, the ADM acts more decisively by evaluating all
         solutions in the current front using the utility function and selecting
@@ -407,7 +429,9 @@ class ADMChen(BaseADM):
 
         # Evaluate all solutions and find the one with minimum disutility
         for solution in front:
-            disutility = self.utility_function(solution, self.true_ideal, self.true_nadir, self.weights)
+            disutility = self.utility_function(
+                solution, self.true_ideal, self.true_nadir, self.weights
+            )
             if disutility < min_disutility:
                 min_disutility = disutility
                 preferred_solution = solution
