@@ -188,4 +188,6 @@ def crossover_constructor(
         return crossover_types[name](problem=problem, publisher=publisher, seed=seed, verbosity=verbosity, **options)
 
     sub_crossovers = [crossover_constructor(problem, publisher, seed, verbosity, c) for c in options.crossovers]
-    return CompositeCrossover(problem=problem, publisher=publisher, verbosity=verbosity, operators=sub_crossovers)
+    return CompositeCrossover(
+        problem=problem, publisher=publisher, verbosity=verbosity, operators=sub_crossovers, seed=seed
+    )
