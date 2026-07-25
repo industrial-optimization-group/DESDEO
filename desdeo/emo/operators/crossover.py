@@ -1460,3 +1460,67 @@ class BoundedExponentialCrossover(BaseCrossover):
                 ]
             )
         return msgs
+
+
+class CompositeCrossover(BaseCrossover):
+    """Combined crossover operator that combines multiple crossover operators."""
+
+    def __init__(
+        self,
+        *,
+        problem: Problem,
+        verbosity: int,
+        publisher: Publisher,
+        operators: list[BaseCrossover],
+    ):
+        """Initialize the composite crossover operator.
+
+        Args:
+            problem (Problem): the problem object.
+            verbosity (int): the verbosity level of the component. The keys in `provided_topics` tell what
+                topics are provided by the operator at each verbosity level. Recommended to be set to 1.
+            publisher (Publisher): the publisher to which the operator will publish messages.
+            operators (list[BaseCrossover]): a list of crossover operators to combine.
+        """
+        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher)
+        self.operators = operators
+        self.turn = 0
+
+    def do(
+        self,
+        *,
+        population: pl.DataFrame,
+        to_mate: list[int] | None = None,
+    ) -> pl.DataFrame:
+        """Perform crossover using the next operator in the list.
+
+        Args:
+            population (pl.DataFrame): the population to perform the crossover with.
+            to_mate (list[int] | None): indices of individuals to mate. If None, all individuals are considered.
+
+        Returns:
+            pl.DataFrame: the offspring resulting from the crossover.
+        """
+        operator = self.operators[self.turn]
+        offspring = operator.do(population=population, to_mate=to_mate)
+        self.turn = (self.turn + 1) % len(self.operators)
+        # No need to notify here, as each operator will handle its own notifications.
+        return offspring
+
+    @property
+    def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
+        """This crossover operator does not provide any topics itself."""
+        return {0: [], 1: [], 2: []}
+
+    @property
+    def interested_topics(self):
+        """This crossover operator does not have any interested topics itself."""
+        return []
+
+    def update(self, message: Message):
+        """No need to update the composite operator itself. The publisher will handle the updates for each operator."""
+        return
+
+    def state(self) -> Sequence[Message]:
+        """This crossover operator does not maintain its own state. For now."""
+        return []

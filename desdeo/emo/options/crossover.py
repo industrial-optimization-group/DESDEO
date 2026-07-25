@@ -10,6 +10,7 @@ from desdeo.emo.operators.crossover import (
     BaseCrossover,
     BlendAlphaCrossover,
     BoundedExponentialCrossover,
+    CompositeCrossover,
     LocalCrossover,
     SimulatedBinaryCrossover,
     SingleArithmeticCrossover,
@@ -128,6 +129,20 @@ class BoundedExponentialCrossoverOptions(BaseModel):
     """Positive scale λ for the exponential distribution."""
 
 
+class CompositeCrossoverOptions(BaseModel):
+    """Options for Composite Crossover."""
+
+    name: Literal["CompositeCrossover"] = Field(
+        default="CompositeCrossover", frozen=True, description="The name of the crossover operator."
+    )
+    """The name of the crossover operator."""
+    crossovers: list[CrossoverOptions] = Field(
+        default_factory=list,
+        description="List of crossover options to be used in the composite crossover.",
+    )
+    """List of crossover options to be used in the composite crossover."""
+
+
 CrossoverOptions = (
     SimulatedBinaryCrossoverOptions
     | SinglePointBinaryCrossoverOptions
@@ -137,6 +152,7 @@ CrossoverOptions = (
     | SingleArithmeticCrossoverOptions
     | LocalCrossoverOptions
     | BoundedExponentialCrossoverOptions
+    | CompositeCrossoverOptions
 )
 
 
@@ -164,7 +180,12 @@ def crossover_constructor(
         "SingleArithmeticCrossover": SingleArithmeticCrossover,
         "LocalCrossover": LocalCrossover,
         "BoundedExponentialCrossover": BoundedExponentialCrossover,
+        "CompositeCrossover": CompositeCrossover,
     }
-    options = options.model_dump()
-    name = options.pop("name")
-    return crossover_types[name](problem=problem, publisher=publisher, seed=seed, verbosity=verbosity, **dict(options))
+    if options.name != "CompositeCrossover":
+        options = options.model_dump()
+        name = options.pop("name")
+        return crossover_types[name](problem=problem, publisher=publisher, seed=seed, verbosity=verbosity, **options)
+
+    sub_crossovers = [crossover_constructor(problem, publisher, seed, verbosity, c) for c in options.crossovers]
+    return CompositeCrossover(problem=problem, publisher=publisher, verbosity=verbosity, operators=sub_crossovers)
