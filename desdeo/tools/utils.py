@@ -399,4 +399,27 @@ def repair(lower_bounds: dict[str, float], upper_bounds: dict[str, float]) -> Ca
             )
         return offspring
 
-    return actual_repair
+    # The original code seemed too slow when offsprings were created one at a time?
+    # This is just a quick fix.
+    def fast_actual_repair(offspring: pl.DataFrame) -> pl.DataFrame:
+        # Convert the DataFrame to a NumPy array for faster operations
+        columns = upper_bounds.keys()
+        offspring_np = offspring[list(columns)].to_numpy()
+
+        # Create arrays for lower and upper bounds
+        lower_bounds_np = np.array([lower_bounds[var] for var in offspring.columns])
+        upper_bounds_np = np.array([upper_bounds[var] for var in offspring.columns])
+
+        # Clip the values to be within the specified bounds
+        offspring_np = np.clip(offspring_np, lower_bounds_np, upper_bounds_np)
+
+        # Fill NaN values with the mean of the lower and upper bounds
+        means = (upper_bounds_np + lower_bounds_np) / 2
+        nan_mask = np.isnan(offspring_np)
+        offspring_np[nan_mask] = np.take(means, np.where(nan_mask)[1])
+
+        # Convert back to a DataFrame
+        offspring[list(columns)] = pl.DataFrame(offspring_np, schema=columns)
+        return offspring
+
+    return fast_actual_repair

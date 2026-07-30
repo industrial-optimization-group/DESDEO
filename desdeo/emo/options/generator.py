@@ -29,6 +29,14 @@ class BaseGeneratorOptions(BaseModel):
 
     n_points: int = Field(gt=0, description="The number of points to generate for the initial population.")
     """The number of points to generate for the initial population."""
+    seed: int | None = Field(
+        default=None,
+        description=(
+            "The random seed for the generator. If None the seed from the template will be used. IMPORTANT:"
+            " Only set this seed in case you want to use a different seed for the generator than the rest of the"
+            "algorithm. Otherwise leave this alone!"
+        ),
+    )
 
 
 class LHSGeneratorOptions(BaseGeneratorOptions):
@@ -133,7 +141,7 @@ def generator_constructor(
         options (GeneratorOptions): The options for the generator.
         publisher (Publisher): The publisher for the generator.
         verbosity (int): The verbosity level for the generator.
-        seed (int): The random seed for the generator.
+        seed (int): The random seed for the generator. Only used if the seed in options is None.
         evaluator (EMOEvaluator): The evaluator to use for evaluating solutions.
 
     Returns:
@@ -150,6 +158,6 @@ def generator_constructor(
     }
     options: dict = options.model_dump()
     name = options.pop("name")
-    return generator_types[name](
-        problem, **options, publisher=publisher, verbosity=verbosity, seed=seed, evaluator=evaluator
-    )
+    if options.get("seed") is None:
+        options["seed"] = seed
+    return generator_types[name](problem, **options, publisher=publisher, verbosity=verbosity, evaluator=evaluator)

@@ -171,8 +171,9 @@ class LHSGenerator(BaseGenerator):
         super().__init__(problem, verbosity=verbosity, publisher=publisher)
         self.n_points = n_points
         self.evaluator = evaluator
-        self.lhsrng = LatinHypercube(d=len(self.variable_symbols), seed=seed)
         self.seed = seed
+        rng = np.random.default_rng(self.seed)
+        self.lhsrng = LatinHypercube(d=len(self.variable_symbols), rng=rng)
 
     def do(self) -> tuple[pl.DataFrame, pl.DataFrame]:
         """Generate the initial population.
@@ -186,6 +187,7 @@ class LHSGenerator(BaseGenerator):
         if self.population is not None and self.out is not None:
             self.notify()
             return self.population, self.out
+
         self.population = pl.from_numpy(
             self.lhsrng.random(n=self.n_points) * (self.bounds[:, 1] - self.bounds[:, 0]) + self.bounds[:, 0],
             schema=self.variable_symbols,
