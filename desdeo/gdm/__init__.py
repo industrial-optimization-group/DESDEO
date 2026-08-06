@@ -7,6 +7,11 @@ __all__ = [
     "majority_rule",
     "plurality_rule",
     "scale_delta",
+    "build_grp_subproblem",
+    "additive_preference_constraints",
+    "symmetric_cones_preference_constraints",
+    "maxmin_fairness_constraints",
+    "maxmin_fairness_objective",
 ]
 
 from .gdmtools import (
@@ -18,4 +23,11 @@ from .gdmtools import (
 from .voting_rules import (
     majority_rule,
     plurality_rule,
+)
+from .grp_subproblem import (
+    build_grp_subproblem,
+    additive_preference_constraints,
+    symmetric_cones_preference_constraints,
+    maxmin_fairness_constraints,
+    maxmin_fairness_objective
 )
