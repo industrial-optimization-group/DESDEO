@@ -3,8 +3,8 @@ import json
 from pathlib import Path
 from dataclasses import dataclass, field
 import numpy as np
-from desdeo.adm.ADMAfsar import ADMAfsar
-from desdeo.adm.ADMChen import ADMChen
+from desdeo.adm.adm_afsar import ADMAfsar
+from desdeo.adm.adm_chen import ADMChen
 from desdeo.tools.indicators_unary import phi
 from desdeo.emo.options.algorithms import rvea_options, nsga3_options
 from desdeo.emo.options.templates import emo_constructor, ReferencePointOptions
