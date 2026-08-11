@@ -16,21 +16,21 @@ def additive_preference_constraints(
 ) -> tuple[list[Variable], list[Constraint]]:
     """Generates DESDEO constraints for the additive local preference model.
 
-    Formulates the evaluation score `s_m` for each decision maker by assuming 
-    indifference curves that are strictly orthogonal to their preferred direction of improvement. 
-    If `projections` are provided, they are used to scale the evaluations instead of the 
+    Formulates the evaluation score `s_m` for each decision maker by assuming
+    indifference curves that are strictly orthogonal to their preferred direction of improvement.
+    If `projections` are provided, they are used to scale the evaluations instead of the
     original reference points, which neutralizes the influence of highly optimistic outliers.
 
     Args:
-        rps (np.ndarray): An array of shape (m_dms, k_objs) containing the individual 
+        rps (np.ndarray): An array of shape (m_dms, k_objs) containing the individual
             reference points of the decision makers.
         cip (np.ndarray): The current iteration point in the objective space.
-        projections (np.ndarray | None, optional): An array of shape (m_dms, k_objs) 
+        projections (np.ndarray | None, optional): An array of shape (m_dms, k_objs)
             containing the Pareto optimal projections of the reference points. Defaults to None.
 
     Returns:
-        tuple[list[Variable], list[Constraint]]: A tuple containing an empty list of auxiliary 
-            variables (for interface consistency) and a list of DESDEO `Constraint` objects 
+        tuple[list[Variable], list[Constraint]]: A tuple containing an empty list of auxiliary
+            variables (for interface consistency) and a list of DESDEO `Constraint` objects
             representing the additive preference evaluations.
     """
     m_dms, k_objs = rps.shape
