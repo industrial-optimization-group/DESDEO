@@ -19,7 +19,8 @@ def additive_preference_constraints(
     Formulates the evaluation score `s_m` for each decision maker by assuming
     indifference curves that are strictly orthogonal to their preferred direction of improvement.
     If `projections` are provided, they are used to scale the evaluations instead of the
-    original reference points, which neutralizes the influence of highly optimistic outliers.
+    original reference points.
+    Handles scaling rps, cip and projections to [0,1] for numerical stability.
 
     Args:
         rps (np.ndarray): An array of shape (m_dms, k_objs) containing the individual
@@ -45,7 +46,7 @@ def additive_preference_constraints(
         terms = []
         for k in range(k_objs):
             coeff = (scale_points[m, k] - cip[k]) / denom
-            terms.append(f"({coeff} * (cgrp_{k} - {cip[k]}))")
+            terms.append(f"({coeff} * (cgrp_scaled_{k} - {cip[k]}))")
 
         s_expr = " + ".join(terms)
         constraints.append(
@@ -71,9 +72,11 @@ def symmetric_cones_preference_constraints(
     """Generates auxiliary variables and constraints for the symmetric cones preference model.
 
     This model strictly penalizes candidate points that deviate laterally from a decision maker's 
-    preferred direction of improvement. It utilizes epsilon smoothing (1e-8) and dot-product 
+    preferred direction of improvement. 
+    It utilizes epsilon smoothing (1e-8) and dot-product 
     projections to ensure the resulting non-linear constraints remain twice-differentiable and 
     numerically stable for gradient-based solvers (like IPOPT).
+    Handles scaling rps, cip and projections to [0,1] for numerical stability.
 
     Args:
         rps (np.ndarray): An array of shape (m_dms, k_objs) containing the individual 
@@ -127,7 +130,7 @@ def symmetric_cones_preference_constraints(
             ))
 
         # 2b. Orthogonality
-        ortho_terms = " + ".join([f"({d_m[k]} * (cgrp_{k} - b_{m}_{k}))" for k in range(k_objs)])
+        ortho_terms = " + ".join([f"({d_m[k]} * (cgrp_scaled_{k} - b_{m}_{k}))" for k in range(k_objs)])
         constraints.append(Constraint(
             name=f"Orthogonality_{m}", symbol=f"c_ortho_{m}", cons_type=ConstraintTypeEnum.EQ,
             func=ortho_terms, is_linear=True, is_twice_differentiable=True
@@ -137,7 +140,7 @@ def symmetric_cones_preference_constraints(
         for k in range(k_objs):
             constraints.append(Constraint(
                 name=f"Dev_Vec_{m}_{k}", symbol=f"c_v_{m}_{k}", cons_type=ConstraintTypeEnum.EQ,
-                func=f"v_{m}_{k} - (cgrp_{k} - b_{m}_{k})", is_linear=True, is_twice_differentiable=True
+                func=f"v_{m}_{k} - (cgrp_scaled_{k} - b_{m}_{k})", is_linear=True, is_twice_differentiable=True
             ))
 
         # 2d. Magnitude of v_m (Non-Linear Quadratic constraint + 1e-8 epsilon smoothing)
@@ -216,6 +219,7 @@ def build_grp_subproblem(
     rps: np.ndarray,
     cip: np.ndarray,
     ideal: np.ndarray,
+    nadir: np.ndarray,
     preference_factory: callable,
     fairness_constraints_factory: callable,
     fairness_objective_factory: callable,
@@ -231,6 +235,7 @@ def build_grp_subproblem(
         rps (np.ndarray): An array of shape (m_dms, k_objs) containing the individual reference points.
         cip (np.ndarray): The current iteration point in the objective space.
         ideal (np.ndarray): The ideal point of the multiobjective optimization problem.
+        nadir (np.ndarray): The nadir point of the multiobjective optimization problem.
         preference_factory (callable): A function (e.g., `additive_preference_constraints`) that 
             returns the auxiliary variables and constraints for the local preference model.
         fairness_constraints_factory (callable): A function that generates the bounding constraints 
@@ -242,14 +247,15 @@ def build_grp_subproblem(
     Returns:
         Problem: The fully assembled DESDEO `Problem` object, ready to be passed to a solver.
     """
-    # Safety Check: Warn if objectives are not scaled to [0, 1]
-    if np.any(cip < -0.01) or np.any(cip > 1.01) or np.any(rps < -0.01):
-        warnings.warn(
-            "GRP Subproblem expects objective values to be scaled to [0, 1]. "
-            "Unscaled or disparately scaled data may cause numerical instability in gradient-based solvers like IPOPT."
-        )
 
     m_dms, k_objs = rps.shape
+
+    # Scale all inputs to [0, 1] for solver stability
+    ranges = nadir - ideal
+    cip_scaled = (cip - ideal) / ranges
+    rps_scaled = (rps - ideal) / ranges
+    projections_scaled = (projections - ideal) / ranges if projections is not None else None
+
     variables = []
 
     variables.append(Variable(name="Fairness_Alpha", symbol="alpha", variable_type="real", lowerbound=-10000, upperbound=10000, initial_value=0.0))
@@ -259,6 +265,10 @@ def build_grp_subproblem(
         variables.append(Variable(name=f"Satisfaction_DM_{m}", symbol=f"s_{m}", variable_type="real", lowerbound=-10000, upperbound=10000, initial_value=0.0))
 
     for k in range(k_objs):
+        mean_scaled_k = np.mean(rps_scaled[:, k])
+        variables.append(Variable(name=f"GRP_Scaled_Coord_{k}", symbol=f"cgrp_scaled_{k}",
+                         variable_type="real", lowerbound=-10000, upperbound=10000, initial_value=mean_scaled_k))
+
         mean_k = np.mean(rps[:, k])
         variables.append(Variable(name=f"GRP_Coord_{k}", symbol=f"cgrp_{k}", variable_type="real", lowerbound=-10000, upperbound=10000, initial_value=mean_k))
 
@@ -270,12 +280,17 @@ def build_grp_subproblem(
     ))
 
     for k in range(k_objs):
-        cgrp_expr = " + ".join([f"({rps[m, k]} * w_{m})" for m in range(m_dms)])
+        cgrp_scaled_expr = " + ".join([f"({rps_scaled[m, k]} * w_{m})" for m in range(m_dms)])
         constraints.append(Constraint(
-            name=f"GRP_Definition_{k}", symbol=f"c_cgrp_{k}", cons_type=ConstraintTypeEnum.EQ, func=f"cgrp_{k} - ({cgrp_expr})", is_linear=True, is_twice_differentiable=True,
+            name=f"GRP_scaled_Definition_{k}", symbol=f"c_cgrp_scaled_{k}", cons_type=ConstraintTypeEnum.EQ, func=f"cgrp_{k} - ({cgrp_scaled_expr})", is_linear=True, is_twice_differentiable=True,
+        ))
+        # Bridge Constraint: Unscaled = Scaled * Range + Ideal
+        constraints.append(Constraint(
+            name=f"GRP_Unscaled_Bridge_{k}", symbol=f"c_bridge_{k}", cons_type=ConstraintTypeEnum.EQ,
+            func=f"cgrp_{k} - (cgrp_scaled_{k} * {ranges[k]} + {ideal[k]})", is_linear=True, is_twice_differentiable=True,
         ))
 
-    aux_vars, pref_constraints = preference_factory(rps, cip, projections)
+    aux_vars, pref_constraints = preference_factory(rps_scaled, cip_scaled, projections_scaled)
     variables.extend(aux_vars)
     constraints.extend(pref_constraints)
     constraints.extend(fairness_constraints_factory(m_dms))
@@ -305,7 +320,7 @@ if __name__ == "__main__":
 
     print("\nBuilding DESDEO GRP Subproblem (Cones Model + Max-Min)...")
     grp_subproblem = build_grp_subproblem(
-        rps=all_rps, cip=cip, ideal=ideal,
+        rps=all_rps, cip=cip, ideal=ideal, nadir=nadir,
         preference_factory=symmetric_cones_preference_constraints,
         # preference_factory=additive_preference_constraints,
         fairness_constraints_factory=maxmin_fairness_constraints,

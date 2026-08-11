@@ -30,7 +30,7 @@ def test_additive_model_zdt1(zdt1_setup):
     """Test the additive local preference model using IPOPT on ZDT1."""
     problem, ideal, nadir, cip, rps = zdt1_setup
     grp_subproblem = build_grp_subproblem(
-        rps=rps, cip=cip, ideal=ideal,
+        rps=rps, cip=cip, ideal=ideal, nadir=nadir,
         preference_factory=additive_preference_constraints,
         fairness_constraints_factory=maxmin_fairness_constraints,
         fairness_objective_factory=maxmin_fairness_objective
@@ -53,7 +53,7 @@ def test_cones_model_zdt1(zdt1_setup):
     """Test the unified symmetric cones model."""
     problem, ideal, nadir, cip, rps = zdt1_setup
     grp_subproblem = build_grp_subproblem(
-        rps=rps, cip=cip, ideal=ideal,
+        rps=rps, cip=cip, ideal=ideal, nadir=nadir,
         preference_factory=symmetric_cones_preference_constraints,
         fairness_constraints_factory=maxmin_fairness_constraints,
         fairness_objective_factory=maxmin_fairness_objective
@@ -72,7 +72,7 @@ def test_scaling_projections(zdt1_setup):
     projections = np.array([[0.01, 0.99], [0.1, 0.7], [0.75, 0.18], [0.22, 0.46]])
 
     prob_unscaled = build_grp_subproblem(
-        rps=rps, cip=cip, ideal=ideal,
+        rps=rps, cip=cip, ideal=ideal, nadir=nadir,
         preference_factory=additive_preference_constraints,
         fairness_constraints_factory=maxmin_fairness_constraints,
         fairness_objective_factory=maxmin_fairness_objective
@@ -80,7 +80,7 @@ def test_scaling_projections(zdt1_setup):
     res_unscaled = PyomoIpoptSolver(prob_unscaled).solve("obj_alpha_min")
 
     prob_scaled = build_grp_subproblem(
-        rps=rps, cip=cip, ideal=ideal, projections=projections,
+        rps=rps, cip=cip, ideal=ideal, nadir=nadir, projections=projections,
         preference_factory=additive_preference_constraints,
         fairness_constraints_factory=maxmin_fairness_constraints,
         fairness_objective_factory=maxmin_fairness_objective
@@ -99,12 +99,13 @@ def test_dtlz2_high_dimensional():
     Test the smooth symmetric cones factory on a 3-objective DTLZ2 problem.
     """
     problem = dtlz2(n_variables=12, n_objectives=3)
+    nadir = objective_dict_to_numpy_array(problem, get_nadir_dict(problem))
     ideal = np.array([0.0, 0.0, 0.0])
     cip = np.array([1.0, 1.0, 1.0])
     rps = np.array([[0.2, 0.8, 0.5], [0.7, 0.2, 0.6], [0.4, 0.5, 0.1]])
 
     grp_subproblem = build_grp_subproblem(
-        rps=rps, cip=cip, ideal=ideal,
+        rps=rps, cip=cip, ideal=ideal, nadir=nadir,
         preference_factory=symmetric_cones_preference_constraints,
         fairness_constraints_factory=maxmin_fairness_constraints,
         fairness_objective_factory=maxmin_fairness_objective
@@ -140,14 +141,12 @@ def test_binh_and_korn_unscaled_warning():
         [30.0, 50.0]
     ])
 
-    # Assert that the specific scaling warning is triggered
-    with pytest.warns(UserWarning, match="expects objective values to be scaled to"):
-        grp_subproblem = build_grp_subproblem(
-            rps=rps, cip=cip, ideal=ideal,
-            preference_factory=additive_preference_constraints,
-            fairness_constraints_factory=maxmin_fairness_constraints,
-            fairness_objective_factory=maxmin_fairness_objective
-        )
+    grp_subproblem = build_grp_subproblem(
+        rps=rps, cip=cip, ideal=ideal, nadir=nadir,
+        preference_factory=additive_preference_constraints,
+        fairness_constraints_factory=maxmin_fairness_constraints,
+        fairness_objective_factory=maxmin_fairness_objective
+    )
 
     result = PyomoIpoptSolver(grp_subproblem).solve("obj_alpha_min")
 
@@ -185,14 +184,12 @@ def test_river_pollution_many_objective():
         ideal * 0.8 + nadir * 0.2,
     ])
 
-    # The problem is unscaled, so we expect our safety warning to trigger
-    with pytest.warns(UserWarning, match="expects objective values to be scaled to"):
-        grp_subproblem = build_grp_subproblem(
-            rps=rps, cip=cip, ideal=ideal,
-            preference_factory=symmetric_cones_preference_constraints,
-            fairness_constraints_factory=maxmin_fairness_constraints,
-            fairness_objective_factory=maxmin_fairness_objective
-        )
+    grp_subproblem = build_grp_subproblem(
+        rps=rps, cip=cip, ideal=ideal, nadir=nadir,
+        preference_factory=symmetric_cones_preference_constraints,
+        fairness_constraints_factory=maxmin_fairness_constraints,
+        fairness_objective_factory=maxmin_fairness_objective
+    )
 
     result = PyomoIpoptSolver(grp_subproblem).solve("obj_alpha_min")
 
