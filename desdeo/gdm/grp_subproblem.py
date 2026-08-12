@@ -112,7 +112,9 @@ def symmetric_cones_preference_constraints(
 
         # --- 1. Auxiliary Variables ---
         aux_variables.append(Variable(name=f"t_DM_{m}", symbol=f"t_{m}", variable_type="real", lowerbound=-1000, upperbound=1000, initial_value=1.0))
-        aux_variables.append(Variable(name=f"norm_v_DM_{m}", symbol=f"norm_v_{m}", variable_type="real", lowerbound=0.0, upperbound=1000, initial_value=0.0))
+        aux_variables.append(Variable(name=f"norm_v_DM_{m}", symbol=f"norm_v_{m}", variable_type="real",
+                             lowerbound=0.000001, upperbound=1000, initial_value=0.1))  # to avoid norm being 0, could be issue sometimes?
+        # lowerbound=0.0, upperbound=1000, initial_value=0.0)) # original
 
         for k in range(k_objs):
             aux_variables.append(Variable(name=f"b_{m}_{k}", symbol=f"b_{m}_{k}", variable_type="real",
@@ -144,10 +146,12 @@ def symmetric_cones_preference_constraints(
             ))
 
         # 2d. Magnitude of v_m (Non-Linear Quadratic constraint + 1e-8 epsilon smoothing)
+        # Using LTE (<= 0) by formatting as: (v^2 + eps) - norm_v^2 <= 0
         v_sq_terms = " + ".join([f"v_{m}_{k}**2" for k in range(k_objs)])
         constraints.append(Constraint(
-            name=f"Norm_v_{m}", symbol=f"c_normv_{m}", cons_type=ConstraintTypeEnum.EQ,
-            func=f"norm_v_{m}**2 - ({v_sq_terms} + {eps})",
+            name=f"Norm_v_{m}", symbol=f"c_normv_{m}", cons_type=ConstraintTypeEnum.LTE,
+            # func=f"norm_v_{m}**2 - ({v_sq_terms} + {eps})", # EQ version
+            func=f"({v_sq_terms} + {eps}) - norm_v_{m}**2",
             is_linear=False, is_twice_differentiable=True
         ))
 
