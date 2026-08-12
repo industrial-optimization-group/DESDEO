@@ -169,6 +169,7 @@ Currently, DESDEO's development has been funded by projects granted by the
 [Research Council of Finland](https://www.aka.fi/en/). The most recent ones
 include:
 
+- INDENSYS (project 373063)
 - DESIDES (project 355346)
 - UTOPIA (project 352784)
 - DAEMON (project 322221)
