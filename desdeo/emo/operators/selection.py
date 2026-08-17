@@ -911,8 +911,6 @@ class NSGA3Selector(BaseDecompositionSelector):
             seed=seed,
             invert_reference_vectors=invert_reference_vectors,
         )
-        if self.constraints_symbols is not None:
-            raise NotImplementedError("NSGA3 selector does not support constraints. Please use a different selector.")
 
         self.adapted_reference_vectors = None
         self.worst_fitness: np.ndarray | None = None
@@ -922,7 +920,7 @@ class NSGA3Selector(BaseDecompositionSelector):
         self.selected_individuals: SolutionType | None = None
         self.selected_targets: pl.DataFrame | None = None
 
-    def do(
+    def do(  # NOQA: C901
         self,
         parents: tuple[SolutionType, pl.DataFrame],
         offsprings: tuple[SolutionType, pl.DataFrame],
@@ -946,6 +944,38 @@ class NSGA3Selector(BaseDecompositionSelector):
         else:
             raise TypeError("The decision variables must be either a list or a polars DataFrame, not both")
         alltargets = parents[1].vstack(offsprings[1])
+
+        # Check if there are constraints and filter feasible solutions
+        if self.constraints_symbols is not None or len(self.constraints_symbols) > 0:
+            constraints = alltargets[self.constraints_symbols].to_numpy()
+            constraints = np.where(constraints > 0, constraints, 0)
+            constraints_sum = np.sum(constraints, axis=1)
+            feasible = np.where(constraints_sum == 0)[0].tolist()
+            sorted_infeasible = constraints_sum.argsort().tolist()[len(feasible) :]
+            if len(feasible) <= self.n_survive:
+                # Put all feasible solutions in the selection, then fill the rest with the least constraint violation
+                select = feasible.copy()
+                remaining = self.n_survive - len(select)
+                select += sorted_infeasible[:remaining]
+                self.selection = select
+                if isinstance(solutions, pl.DataFrame) and self.selection is not None:
+                    self.selected_individuals = solutions[self.selection]
+                elif isinstance(solutions, list) and self.selection is not None:
+                    self.selected_individuals = [solutions[i] for i in self.selection]
+                else:
+                    raise RuntimeError("Something went wrong with the selection")
+                self.selected_targets = alltargets[self.selection]
+
+                self.notify()
+                return self.selected_individuals, self.selected_targets
+            # else:
+            # Only consider feasible solutions for selection
+            if isinstance(solutions, pl.DataFrame):
+                solutions = solutions[feasible]
+            elif isinstance(solutions, list):
+                solutions = [solutions[i] for i in feasible]
+            alltargets = alltargets[feasible]
+
         targets = alltargets[self.target_symbols].to_numpy()
         ref_dirs = self.reference_vectors
 
