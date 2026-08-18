@@ -208,7 +208,109 @@ Moreover, the final Pareto optimal solution reached can be found from the NAUTIL
 
 ```
 final_solution = all_responses[-1].reachable_solution
-print(f"Final reachable solution {final_solution}")```
+print(f"Final reachable solution {final_solution}")
+```
+
+
+## Advanced Usage: NAUTILI with Fair Preference Aggregation
+By default, NAUTILI aggregates the group's reference points by taking the arithmetic mean of the individual directions of simultaneous improvements. 
+One can also use local preference models (like the Additive or Symmetric Cones models) and enforce Max-Min fairness to aggregate a group reference point, that can be then be used to determine the collective direction of improvement. 
+To do this, one needs to use nautili_step and the grp_subproblem module.
+
+Below is an example using the ZDT1 problem where we calculate the fair Group Reference Point (GRP) iteratively at each step.
+
+### Step 1: Setup and Define Preferences
+First, import the necessary tools and set up the problem. In this example, we assume three decision makers have already provided their preferred reference points.
+
 
 ```
+import numpy as np
+from desdeo.problem.testproblems import zdt1
+from desdeo.problem import get_ideal_dict, get_nadir_dict, objective_dict_to_numpy_array
+from desdeo.tools.utils import PyomoIpoptSolver
+from desdeo.mcdm.nautili import nautili_init, nautili_step
+
+# Import the Group Reference Point (GRP) subproblem architecture
+from desdeo.gdm.grp_subproblem import (
+    build_grp_subproblem,
+    additive_preference_constraints,
+    maxmin_fairness_constraints,
+    maxmin_fairness_objective
+)
+
+# Setup the problem and global boundaries
+problem = zdt1(30)
+ideal = objective_dict_to_numpy_array(problem, get_ideal_dict(problem))
+nadir = objective_dict_to_numpy_array(problem, get_nadir_dict(problem))
+
+# The DMs provide their reference points
+dm_rps = np.array([
+    [0.71, 0.95],
+    [0.75, 0.83],
+    [0.94, 0.69]
+])
+
+total_steps = 3
+```
+
+### Step 2: Initialize NAUTILI
+Initialize the NAUTILI method to generate the starting point (the Current Iteration Point, or CIP).
+
+
+```
+init_response = nautili_init(problem, solver=PyomoIpoptSolver)
+current_cip_dict = init_response.navigation_point
+cip_arr = objective_dict_to_numpy_array(problem, current_cip_dict)
+```
+
+### Step 3: Solve for the Fair Group Reference Point (GRP)
+Pass the DMs' reference points to build_grp_subproblem and specify a local preference model (in this case, additive_preference_constraints). The solver finds the exact point that maximizes the Rawlsian fairness among the group based on their preferences.
+
+
+```
+prob = build_grp_subproblem(
+    rps=dm_targets, 
+    cip=cip_arr, 
+    ideal=ideal, 
+    nadir=nadir,
+    preference_factory=additive_preference_constraints, # Or use symmetric_cones_preference_constraints
+    fairness_constraints_factory=maxmin_fairness_constraints,
+    fairness_objective_factory=maxmin_fairness_objective
+)
+
+# Solve to maximize fairness (alpha)
+res = PyomoIpoptSolver(prob).solve("obj_alpha_min")
+grp_arr = np.array([res.optimal_variables['cgrp_0'], res.optimal_variables['cgrp_1']])
+
+print(f"Fair Group Reference Point: {np.round(grp_arr, 4)}")
+```
+
+### Step 4: Execute a Single NAUTILI Step
+Subtract the newly calculated fair GRP from the Current Iteration Point to determine the collective direction of simultaneous improvements. By passing this to nautili_step, we step along this direction.
+
+
+```
+# Formulate the Group Improvement Direction (CIP to GRP)
+group_improvement_arr = cip_arr - grp_arr
+group_improvement_dict = {
+    obj.symbol: group_improvement_arr[i] for i, obj in enumerate(problem.objectives)
+}
+
+# Execute a single NAUTILI step
+step_res = nautili_step(
+    problem=problem,
+    steps_remaining=total_steps,
+    step_number=1,
+    nav_point=current_cip_dict,
+    solver=PyomoIpoptSolver,
+    group_improvement_direction=group_improvement_dict
+)
+
+next_cip = objective_dict_to_numpy_array(problem, step_res.navigation_point)
+print(f"Step 1 completed. Iteration point moved to: {np.round(next_cip, 4)}")
+```
+
+You can repeat Steps 3 and 4 in a loop for the remaining iterations, updating the DMs' reference points at each step as needed during the interactive process.
+
+
 

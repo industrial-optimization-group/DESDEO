@@ -1,23 +1,23 @@
-"""
-Tests related to preference aggregation of reference points and max-min fairness with local preference models
-"""
-import pytest
-import numpy as np
+"""Tests related to preference aggregation of reference points and max-min fairness."""
 
-from desdeo.problem.testproblems import zdt1, binh_and_korn, river_pollution_problem
-from desdeo.problem import get_nadir_dict, get_ideal_dict, objective_dict_to_numpy_array
-from desdeo.tools.utils import PyomoIpoptSolver
+import numpy as np
+import pytest
 
 from desdeo.gdm.grp_subproblem import (
-    build_grp_subproblem,
     additive_preference_constraints,
-    symmetric_cones_preference_constraints,
+    build_grp_subproblem,
     maxmin_fairness_constraints,
-    maxmin_fairness_objective
+    maxmin_fairness_objective,
+    symmetric_cones_preference_constraints,
 )
+from desdeo.problem import get_ideal_dict, get_nadir_dict, objective_dict_to_numpy_array
+from desdeo.problem.testproblems import binh_and_korn, river_pollution_problem, zdt1
+from desdeo.tools.utils import PyomoIpoptSolver
+
 
 @pytest.fixture
 def zdt1_setup():
+    """Problem setup for ZDT1."""
     problem = zdt1(30)
     nadir = objective_dict_to_numpy_array(problem, get_nadir_dict(problem))
     ideal = objective_dict_to_numpy_array(problem, get_ideal_dict(problem))
@@ -28,7 +28,7 @@ def zdt1_setup():
 @pytest.mark.gdmtools
 def test_additive_model_zdt1(zdt1_setup):
     """Test the additive local preference model using IPOPT on ZDT1."""
-    problem, ideal, nadir, cip, rps = zdt1_setup
+    _problem, ideal, nadir, cip, rps = zdt1_setup
     grp_subproblem = build_grp_subproblem(
         rps=rps, cip=cip, ideal=ideal, nadir=nadir,
         preference_factory=additive_preference_constraints,
@@ -55,7 +55,7 @@ def test_additive_model_zdt1(zdt1_setup):
 @pytest.mark.gdmtools
 def test_cones_model_zdt1(zdt1_setup):
     """Test the symmetric cones model."""
-    problem, ideal, nadir, cip, rps = zdt1_setup
+    _problem, ideal, nadir, cip, rps = zdt1_setup
     grp_subproblem = build_grp_subproblem(
         rps=rps, cip=cip, ideal=ideal, nadir=nadir,
         preference_factory=symmetric_cones_preference_constraints,
@@ -82,7 +82,7 @@ def test_cones_model_zdt1(zdt1_setup):
 @pytest.mark.gdmtools
 def test_scaling_projections(zdt1_setup):
     """Test that providing Pareto projections alters the resulting GRP."""
-    problem, ideal, nadir, cip, rps = zdt1_setup
+    _problem, ideal, nadir, cip, rps = zdt1_setup
     projections = np.array([[0.01, 0.99], [0.1, 0.7], [0.75, 0.18], [0.22, 0.46]])
 
     prob_unscaled = build_grp_subproblem(
@@ -108,10 +108,7 @@ def test_scaling_projections(zdt1_setup):
 
 @pytest.mark.gdmtools
 def test_binh_and_korn():
-    """
-    Test the additive model on the Binh and Korn problem, ensuring the internal scaling
-    bridge successfully maps the normalized [0, 1] variables back to the true objective space.
-    """
+    """Test the additive model on the Binh and Korn problem."""
     problem = binh_and_korn()
     nadir = objective_dict_to_numpy_array(problem, get_nadir_dict(problem))
     ideal = objective_dict_to_numpy_array(problem, get_ideal_dict(problem))
@@ -143,14 +140,12 @@ def test_binh_and_korn():
     cgrp_scaled_1 = result.optimal_variables['cgrp_scaled_1']
     assert -1e-4 <= cgrp_scaled_0 <= 1.0001  # type:ignore
     assert -1e-4 <= cgrp_scaled_1 <= 1.0001  # type:ignore
-    print(cgrp_scaled_0, cgrp_scaled_1)
 
     # Verify the UNSCALED GRP coordinates are successfully mapped back to the objective space, should not be [0,1]
     cgrp_0 = result.optimal_variables['cgrp_0']
     cgrp_1 = result.optimal_variables['cgrp_1']
     assert isinstance(cgrp_0, (int, float))
     assert isinstance(cgrp_1, (int, float))
-    print(cgrp_0, cgrp_1)
 
     # Bounded by ideal and nadir (accounting for minor solver tolerances)
     assert min(ideal[0], nadir[0]) - 1e-4 <= cgrp_0 <= max(ideal[0], nadir[0]) + 1e-4
@@ -159,11 +154,7 @@ def test_binh_and_korn():
 @pytest.mark.slow
 @pytest.mark.gdmtools
 def test_river_pollution_many_objective():
-    """
-    Test the smooth symmetric cones factory on the River Pollution problem,
-    which is a classic real-world benchmark with 5 objective functions.
-    Verifies that n-dimensional problem scaling works correctly.
-    """
+    """Test the symmetric cones on the River Pollution problem."""
     problem = river_pollution_problem()
     nadir = objective_dict_to_numpy_array(problem, get_nadir_dict(problem))
     ideal = objective_dict_to_numpy_array(problem, get_ideal_dict(problem))
@@ -177,8 +168,6 @@ def test_river_pollution_many_objective():
         ideal * 0.5 + nadir * 0.5,
         ideal * 0.8 + nadir * 0.2,
     ])
-
-    print(rps)
 
     grp_subproblem = build_grp_subproblem(
         rps=rps, cip=cip, ideal=ideal, nadir=nadir,
@@ -200,8 +189,6 @@ def test_river_pollution_many_objective():
 
         # Ensure normalization logic successfully constrained the internal solver space to [0, 1]
         assert -1e-4 <= cgrp_scaled_k <= 1.0001  # type:ignore
-        print(cgrp_k)
-        print(cgrp_scaled_k)
 
         # Ensure the unscaled variables successfully mapped back into the River Pollution bounds
         assert min(ideal[k], nadir[k]) - 1e-4 <= cgrp_k <= max(ideal[k], nadir[k]) + 1e-4

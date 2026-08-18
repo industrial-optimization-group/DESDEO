@@ -1,17 +1,21 @@
+"""Module containing subproblem formulation for Group Reference Point (GRP) preference aggregation.
+
+Provides models for additive and symmetric cones preference evaluations,
+as well as Max-Min fairness constraints.
+"""
+
+
+from collections.abc import Callable
+
 import numpy as np
-from desdeo.problem.schema import (
-    Variable,
-    Constraint,
-    ConstraintTypeEnum,
-    Objective,
-    ObjectiveTypeEnum,
-    Problem
-)
+
+from desdeo.problem.schema import Constraint, ConstraintTypeEnum, Objective, ObjectiveTypeEnum, Problem, Variable
+
 
 def additive_preference_constraints(
     rps: np.ndarray,
     cip: np.ndarray,
-    projections: np.ndarray = None
+    projections: np.ndarray | None = None
 ) -> tuple[list[Variable], list[Constraint]]:
     """Generates DESDEO constraints for the additive local preference model.
 
@@ -53,7 +57,7 @@ def additive_preference_constraints(
                 name=f"Additive_pref_DM_{m}",
                 symbol=f"c_pref_{m}",
                 cons_type=ConstraintTypeEnum.EQ,
-                func=f"s_{m} - ({s_expr})",
+                func=f"s_{m} - ({s_expr})",  # type: ignore
                 is_linear=True,
                 is_twice_differentiable=True,
             )
@@ -65,7 +69,7 @@ def additive_preference_constraints(
 def symmetric_cones_preference_constraints(
     rps: np.ndarray,
     cip: np.ndarray,
-    projections: np.ndarray = None,
+    projections: np.ndarray | None = None,
     cone_alpha: float = 0.5
 ) -> tuple[list[Variable], list[Constraint]]:
     """Generates auxiliary variables and constraints for the symmetric cones preference model.
@@ -110,38 +114,61 @@ def symmetric_cones_preference_constraints(
         d_m_hat = d_m / np.sqrt(d_m_norm_sq)
 
         # --- 1. Auxiliary Variables ---
-        aux_variables.append(Variable(name=f"t_DM_{m}", symbol=f"t_{m}", variable_type="real", lowerbound=-1000, upperbound=1000, initial_value=1.0))
-        aux_variables.append(Variable(name=f"norm_v_DM_{m}", symbol=f"norm_v_{m}", variable_type="real",
-                             lowerbound=0.000001, upperbound=1000, initial_value=0.1))  # to avoid norm being 0, could be issue sometimes?
-        # lowerbound=0.0, upperbound=1000, initial_value=0.0)) # original
+        aux_variables.append(
+            Variable(
+                name=f"t_DM_{m}", symbol=f"t_{m}", variable_type="real",  # type: ignore
+                lowerbound=-1000, upperbound=1000, initial_value=1.0
+            )
+        )
+        aux_variables.append(
+            Variable(
+                name=f"norm_v_DM_{m}", symbol=f"norm_v_{m}", variable_type="real",  # type: ignore
+                lowerbound=0.000001, upperbound=1000, initial_value=0.1
+                # to avoid norm being 0, could be issue sometimes?
+                # lowerbound=0.0, upperbound=1000, initial_value=0.0)) # original
+            )
+        )
 
         for k in range(k_objs):
-            aux_variables.append(Variable(name=f"b_{m}_{k}", symbol=f"b_{m}_{k}", variable_type="real",
-                                 lowerbound=-1000, upperbound=1000, initial_value=cip[k]))
-            aux_variables.append(Variable(name=f"v_{m}_{k}", symbol=f"v_{m}_{k}", variable_type="real", lowerbound=-1000, upperbound=1000, initial_value=0.0))
-            aux_variables.append(Variable(name=f"x_{m}_{k}", symbol=f"x_{m}_{k}", variable_type="real",
-                                 lowerbound=-1000, upperbound=1000, initial_value=scale_points[m, k]))
+            aux_variables.append(
+                Variable
+                (name=f"b_{m}_{k}", symbol=f"b_{m}_{k}", variable_type="real",  # type: ignore
+                 lowerbound=-1000, upperbound=1000, initial_value=cip[k]
+                 )
+            )
+            aux_variables.append(
+                Variable(
+                    name=f"v_{m}_{k}", symbol=f"v_{m}_{k}", variable_type="real",  # type: ignore
+                    lowerbound=-1000, upperbound=1000, initial_value=0.0
+                )
+            )
+            aux_variables.append(
+                Variable(
+                    name=f"x_{m}_{k}", symbol=f"x_{m}_{k}", variable_type="real",  # type: ignore
+                    lowerbound=-1000, upperbound=1000, initial_value=scale_points[m, k]
+                )
+            )
 
         # --- 2. Geometric Constraints ---
         # 2a. b_m lies on direction vector
         for k in range(k_objs):
             constraints.append(Constraint(
                 name=f"Line_Eq_b_{m}_{k}", symbol=f"c_b_{m}_{k}", cons_type=ConstraintTypeEnum.EQ,
-                func=f"b_{m}_{k} - ({cip[k]} + t_{m} * {d_m[k]})", is_linear=True, is_twice_differentiable=True
+                func=f"b_{m}_{k} - ({cip[k]} + t_{m} * {d_m[k]})", is_linear=True, is_twice_differentiable=True  # type: ignore
             ))
 
         # 2b. Orthogonality
         ortho_terms = " + ".join([f"({d_m[k]} * (cgrp_scaled_{k} - b_{m}_{k}))" for k in range(k_objs)])
         constraints.append(Constraint(
             name=f"Orthogonality_{m}", symbol=f"c_ortho_{m}", cons_type=ConstraintTypeEnum.EQ,
-            func=ortho_terms, is_linear=True, is_twice_differentiable=True
+            func=ortho_terms, is_linear=True, is_twice_differentiable=True  # type: ignore
         ))
 
         # 2c. Deviation vector v_m
         for k in range(k_objs):
             constraints.append(Constraint(
                 name=f"Dev_Vec_{m}_{k}", symbol=f"c_v_{m}_{k}", cons_type=ConstraintTypeEnum.EQ,
-                func=f"v_{m}_{k} - (cgrp_scaled_{k} - b_{m}_{k})", is_linear=True, is_twice_differentiable=True
+                func=f"v_{m}_{k} - (cgrp_scaled_{k} - b_{m}_{k})", is_linear=True, is_twice_differentiable=True  # type: ignore
             ))
 
         # 2d. Magnitude of v_m (Non-Linear Quadratic constraint + 1e-8 epsilon smoothing)
@@ -150,7 +177,7 @@ def symmetric_cones_preference_constraints(
         constraints.append(Constraint(
             name=f"Norm_v_{m}", symbol=f"c_normv_{m}", cons_type=ConstraintTypeEnum.LTE,
             # func=f"norm_v_{m}**2 - ({v_sq_terms} + {eps})", # EQ version
-            func=f"({v_sq_terms} + {eps}) - norm_v_{m}**2",
+            func=f"({v_sq_terms} + {eps}) - norm_v_{m}**2",  # type: ignore
             is_linear=False, is_twice_differentiable=True
         ))
 
@@ -158,7 +185,7 @@ def symmetric_cones_preference_constraints(
         for k in range(k_objs):
             constraints.append(Constraint(
                 name=f"Eq_Point_{m}_{k}", symbol=f"c_x_{m}_{k}", cons_type=ConstraintTypeEnum.EQ,
-                func=f"x_{m}_{k} - (b_{m}_{k} - norm_v_{m} * {cone_ratio} * {d_m_hat[k]})",
+                func=f"x_{m}_{k} - (b_{m}_{k} - norm_v_{m} * {cone_ratio} * {d_m_hat[k]})",  # type: ignore
                 is_linear=True, is_twice_differentiable=True
             ))
 
@@ -166,7 +193,7 @@ def symmetric_cones_preference_constraints(
         s_terms = " + ".join([f"({d_m[k]} * (x_{m}_{k} - {cip[k]}))" for k in range(k_objs)])
         constraints.append(Constraint(
             name=f"Cone_Eval_{m}", symbol=f"c_pref_{m}", cons_type=ConstraintTypeEnum.EQ,
-            func=f"s_{m} - (({s_terms}) / {d_m_norm_sq})",
+            func=f"s_{m} - (({s_terms}) / {d_m_norm_sq})",  # type: ignore
             is_linear=True, is_twice_differentiable=True
         ))
 
@@ -190,7 +217,7 @@ def maxmin_fairness_constraints(n_dms: int) -> list[Constraint]:
         constraints.append(
             Constraint(
                 name=f"MaxMin_Bound_DM_{m}", symbol=f"c_mm_{m}", cons_type=ConstraintTypeEnum.LTE,
-                func=f"alpha - s_{m}", is_linear=True, is_twice_differentiable=True,
+                func=f"alpha - s_{m}", is_linear=True, is_twice_differentiable=True,  # type: ignore
             )
         )
     return constraints
@@ -200,18 +227,20 @@ def maxmin_fairness_objective() -> list[Objective]:
 
     Formulates the objective to maximize the `alpha` variable, which represents the
     satisfaction score of the worst-off decision maker, achieving a max-min equilibrium.
+
     Note:
         Because this is defined with `maximize=True`, DESDEO's `PyomoIpoptSolver`
         (which strictly minimizes) will automatically generate a mathematically flipped
         version of this objective. **When calling the solver, you MUST append the `_min`
         suffix to the objective name**, like so: `solver.solve("obj_alpha_min")`.
         Calling `solver.solve("obj_alpha")` will incorrectly minimize the fairness.
+
     Returns:
         list[Objective]: A list containing a single DESDEO `Objective` set to maximize.
     """
     return [
         Objective(
-            name="Maximize_Minimum_Satisfaction", symbol="obj_alpha", func="alpha",
+            name="Maximize_Minimum_Satisfaction", symbol="obj_alpha", func="alpha",  # type: ignore
             maximize=True, objective_type=ObjectiveTypeEnum.analytical,
             is_linear=True, is_twice_differentiable=True,
         )
@@ -223,10 +252,10 @@ def build_grp_subproblem(
     cip: np.ndarray,
     ideal: np.ndarray,
     nadir: np.ndarray,
-    preference_factory: callable,
-    fairness_constraints_factory: callable,
-    fairness_objective_factory: callable,
-    projections: np.ndarray = None
+    preference_factory: Callable,
+    fairness_constraints_factory: Callable,
+    fairness_objective_factory: Callable,
+    projections: np.ndarray | None = None
 ) -> Problem:
     """Assembles the Group Reference Point (GRP) subproblem into a solveable DESDEO Problem.
 
@@ -250,7 +279,6 @@ def build_grp_subproblem(
     Returns:
         Problem: The fully assembled DESDEO `Problem` object, ready to be passed to a solver.
     """
-
     m_dms, k_objs = rps.shape
 
     # Scale all inputs to [0, 1] for solver stability
@@ -261,38 +289,71 @@ def build_grp_subproblem(
 
     variables = []
 
-    variables.append(Variable(name="Fairness_Alpha", symbol="alpha", variable_type="real", lowerbound=-10000, upperbound=10000, initial_value=0.0))
+    variables.append(
+        Variable(
+            name="Fairness_Alpha", symbol="alpha", variable_type="real",  # type: ignore
+            lowerbound=-10000, upperbound=10000, initial_value=0.0
+        )
+    )
 
     for m in range(m_dms):
-        variables.append(Variable(name=f"Weight_DM_{m}", symbol=f"w_{m}", variable_type="real", lowerbound=0.0, upperbound=1.0, initial_value=1.0/m_dms))
-        variables.append(Variable(name=f"Satisfaction_DM_{m}", symbol=f"s_{m}", variable_type="real", lowerbound=-10000, upperbound=10000, initial_value=0.0))
+        variables.append(
+            Variable(
+                name=f"Weight_DM_{m}", symbol=f"w_{m}", variable_type="real",  # type: ignore
+                lowerbound=0.0, upperbound=1.0, initial_value=1.0/m_dms
+            )
+        )
+        variables.append(
+            Variable(
+                name=f"Satisfaction_DM_{m}", symbol=f"s_{m}", variable_type="real",  # type: ignore
+                lowerbound=-10000, upperbound=10000, initial_value=0.0
+            )
+        )
 
     for k in range(k_objs):
         mean_scaled_k = np.mean(rps_scaled[:, k])
-        variables.append(Variable(name=f"GRP_Scaled_Coord_{k}", symbol=f"cgrp_scaled_{k}",
-                         variable_type="real", lowerbound=-10000, upperbound=10000, initial_value=mean_scaled_k))
+        variables.append(
+            Variable(
+                name=f"GRP_Scaled_Coord_{k}", symbol=f"cgrp_scaled_{k}",
+                variable_type="real", lowerbound=-10000, upperbound=10000, initial_value=mean_scaled_k  # type: ignore
+            )
+        )
 
         mean_k = np.mean(rps[:, k])
-        variables.append(Variable(name=f"GRP_Coord_{k}", symbol=f"cgrp_{k}", variable_type="real", lowerbound=-10000, upperbound=10000, initial_value=mean_k))
+        variables.append(
+            Variable(
+                name=f"GRP_Coord_{k}", symbol=f"cgrp_{k}", variable_type="real",  # type: ignore
+                lowerbound=-10000, upperbound=10000, initial_value=mean_k
+            )
+        )
 
     constraints = []
 
     w_sum_expr = " + ".join([f"w_{m}" for m in range(m_dms)])
-    constraints.append(Constraint(
-        name="Convexity_Weights", symbol="c_conv", cons_type=ConstraintTypeEnum.EQ, func=f"({w_sum_expr}) - 1", is_linear=True, is_twice_differentiable=True,
-    ))
+    constraints.append(
+        Constraint(
+            name="Convexity_Weights", symbol="c_conv", cons_type=ConstraintTypeEnum.EQ,
+            func=f"({w_sum_expr}) - 1", is_linear=True, is_twice_differentiable=True,  # type: ignore
+        )
+    )
 
     for k in range(k_objs):
         cgrp_scaled_expr = " + ".join([f"({rps_scaled[m, k]} * w_{m})" for m in range(m_dms)])
-        constraints.append(Constraint(
-            name=f"GRP_scaled_Definition_{k}", symbol=f"c_cgrp_scaled_{k}", cons_type=ConstraintTypeEnum.EQ, func=f"cgrp_scaled_{k} - ({cgrp_scaled_expr})",
-            is_linear=True, is_twice_differentiable=True,
-        ))
+        constraints.append(
+            Constraint(
+                name=f"GRP_scaled_Definition_{k}", symbol=f"c_cgrp_scaled_{k}",
+                cons_type=ConstraintTypeEnum.EQ, func=f"cgrp_scaled_{k} - ({cgrp_scaled_expr})",  # type: ignore
+                is_linear=True, is_twice_differentiable=True,
+            )
+        )
         # Bridge Constraint: Unscaled = Scaled * Range + Ideal
-        constraints.append(Constraint(
-            name=f"GRP_Unscaled_Bridge_{k}", symbol=f"c_bridge_{k}", cons_type=ConstraintTypeEnum.EQ,
-            func=f"cgrp_{k} - (cgrp_scaled_{k} * {ranges[k]} + {ideal[k]})", is_linear=True, is_twice_differentiable=True,
-        ))
+        constraints.append(
+            Constraint(
+                name=f"GRP_Unscaled_Bridge_{k}", symbol=f"c_bridge_{k}", cons_type=ConstraintTypeEnum.EQ,
+                func=f"cgrp_{k} - (cgrp_scaled_{k} * {ranges[k]} + {ideal[k]})",  # type: ignore
+                is_linear=True, is_twice_differentiable=True,
+            )
+        )
 
     aux_vars, pref_constraints = preference_factory(rps_scaled, cip_scaled, projections_scaled)
     variables.extend(aux_vars)
