@@ -946,7 +946,7 @@ class NSGA3Selector(BaseDecompositionSelector):
         alltargets = parents[1].vstack(offsprings[1])
 
         # Check if there are constraints and filter feasible solutions
-        if self.constraints_symbols is not None or len(self.constraints_symbols) > 0:
+        if self.constraints_symbols is not None and len(self.constraints_symbols) > 0:
             constraints = alltargets[self.constraints_symbols].to_numpy()
             constraints = np.where(constraints > 0, constraints, 0)
             constraints_sum = np.sum(constraints, axis=1)
