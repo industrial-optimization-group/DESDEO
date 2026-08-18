@@ -1,4 +1,3 @@
-import warnings
 import numpy as np
 from desdeo.problem.schema import (
     Variable,
@@ -71,26 +70,26 @@ def symmetric_cones_preference_constraints(
 ) -> tuple[list[Variable], list[Constraint]]:
     """Generates auxiliary variables and constraints for the symmetric cones preference model.
 
-    This model strictly penalizes candidate points that deviate laterally from a decision maker's 
-    preferred direction of improvement. 
-    It utilizes epsilon smoothing (1e-8) and dot-product 
-    projections to ensure the resulting non-linear constraints remain twice-differentiable and 
+    This model penalizes candidate points that deviate laterally from a decision maker's
+    preferred direction of improvement.
+    It utilizes epsilon smoothing (1e-8) and dot-product
+    projections to ensure the resulting non-linear constraints remain twice-differentiable and
     numerically stable for gradient-based solvers (like IPOPT).
     Handles scaling rps, cip and projections to [0,1] for numerical stability.
 
     Args:
-        rps (np.ndarray): An array of shape (m_dms, k_objs) containing the individual 
+        rps (np.ndarray): An array of shape (m_dms, k_objs) containing the individual
             reference points of the decision makers.
         cip (np.ndarray): The current iteration point in the objective space.
-        projections (np.ndarray | None, optional): An array of shape (m_dms, k_objs) 
-            containing the Pareto optimal projections of the reference points for scaling. 
+        projections (np.ndarray | None, optional): An array of shape (m_dms, k_objs)
+            containing the Pareto optimal projections of the reference points for scaling.
             Defaults to None.
-        cone_alpha (float, optional): A parameter controlling the width (angle) of the 
+        cone_alpha (float, optional): A parameter controlling the width (angle) of the
             symmetric preference cone. Defaults to 0.5.
 
     Returns:
-        tuple[list[Variable], list[Constraint]]: A tuple containing a list of auxiliary 
-            DESDEO `Variable` objects and a list of DESDEO `Constraint` objects formulating 
+        tuple[list[Variable], list[Constraint]]: A tuple containing a list of auxiliary
+            DESDEO `Variable` objects and a list of DESDEO `Constraint` objects formulating
             the non-linear geometric cone model.
     """
     m_dms, k_objs = rps.shape
@@ -177,7 +176,7 @@ def symmetric_cones_preference_constraints(
 def maxmin_fairness_constraints(n_dms: int) -> list[Constraint]:
     """Generates constraints linking the fairness variable to individual satisfaction scores.
 
-    Creates linear bounds of the form `alpha <= s_m` for each decision maker. This allows 
+    Creates linear bounds of the form `alpha <= s_m` for each decision maker. This allows
     the optimization solver to evaluate the Rawlsian fairness of a candidate group reference point.
 
     Args:
@@ -199,13 +198,13 @@ def maxmin_fairness_constraints(n_dms: int) -> list[Constraint]:
 def maxmin_fairness_objective() -> list[Objective]:
     """Generates the objective function to maximize group fairness.
 
-    Formulates the objective to maximize the `alpha` variable, which represents the 
+    Formulates the objective to maximize the `alpha` variable, which represents the
     satisfaction score of the worst-off decision maker, achieving a max-min equilibrium.
     Note:
-        Because this is defined with `maximize=True`, DESDEO's `PyomoIpoptSolver` 
-        (which strictly minimizes) will automatically generate a mathematically flipped 
-        version of this objective. **When calling the solver, you MUST append the `_min` 
-        suffix to the objective name**, like so: `solver.solve("obj_alpha_min")`. 
+        Because this is defined with `maximize=True`, DESDEO's `PyomoIpoptSolver`
+        (which strictly minimizes) will automatically generate a mathematically flipped
+        version of this objective. **When calling the solver, you MUST append the `_min`
+        suffix to the objective name**, like so: `solver.solve("obj_alpha_min")`.
         Calling `solver.solve("obj_alpha")` will incorrectly minimize the fairness.
     Returns:
         list[Objective]: A list containing a single DESDEO `Objective` set to maximize.
@@ -231,21 +230,21 @@ def build_grp_subproblem(
 ) -> Problem:
     """Assembles the Group Reference Point (GRP) subproblem into a solveable DESDEO Problem.
 
-    Constructs the optimization problem required to find a fair collective direction of improvement. 
-    It bounds the candidate GRP to the convex hull of the individual reference points (or projections) 
-    and applies the specified local preference and fairness models. 
+    Constructs the optimization problem required to find a fair collective direction of improvement.
+    It bounds the candidate GRP to the convex hull of the individual reference points (or projections)
+    and applies the specified local preference and fairness models.
 
     Args:
         rps (np.ndarray): An array of shape (m_dms, k_objs) containing the individual reference points.
         cip (np.ndarray): The current iteration point in the objective space.
         ideal (np.ndarray): The ideal point of the multiobjective optimization problem.
         nadir (np.ndarray): The nadir point of the multiobjective optimization problem.
-        preference_factory (callable): A function (e.g., `additive_preference_constraints`) that 
+        preference_factory (callable): A function (e.g., `additive_preference_constraints`) that
             returns the auxiliary variables and constraints for the local preference model.
-        fairness_constraints_factory (callable): A function that generates the bounding constraints 
+        fairness_constraints_factory (callable): A function that generates the bounding constraints
             for the fairness operator.
         fairness_objective_factory (callable): A function that generates the fairness objective.
-        projections (np.ndarray | None, optional): An array of Pareto optimal projections corresponding 
+        projections (np.ndarray | None, optional): An array of Pareto optimal projections corresponding
             to the reference points. Defaults to None.
 
     Returns:
@@ -286,7 +285,8 @@ def build_grp_subproblem(
     for k in range(k_objs):
         cgrp_scaled_expr = " + ".join([f"({rps_scaled[m, k]} * w_{m})" for m in range(m_dms)])
         constraints.append(Constraint(
-            name=f"GRP_scaled_Definition_{k}", symbol=f"c_cgrp_scaled_{k}", cons_type=ConstraintTypeEnum.EQ, func=f"cgrp_{k} - ({cgrp_scaled_expr})", is_linear=True, is_twice_differentiable=True,
+            name=f"GRP_scaled_Definition_{k}", symbol=f"c_cgrp_scaled_{k}", cons_type=ConstraintTypeEnum.EQ, func=f"cgrp_scaled_{k} - ({cgrp_scaled_expr})",
+            is_linear=True, is_twice_differentiable=True,
         ))
         # Bridge Constraint: Unscaled = Scaled * Range + Ideal
         constraints.append(Constraint(
@@ -306,38 +306,3 @@ def build_grp_subproblem(
         constraints=constraints,
         objectives=fairness_objective_factory()
     )
-
-
-if __name__ == "__main__":
-    from desdeo.problem.testproblems import zdt1
-    from desdeo.problem import get_nadir_dict, get_ideal_dict, objective_dict_to_numpy_array
-    from desdeo.tools.utils import PyomoIpoptSolver
-
-    print("Initializing ZDT1 Problem Data...")
-    problem = zdt1(30)
-    nadir = objective_dict_to_numpy_array(problem, get_nadir_dict(problem))
-    print(nadir)
-    ideal = objective_dict_to_numpy_array(problem, get_ideal_dict(problem))
-
-    all_rps = np.array([[0.1, 0.95], [0.5, 0.83], [0.9, 0.69], [0.6, 0.75]])
-    cip = np.array([1.0, 1.0])
-
-    print("\nBuilding DESDEO GRP Subproblem (Cones Model + Max-Min)...")
-    grp_subproblem = build_grp_subproblem(
-        rps=all_rps, cip=cip, ideal=ideal, nadir=nadir,
-        preference_factory=symmetric_cones_preference_constraints,
-        # preference_factory=additive_preference_constraints,
-        fairness_constraints_factory=maxmin_fairness_constraints,
-        fairness_objective_factory=maxmin_fairness_objective
-    )
-
-    print("\nExecuting PyomoIpoptSolver...")
-    solver = PyomoIpoptSolver(grp_subproblem)
-    # IMPORTANT: Because IPOPT is a minimizer and our objective has maximize=True,
-    # DESDEO requires us to target the automatically generated '_min' objective.
-    # Forgetting the '_min' suffix will cause the solver to minimize fairness!
-    result = solver.solve("obj_alpha_min")
-
-    print("\n--- OPTIMIZATION RESULTS ---")
-    print(f"Fairness Alpha (Min Satisfaction): {result.optimal_objectives['obj_alpha']:.4f}")
-    print(f"Group Reference Point (GRP): [{result.optimal_variables['cgrp_0']:.4f}, {result.optimal_variables['cgrp_1']:.4f}]")
