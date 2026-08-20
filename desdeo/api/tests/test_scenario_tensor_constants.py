@@ -7,10 +7,14 @@ layer: the raw scenario pool (`ScenarioModelDB`) and the merged/renamed constant
 leaves be judged by value instead of being silently skipped.
 """
 
+# ruff: noqa: PLC0415 -- the fixture below imports lazily so the optional `web` extra / heavy deps
+# are only pulled in when the fixture actually runs, matching the pattern in test_scenario_models.py.
+
 import pytest
 from sqlmodel import Session
 
 from desdeo.api.models import ProblemDB, ScenarioModelDB, User
+from desdeo.problem.scenario import Scenario, ScenarioModel
 from desdeo.problem.schema import (
     Objective,
     ObjectiveTypeEnum,
@@ -19,7 +23,6 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
-from desdeo.problem.scenario import Scenario, ScenarioModel
 from desdeo.tools.scenarios import build_combined_scenario_problem
 
 
