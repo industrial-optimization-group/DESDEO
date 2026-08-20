@@ -3,7 +3,15 @@
 import pytest
 
 from desdeo.problem.scenario import Scenario, ScenarioModel
-from desdeo.problem.schema import ConstraintTypeEnum, Objective, Problem, Variable, VariableTypeEnum
+from desdeo.problem.schema import (
+    ConstraintTypeEnum,
+    Objective,
+    ObjectiveTypeEnum,
+    Problem,
+    TensorConstant,
+    Variable,
+    VariableTypeEnum,
+)
 from desdeo.problem.testproblems import simple_scenario_model
 from desdeo.tools.robust import add_single_objective_worst_case_regret, add_weighted_scenarios, add_worst_case_robust
 from desdeo.tools.scenarios import build_combined_scenario_problem, build_scenario_problem
@@ -103,6 +111,137 @@ def test_scenario_specific_constant_values(combined):
     assert const_map["s_1_c_1"] == pytest.approx(1.0)
     assert const_map["s_2_c_1"] == pytest.approx(5.0)
     assert const_map["s_3_c_1"] == pytest.approx(10.0)
+
+
+# ---------------------------------------------------------------------------
+# TensorConstants
+# ---------------------------------------------------------------------------
+
+
+def _tensor_constant_model(shared_values, diff_values):
+    """Build a two-leaf ScenarioModel pool with a shared and a per-leaf TensorConstant.
+
+    ``t_shared`` is given ``shared_values`` in both leaves; ``t_diff`` is given
+    ``diff_values[0]`` in ``s_1`` and ``diff_values[1]`` in ``s_2``.
+    """
+    base_problem = Problem(
+        name="TensorConstant test problem",
+        description="Minimal base problem for TensorConstant merging tests.",
+        variables=[
+            Variable(
+                name="x_1",
+                symbol="x_1",
+                lowerbound=-10,
+                upperbound=10,
+                initial_value=0,
+                variable_type=VariableTypeEnum.real,
+            ),
+        ],
+        objectives=[
+            Objective(
+                name="f_1",
+                symbol="f_1",
+                func="x_1",
+                maximize=False,
+                ideal=-100,
+                nadir=100,
+                objective_type=ObjectiveTypeEnum.analytical,
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            ),
+        ],
+    )
+
+    return ScenarioModel(
+        scenario_tree={"ROOT": ["s_1", "s_2"], "s_1": [], "s_2": []},
+        base_problem=base_problem,
+        constants=[
+            TensorConstant(name="t_shared (s_1)", symbol="t_shared", shape=[2], values=shared_values),  # index 0
+            TensorConstant(name="t_shared (s_2)", symbol="t_shared", shape=[2], values=shared_values),  # index 1
+            TensorConstant(name="t_diff (s_1)", symbol="t_diff", shape=[2], values=diff_values[0]),  # index 2
+            TensorConstant(name="t_diff (s_2)", symbol="t_diff", shape=[2], values=diff_values[1]),  # index 3
+        ],
+        scenarios={
+            "s_1": Scenario(constants={"t_shared": 0, "t_diff": 2}),
+            "s_2": Scenario(constants={"t_shared": 1, "t_diff": 3}),
+        },
+    )
+
+
+@pytest.fixture(name="tensor_combined")
+def tensor_combined_fixture():
+    """Combined Problem for a model whose TensorConstant pool has a shared and a differing entry."""
+    model = _tensor_constant_model(shared_values=[1, 2], diff_values=([1, 2], [3, 4]))
+    problem, _ = build_combined_scenario_problem(model)
+    return problem
+
+
+@pytest.mark.scenario
+def test_tensor_constant_with_equal_values_not_renamed(tensor_combined):
+    """A TensorConstant with the same values in every leaf keeps its original symbol."""
+    symbols = {c.symbol for c in (tensor_combined.constants or [])}
+    assert "t_shared" in symbols
+    assert "s_1_t_shared" not in symbols
+    assert "s_2_t_shared" not in symbols
+
+
+@pytest.mark.scenario
+def test_tensor_constant_with_equal_values_keeps_correct_values(tensor_combined):
+    """The merged TensorConstant carries the shared values, not just an arbitrary leaf's."""
+    const_map = {c.symbol: c for c in (tensor_combined.constants or [])}
+    assert const_map["t_shared"].get_values() == [1, 2]
+
+
+@pytest.mark.scenario
+def test_tensor_constant_with_differing_values_renamed_per_leaf(tensor_combined):
+    """A TensorConstant whose values differ across leaves gets a per-leaf symbol, like a scalar Constant."""
+    symbols = {c.symbol for c in (tensor_combined.constants or [])}
+    assert "s_1_t_diff" in symbols
+    assert "s_2_t_diff" in symbols
+    assert "t_diff" not in symbols
+
+
+@pytest.mark.scenario
+def test_tensor_constant_with_differing_values_correct_per_leaf(tensor_combined):
+    """Each per-leaf TensorConstant carries its own leaf's values, not another leaf's."""
+    const_map = {c.symbol: c for c in (tensor_combined.constants or [])}
+    assert const_map["s_1_t_diff"].get_values() == [1, 2]
+    assert const_map["s_2_t_diff"].get_values() == [3, 4]
+
+
+@pytest.mark.scenario
+def test_tensor_constant_equal_by_value_not_by_identity(tensor_combined):
+    """Two distinct TensorConstant pool entries with equal values still merge (regression for a hasattr bug).
+
+    Previously, constants lacking a ``.value`` attribute (i.e. all TensorConstants) were silently
+    dropped from the equality comparison, which made every TensorConstant compare as "equal" and
+    collapse onto the first leaf's entry regardless of its actual values. This checks that equal
+    tensor values are detected as equal by content, and unequal ones are correctly told apart.
+    """
+    model = _tensor_constant_model(shared_values=[1, 2], diff_values=([1, 2], [1, 2]))
+    problem, _ = build_combined_scenario_problem(model)
+    symbols = {c.symbol for c in (problem.constants or [])}
+    # Both t_shared and t_diff are identical across leaves here, so neither should be renamed.
+    assert symbols == {"t_shared", "t_diff"}
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_symbol_map_tensor_constant_shared_keeps_original():
+    """A TensorConstant identical across leaves maps every leaf to its original symbol."""
+    model = _tensor_constant_model(shared_values=[1, 2], diff_values=([1, 2], [3, 4]))
+    _, symbol_maps = build_combined_scenario_problem(model)
+    assert symbol_maps["constants"]["t_shared"] == {"s_1": "t_shared", "s_2": "t_shared"}
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_symbol_map_tensor_constant_renamed_per_leaf():
+    """A TensorConstant that differs across leaves maps each leaf to its own renamed symbol."""
+    model = _tensor_constant_model(shared_values=[1, 2], diff_values=([1, 2], [3, 4]))
+    _, symbol_maps = build_combined_scenario_problem(model)
+    assert symbol_maps["constants"]["t_diff"] == {"s_1": "s_1_t_diff", "s_2": "s_2_t_diff"}
 
 
 # ---------------------------------------------------------------------------
