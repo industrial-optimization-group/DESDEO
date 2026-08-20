@@ -178,9 +178,11 @@ class SimulatedBinaryCrossover(BaseCrossover):
         """Perform the unbounded simulated binary crossover operation.
 
         Implementation based on Deb, Kalyanmoy, and Ram Bhushan Agrawal. "Simulated binary crossover for
-        continuous search space." Complex systems 9.2 (1995): 115-148. This implementation is similar to PlatEMO,
-        however, differs from deap (potentially incorrect implementation) and pymoo (they implement truncated/bounded
-        simulated binary crossover, but call it simulated binary crossover).
+        continuous search space." Complex systems 9.2 (1995): 115-148. This implementation follows PlatEMO's
+        `OperatorGA`. DEAP's `cxSimulatedBinary` derives the same beta, but omits the random sign and the
+        per-variable mask that PlatEMO adds on top of the paper. pymoo, DEAP's `cxSimulatedBinaryBounded`,
+        jMetalPy, Platypus, pagmo2 and Deb's own NSGA-II C code all implement the truncated/bounded variant
+        while calling it simulated binary crossover; see `bounded_offsprings` for that one.
 
         Args:
             population (pl.DataFrame): the population to perform the crossover with. The DataFrame
@@ -221,8 +223,11 @@ class SimulatedBinaryCrossover(BaseCrossover):
             binary_mask = self.rng.random(num_var) <= self.uniform_xover_probability
             binary_mask = (binary_mask * 2) - 1  # Convert to -1 or 1
             beta = beta * binary_mask
-            # If beta = 1, no crossover occurs and the dec var components are basically copied from the parents.
-            beta[self.rng.random(num_var) > self.xover_probability] = 1
+            # At beta = -1 no crossover occurs and the dec var components are copied from the parents:
+            # offspring[i] = avg + diff = mating_pop[i]. (Beta = +1 would swap the parents instead,
+            # which is what PlatEMO's opposite sign convention on the offspring expression means by
+            # setting the sentinel to +1 there.)
+            beta[self.rng.random(num_var) > self.xover_probability] = -1
             # Note that when mu < 0.5, abs(beta) ends up being less than 1, resulting in a contracting crossover.
             # The opposite is true when mu > 0.5, resulting in an expanding crossover.
             avg = (mating_pop[i] + mating_pop[i + 1]) / 2
@@ -288,6 +293,9 @@ class SimulatedBinaryCrossover(BaseCrossover):
         mate_size = mating_pop.shape[0]
         num_var = mating_pop.shape[1]
 
+        lower_bounds = np.asarray(self.lower_bounds, dtype=float)
+        upper_bounds = np.asarray(self.upper_bounds, dtype=float)
+
         offspring = np.zeros_like(mating_pop)
 
         # TODO(@light-weaver): Extract into a numba jitted function.
@@ -300,14 +308,21 @@ class SimulatedBinaryCrossover(BaseCrossover):
             binary_mask = self.rng.random(num_var) <= self.uniform_xover_probability
             binary_mask = binary_mask & sbx_mask  # Only apply binary crossover where SBX is applied
             avg = (mating_pop[i] + mating_pop[i + 1]) / 2
-            diff = (mating_pop[i] - mating_pop[i + 1]) / 2
 
             x1 = np.minimum(mating_pop[i], mating_pop[i + 1])
             x2 = np.maximum(mating_pop[i], mating_pop[i + 1])
+            # The two children are derived in *sorted* order: one steps from the midpoint down towards
+            # the lower bound, the other up towards the upper bound, and each uses the beta capped by
+            # the distance to the bound it is stepping towards. The half-difference must therefore be
+            # taken between the sorted values, not between the parents in whatever order the mating
+            # pool happens to hold them. Using the unsorted difference pairs the lower-bound beta with
+            # an upward step (and vice versa) whenever mating_pop[i] is the smaller parent, which lets
+            # the offspring escape the variable bounds.
+            diff = (x2 - x1) / 2
 
-            # Offspring 1 calculations
+            # Child stepping towards the lower bound.
             with np.errstate(divide="ignore", invalid="ignore"):  # Handles x1 == x2 case
-                beta_max = 1 + 2 * (x1 - self.lower_bounds) / (x2 - x1)
+                beta_max = 1 + 2 * (x1 - lower_bounds) / (x2 - x1)
             beta_max[np.isnan(beta_max)] = np.inf  # Handles x1 == x2 == lower_bound case
 
             # Technically, this code can handle the unbounded case by setting alpha to an array of 2s.
@@ -321,15 +336,13 @@ class SimulatedBinaryCrossover(BaseCrossover):
                 -1 / (self.xover_distribution + 1)
             )
             # Turning beta negative does not work for truncated SBX. Manually swap the offspring instead.
-            # beta = beta * ((-1) ** self.rng.integers(low=0, high=2, size=num_var))
-            # If beta = 1, no crossover occurs and the dec var components are basically copied from the parents.
-            # beta[self.rng.random(num_var) > self.xover_probability] = 1
-            beta[~sbx_mask] = 1  # No crossover for decision variables where SBX is not applied
-            offspring[i] = avg - beta * diff
+            child_low = avg - beta * diff
 
-            # Offspring 2 calculations
+            # Child stepping towards the upper bound. The same miu is reused deliberately: every
+            # reference implementation draws one uniform per variable and shares it between the two
+            # children, so that the pair is perfectly correlated.
             with np.errstate(divide="ignore", invalid="ignore"):  # Handles x1 == x2 case
-                beta_max = 1 + 2 * (self.upper_bounds - x2) / (x2 - x1)
+                beta_max = 1 + 2 * (upper_bounds - x2) / (x2 - x1)
             beta_max[np.isnan(beta_max)] = np.inf  # Handles x1 == x2 == upper_bound case
             # The error states only occur when x1==x2, which means that the parents are equal, and thus the offspring
             # will be equal to the parents. So, np.inf is fine.
@@ -343,16 +356,30 @@ class SimulatedBinaryCrossover(BaseCrossover):
             beta[miu > SPLIT_POINT2] = (2 - alpha[miu > SPLIT_POINT2] * miu[miu > SPLIT_POINT2]) ** (
                 -1 / (self.xover_distribution + 1)
             )
-            # Turning beta negative does not work for truncated SBX. Manually swap the offspring instead.
-            # beta = beta * ((-1) ** self.rng.integers(low=0, high=2, size=num_var))
-            # If beta = 1, no crossover occurs and the dec var components are basically copied from the parents.
-            beta[~sbx_mask] = 1  # No crossover for decision variables where SBX is not applied
-            offspring[i + 1] = avg + beta * diff
+            child_high = avg + beta * diff
+
+            # Preserve the parent identity: the child that stepped down belongs to whichever parent
+            # held the smaller value, as in Deb's reference implementation and in pymoo.
+            first_is_lower = mating_pop[i] <= mating_pop[i + 1]
+            offspring[i] = np.where(first_is_lower, child_low, child_high)
+            offspring[i + 1] = np.where(first_is_lower, child_high, child_low)
+
+            # Decision variables not selected for SBX are inherited unchanged. This has to be an
+            # explicit copy rather than a beta = 1 sentinel: with the sorted difference above, beta = 1
+            # would hand every untouched variable's smaller value to offspring i and the larger to
+            # offspring i + 1, biasing the pair instead of leaving it alone.
+            offspring[i, ~sbx_mask] = mating_pop[i, ~sbx_mask]
+            offspring[i + 1, ~sbx_mask] = mating_pop[i + 1, ~sbx_mask]
+
             # Swap the offspring for decision variables where binary crossover is applied
             offspring[i, binary_mask], offspring[i + 1, binary_mask] = (
                 offspring[i + 1, binary_mask].copy(),
                 offspring[i, binary_mask].copy(),
             )
+
+        # The mathematics above already keeps the offspring feasible; this only absorbs floating point
+        # drift at the bounds. Every reference implementation of truncated SBX clamps here as well.
+        offspring = np.clip(offspring, lower_bounds, upper_bounds)
         return pl.from_numpy(offspring, schema=self.variable_symbols)
 
     def update(self, *_, **__):
