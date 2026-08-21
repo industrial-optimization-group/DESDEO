@@ -1390,7 +1390,7 @@ class BoundedExponentialCrossover(BaseCrossover):
         verbosity: int,
         publisher: Publisher,
         seed: int,
-        lambda_: float = 1.0,
+        lambda_: float = 0.1,
         xover_probability: float = 1.0,
     ):
         """Initialize the bounded-exponential crossover operator.
@@ -1402,7 +1402,8 @@ class BoundedExponentialCrossover(BaseCrossover):
             publisher (Publisher): the publisher to which the operator will publish messages.
             seed (int): random seed for the internal generator.
             lambda_ (float, optional): positive scale λ for the exponential distribution.
-                Defaults to 1.0.
+                Defaults to 0.1. Larger values produce more widely dispersed offspring, smaller values produce offspring
+                closer to the parents.
             xover_probability (float, optional): probability of applying crossover
                 to each pair. Defaults to 1.0.
         """
@@ -1494,7 +1495,7 @@ class BoundedExponentialCrossover(BaseCrossover):
                 -self.lambda_ * np.log(1 - u_i * (1 - exp_upper_2)),
             )
 
-        # The `np.where` is belt and braces: beta * span is already exactly zero wherever the span
+        # beta * span is already exactly zero wherever the span
         # is, but taking the parent value directly keeps a non-finite beta from reintroducing a NaN.
         offspring1 = np.where(zero_span, parents1, parents1 + beta_1 * span)
         offspring2 = np.where(zero_span, parents2, parents2 + beta_2 * span)

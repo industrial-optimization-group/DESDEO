@@ -59,7 +59,8 @@ def rvea_options() -> EMOOptions:
             crossover=SimulatedBinaryCrossoverOptions(
                 name="SimulatedBinaryCrossover",
                 xover_distribution=30,
-                xover_probability=0.5,
+                xover_probability=1,
+                uniform_xover_probability=0.5,
             ),
             mutation=BoundedPolynomialMutationOptions(
                 name="BoundedPolynomialMutation",
@@ -121,7 +122,8 @@ def nsga3_options() -> EMOOptions:
             crossover=SimulatedBinaryCrossoverOptions(
                 name="SimulatedBinaryCrossover",
                 xover_distribution=30,
-                xover_probability=0.5,
+                xover_probability=1.0,
+                uniform_xover_probability=0.5,
             ),
             mutation=BoundedPolynomialMutationOptions(
                 name="BoundedPolynomialMutation",
@@ -177,7 +179,8 @@ def ibea_options() -> EMOOptions:
             crossover=SimulatedBinaryCrossoverOptions(
                 name="SimulatedBinaryCrossover",
                 xover_distribution=20,  # Note that the operator defaults are different in Template2
-                xover_probability=0.5,
+                xover_probability=1.0,
+                uniform_xover_probability=0.5,
             ),
             mutation=BoundedPolynomialMutationOptions(
                 name="BoundedPolynomialMutation",
@@ -229,6 +232,7 @@ def nsga2_options() -> EMOOptions:
                 name="SimulatedBinaryCrossover",
                 xover_distribution=20,  # Note that the operator defaults are different in Template2
                 xover_probability=0.9,
+                uniform_xover_probability=0.5,
             ),
             mutation=BoundedPolynomialMutationOptions(
                 name="BoundedPolynomialMutation",
@@ -484,7 +488,8 @@ def sms_emoa_options() -> EMOOptions:
             crossover=SimulatedBinaryCrossoverOptions(
                 name="SimulatedBinaryCrossover",
                 xover_distribution=30,
-                xover_probability=0.5,
+                xover_probability=1.0,
+                uniform_xover_probability=0.5,
             ),
             mutation=BoundedPolynomialMutationOptions(
                 name="BoundedPolynomialMutation",

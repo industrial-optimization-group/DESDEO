@@ -125,7 +125,7 @@ class BoundedExponentialCrossoverOptions(BaseModel):
     """The name of the crossover operator."""
     xover_probability: float = Field(default=1.0, ge=0.0, le=1.0, description="The crossover probability.")
     """The crossover probability."""
-    lambda_: float = Field(default=1.0, gt=0.0, description="Positive scale λ for the exponential distribution.")
+    lambda_: float = Field(default=0.1, gt=0.0, description="Positive scale λ for the exponential distribution.")
     """Positive scale λ for the exponential distribution."""
 
 
