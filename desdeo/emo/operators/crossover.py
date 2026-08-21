@@ -35,8 +35,10 @@ class BaseCrossover(Subscriber):
         self.variable_types = [var.variable_type for var in problem.get_flattened_variables()]
         self.variable_combination: VariableDomainTypeEnum = problem.variable_domain
 
-        self.parent_population: pl.DataFrame
-        self.offspring_population: pl.DataFrame
+        # Populated by `do`. Initialized here so that `state` can be called before the first
+        # crossover, e.g. by a logger that reports the operator's state up front.
+        self.parent_population: pl.DataFrame | None = None
+        self.offspring_population: pl.DataFrame | None = None
         self.rng = np.random.default_rng(seed)
         self.seed = seed
 
@@ -62,7 +64,14 @@ class BaseCrossover(Subscriber):
         """
 
     def get_parents(self, population: pl.DataFrame, to_mate: list[int] | None = None) -> pl.DataFrame:
-        """Just get the relevant parents from the population and set the parent population."""
+        """Just get the relevant parents from the population and set the parent population.
+
+        Note:
+            `DataFrame.to_numpy` hands back an F-contiguous array, and `np.zeros_like` preserves
+            that order. Every `pl.from_numpy` in this module therefore states `orient="row"`: for
+            a square offspring block (as many offspring as variables) polars cannot infer the
+            orientation from the shape, and would read such an array column-wise, transposing it.
+        """
         pop_size = population.shape[0]
         if to_mate is None:
             shuffled_ids = list(range(pop_size))
@@ -76,9 +85,6 @@ class BaseCrossover(Subscriber):
         return self.parent_population
 
 
-# TODO(@light-weaver): This operator does not check `problem.variable_domain` and will silently
-# produce non-integral values on an integer, binary or mixed-integer problem. BlendAlphaCrossover and
-# BoundedExponentialCrossover raise in that situation; the continuous operators should do the same.
 class SimulatedBinaryCrossover(BaseCrossover):
     """A class for creating a simulated binary crossover operator.
 
@@ -156,6 +162,8 @@ class SimulatedBinaryCrossover(BaseCrossover):
         super().__init__(problem, verbosity=verbosity, publisher=publisher, seed=seed)
         self.problem = problem
 
+        if problem.variable_domain is not VariableDomainTypeEnum.continuous:
+            raise ValueError("SimulatedBinaryCrossover only works on continuous problems.")
         if not 0 <= xover_probability <= 1:
             raise ValueError("Crossover probability must be between 0 and 1.")
         if xover_distribution <= 0:
@@ -268,7 +276,7 @@ class SimulatedBinaryCrossover(BaseCrossover):
         lower_bounds = np.asarray(self.lower_bounds, dtype=float)
         upper_bounds = np.asarray(self.upper_bounds, dtype=float)
         offspring = np.clip(offspring, lower_bounds, upper_bounds)
-        return pl.from_numpy(offspring, schema=self.variable_symbols)
+        return pl.from_numpy(offspring, schema=self.variable_symbols, orient="row")
 
     def bounded_offsprings(
         self,
@@ -419,7 +427,7 @@ class SimulatedBinaryCrossover(BaseCrossover):
         # The mathematics above already keeps the offspring feasible; this only absorbs floating point
         # drift at the bounds. Every reference implementation of truncated SBX clamps here as well.
         offspring = np.clip(offspring, lower_bounds, upper_bounds)
-        return pl.from_numpy(offspring, schema=self.variable_symbols)
+        return pl.from_numpy(offspring, schema=self.variable_symbols, orient="row")
 
     def update(self, *_, **__):
         """Do nothing. This is just the basic SBX operator."""
@@ -589,6 +597,7 @@ class SinglePointBinaryCrossover(BaseCrossover):
                 : (original_mating_pop_size if original_mating_pop_size % 2 == 0 else -1)
             ],
             schema=self.variable_symbols,
+            orient="row",
         ).select(pl.all().cast(pl.Float64))
         self.notify()
 
@@ -722,6 +731,7 @@ class UniformIntegerCrossover(BaseCrossover):
                 : (original_mating_pop_size if original_mating_pop_size % 2 == 0 else -1)
             ],
             schema=self.variable_symbols,
+            orient="row",
         ).select(pl.all().cast(pl.Float64))
 
         self.notify()
@@ -860,6 +870,7 @@ class UniformMixedIntegerCrossover(BaseCrossover):
                 : (original_mating_pop_size if original_mating_pop_size % 2 == 0 else -1)
             ],
             schema=self.variable_symbols,
+            orient="row",
         ).select(pl.all().cast(pl.Float64))
 
         self.notify()
@@ -910,15 +921,17 @@ class BlendAlphaCrossover(BaseCrossover):
 
     @property
     def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
-        """The message topics provided by the blend alpha crossover operator."""
+        """The message topics provided by the blend alpha crossover operator.
+
+        Note:
+            The operator has no crossover probability, so it does not provide that topic.
+        """
         return {
             0: [],
             1: [
-                CrossoverMessageTopics.XOVER_PROBABILITY,
                 CrossoverMessageTopics.ALPHA,
             ],
             2: [
-                CrossoverMessageTopics.XOVER_PROBABILITY,
                 CrossoverMessageTopics.ALPHA,
                 CrossoverMessageTopics.PARENTS,
                 CrossoverMessageTopics.OFFSPRINGS,
@@ -1031,7 +1044,7 @@ class BlendAlphaCrossover(BaseCrossover):
         if original_pop_size % 2 == 1:
             offsprings = offsprings[: (original_pop_size * self.repeats + 1) // 2, :]
 
-        self.offspring_population = pl.from_numpy(offsprings, schema=self.variable_symbols)
+        self.offspring_population = pl.from_numpy(offsprings, schema=self.variable_symbols, orient="row")
         self.notify()
         return self.offspring_population
 
@@ -1069,7 +1082,6 @@ class BlendAlphaCrossover(BaseCrossover):
         return msgs
 
 
-# TODO(@light-weaver): No `problem.variable_domain` check; see the note on SimulatedBinaryCrossover.
 class SingleArithmeticCrossover(BaseCrossover):
     """Single Arithmetic Crossover for continuous problems.
 
@@ -1123,6 +1135,8 @@ class SingleArithmeticCrossover(BaseCrossover):
         """
         super().__init__(problem=problem, verbosity=verbosity, publisher=publisher, seed=seed)
 
+        if problem.variable_domain is not VariableDomainTypeEnum.continuous:
+            raise ValueError("SingleArithmeticCrossover only works on continuous problems.")
         if not 0 <= xover_probability <= 1:
             raise ValueError("Crossover probability must be in [0, 1].")
 
@@ -1170,7 +1184,7 @@ class SingleArithmeticCrossover(BaseCrossover):
         if original_pop_size % 2 == 1:
             offspring = offspring[:-1, :]
 
-        self.offspring_population = pl.from_numpy(offspring, schema=self.variable_symbols).select(
+        self.offspring_population = pl.from_numpy(offspring, schema=self.variable_symbols, orient="row").select(
             pl.all().cast(pl.Float64)
         )
         self.notify()
@@ -1216,7 +1230,6 @@ class SingleArithmeticCrossover(BaseCrossover):
         return msgs
 
 
-# TODO(@light-weaver): No `problem.variable_domain` check; see the note on SimulatedBinaryCrossover.
 class LocalCrossover(BaseCrossover):
     """Local Crossover for continuous problems.
 
@@ -1235,12 +1248,15 @@ class LocalCrossover(BaseCrossover):
 
     @property
     def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
-        """The message topics provided by the local crossover operator."""
+        """The message topics provided by the local crossover operator.
+
+        Note:
+            The operator has no crossover probability, so it does not provide that topic.
+        """
         return {
             0: [],
             1: [],
             2: [
-                CrossoverMessageTopics.XOVER_PROBABILITY,
                 CrossoverMessageTopics.PARENTS,
                 CrossoverMessageTopics.OFFSPRINGS,
             ],
@@ -1268,6 +1284,9 @@ class LocalCrossover(BaseCrossover):
             seed (int): random seed for reproducibility.
         """
         super().__init__(problem=problem, verbosity=verbosity, publisher=publisher, seed=seed)
+
+        if problem.variable_domain is not VariableDomainTypeEnum.continuous:
+            raise ValueError("LocalCrossover only works on continuous problems.")
 
     def do(self, *, population: pl.DataFrame, to_mate: list[int] | None = None) -> pl.DataFrame:
         """Perform Local Crossover.
@@ -1304,7 +1323,7 @@ class LocalCrossover(BaseCrossover):
         if original_pop_size % 2 == 1:
             offspring = offspring[:-1, :]
 
-        self.offspring_population = pl.from_numpy(offspring, schema=self.variable_symbols).select(
+        self.offspring_population = pl.from_numpy(offspring, schema=self.variable_symbols, orient="row").select(
             pl.all().cast(pl.Float64)
         )
 
@@ -1508,7 +1527,7 @@ class BoundedExponentialCrossover(BaseCrossover):
         if original_pop_size % 2 == 1:
             children = children[:-1, :]
 
-        self.offspring_population = pl.from_numpy(children, schema=self.variable_symbols).select(
+        self.offspring_population = pl.from_numpy(children, schema=self.variable_symbols, orient="row").select(
             pl.all().cast(pl.Float64)
         )
         self.notify()
@@ -1519,7 +1538,7 @@ class BoundedExponentialCrossover(BaseCrossover):
 
     def state(self) -> Sequence[Message]:
         """Return the state of the crossover operator."""
-        if getattr(self, "parent_population", None) is None:
+        if self.parent_population is None:
             return []
         msgs: list[Message] = []
         if self.verbosity >= 1:

@@ -923,6 +923,111 @@ def test_local_crossover():
         assert not np.allclose(population[to_mate[i]], offspring[i])
 
 
+"""Every concrete crossover operator, paired with a problem whose variable domain it accepts."""
+ALL_CROSSOVERS = [
+    (SimulatedBinaryCrossover, "continuous"),
+    (BlendAlphaCrossover, "continuous"),
+    (SingleArithmeticCrossover, "continuous"),
+    (LocalCrossover, "continuous"),
+    (BoundedExponentialCrossover, "continuous"),
+    (SinglePointBinaryCrossover, "binary"),
+    (UniformIntegerCrossover, "integer"),
+    (UniformMixedIntegerCrossover, "mixed"),
+]
+
+CONTINUOUS_ONLY_CROSSOVERS = [
+    SimulatedBinaryCrossover,
+    BlendAlphaCrossover,
+    SingleArithmeticCrossover,
+    LocalCrossover,
+    BoundedExponentialCrossover,
+]
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(("crossover_class", "domain"), ALL_CROSSOVERS)
+def test_crossover_preserves_population_orientation(crossover_class, domain: str):
+    """Test that crossover operators do not transpose a square offspring block.
+
+    `DataFrame.to_numpy` returns an F-contiguous array and `np.zeros_like` preserves that order.
+    With as many offspring as variables, `pl.from_numpy` cannot infer the orientation from the
+    shape and reads such an array column-wise, which silently transposes the offspring.
+    """
+    problem = _problem_for(domain)
+    variables = problem.get_flattened_variables()
+    n_variables = len(variables)
+    crossover = crossover_class(problem=problem, publisher=Publisher(), seed=0, verbosity=1)
+
+    # A population of identical individuals. Recombining a parent with itself must reproduce it,
+    # whatever the operator does, so any departure is the frame and not the crossover. The values
+    # differ between variables, so transposing the block turns these constant columns into
+    # constant rows, which no longer match the parent.
+    individual = np.array(
+        [var.lowerbound if i % 2 == 0 else var.upperbound for i, var in enumerate(variables)], dtype=float
+    )
+    assert len(set(individual)) > 1, "the test needs an individual that is not the same value repeated"
+
+    for n_rows in (n_variables - 1, n_variables, n_variables + 1):
+        parents = pl.DataFrame(np.tile(individual, (n_rows, 1)), schema=[var.symbol for var in variables])
+
+        offspring = crossover.do(population=parents, to_mate=list(range(n_rows)))
+
+        assert offspring.columns == parents.columns
+        assert offspring.height == n_rows
+        npt.assert_allclose(
+            offspring.to_numpy().astype(float),
+            np.tile(individual, (n_rows, 1)),
+            err_msg=(
+                f"{crossover_class.__name__} did not reproduce a population of identical parents "
+                f"at {n_rows} offspring x {n_variables} variables"
+            ),
+        )
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(("crossover_class", "domain"), ALL_CROSSOVERS)
+def test_crossover_state_before_first_do(crossover_class, domain: str):
+    """Test that the state of a crossover operator can be queried before it has produced offspring.
+
+    Every `state` implementation guards on the parent population being unset, so the guard must
+    see None rather than an attribute that was annotated but never assigned.
+    """
+    crossover = crossover_class(problem=_problem_for(domain), publisher=Publisher(), seed=0, verbosity=2)
+
+    assert crossover.state() == []
+    crossover.notify()  # Must not raise either.
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(("crossover_class", "domain"), ALL_CROSSOVERS)
+@pytest.mark.parametrize("verbosity", [1, 2])
+def test_crossover_provided_topics_match_state(crossover_class, domain: str, verbosity: int):
+    """Test that the topics a crossover operator advertises are the ones it actually sends.
+
+    A topic that is advertised but never sent leaves a subscriber waiting forever, while one
+    that is sent but never advertised makes `Publisher.check_consistency` report a false failure.
+    """
+    problem = _problem_for(domain)
+    crossover = crossover_class(problem=problem, publisher=Publisher(), seed=0, verbosity=verbosity)
+    parents = _population(problem, 6)
+
+    crossover.do(population=parents, to_mate=list(range(6)))
+
+    assert {message.topic for message in crossover.state()} == set(crossover.provided_topics[verbosity])
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize("crossover_class", CONTINUOUS_ONLY_CROSSOVERS)
+def test_continuous_crossover_rejects_non_continuous_problems(crossover_class):
+    """Test that the real-coded crossover operators refuse a problem they cannot handle.
+
+    Blending or averaging parents produces fractional values, which are not valid for integer or
+    binary variables, so these operators must reject such a problem rather than silently corrupt it.
+    """
+    with pytest.raises(ValueError, match="continuous"):
+        crossover_class(problem=momip_ti2(), publisher=Publisher(), seed=0, verbosity=1)
+
+
 @pytest.mark.ea
 def test_crossover_offspring_count_for_odd_mating_pools():
     """Every crossover operator must return exactly one offspring per mated parent."""
