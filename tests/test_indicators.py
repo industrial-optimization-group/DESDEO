@@ -3,6 +3,7 @@
 from itertools import product
 from math import factorial
 
+import moocore
 import numpy as np
 import pytest
 from pymoo.indicators.igd_plus import IGDPlus
@@ -107,6 +108,50 @@ def test_distance_indicators():
     assert distance_inds.igd_p > 0, "IGD_p is not positive for a subset"
 
     assert distance_inds.ahd == distance_inds.igd_p, "AHD is not equal to IGD_p for a subset"
+
+
+@pytest.mark.indicators
+@pytest.mark.parametrize("p", [1.0, 2.0, 3.0])
+def test_distance_indicators_against_moocore(p):
+    """Check IGD and the averaged Hausdorff distance against moocore's reference implementation."""
+    obj = 3
+    ref_set = get_reference_directions("energy", obj, n_points=200)
+    rng = np.random.default_rng(42)
+    solution_set = ref_set[rng.choice(ref_set.shape[0], size=60, replace=False)] + rng.normal(0, 0.02, (60, obj))
+
+    inds = distance_indicators(solution_set, ref_set, p=p)
+
+    assert np.isclose(inds.igd, moocore.igd(solution_set, ref=ref_set)), "IGD does not match moocore"
+    assert np.isclose(
+        inds.ahd, moocore.avg_hausdorff_dist(solution_set, ref_set, p=p)
+    ), f"AHD does not match moocore for p={p}"
+
+
+@pytest.mark.indicators
+def test_distance_indicators_p_semantics():
+    """IGD_p/GD_p must be power means, and thus insensitive to the cardinality of an equally-spread set."""
+    ref_set = np.column_stack([np.linspace(0, 1, 100), 1 - np.linspace(0, 1, 100)])
+
+    # p == 1 reduces the generalized mean to the arithmetic mean, so IGD_p == IGD and GD_p == GD.
+    inds = distance_indicators(ref_set[::4], ref_set, p=1.0)
+    assert np.isclose(inds.igd_p, inds.igd), "IGD_p is not IGD at p=1"
+    assert np.isclose(inds.gd_p, inds.gd), "GD_p is not GD at p=1"
+
+    # p == inf reduces the generalized mean to the maximum distance.
+    inds_inf = distance_indicators(ref_set[::4], ref_set, p=np.inf)
+    assert inds_inf.igd_p >= inds.igd_p, "IGD_inf should not be below IGD_1"
+    assert np.isfinite(inds_inf.ahd), "AHD is not finite for p=inf"
+
+    # Sampling the same front more densely must not inflate GD_p.
+    gd_ps = []
+    for num_points in [50, 200, 800]:
+        t = np.linspace(0, 1, num_points)
+        gd_ps.append(distance_indicators(np.column_stack([t, 1 - t]), ref_set, p=2.0).gd_p)
+    assert max(gd_ps) < 0.02, f"GD_p scales with the cardinality of the solution set: {gd_ps}"
+
+    for bad_p in [0.0, -1.0]:
+        with pytest.raises(ValueError, match="must be positive"):
+            distance_indicators(ref_set[::4], ref_set, p=bad_p)
 
 
 @pytest.mark.indicators
