@@ -1,0 +1,2284 @@
+{
+    "$defs": {
+        "BinaryFlipMutationOptions": {
+            "description": "Options for Binary Flip Mutation.",
+            "properties": {
+                "name": {
+                    "const": "BinaryFlipMutation",
+                    "default": "BinaryFlipMutation",
+                    "description": "The name of the mutation operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "mutation_probability": {
+                    "anyOf": [
+                        {
+                            "maximum": 1.0,
+                            "minimum": 0.0,
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.",
+                    "title": "Mutation Probability"
+                }
+            },
+            "title": "BinaryFlipMutationOptions",
+            "type": "object"
+        },
+        "BlendAlphaCrossoverOptions": {
+            "description": "Options for Blend Alpha Crossover.",
+            "properties": {
+                "name": {
+                    "const": "BlendAlphaCrossover",
+                    "default": "BlendAlphaCrossover",
+                    "description": "The name of the crossover operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "alpha": {
+                    "default": 0.5,
+                    "description": "Non-negative blending factor 'alpha' that controls the extent to which offspring\nmay be sampled outside the interval defined by each pair of parent genes.\nalpha = 0 restricts children strictly within the parents range, larger alpha allows outliers.",
+                    "minimum": 0.0,
+                    "title": "Alpha",
+                    "type": "number"
+                },
+                "repeats": {
+                    "default": 2,
+                    "description": "Number of offspring to generate per parent pair.",
+                    "minimum": 1,
+                    "title": "Repeats",
+                    "type": "integer"
+                },
+                "sample_each_component": {
+                    "default": true,
+                    "description": "If True, a new random number is generated for each component of the offspring. If False, a single random number\nis generated for the entire offspring.",
+                    "title": "Sample Each Component",
+                    "type": "boolean"
+                }
+            },
+            "title": "BlendAlphaCrossoverOptions",
+            "type": "object"
+        },
+        "BoundedExponentialCrossoverOptions": {
+            "description": "Options for Bounded Exponential Crossover.",
+            "properties": {
+                "name": {
+                    "const": "BoundedExponentialCrossover",
+                    "default": "BoundedExponentialCrossover",
+                    "description": "The name of the crossover operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "xover_probability": {
+                    "default": 1.0,
+                    "description": "The crossover probability.",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "title": "Xover Probability",
+                    "type": "number"
+                },
+                "lambda_": {
+                    "default": 0.1,
+                    "description": "Positive scale \u03bb for the exponential distribution.",
+                    "exclusiveMinimum": 0.0,
+                    "title": "Lambda",
+                    "type": "number"
+                }
+            },
+            "title": "BoundedExponentialCrossoverOptions",
+            "type": "object"
+        },
+        "BoundedPolynomialMutationOptions": {
+            "description": "Options for Bounded Polynomial Mutation.",
+            "properties": {
+                "name": {
+                    "const": "BoundedPolynomialMutation",
+                    "default": "BoundedPolynomialMutation",
+                    "description": "The name of the mutation operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "mutation_probability": {
+                    "anyOf": [
+                        {
+                            "maximum": 1.0,
+                            "minimum": 0.0,
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The probability of mutation. Defaults to None, which sets the mutation probability to\n1/<number of decision variables>.",
+                    "title": "Mutation Probability"
+                },
+                "distribution_index": {
+                    "default": 20.0,
+                    "description": "The distribution index.",
+                    "exclusiveMinimum": 0.0,
+                    "title": "Distribution Index",
+                    "type": "number"
+                }
+            },
+            "title": "BoundedPolynomialMutationOptions",
+            "type": "object"
+        },
+        "ClipRepairOptions": {
+            "description": "Options for Clip Repair.",
+            "properties": {
+                "name": {
+                    "const": "ClipRepair",
+                    "default": "ClipRepair",
+                    "description": "Clip the solutions to be within the variable bounds.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "lower_bounds": {
+                    "anyOf": [
+                        {
+                            "additionalProperties": {
+                                "type": "number"
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Lower bounds for the decision variables. If none, the lower bounds from the problem will be used.",
+                    "title": "Lower Bounds"
+                },
+                "upper_bounds": {
+                    "anyOf": [
+                        {
+                            "additionalProperties": {
+                                "type": "number"
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Upper bounds for the decision variables. If none, the upper bounds from the problem will be used.",
+                    "title": "Upper Bounds"
+                }
+            },
+            "title": "ClipRepairOptions",
+            "type": "object"
+        },
+        "CompositeCrossoverOptions": {
+            "description": "Options for Composite Crossover.",
+            "properties": {
+                "name": {
+                    "const": "CompositeCrossover",
+                    "default": "CompositeCrossover",
+                    "description": "The name of the crossover operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "crossovers": {
+                    "description": "List of crossover options to be used in the composite crossover.",
+                    "items": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/$defs/SimulatedBinaryCrossoverOptions"
+                            },
+                            {
+                                "$ref": "#/$defs/SinglePointBinaryCrossoverOptions"
+                            },
+                            {
+                                "$ref": "#/$defs/UniformIntegerCrossoverOptions"
+                            },
+                            {
+                                "$ref": "#/$defs/UniformMixedIntegerCrossoverOptions"
+                            },
+                            {
+                                "$ref": "#/$defs/BlendAlphaCrossoverOptions"
+                            },
+                            {
+                                "$ref": "#/$defs/SingleArithmeticCrossoverOptions"
+                            },
+                            {
+                                "$ref": "#/$defs/LocalCrossoverOptions"
+                            },
+                            {
+                                "$ref": "#/$defs/BoundedExponentialCrossoverOptions"
+                            },
+                            {
+                                "$ref": "#/$defs/CompositeCrossoverOptions"
+                            }
+                        ]
+                    },
+                    "title": "Crossovers",
+                    "type": "array"
+                }
+            },
+            "title": "CompositeCrossoverOptions",
+            "type": "object"
+        },
+        "CompositeTerminatorOptions": {
+            "description": "Options for composite terminator operator.",
+            "properties": {
+                "name": {
+                    "const": "CompositeTerminator",
+                    "default": "CompositeTerminator",
+                    "description": "The name of the termination operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "terminators": {
+                    "description": "List of terminators.",
+                    "items": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/$defs/MaxEvaluationsTerminatorOptions"
+                            },
+                            {
+                                "$ref": "#/$defs/MaxGenerationsTerminatorOptions"
+                            },
+                            {
+                                "$ref": "#/$defs/MaxTimeTerminatorOptions"
+                            },
+                            {
+                                "$ref": "#/$defs/ExternalCheckTerminatorOptions"
+                            }
+                        ]
+                    },
+                    "title": "Terminators",
+                    "type": "array"
+                },
+                "mode": {
+                    "default": "any",
+                    "description": "Whether to use logical AND or OR.",
+                    "enum": [
+                        "all",
+                        "any"
+                    ],
+                    "title": "Mode",
+                    "type": "string"
+                }
+            },
+            "title": "CompositeTerminatorOptions",
+            "type": "object"
+        },
+        "DesirableRangesOptions": {
+            "description": "Options for providing desirable ranges for an EA.",
+            "properties": {
+                "name": {
+                    "const": "preferred_ranges",
+                    "default": "preferred_ranges",
+                    "description": "The name of the preferred ranges option.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "aspiration_levels": {
+                    "additionalProperties": {
+                        "type": "number"
+                    },
+                    "description": "The aspiration levels as a dictionary with objective function symbols as the keys.",
+                    "title": "Aspiration Levels",
+                    "type": "object"
+                },
+                "reservation_levels": {
+                    "additionalProperties": {
+                        "type": "number"
+                    },
+                    "description": "The reservation levels as a dictionary with objective function symbols as the keys.",
+                    "title": "Reservation Levels",
+                    "type": "object"
+                },
+                "method": {
+                    "default": "Hakanen",
+                    "description": "The method for handling the desirable ranges.",
+                    "enum": [
+                        "Hakanen",
+                        "DF transformation"
+                    ],
+                    "title": "Method",
+                    "type": "string"
+                },
+                "desirability_levels": {
+                    "default": [
+                        0.9,
+                        0.1
+                    ],
+                    "description": "The desirability levels as a tuple (high, low). Used if method is DF transformation. If None, default levels (0.9, 0.1) are used.",
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "number"
+                        }
+                    ],
+                    "title": "Desirability Levels",
+                    "type": "array"
+                }
+            },
+            "required": [
+                "aspiration_levels",
+                "reservation_levels"
+            ],
+            "title": "DesirableRangesOptions",
+            "type": "object"
+        },
+        "ElitistSelectionOptions": {
+            "description": "Options for elitist scalar selection (top ``winner_size`` by a target column).",
+            "properties": {
+                "name": {
+                    "const": "ElitistSelection",
+                    "default": "ElitistSelection",
+                    "description": "The name of the scalar selection operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "winner_size": {
+                    "description": "The number of individuals to keep after selection.",
+                    "exclusiveMinimum": 0,
+                    "title": "Winner Size",
+                    "type": "integer"
+                },
+                "target_column": {
+                    "description": "Name of the output column to sort by (ascending, lower is better).",
+                    "title": "Target Column",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "winner_size",
+                "target_column"
+            ],
+            "title": "ElitistSelectionOptions",
+            "type": "object"
+        },
+        "ExternalCheckTerminatorOptions": {
+            "description": "Options for external check terminator operator. Note that the check function must be provided separately.",
+            "properties": {
+                "name": {
+                    "const": "ExternalCheckTerminator",
+                    "default": "ExternalCheckTerminator",
+                    "description": "The name of the termination operator.",
+                    "title": "Name",
+                    "type": "string"
+                }
+            },
+            "title": "ExternalCheckTerminatorOptions",
+            "type": "object"
+        },
+        "IBEASelectorOptions": {
+            "description": "Options for IBEA Selection.",
+            "properties": {
+                "name": {
+                    "const": "IBEASelector",
+                    "default": "IBEASelector",
+                    "description": "The name of the selection operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "population_size": {
+                    "description": "The population size.",
+                    "exclusiveMinimum": 0,
+                    "title": "Population Size",
+                    "type": "integer"
+                },
+                "kappa": {
+                    "default": 0.05,
+                    "description": "The kappa parameter for IBEA.",
+                    "title": "Kappa",
+                    "type": "number"
+                },
+                "binary_indicator": {
+                    "default": "eps",
+                    "description": "The binary indicator for IBEA.",
+                    "enum": [
+                        "eps",
+                        "hv"
+                    ],
+                    "title": "Binary Indicator",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "population_size"
+            ],
+            "title": "IBEASelectorOptions",
+            "type": "object"
+        },
+        "IntegerRandomMutationOptions": {
+            "description": "Options for Integer Random Mutation.",
+            "properties": {
+                "name": {
+                    "const": "IntegerRandomMutation",
+                    "default": "IntegerRandomMutation",
+                    "description": "The name of the mutation operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "mutation_probability": {
+                    "anyOf": [
+                        {
+                            "maximum": 1.0,
+                            "minimum": 0.0,
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.",
+                    "title": "Mutation Probability"
+                }
+            },
+            "title": "IntegerRandomMutationOptions",
+            "type": "object"
+        },
+        "LHSGeneratorOptions": {
+            "description": "Options for Latin Hypercube Sampling (LHS) generator.",
+            "properties": {
+                "n_points": {
+                    "description": "The number of points to generate for the initial population.",
+                    "exclusiveMinimum": 0,
+                    "title": "N Points",
+                    "type": "integer"
+                },
+                "seed": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The random seed for the generator. If None the seed from the template will be used. IMPORTANT: Only set this seed in case you want to use a different seed for the generator than the rest of thealgorithm. Otherwise leave this alone!",
+                    "title": "Seed"
+                },
+                "name": {
+                    "const": "LHSGenerator",
+                    "default": "LHSGenerator",
+                    "description": "The name of the generator.",
+                    "title": "Name",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "n_points"
+            ],
+            "title": "LHSGeneratorOptions",
+            "type": "object"
+        },
+        "LocalCrossoverOptions": {
+            "description": "Options for Local Crossover.",
+            "properties": {
+                "name": {
+                    "const": "LocalCrossover",
+                    "default": "LocalCrossover",
+                    "description": "The name of the crossover operator.",
+                    "title": "Name",
+                    "type": "string"
+                }
+            },
+            "title": "LocalCrossoverOptions",
+            "type": "object"
+        },
+        "MPTMutationOptions": {
+            "description": "Options for MPT Mutation.",
+            "properties": {
+                "name": {
+                    "const": "MPTMutation",
+                    "default": "MPTMutation",
+                    "description": "The name of the mutation operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "mutation_probability": {
+                    "anyOf": [
+                        {
+                            "maximum": 1.0,
+                            "minimum": 0.0,
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.",
+                    "title": "Mutation Probability"
+                },
+                "mutation_exponent": {
+                    "default": 2.0,
+                    "description": "Controls strength of small mutation (larger means smaller mutations).",
+                    "minimum": 0.0,
+                    "title": "Mutation Exponent",
+                    "type": "number"
+                }
+            },
+            "title": "MPTMutationOptions",
+            "type": "object"
+        },
+        "MaxEvaluationsTerminatorOptions": {
+            "description": "Options for max evaluations terminator operator.",
+            "properties": {
+                "name": {
+                    "const": "MaxEvaluationsTerminator",
+                    "default": "MaxEvaluationsTerminator",
+                    "description": "The name of the termination operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "max_evaluations": {
+                    "default": 10000,
+                    "description": "The maximum number of evaluations allowed.",
+                    "exclusiveMinimum": 0,
+                    "title": "Max Evaluations",
+                    "type": "integer"
+                }
+            },
+            "title": "MaxEvaluationsTerminatorOptions",
+            "type": "object"
+        },
+        "MaxGenerationsTerminatorOptions": {
+            "description": "Options for max generations terminator operator.",
+            "properties": {
+                "name": {
+                    "const": "MaxGenerationsTerminator",
+                    "default": "MaxGenerationsTerminator",
+                    "description": "The name of the termination operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "max_generations": {
+                    "default": 100,
+                    "description": "The maximum number of generations allowed.",
+                    "exclusiveMinimum": 0,
+                    "title": "Max Generations",
+                    "type": "integer"
+                }
+            },
+            "title": "MaxGenerationsTerminatorOptions",
+            "type": "object"
+        },
+        "MaxTimeTerminatorOptions": {
+            "description": "Options for max time terminator operator.",
+            "properties": {
+                "name": {
+                    "const": "MaxTimeTerminator",
+                    "default": "MaxTimeTerminator",
+                    "description": "The name of the termination operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "max_time": {
+                    "default": 30.0,
+                    "description": "The maximum time allowed (in seconds).",
+                    "exclusiveMinimum": 0,
+                    "title": "Max Time",
+                    "type": "number"
+                }
+            },
+            "title": "MaxTimeTerminatorOptions",
+            "type": "object"
+        },
+        "MixedIntegerRandomMutationOptions": {
+            "description": "Options for Mixed Integer Random Mutation.",
+            "properties": {
+                "name": {
+                    "const": "MixedIntegerRandomMutation",
+                    "default": "MixedIntegerRandomMutation",
+                    "description": "The name of the mutation operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "mutation_probability": {
+                    "anyOf": [
+                        {
+                            "maximum": 1.0,
+                            "minimum": 0.0,
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.",
+                    "title": "Mutation Probability"
+                }
+            },
+            "title": "MixedIntegerRandomMutationOptions",
+            "type": "object"
+        },
+        "NSGA2SelectorOptions": {
+            "description": "Options for NSGA-II Selection.",
+            "properties": {
+                "name": {
+                    "const": "NSGA2Selector",
+                    "default": "NSGA2Selector",
+                    "description": "The name of the selection operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "population_size": {
+                    "description": "The population size.",
+                    "exclusiveMinimum": 0,
+                    "title": "Population Size",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "population_size"
+            ],
+            "title": "NSGA2SelectorOptions",
+            "type": "object"
+        },
+        "NSGA3SelectorOptions": {
+            "description": "Options for NSGA-III Selection.",
+            "properties": {
+                "name": {
+                    "const": "NSGA3Selector",
+                    "default": "NSGA3Selector",
+                    "description": "The name of the selection operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "reference_vector_options": {
+                    "$ref": "#/$defs/ReferenceVectorOptions",
+                    "default": {
+                        "adaptation_frequency": 0,
+                        "creation_type": "simplex",
+                        "vector_type": "spherical",
+                        "lattice_resolution": null,
+                        "number_of_vectors": 200,
+                        "adaptation_distance": 0.2,
+                        "reference_point": null,
+                        "preferred_solutions": null,
+                        "non_preferred_solutions": null,
+                        "preferred_ranges": null
+                    },
+                    "description": "Options for the reference vectors."
+                },
+                "invert_reference_vectors": {
+                    "default": false,
+                    "description": "Whether to invert the reference vectors (inverted triangle).",
+                    "title": "Invert Reference Vectors",
+                    "type": "boolean"
+                }
+            },
+            "title": "NSGA3SelectorOptions",
+            "type": "object"
+        },
+        "NoRepairOptions": {
+            "description": "Options for No Repair.",
+            "properties": {
+                "name": {
+                    "const": "NoRepair",
+                    "default": "NoRepair",
+                    "description": "Do not apply any repair to the solutions.",
+                    "title": "Name",
+                    "type": "string"
+                }
+            },
+            "title": "NoRepairOptions",
+            "type": "object"
+        },
+        "NonPreferredSolutionsOptions": {
+            "description": "Options for providing non-preferred solutions for an EA.",
+            "properties": {
+                "name": {
+                    "const": "non_preferred_solutions",
+                    "default": "non_preferred_solutions",
+                    "description": "The name of the non-preferred solutions option.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "preference": {
+                    "additionalProperties": {
+                        "items": {
+                            "type": "number"
+                        },
+                        "type": "array"
+                    },
+                    "description": "The non-preferred solutions as a dictionary with objective function symbols as the keys.",
+                    "title": "Preference",
+                    "type": "object"
+                },
+                "method": {
+                    "const": "Hakanen",
+                    "default": "Hakanen",
+                    "description": "The method for handling the non-preferred solutions.",
+                    "title": "Method",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "preference"
+            ],
+            "title": "NonPreferredSolutionsOptions",
+            "type": "object"
+        },
+        "NonUniformMutationOptions": {
+            "description": "Options for Non-Uniform Mutation.",
+            "properties": {
+                "name": {
+                    "const": "NonUniformMutation",
+                    "default": "NonUniformMutation",
+                    "description": "The name of the mutation operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "mutation_probability": {
+                    "anyOf": [
+                        {
+                            "maximum": 1.0,
+                            "minimum": 0.0,
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.",
+                    "title": "Mutation Probability"
+                },
+                "max_generations": {
+                    "anyOf": [
+                        {
+                            "exclusiveMinimum": 0,
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Maximum number of generations in the evolutionary run, used to scale mutation decay. Defaults to None, which follows the budget reported by the terminator. Prefer the default: a value that disagrees with the terminator makes the decay schedule finish too early or not at all.",
+                    "title": "Max Generations"
+                },
+                "b": {
+                    "default": 5.0,
+                    "description": "Non-uniform mutation decay parameter. Higher values causefaster reduction in mutation strength over generations.",
+                    "minimum": 0.0,
+                    "title": "B",
+                    "type": "number"
+                }
+            },
+            "title": "NonUniformMutationOptions",
+            "type": "object"
+        },
+        "ParameterAdaptationStrategy": {
+            "description": "The parameter adaptation strategies for the RVEA selector.",
+            "enum": [
+                "GENERATION_BASED",
+                "FUNCTION_EVALUATION_BASED",
+                "OTHER"
+            ],
+            "title": "ParameterAdaptationStrategy",
+            "type": "string"
+        },
+        "PowerMutationOptions": {
+            "description": "Options for Power Mutation.",
+            "properties": {
+                "name": {
+                    "const": "PowerMutation",
+                    "default": "PowerMutation",
+                    "description": "The name of the mutation operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "mutation_probability": {
+                    "anyOf": [
+                        {
+                            "maximum": 1.0,
+                            "minimum": 0.0,
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.",
+                    "title": "Mutation Probability"
+                },
+                "p": {
+                    "default": 1.5,
+                    "description": "Power distribution parameter. Controls the perturbation magnitude.",
+                    "minimum": 0.0,
+                    "title": "P",
+                    "type": "number"
+                }
+            },
+            "title": "PowerMutationOptions",
+            "type": "object"
+        },
+        "PreferredSolutionsOptions": {
+            "description": "Options for providing preferred solutions for an EA.",
+            "properties": {
+                "name": {
+                    "const": "preferred_solutions",
+                    "default": "preferred_solutions",
+                    "description": "The name of the preferred solutions option.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "preference": {
+                    "additionalProperties": {
+                        "items": {
+                            "type": "number"
+                        },
+                        "type": "array"
+                    },
+                    "description": "The preferred solutions as a dictionary with objective function symbols as the keys.",
+                    "title": "Preference",
+                    "type": "object"
+                },
+                "method": {
+                    "const": "Hakanen",
+                    "default": "Hakanen",
+                    "description": "The method for handling the preferred solutions.",
+                    "title": "Method",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "preference"
+            ],
+            "title": "PreferredSolutionsOptions",
+            "type": "object"
+        },
+        "RVEASelectorOptions": {
+            "description": "Options for RVEA Selection.",
+            "properties": {
+                "name": {
+                    "const": "RVEASelector",
+                    "default": "RVEASelector",
+                    "description": "The name of the selection operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "reference_vector_options": {
+                    "$ref": "#/$defs/ReferenceVectorOptions",
+                    "default": {
+                        "adaptation_frequency": 0,
+                        "creation_type": "simplex",
+                        "vector_type": "spherical",
+                        "lattice_resolution": null,
+                        "number_of_vectors": 200,
+                        "adaptation_distance": 0.2,
+                        "reference_point": null,
+                        "preferred_solutions": null,
+                        "non_preferred_solutions": null,
+                        "preferred_ranges": null
+                    },
+                    "description": "Options for the reference vectors."
+                },
+                "parameter_adaptation_strategy": {
+                    "$ref": "#/$defs/ParameterAdaptationStrategy",
+                    "default": "GENERATION_BASED",
+                    "description": "The parameter adaptation strategy to use."
+                },
+                "alpha": {
+                    "default": 2.0,
+                    "description": "The alpha parameter in the angle penalized distance.",
+                    "exclusiveMinimum": 0.0,
+                    "title": "Alpha",
+                    "type": "number"
+                }
+            },
+            "title": "RVEASelectorOptions",
+            "type": "object"
+        },
+        "RandomBinaryGeneratorOptions": {
+            "description": "Options for Random Binary generator.",
+            "properties": {
+                "n_points": {
+                    "description": "The number of points to generate for the initial population.",
+                    "exclusiveMinimum": 0,
+                    "title": "N Points",
+                    "type": "integer"
+                },
+                "seed": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The random seed for the generator. If None the seed from the template will be used. IMPORTANT: Only set this seed in case you want to use a different seed for the generator than the rest of thealgorithm. Otherwise leave this alone!",
+                    "title": "Seed"
+                },
+                "name": {
+                    "const": "RandomBinaryGenerator",
+                    "default": "RandomBinaryGenerator",
+                    "description": "The name of the generator.",
+                    "title": "Name",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "n_points"
+            ],
+            "title": "RandomBinaryGeneratorOptions",
+            "type": "object"
+        },
+        "RandomGeneratorOptions": {
+            "description": "Options for Random generator.",
+            "properties": {
+                "n_points": {
+                    "description": "The number of points to generate for the initial population.",
+                    "exclusiveMinimum": 0,
+                    "title": "N Points",
+                    "type": "integer"
+                },
+                "seed": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The random seed for the generator. If None the seed from the template will be used. IMPORTANT: Only set this seed in case you want to use a different seed for the generator than the rest of thealgorithm. Otherwise leave this alone!",
+                    "title": "Seed"
+                },
+                "name": {
+                    "const": "RandomGenerator",
+                    "default": "RandomGenerator",
+                    "description": "The name of the generator.",
+                    "title": "Name",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "n_points"
+            ],
+            "title": "RandomGeneratorOptions",
+            "type": "object"
+        },
+        "RandomIntegerGeneratorOptions": {
+            "description": "Options for Random Integer generator.",
+            "properties": {
+                "n_points": {
+                    "description": "The number of points to generate for the initial population.",
+                    "exclusiveMinimum": 0,
+                    "title": "N Points",
+                    "type": "integer"
+                },
+                "seed": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The random seed for the generator. If None the seed from the template will be used. IMPORTANT: Only set this seed in case you want to use a different seed for the generator than the rest of thealgorithm. Otherwise leave this alone!",
+                    "title": "Seed"
+                },
+                "name": {
+                    "const": "RandomIntegerGenerator",
+                    "default": "RandomIntegerGenerator",
+                    "description": "The name of the generator.",
+                    "title": "Name",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "n_points"
+            ],
+            "title": "RandomIntegerGeneratorOptions",
+            "type": "object"
+        },
+        "RandomMixedIntegerGeneratorOptions": {
+            "description": "Options for Random Mixed Integer generator.",
+            "properties": {
+                "n_points": {
+                    "description": "The number of points to generate for the initial population.",
+                    "exclusiveMinimum": 0,
+                    "title": "N Points",
+                    "type": "integer"
+                },
+                "seed": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The random seed for the generator. If None the seed from the template will be used. IMPORTANT: Only set this seed in case you want to use a different seed for the generator than the rest of thealgorithm. Otherwise leave this alone!",
+                    "title": "Seed"
+                },
+                "name": {
+                    "const": "RandomMixedIntegerGenerator",
+                    "default": "RandomMixedIntegerGenerator",
+                    "description": "The name of the generator.",
+                    "title": "Name",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "n_points"
+            ],
+            "title": "RandomMixedIntegerGeneratorOptions",
+            "type": "object"
+        },
+        "ReferencePointOptions": {
+            "description": "Options for providing a reference point for an EA.",
+            "properties": {
+                "name": {
+                    "const": "reference_point",
+                    "default": "reference_point",
+                    "description": "The name of the reference point option.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "preference": {
+                    "additionalProperties": {
+                        "type": "number"
+                    },
+                    "description": "The reference point as a dictionary with objective function symbols as the keys.",
+                    "title": "Preference",
+                    "type": "object"
+                },
+                "method": {
+                    "default": "Hakanen",
+                    "description": "The method for handling the reference point.",
+                    "enum": [
+                        "Hakanen",
+                        "IOPIS"
+                    ],
+                    "title": "Method",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "preference"
+            ],
+            "title": "ReferencePointOptions",
+            "type": "object"
+        },
+        "ReferenceVectorOptions": {
+            "description": "Pydantic model for Reference Vector arguments.",
+            "properties": {
+                "adaptation_frequency": {
+                    "default": 0,
+                    "description": "Number of generations between reference vector adaptation. If set to 0, no adaptation occurs. Defaults to 0.\nOnly used if no preference is provided.",
+                    "title": "Adaptation Frequency",
+                    "type": "integer"
+                },
+                "creation_type": {
+                    "default": "simplex",
+                    "description": "The method for creating reference vectors. Defaults to \"simplex\".\nCurrently only \"simplex\" is implemented. Future versions will include \"s_energy\".\n\nIf set to \"simplex\", the reference vectors are created using the simplex lattice design method.\nThis method is generates distributions with specific numbers of reference vectors.\nCheck: https://www.itl.nist.gov/div898/handbook/pri/section5/pri542.htm for more information.\nIf set to \"s_energy\", the reference vectors are created using the Riesz s-energy criterion. This method is used to\ndistribute an arbitrary number of reference vectors in the objective space while minimizing the s-energy.\nCurrently not implemented.",
+                    "enum": [
+                        "simplex",
+                        "s_energy"
+                    ],
+                    "title": "Creation Type",
+                    "type": "string"
+                },
+                "vector_type": {
+                    "default": "spherical",
+                    "description": "The method for normalizing the reference vectors. Defaults to \"spherical\".",
+                    "enum": [
+                        "spherical",
+                        "planar"
+                    ],
+                    "title": "Vector Type",
+                    "type": "string"
+                },
+                "lattice_resolution": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Number of divisions along an axis when creating the simplex lattice. This is not required/used for the \"s_energy\"\nmethod. If not specified, the lattice resolution is calculated based on the `number_of_vectors`. If \"spherical\" is\nselected as the `vector_type`, this value overrides the `number_of_vectors`.",
+                    "title": "Lattice Resolution"
+                },
+                "number_of_vectors": {
+                    "default": 200,
+                    "description": "Number of reference vectors to be created. If \"simplex\" is selected as the `creation_type`, then the closest\n`lattice_resolution` is calculated based on this value. If \"s_energy\" is selected, then this value is used directly.\nNote that if neither `lattice_resolution` nor `number_of_vectors` is specified, the number of vectors defaults to\n200. Overridden if \"spherical\" is selected as the `vector_type` and `lattice_resolution` is provided.",
+                    "title": "Number Of Vectors",
+                    "type": "integer"
+                },
+                "adaptation_distance": {
+                    "default": 0.2,
+                    "description": "Distance parameter for the interactive adaptation methods. Defaults to 0.2.",
+                    "title": "Adaptation Distance",
+                    "type": "number"
+                },
+                "reference_point": {
+                    "anyOf": [
+                        {
+                            "additionalProperties": {
+                                "type": "number"
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The reference point for interactive adaptation.",
+                    "title": "Reference Point"
+                },
+                "preferred_solutions": {
+                    "anyOf": [
+                        {
+                            "additionalProperties": {
+                                "items": {
+                                    "type": "number"
+                                },
+                                "type": "array"
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The preferred solutions for interactive adaptation.",
+                    "title": "Preferred Solutions"
+                },
+                "non_preferred_solutions": {
+                    "anyOf": [
+                        {
+                            "additionalProperties": {
+                                "items": {
+                                    "type": "number"
+                                },
+                                "type": "array"
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The non-preferred solutions for interactive adaptation.",
+                    "title": "Non Preferred Solutions"
+                },
+                "preferred_ranges": {
+                    "anyOf": [
+                        {
+                            "additionalProperties": {
+                                "items": {
+                                    "type": "number"
+                                },
+                                "type": "array"
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The preferred ranges for interactive adaptation.",
+                    "title": "Preferred Ranges"
+                }
+            },
+            "title": "ReferenceVectorOptions",
+            "type": "object"
+        },
+        "RouletteWheelSelectionOptions": {
+            "description": "Options for roulette wheel selection operator.",
+            "properties": {
+                "name": {
+                    "const": "RouletteWheelSelection",
+                    "default": "RouletteWheelSelection",
+                    "description": "The name of the scalar selection operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "tournament_size": {
+                    "default": 2,
+                    "description": "The number of individuals participating in the tournament.",
+                    "title": "Tournament Size",
+                    "type": "integer"
+                },
+                "winner_size": {
+                    "description": "The number of winners to select (equivalent to population size).",
+                    "exclusiveMinimum": 1,
+                    "title": "Winner Size",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "winner_size"
+            ],
+            "title": "RouletteWheelSelectionOptions",
+            "type": "object"
+        },
+        "SMSEMOASelectorOptions": {
+            "description": "Options for SMS-EMOA Selection.",
+            "properties": {
+                "name": {
+                    "const": "SMSEMOASelector",
+                    "default": "SMSEMOASelector",
+                    "description": "The name of the selection operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "normalised_reference_point_component": {
+                    "default": 2,
+                    "description": "The reference point component used for hypervolume calculation.\nThe solutions are normalized to the range [0, 1] and the reference point is set to a vector of ones multiplied by\nthis component.",
+                    "exclusiveMinimum": 1.0,
+                    "title": "Normalised Reference Point Component",
+                    "type": "number"
+                }
+            },
+            "title": "SMSEMOASelectorOptions",
+            "type": "object"
+        },
+        "SelfAdaptiveGaussianMutationOptions": {
+            "description": "Options for Self-Adaptive Gaussian Mutation.",
+            "properties": {
+                "name": {
+                    "const": "SelfAdaptiveGaussianMutation",
+                    "default": "SelfAdaptiveGaussianMutation",
+                    "description": "The name of the mutation operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "mutation_probability": {
+                    "anyOf": [
+                        {
+                            "maximum": 1.0,
+                            "minimum": 0.0,
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The probability of mutation. Defaults to None, which sets the mutation probability to 1/<number of decision variables>.",
+                    "title": "Mutation Probability"
+                }
+            },
+            "title": "SelfAdaptiveGaussianMutationOptions",
+            "type": "object"
+        },
+        "SimulatedBinaryCrossoverOptions": {
+            "description": "Options for Simulated Binary Crossover (SBX).",
+            "properties": {
+                "name": {
+                    "const": "SimulatedBinaryCrossover",
+                    "default": "SimulatedBinaryCrossover",
+                    "description": "The name of the crossover operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "xover_probability": {
+                    "default": 1.0,
+                    "description": "The SBX crossover probability.",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "title": "Xover Probability",
+                    "type": "number"
+                },
+                "xover_distribution": {
+                    "default": 30.0,
+                    "description": "The SBX distribution index.",
+                    "exclusiveMinimum": 0.0,
+                    "title": "Xover Distribution",
+                    "type": "number"
+                },
+                "truncated": {
+                    "default": true,
+                    "description": "Whether to truncate the probability distribution to keep the offspring within the variable bounds.",
+                    "title": "Truncated",
+                    "type": "boolean"
+                },
+                "uniform_xover_probability": {
+                    "default": 0.5,
+                    "description": "The uniform crossover probability.",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "title": "Uniform Xover Probability",
+                    "type": "number"
+                }
+            },
+            "title": "SimulatedBinaryCrossoverOptions",
+            "type": "object"
+        },
+        "SingleArithmeticCrossoverOptions": {
+            "description": "Options for Single Arithmetic Crossover.",
+            "properties": {
+                "name": {
+                    "const": "SingleArithmeticCrossover",
+                    "default": "SingleArithmeticCrossover",
+                    "description": "The name of the crossover operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "xover_probability": {
+                    "default": 1.0,
+                    "description": "The crossover probability.",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "title": "Xover Probability",
+                    "type": "number"
+                }
+            },
+            "title": "SingleArithmeticCrossoverOptions",
+            "type": "object"
+        },
+        "SinglePointBinaryCrossoverOptions": {
+            "description": "Options for Single Point Binary Crossover.",
+            "properties": {
+                "name": {
+                    "const": "SinglePointBinaryCrossover",
+                    "default": "SinglePointBinaryCrossover",
+                    "description": "The name of the crossover operator.",
+                    "title": "Name",
+                    "type": "string"
+                }
+            },
+            "title": "SinglePointBinaryCrossoverOptions",
+            "type": "object"
+        },
+        "Template1Options": {
+            "description": "Options for template 1.\n\nTemplate 1 is used by methods such as NSGA-III and RVEA. See\n[template1][desdeo.emo.methods.templates.template1] for\nmore details.",
+            "properties": {
+                "crossover": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/SimulatedBinaryCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SinglePointBinaryCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/UniformIntegerCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/UniformMixedIntegerCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/BlendAlphaCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SingleArithmeticCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/LocalCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/BoundedExponentialCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/CompositeCrossoverOptions"
+                        }
+                    ],
+                    "description": "The crossover operator options.",
+                    "title": "Crossover"
+                },
+                "mutation": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/BoundedPolynomialMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/BinaryFlipMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/IntegerRandomMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MixedIntegerRandomMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MPTMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/NonUniformMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SelfAdaptiveGaussianMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/PowerMutationOptions"
+                        }
+                    ],
+                    "description": "The mutation operator options.",
+                    "title": "Mutation"
+                },
+                "selection": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/RVEASelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/NSGA2SelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/NSGA3SelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/IBEASelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SMSEMOASelectorOptions"
+                        }
+                    ],
+                    "description": "The selection operator options.",
+                    "title": "Selection"
+                },
+                "termination": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/MaxGenerationsTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MaxEvaluationsTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MaxTimeTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ExternalCheckTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/CompositeTerminatorOptions"
+                        }
+                    ],
+                    "description": "The termination operator options.",
+                    "title": "Termination"
+                },
+                "generator": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/LHSGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomBinaryGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomIntegerGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomMixedIntegerGeneratorOptions"
+                        }
+                    ],
+                    "description": "The population generator options.",
+                    "title": "Generator"
+                },
+                "repair": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/ClipRepairOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/NoRepairOptions"
+                        }
+                    ],
+                    "default": {
+                        "name": "NoRepair"
+                    },
+                    "description": "The repair operator options.",
+                    "title": "Repair"
+                },
+                "use_archive": {
+                    "default": true,
+                    "description": "Whether to use an archive.",
+                    "title": "Use Archive",
+                    "type": "boolean"
+                },
+                "seed": {
+                    "default": 0,
+                    "description": "The seed for random number generation.",
+                    "title": "Seed",
+                    "type": "integer"
+                },
+                "verbosity": {
+                    "default": 2,
+                    "description": "The verbosity level of the operators.",
+                    "title": "Verbosity",
+                    "type": "integer"
+                },
+                "algorithm_name": {
+                    "description": "The unique name of the algorithm.",
+                    "title": "Algorithm Name",
+                    "type": "string"
+                },
+                "name": {
+                    "const": "Template1",
+                    "default": "Template1",
+                    "description": "The name of the template.",
+                    "title": "Name",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "crossover",
+                "mutation",
+                "selection",
+                "termination",
+                "generator",
+                "algorithm_name"
+            ],
+            "title": "Template1Options",
+            "type": "object"
+        },
+        "Template2Options": {
+            "description": "Options for template 2.\n\nTemplate 2 is used by methods such as IBEA. See\n[template2][desdeo.emo.methods.templates.template2] for\nmore details.",
+            "properties": {
+                "crossover": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/SimulatedBinaryCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SinglePointBinaryCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/UniformIntegerCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/UniformMixedIntegerCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/BlendAlphaCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SingleArithmeticCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/LocalCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/BoundedExponentialCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/CompositeCrossoverOptions"
+                        }
+                    ],
+                    "description": "The crossover operator options.",
+                    "title": "Crossover"
+                },
+                "mutation": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/BoundedPolynomialMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/BinaryFlipMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/IntegerRandomMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MixedIntegerRandomMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MPTMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/NonUniformMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SelfAdaptiveGaussianMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/PowerMutationOptions"
+                        }
+                    ],
+                    "description": "The mutation operator options.",
+                    "title": "Mutation"
+                },
+                "selection": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/RVEASelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/NSGA2SelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/NSGA3SelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/IBEASelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SMSEMOASelectorOptions"
+                        }
+                    ],
+                    "description": "The selection operator options.",
+                    "title": "Selection"
+                },
+                "termination": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/MaxGenerationsTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MaxEvaluationsTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MaxTimeTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ExternalCheckTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/CompositeTerminatorOptions"
+                        }
+                    ],
+                    "description": "The termination operator options.",
+                    "title": "Termination"
+                },
+                "generator": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/LHSGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomBinaryGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomIntegerGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomMixedIntegerGeneratorOptions"
+                        }
+                    ],
+                    "description": "The population generator options.",
+                    "title": "Generator"
+                },
+                "repair": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/ClipRepairOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/NoRepairOptions"
+                        }
+                    ],
+                    "default": {
+                        "name": "NoRepair"
+                    },
+                    "description": "The repair operator options.",
+                    "title": "Repair"
+                },
+                "use_archive": {
+                    "default": true,
+                    "description": "Whether to use an archive.",
+                    "title": "Use Archive",
+                    "type": "boolean"
+                },
+                "seed": {
+                    "default": 0,
+                    "description": "The seed for random number generation.",
+                    "title": "Seed",
+                    "type": "integer"
+                },
+                "verbosity": {
+                    "default": 2,
+                    "description": "The verbosity level of the operators.",
+                    "title": "Verbosity",
+                    "type": "integer"
+                },
+                "algorithm_name": {
+                    "description": "The unique name of the algorithm.",
+                    "title": "Algorithm Name",
+                    "type": "string"
+                },
+                "name": {
+                    "const": "Template2",
+                    "default": "Template2",
+                    "description": "The name of the template.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "mate_selection": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/TournamentSelectionOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RouletteWheelSelectionOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ElitistSelectionOptions"
+                        }
+                    ],
+                    "description": "The mate selection operator options.",
+                    "title": "Mate Selection"
+                }
+            },
+            "required": [
+                "crossover",
+                "mutation",
+                "selection",
+                "termination",
+                "generator",
+                "algorithm_name",
+                "mate_selection"
+            ],
+            "title": "Template2Options",
+            "type": "object"
+        },
+        "Template3Options": {
+            "description": "Options for template 3.\n\nTemplate 3 is used by methods such as SMS-EMOA. See\n[template3][desdeo.emo.methods.templates.template3] for\nmore details.",
+            "properties": {
+                "crossover": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/SimulatedBinaryCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SinglePointBinaryCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/UniformIntegerCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/UniformMixedIntegerCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/BlendAlphaCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SingleArithmeticCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/LocalCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/BoundedExponentialCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/CompositeCrossoverOptions"
+                        }
+                    ],
+                    "description": "The crossover operator options.",
+                    "title": "Crossover"
+                },
+                "mutation": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/BoundedPolynomialMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/BinaryFlipMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/IntegerRandomMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MixedIntegerRandomMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MPTMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/NonUniformMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SelfAdaptiveGaussianMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/PowerMutationOptions"
+                        }
+                    ],
+                    "description": "The mutation operator options.",
+                    "title": "Mutation"
+                },
+                "selection": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/RVEASelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/NSGA2SelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/NSGA3SelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/IBEASelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SMSEMOASelectorOptions"
+                        }
+                    ],
+                    "description": "The selection operator options.",
+                    "title": "Selection"
+                },
+                "termination": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/MaxGenerationsTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MaxEvaluationsTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MaxTimeTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ExternalCheckTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/CompositeTerminatorOptions"
+                        }
+                    ],
+                    "description": "The termination operator options.",
+                    "title": "Termination"
+                },
+                "generator": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/LHSGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomBinaryGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomIntegerGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomMixedIntegerGeneratorOptions"
+                        }
+                    ],
+                    "description": "The population generator options.",
+                    "title": "Generator"
+                },
+                "repair": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/ClipRepairOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/NoRepairOptions"
+                        }
+                    ],
+                    "default": {
+                        "name": "NoRepair"
+                    },
+                    "description": "The repair operator options.",
+                    "title": "Repair"
+                },
+                "use_archive": {
+                    "default": true,
+                    "description": "Whether to use an archive.",
+                    "title": "Use Archive",
+                    "type": "boolean"
+                },
+                "seed": {
+                    "default": 0,
+                    "description": "The seed for random number generation.",
+                    "title": "Seed",
+                    "type": "integer"
+                },
+                "verbosity": {
+                    "default": 2,
+                    "description": "The verbosity level of the operators.",
+                    "title": "Verbosity",
+                    "type": "integer"
+                },
+                "algorithm_name": {
+                    "description": "The unique name of the algorithm.",
+                    "title": "Algorithm Name",
+                    "type": "string"
+                },
+                "name": {
+                    "const": "Template3",
+                    "default": "Template3",
+                    "description": "The name of the template.",
+                    "title": "Name",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "crossover",
+                "mutation",
+                "selection",
+                "termination",
+                "generator",
+                "algorithm_name"
+            ],
+            "title": "Template3Options",
+            "type": "object"
+        },
+        "TemplateXLEMOOOptions": {
+            "description": "Options for the XLEMOO template.\n\nThe XLEMOO template alternates between Darwinian (standard EA) and Learning\n(rule extraction + instantiation) modes. See\n[template_xlemoo][desdeo.emo.methods.templates.template_xlemoo] for details.",
+            "properties": {
+                "crossover": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/SimulatedBinaryCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SinglePointBinaryCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/UniformIntegerCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/UniformMixedIntegerCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/BlendAlphaCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SingleArithmeticCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/LocalCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/BoundedExponentialCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/CompositeCrossoverOptions"
+                        }
+                    ],
+                    "description": "The crossover operator options.",
+                    "title": "Crossover"
+                },
+                "mutation": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/BoundedPolynomialMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/BinaryFlipMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/IntegerRandomMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MixedIntegerRandomMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MPTMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/NonUniformMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SelfAdaptiveGaussianMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/PowerMutationOptions"
+                        }
+                    ],
+                    "description": "The mutation operator options.",
+                    "title": "Mutation"
+                },
+                "selection": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/TournamentSelectionOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RouletteWheelSelectionOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ElitistSelectionOptions"
+                        }
+                    ],
+                    "description": "The scalar selection operator (typically ElitistSelectionOptions).",
+                    "title": "Selection"
+                },
+                "termination": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/MaxGenerationsTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MaxEvaluationsTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MaxTimeTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ExternalCheckTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/CompositeTerminatorOptions"
+                        }
+                    ],
+                    "description": "The termination operator options.",
+                    "title": "Termination"
+                },
+                "generator": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/LHSGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomBinaryGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomIntegerGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomMixedIntegerGeneratorOptions"
+                        }
+                    ],
+                    "description": "The population generator options.",
+                    "title": "Generator"
+                },
+                "repair": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/ClipRepairOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/NoRepairOptions"
+                        }
+                    ],
+                    "default": {
+                        "name": "NoRepair"
+                    },
+                    "description": "The repair operator options.",
+                    "title": "Repair"
+                },
+                "use_archive": {
+                    "default": true,
+                    "description": "Whether to use an archive.",
+                    "title": "Use Archive",
+                    "type": "boolean"
+                },
+                "seed": {
+                    "default": 0,
+                    "description": "The seed for random number generation.",
+                    "title": "Seed",
+                    "type": "integer"
+                },
+                "verbosity": {
+                    "default": 2,
+                    "description": "The verbosity level of the operators.",
+                    "title": "Verbosity",
+                    "type": "integer"
+                },
+                "algorithm_name": {
+                    "description": "The unique name of the algorithm.",
+                    "title": "Algorithm Name",
+                    "type": "string"
+                },
+                "name": {
+                    "const": "TemplateXLEMOO",
+                    "default": "TemplateXLEMOO",
+                    "description": "The name of the template.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "n_darwin_per_cycle": {
+                    "default": 20,
+                    "description": "Number of Darwinian iterations per cycle.",
+                    "exclusiveMinimum": 0,
+                    "title": "N Darwin Per Cycle",
+                    "type": "integer"
+                },
+                "n_learning_per_cycle": {
+                    "default": 1,
+                    "description": "Number of Learning iterations per cycle.",
+                    "minimum": 0,
+                    "title": "N Learning Per Cycle",
+                    "type": "integer"
+                },
+                "h_split": {
+                    "default": 0.2,
+                    "description": "Top fraction of unique individuals used as H-group.",
+                    "exclusiveMinimum": 0,
+                    "maximum": 0.5,
+                    "title": "H Split",
+                    "type": "number"
+                },
+                "l_split": {
+                    "default": 0.2,
+                    "description": "Bottom fraction of unique individuals used as L-group.",
+                    "exclusiveMinimum": 0,
+                    "maximum": 0.5,
+                    "title": "L Split",
+                    "type": "number"
+                },
+                "instantiation_factor": {
+                    "default": 10.0,
+                    "description": "Multiplier on population_size deciding how many individuals to instantiate.",
+                    "exclusiveMinimum": 0,
+                    "title": "Instantiation Factor",
+                    "type": "number"
+                },
+                "scalarization": {
+                    "default": "asf_nondiff",
+                    "description": "Reference-point scalarization function added to the problem when a preference is supplied.",
+                    "enum": [
+                        "asf_nondiff",
+                        "asf_diff",
+                        "stom_nondiff",
+                        "stom_diff",
+                        "guess_nondiff",
+                        "guess_diff"
+                    ],
+                    "title": "Scalarization",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "crossover",
+                "mutation",
+                "selection",
+                "termination",
+                "generator",
+                "algorithm_name"
+            ],
+            "title": "TemplateXLEMOOOptions",
+            "type": "object"
+        },
+        "TournamentSelectionOptions": {
+            "description": "Options for tournament selection operator.",
+            "properties": {
+                "name": {
+                    "const": "TournamentSelection",
+                    "default": "TournamentSelection",
+                    "description": "The name of the scalar selection operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "tournament_size": {
+                    "default": 2,
+                    "description": "The number of individuals participating in the tournament.",
+                    "title": "Tournament Size",
+                    "type": "integer"
+                },
+                "winner_size": {
+                    "description": "The number of winners to select (equivalent to population size).",
+                    "exclusiveMinimum": 1,
+                    "title": "Winner Size",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "winner_size"
+            ],
+            "title": "TournamentSelectionOptions",
+            "type": "object"
+        },
+        "UniformIntegerCrossoverOptions": {
+            "description": "Options for Uniform Integer Crossover.",
+            "properties": {
+                "name": {
+                    "const": "UniformIntegerCrossover",
+                    "default": "UniformIntegerCrossover",
+                    "description": "The name of the crossover operator.",
+                    "title": "Name",
+                    "type": "string"
+                }
+            },
+            "title": "UniformIntegerCrossoverOptions",
+            "type": "object"
+        },
+        "UniformMixedIntegerCrossoverOptions": {
+            "description": "Options for Uniform Mixed Integer Crossover.",
+            "properties": {
+                "name": {
+                    "const": "UniformMixedIntegerCrossover",
+                    "default": "UniformMixedIntegerCrossover",
+                    "description": "The name of the crossover operator.",
+                    "title": "Name",
+                    "type": "string"
+                }
+            },
+            "title": "UniformMixedIntegerCrossoverOptions",
+            "type": "object"
+        }
+    },
+    "description": "Options for configuring the EMO algorithm.",
+    "properties": {
+        "preference": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/ReferencePointOptions"
+                },
+                {
+                    "$ref": "#/$defs/DesirableRangesOptions"
+                },
+                {
+                    "$ref": "#/$defs/PreferredSolutionsOptions"
+                },
+                {
+                    "$ref": "#/$defs/NonPreferredSolutionsOptions"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "description": "The preference information for the EMO algorithm.",
+            "title": "Preference"
+        },
+        "template": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/Template1Options"
+                },
+                {
+                    "$ref": "#/$defs/Template2Options"
+                },
+                {
+                    "$ref": "#/$defs/TemplateXLEMOOOptions"
+                },
+                {
+                    "$ref": "#/$defs/Template3Options"
+                }
+            ],
+            "description": "The template options for the EMO algorithm.",
+            "title": "Template"
+        }
+    },
+    "required": [
+        "preference",
+        "template"
+    ],
+    "title": "EMOOptions",
+    "type": "object"
+}

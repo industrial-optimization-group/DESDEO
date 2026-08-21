@@ -88,8 +88,10 @@ class BaseCrossover(Subscriber):
 class SimulatedBinaryCrossover(BaseCrossover):
     """A class for creating a simulated binary crossover operator.
 
-    Both the original unbounded operator and the truncated variant that keeps the offspring inside the
-    variable bounds are available; see `unbounded_offsprings` and `bounded_offsprings`.
+    Both the original untruncated operator and the truncated variant that keeps the offspring inside
+    the variable bounds are available; see `unbounded_offsprings` and `bounded_offsprings`. The
+    truncated variant is the default, as in pymoo, jMetalPy, Platypus, pagmo2 and Deb's own NSGA-II
+    code; pass `truncated=False` for the untruncated formulation that PlatEMO implements.
 
     References:
         Deb, K., & Agrawal, R. B. (1995). Simulated binary crossover for continuous search space.
@@ -98,7 +100,7 @@ class SimulatedBinaryCrossover(BaseCrossover):
         Deb, K., & Gulati, S. (2001). Design of truss-structures for minimum weight using genetic
             algorithms. Finite Elements in Analysis and Design, 37(5), 447-465.
             https://doi.org/10.1016/S0168-874X(00)00057-3
-            (The bounded variant.)
+            (The truncated variant, which is the default.)
 
         Picek, S., Jakobovic, D., & Golub, M. (2013). On the recombination operator in the real-coded
             genetic algorithms. In 2013 IEEE Congress on Evolutionary Computation (pp. 3103-3110).
@@ -135,7 +137,7 @@ class SimulatedBinaryCrossover(BaseCrossover):
         xover_probability: float = 1.0,
         uniform_xover_probability: float = 0.5,
         xover_distribution: float = 30,
-        bounded: bool = False,
+        truncated: bool = True,
     ):
         """Initialize a simulated binary crossover operator.
 
@@ -156,7 +158,8 @@ class SimulatedBinaryCrossover(BaseCrossover):
                 This parameter controls the distribution of the offspring. A larger value results in a distribution
                 that is more concentrated around the parents, while a smaller value results in a distribution that is
                 more spread out. Defaults to 30.
-            bounded (bool, optional): whether to bound the offspring to the variable bounds. Defaults to False.
+            truncated (bool, optional): whether to truncate the probability distribution to keep the offspring
+                within the variable bounds. Defaults to True.
         """
         # Subscribes to no topics, so no need to stroe/pass the topics to the super class.
         super().__init__(problem, verbosity=verbosity, publisher=publisher, seed=seed)
@@ -171,7 +174,7 @@ class SimulatedBinaryCrossover(BaseCrossover):
         self.xover_probability = xover_probability
         self.xover_distribution = xover_distribution
         self.uniform_xover_probability = uniform_xover_probability
-        self.bounded = bounded
+        self.truncated = truncated
 
     def do(
         self,
@@ -191,7 +194,7 @@ class SimulatedBinaryCrossover(BaseCrossover):
         Returns:
             pl.DataFrame: the offspring resulting from the crossover.
         """
-        if self.bounded:
+        if self.truncated:
             offspring = self.bounded_offsprings(population=population, to_mate=to_mate)
         else:
             offspring = self.unbounded_offsprings(population=population, to_mate=to_mate)

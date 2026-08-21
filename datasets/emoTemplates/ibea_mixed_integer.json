@@ -2,16 +2,11 @@
     "preference": null,
     "template": {
         "crossover": {
-            "name": "SimulatedBinaryCrossover",
-            "xover_probability": 1.0,
-            "xover_distribution": 20.0,
-            "truncated": true,
-            "uniform_xover_probability": 0.5
+            "name": "UniformMixedIntegerCrossover"
         },
         "mutation": {
-            "name": "BoundedPolynomialMutation",
-            "mutation_probability": 0.01,
-            "distribution_index": 20.0
+            "name": "MixedIntegerRandomMutation",
+            "mutation_probability": null
         },
         "selection": {
             "name": "IBEASelector",
@@ -26,17 +21,15 @@
         "generator": {
             "n_points": 100,
             "seed": null,
-            "name": "LHSGenerator"
+            "name": "RandomMixedIntegerGenerator"
         },
         "repair": {
-            "name": "ClipRepair",
-            "lower_bounds": null,
-            "upper_bounds": null
+            "name": "NoRepair"
         },
         "use_archive": true,
         "seed": 42,
         "verbosity": 2,
-        "algorithm_name": "IBEA",
+        "algorithm_name": "IBEA_Mixed_Integer",
         "name": "Template2",
         "mate_selection": {
             "name": "TournamentSelection",

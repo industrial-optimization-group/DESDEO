@@ -54,6 +54,7 @@ from desdeo.emo.operators.termination import (
     MaxEvaluationsTerminator,
     MaxGenerationsTerminator,
 )
+from desdeo.emo.options.crossover import SimulatedBinaryCrossoverOptions
 from desdeo.problem import VariableDomainTypeEnum, VariableTypeEnum
 from desdeo.problem.testproblems import (
     dtlz2,
@@ -1029,6 +1030,53 @@ def test_continuous_crossover_rejects_non_continuous_problems(crossover_class):
 
 
 @pytest.mark.ea
+def test_simulated_binary_crossover_defaults_to_the_truncated_variant():
+    """Test that SBX uses the truncated formulation unless asked otherwise.
+
+    The truncated variant is what pymoo, jMetalPy, Platypus and Deb's own NSGA-II code implement,
+    so it is the default here too. The untruncated variant, which PlatEMO implements, samples from
+    the untruncated density and clips whatever falls outside onto the nearest bound.
+    """
+    problem = dtlz2(n_objectives=3, n_variables=6)
+
+    assert SimulatedBinaryCrossover(problem=problem, publisher=Publisher(), seed=0, verbosity=1).truncated
+    assert SimulatedBinaryCrossoverOptions().truncated
+    assert not SimulatedBinaryCrossover(
+        problem=problem, publisher=Publisher(), seed=0, verbosity=1, truncated=False
+    ).truncated
+
+    # The two variants differ in how they keep the offspring feasible: truncation samples inside
+    # the bounds, whereas clipping stacks all the mass that fell outside onto the bound itself.
+    # With the parents close to the lower bound and a wide distribution, that shows up as a pile of
+    # offspring sitting exactly on the bound.
+    symbols = [var.symbol for var in problem.get_flattened_variables()]
+    n_pairs = 200
+    values = np.empty((2 * n_pairs, len(symbols)))
+    values[0::2] = 0.02  # `get_parents` mates consecutive rows, so alternate the two parents
+    values[1::2] = 0.12
+    parents = pl.DataFrame(values, schema=symbols)
+
+    on_bound = {}
+    for truncated in (True, False):
+        crossover = SimulatedBinaryCrossover(
+            problem=problem,
+            publisher=Publisher(),
+            seed=0,
+            verbosity=1,
+            xover_distribution=2,
+            truncated=truncated,
+        )
+        offspring = crossover.do(population=parents, to_mate=list(range(2 * n_pairs))).to_numpy().astype(float)
+        assert ((offspring >= 0.0) & (offspring <= 1.0)).all(), "both variants must stay inside the bounds"
+        on_bound[truncated] = float(np.mean(np.isclose(offspring, 0.0)))
+
+    assert on_bound[True] == 0.0, "truncation generates offspring inside the bounds, so none sit exactly on one"
+    assert on_bound[False] > 0.01, (
+        f"clipping should pile offspring onto the bound, but only {on_bound[False]:.3f} landed there"
+    )
+
+
+@pytest.mark.ea
 def test_crossover_offspring_count_for_odd_mating_pools():
     """Every crossover operator must return exactly one offspring per mated parent."""
     publisher = Publisher()
@@ -1039,8 +1087,8 @@ def test_crossover_offspring_count_for_odd_mating_pools():
     )
 
     operators = [
-        SimulatedBinaryCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0, bounded=False),
-        SimulatedBinaryCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0, bounded=True),
+        SimulatedBinaryCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0, truncated=False),
+        SimulatedBinaryCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0, truncated=True),
         BlendAlphaCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0),
         SingleArithmeticCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0),
         LocalCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0),
