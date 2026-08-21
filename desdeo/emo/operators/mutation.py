@@ -4,6 +4,7 @@ Various evolutionary operators for mutation in multiobjective optimization are d
 """
 
 import copy
+import warnings
 from abc import abstractmethod
 from collections.abc import Sequence
 
@@ -776,13 +777,16 @@ class MPTMutation(BaseMutation):
         ]
 
 
-# TODO (@light-weaver): Get rid of the max_generations parameter and instead get it from a message
-# Additionally, allow the operator to use max_evaluations as a basis for decay
-# Make sure that the ratio never exceeds 1.0, otherwise there will be issues
 class NonUniformMutation(BaseMutation):
     """Non-uniform mutation operator.
 
     The mutation strength decays over generations.
+
+    The decay is driven by how far the run has progressed towards its budget. The budget is
+    taken from the terminator's messages, so the operator stays in step with the terminator
+    even when the number of generations is not known in advance (for example when the run is
+    terminated by a maximum number of function evaluations). A budget passed explicitly via
+    `max_generations` takes precedence over the messages.
     """
 
     @property
@@ -801,16 +805,21 @@ class NonUniformMutation(BaseMutation):
     @property
     def interested_topics(self):
         """The message topics that the mutation operator is interested in."""
-        return [TerminatorMessageTopics.GENERATION]
+        return [
+            TerminatorMessageTopics.GENERATION,
+            TerminatorMessageTopics.MAX_GENERATIONS,
+            TerminatorMessageTopics.EVALUATION,
+            TerminatorMessageTopics.MAX_EVALUATIONS,
+        ]
 
     def __init__(
         self,
         *,
         problem: Problem,
         seed: int,
-        max_generations: int,
         verbosity: int,
         publisher: Publisher,
+        max_generations: int | None = None,
         mutation_probability: float | None = None,
         b: float = 5.0,  # decay parameter
     ):
@@ -819,24 +828,68 @@ class NonUniformMutation(BaseMutation):
         Args:
             problem (Problem): The optimization problem definition.
             seed (int): Random number generator seed for reproducibility.
+            verbosity (int): The verbosity level of the operator. See the `provided_topics` attribute to see what
+                messages are provided at each verbosity level. Recommended value is 1.
+            publisher (Publisher): The publisher to which the operator will send messages.
+            max_generations (int | None): Maximum number of generations in the evolutionary run, used to scale
+                mutation decay. Defaults to None, in which case the budget reported by the terminator is used,
+                falling back to the number of function evaluations if the terminator does not bound the number
+                of generations. Prefer leaving this as None: a value that disagrees with the terminator makes the
+                decay schedule finish too early or not at all.
             mutation_probability (float | None): Probability of mutating each
                 gene. If None, defaults to 1 / number of variables.
             b (float): Non-uniform mutation decay parameter. Higher values cause
                 faster reduction in mutation strength over generations.
-            max_generations (int): Maximum number of generations in the evolutionary run. Used to scale mutation decay.
-            verbosity (int): The verbosity level of the operator. See the `provided_topics` attribute to see what
-                messages are provided at each verbosity level. Recommended value is 1.
-            publisher (Publisher): The publisher to which the operator will send messages.
         """
         super().__init__(problem, verbosity=verbosity, publisher=publisher)
+        if max_generations is not None and max_generations <= 0:
+            raise ValueError(f"max_generations must be a positive integer, got {max_generations}.")
         self.rng = np.random.default_rng(seed)
         self.seed = seed
         self.b = b
         self.current_generation = 0
         self.max_generations = max_generations
+        self.current_evaluations = 0
+        self.max_evaluations: int | None = None
+        # Budget reported by the terminator, used when max_generations was not given explicitly.
+        self.reported_max_generations: int | None = None
+        self._warned_past_budget = False
         self.mutation_probability = (
             1 / len(self.variable_symbols) if mutation_probability is None else mutation_probability
         )
+
+    @property
+    def decay_progress(self) -> float:
+        """The fraction of the run that has elapsed, in [0, 1].
+
+        A value of 0 means full mutation strength and a value of 1 means no mutation at all. The
+        ratio must never leave [0, 1]: a negative `1 - progress` would be raised to the power `b`
+        below, which yields a complex number for a fractional `b` and overflows the float range
+        for an integral one.
+
+        Returns:
+            float: the elapsed fraction of the run, clamped to [0, 1]. Zero if no budget is known.
+        """
+        max_generations = self.max_generations if self.max_generations is not None else self.reported_max_generations
+
+        if max_generations is not None and max_generations > 0:
+            progress = self.current_generation / max_generations
+            if progress > 1.0 and self.max_generations is not None and not self._warned_past_budget:
+                self._warned_past_budget = True
+                warnings.warn(
+                    f"{self.__class__.__name__} was given max_generations={self.max_generations}, but the run has "
+                    f"reached generation {self.current_generation}. The mutation strength has already decayed to "
+                    "zero and stays there for the rest of the run. Leave max_generations as None to let the "
+                    "operator follow the terminator's budget instead.",
+                    stacklevel=2,
+                )
+            return min(progress, 1.0)
+
+        if self.max_evaluations is not None and self.max_evaluations > 0:
+            return min(self.current_evaluations / self.max_evaluations, 1.0)
+
+        # Nothing bounds the run (e.g. a time based terminator), so keep the mutation at full strength.
+        return 0.0
 
     def _mutate_value(self, x: float, lower_bound: float, upper_bound: float, mutation_threshold: float = 0.5) -> float:
         """Apply non-uniform mutation to a single float value.
@@ -851,12 +904,10 @@ class NonUniformMutation(BaseMutation):
             float: The mutated gene value, clipped within the bounds [l, u].
         """
         r = self.rng.uniform(0, 1)  # Random number to choose direction
-        t = self.current_generation
-        max_generations = self.max_generations
         b = self.b
 
         u_rand = self.rng.uniform(0, 1)  # Random number for mutation strength
-        tau = (1 - t / max_generations) ** b
+        tau = (1 - self.decay_progress) ** b
 
         if r <= mutation_threshold:
             y = upper_bound - x
@@ -901,14 +952,22 @@ class NonUniformMutation(BaseMutation):
         return self.offspring
 
     def update(self, message: Message):
-        """Update current generation (used to reduce mutation strength over time)."""
+        """Track the progress of the run (used to reduce mutation strength over time)."""
         if not isinstance(message.topic, TerminatorMessageTopics):
             return
         if not isinstance(message.value, int):
             return
-        if message.topic != TerminatorMessageTopics.GENERATION:
-            raise ValueError(f"Expected message topic {TerminatorMessageTopics.GENERATION}, got {message.topic}.")
-        self.current_generation = message.value
+        match message.topic:
+            case TerminatorMessageTopics.GENERATION:
+                self.current_generation = message.value
+            case TerminatorMessageTopics.MAX_GENERATIONS:
+                self.reported_max_generations = message.value
+            case TerminatorMessageTopics.EVALUATION:
+                self.current_evaluations = message.value
+            case TerminatorMessageTopics.MAX_EVALUATIONS:
+                self.max_evaluations = message.value
+            case _:
+                return
 
     def state(self) -> Sequence[Message]:
         """Return state messages."""

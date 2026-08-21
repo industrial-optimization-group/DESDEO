@@ -1,6 +1,6 @@
 .claude/
 .wolf/
-CLAUDE.MD
+CLAUDE.*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

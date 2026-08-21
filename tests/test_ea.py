@@ -1044,9 +1044,7 @@ def test_bounded_exponential_crossover_is_parent_centric_in_both_orderings():
     n_pairs, repeats = 500, 20
 
     for first, second in ((near, far), (far, near)):
-        crossover = BoundedExponentialCrossover(
-            problem=problem, publisher=publisher, verbosity=1, seed=0, lambda_=lam
-        )
+        crossover = BoundedExponentialCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0, lambda_=lam)
         parents = np.tile(np.array([[first] * len(symbols), [second] * len(symbols)]), (n_pairs, 1))
         children = np.concatenate(
             [
@@ -1178,6 +1176,152 @@ def test_non_uniform_mutation():
     assert result.shape == population.shape
 
     npt.assert_allclose(population, result)
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize("b", [5.0, 2.5])
+def test_non_uniform_mutation_past_max_generations(b: float):
+    """Test that the Non-Uniform mutation operator survives outliving its generation budget.
+
+    The decay term is `(1 - t / max_generations) ** b`. Without clamping, `t > max_generations`
+    makes the base negative, which overflows the float range for an integral `b` and yields a
+    complex number for a fractional one.
+    """
+    publisher = Publisher()
+    problem = dtlz2(n_objectives=3, n_variables=12)
+
+    mutation = NonUniformMutation(
+        problem=problem, publisher=publisher, seed=0, max_generations=10, verbosity=1, b=b, mutation_probability=1.0
+    )
+    population = pl.DataFrame(
+        mutation.rng.uniform(0, 1, size=(20, len(mutation.variable_symbols))),
+        schema=mutation.variable_symbols,
+    )
+
+    # Simulate a run that went far past the budget the operator was given.
+    mutation.update(
+        IntMessage(topic=TerminatorMessageTopics.GENERATION, value=40, source="A terminator that kept going.")
+    )
+
+    # The mismatch between the operator's budget and the run is reported once, not silently ignored.
+    with pytest.warns(UserWarning, match="max_generations"):
+        result = mutation.do(offsprings=population, parents=population)
+
+    assert mutation.decay_progress == 1.0
+    assert result.shape == population.shape
+    values = result.to_numpy().astype(float)
+    assert np.isfinite(values).all()
+    assert ((values >= 0.0) & (values <= 1.0)).all()
+
+    # The decay has run its course, so the mutation strength is zero rather than unbounded.
+    npt.assert_allclose(population, result)
+
+
+@pytest.mark.ea
+def test_non_uniform_mutation_follows_terminator_budget():
+    """Test that the Non-Uniform mutation operator picks its budget up from the terminator."""
+    publisher = Publisher()
+    problem = dtlz2(n_objectives=3, n_variables=12)
+
+    mutation = NonUniformMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
+    assert mutation.max_generations is None
+
+    # Nothing bounds the run yet, so the mutation stays at full strength.
+    assert mutation.decay_progress == 0.0
+
+    source = "A terminator."
+    mutation.update(IntMessage(topic=TerminatorMessageTopics.MAX_GENERATIONS, value=50, source=source))
+    mutation.update(IntMessage(topic=TerminatorMessageTopics.GENERATION, value=20, source=source))
+
+    assert mutation.decay_progress == pytest.approx(0.4)
+
+    # A generation-based budget wins over an evaluation-based one.
+    mutation.update(IntMessage(topic=TerminatorMessageTopics.MAX_EVALUATIONS, value=1000, source=source))
+    mutation.update(IntMessage(topic=TerminatorMessageTopics.EVALUATION, value=900, source=source))
+
+    assert mutation.decay_progress == pytest.approx(0.4)
+
+
+@pytest.mark.ea
+def test_non_uniform_mutation_evaluation_based_budget():
+    """Test that the Non-Uniform mutation operator decays on evaluations when generations are unbounded.
+
+    `MaxEvaluationsTerminator` does not bound the number of generations, so a generation-based
+    schedule has nothing to work with.
+    """
+    publisher = Publisher()
+    problem = dtlz2(n_objectives=3, n_variables=12)
+
+    mutation = NonUniformMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
+
+    source = "An evaluation counting terminator."
+    mutation.update(IntMessage(topic=TerminatorMessageTopics.MAX_EVALUATIONS, value=1000, source=source))
+    mutation.update(IntMessage(topic=TerminatorMessageTopics.EVALUATION, value=250, source=source))
+    mutation.update(IntMessage(topic=TerminatorMessageTopics.GENERATION, value=9999, source=source))
+
+    assert mutation.decay_progress == pytest.approx(0.25)
+
+    # The budget can be overshot, since the check happens after the evaluations have been made.
+    mutation.update(IntMessage(topic=TerminatorMessageTopics.EVALUATION, value=1200, source=source))
+
+    assert mutation.decay_progress == 1.0
+
+
+@pytest.mark.ea
+def test_non_uniform_mutation_with_evaluation_based_termination():
+    """Test that an EA with Non-Uniform mutation runs to completion under an evaluation budget.
+
+    With `MaxEvaluationsTerminator` the number of generations is not known in advance, and the
+    population size is not constant, so the generation counter cannot be predicted from the
+    evaluation budget.
+    """
+    publisher = Publisher()
+    problem = dtlz2(n_objectives=3, n_variables=12)
+    repair_func = repair(
+        lower_bounds={v.symbol: v.lowerbound for v in problem.get_flattened_variables()},
+        upper_bounds={v.symbol: v.upperbound for v in problem.get_flattened_variables()},
+    )
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    crossover = SimulatedBinaryCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
+    mutation = NonUniformMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
+    selector = RVEASelector(
+        problem=problem,
+        publisher=publisher,
+        verbosity=2,
+        parameter_adaptation_strategy=ParameterAdaptationStrategy.FUNCTION_EVALUATION_BASED,
+    )
+    generator = RandomGenerator(
+        problem=problem,
+        evaluator=evaluator,
+        publisher=publisher,
+        n_points=selector.reference_vectors.shape[0],
+        seed=0,
+        verbosity=1,
+    )
+    terminator = MaxEvaluationsTerminator(2000, publisher=publisher)
+
+    components = [evaluator, generator, crossover, mutation, selector, terminator]
+    [publisher.auto_subscribe(x) for x in components]
+    [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
+
+    assert publisher.check_consistency()[0]
+
+    result = template1(
+        evaluator=evaluator,
+        crossover=crossover,
+        mutation=mutation,
+        generator=generator,
+        selection=selector,
+        terminator=terminator,
+        repair=repair_func,
+    )
+
+    # The run outlived any horizon guessed from the nominal population size, but decayed correctly.
+    assert mutation.current_generation > 1
+    assert mutation.decay_progress <= 1.0
+    variables = result.optimal_variables.to_numpy().astype(float)
+    assert np.isfinite(variables).all()
 
 
 @pytest.mark.ea
