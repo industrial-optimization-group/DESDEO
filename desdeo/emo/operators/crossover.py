@@ -73,9 +73,22 @@ class BaseCrossover(Subscriber):
 class SimulatedBinaryCrossover(BaseCrossover):
     """A class for creating a simulated binary crossover operator.
 
-    Reference for unbounded version:
-        Kalyanmoy Deb and Ram Bhushan Agrawal. 1995. Simulated binary crossover for continuous search space.
-            Complex Systems 9, 2 (1995), 115-148.
+    Both the original unbounded operator and the truncated variant that keeps the offspring inside the
+    variable bounds are available; see `unbounded_offsprings` and `bounded_offsprings`.
+
+    References:
+        Deb, K., & Agrawal, R. B. (1995). Simulated binary crossover for continuous search space.
+            Complex Systems, 9(2), 115-148.
+
+        Deb, K., & Gulati, S. (2001). Design of truss-structures for minimum weight using genetic
+            algorithms. Finite Elements in Analysis and Design, 37(5), 447-465.
+            https://doi.org/10.1016/S0168-874X(00)00057-3
+            (The bounded variant.)
+
+        Picek, S., Jakobovic, D., & Golub, M. (2013). On the recombination operator in the real-coded
+            genetic algorithms. In 2013 IEEE Congress on Evolutionary Computation (pp. 3103-3110).
+            https://doi.org/10.1109/CEC.2013.6557948
+            (Empirical comparison against other real-coded recombination operators.)
     """
 
     @property
@@ -443,7 +456,18 @@ class SimulatedBinaryCrossover(BaseCrossover):
 
 
 class SinglePointBinaryCrossover(BaseCrossover):
-    """A class that defines the single point binary crossover operation."""
+    """A class that defines the single point binary crossover operation.
+
+    A crossover point is drawn uniformly from the positions that actually split the parents, and the
+    two offspring take the genes before the point from one parent and the rest from the other.
+
+    References:
+        Holland, J. H. (1975). Adaptation in Natural and Artificial Systems. University of Michigan
+            Press.
+
+        Goldberg, D. E. (1989). Genetic Algorithms in Search, Optimization and Machine Learning.
+            Addison-Wesley.
+    """
 
     def __init__(self, *, problem: Problem, seed: int, verbosity: int, publisher: Publisher):
         """Initialize the single point binary crossover operator.
@@ -585,7 +609,20 @@ class SinglePointBinaryCrossover(BaseCrossover):
 
 
 class UniformIntegerCrossover(BaseCrossover):
-    """A class that defines the uniform integer crossover operation."""
+    """A class that defines the uniform integer crossover operation.
+
+    Each mating pair draws its own mask and every decision variable is inherited independently from
+    one parent or the other, the two offspring taking complementary choices. This is the operator
+    known as discrete crossover in the real-coded literature.
+
+    References:
+        Syswerda, G. (1989). Uniform crossover in genetic algorithms. In Proceedings of the Third
+            International Conference on Genetic Algorithms (pp. 2-9). Morgan Kaufmann.
+
+        Picek, S., Jakobovic, D., & Golub, M. (2013). On the recombination operator in the real-coded
+            genetic algorithms. In 2013 IEEE Congress on Evolutionary Computation (pp. 3103-3110).
+            https://doi.org/10.1109/CEC.2013.6557948
+    """
 
     def __init__(self, *, problem: Problem, seed: int, verbosity: int, publisher: Publisher):
         """Initialize the uniform integer crossover operator.
@@ -708,10 +745,21 @@ class UniformIntegerCrossover(BaseCrossover):
 class UniformMixedIntegerCrossover(BaseCrossover):
     """A class that defines the uniform mixed-integer crossover operation.
 
+    Each mating pair draws its own mask and every decision variable is inherited whole from one parent
+    or the other, so integer valued variables keep integer values without any rounding.
+
     TODO: This is virtually identical to `UniformIntegerCrossover`. The only
     difference is that the `parent_decision_vars` in `do` are not casted to
     `int`. This is not an ideal way to implement crossover for mixed-integer
     stuff...
+
+    References:
+        Syswerda, G. (1989). Uniform crossover in genetic algorithms. In Proceedings of the Third
+            International Conference on Genetic Algorithms (pp. 2-9). Morgan Kaufmann.
+
+        Picek, S., Jakobovic, D., & Golub, M. (2013). On the recombination operator in the real-coded
+            genetic algorithms. In 2013 IEEE Congress on Evolutionary Computation (pp. 3103-3110).
+            https://doi.org/10.1109/CEC.2013.6557948
     """
 
     def __init__(self, *, problem: Problem, seed: int, verbosity: int, publisher: Publisher):
@@ -833,7 +881,20 @@ class UniformMixedIntegerCrossover(BaseCrossover):
 
 
 class BlendAlphaCrossover(BaseCrossover):
-    """Blend-alpha (BLX-alpha) crossover for continuous problems."""
+    """Blend-alpha (BLX-alpha) crossover for continuous problems.
+
+    Each offspring component is drawn uniformly from the interval spanned by the two parent
+    components, widened on both sides by `alpha` times that span and clipped to the variable bounds.
+
+    References:
+        Eshelman, L. J., & Schaffer, J. D. (1993). Real-coded genetic algorithms and
+            interval-schemata. In L. D. Whitley (Ed.), Foundations of Genetic Algorithms
+            (Vol. 2, pp. 187-202). Elsevier. https://doi.org/10.1016/B978-0-08-094832-4.50018-0
+
+        Picek, S., Jakobovic, D., & Golub, M. (2013). On the recombination operator in the real-coded
+            genetic algorithms. In 2013 IEEE Congress on Evolutionary Computation (pp. 3103-3110).
+            https://doi.org/10.1109/CEC.2013.6557948
+    """
 
     @property
     def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
@@ -997,7 +1058,17 @@ class BlendAlphaCrossover(BaseCrossover):
 
 
 class SingleArithmeticCrossover(BaseCrossover):
-    """Single Arithmetic Crossover for continuous problems."""
+    """Single Arithmetic Crossover for continuous problems.
+
+    One decision variable is picked per mating pair and replaced in both offspring by the average of
+    the two parent values. Every other variable is inherited unchanged from the respective parent, so
+    each offspring differs from its own parent in exactly one position.
+
+    References:
+        Picek, S., Jakobovic, D., & Golub, M. (2013). On the recombination operator in the real-coded
+            genetic algorithms. In 2013 IEEE Congress on Evolutionary Computation (pp. 3103-3110).
+            https://doi.org/10.1109/CEC.2013.6557948
+    """
 
     @property
     def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
@@ -1135,8 +1206,17 @@ class SingleArithmeticCrossover(BaseCrossover):
 class LocalCrossover(BaseCrossover):
     """Local Crossover for continuous problems.
 
-    Reference: D. Dumitrescu, B. Lazzerini, L. C. Jain, and A. Dumitrescu, Evolutionary Computation.
-        CRC Press, Florida, USA, 2000
+    An arithmetic crossover that draws a fresh blending weight for every decision variable of every
+    mating pair, rather than one weight for the whole vector. The two offspring use complementary
+    weights, so each pair spans the segment between the parents component by component.
+
+    References:
+        Dumitrescu, D., Lazzerini, B., Jain, L. C., & Dumitrescu, A. (2000). Evolutionary Computation.
+            CRC Press, Florida, USA.
+
+        Picek, S., Jakobovic, D., & Golub, M. (2013). On the recombination operator in the real-coded
+            genetic algorithms. In 2013 IEEE Congress on Evolutionary Computation (pp. 3103-3110).
+            https://doi.org/10.1109/CEC.2013.6557948
     """
 
     @property
@@ -1246,7 +1326,26 @@ class LocalCrossover(BaseCrossover):
 
 
 class BoundedExponentialCrossover(BaseCrossover):
-    """Bounded-exponential (BEX) crossover for continuous problems."""
+    """Bounded-exponential (BEX) crossover for continuous problems.
+
+    A parent centric operator: each offspring is displaced from its own parent by a bounded
+    exponential deviate whose scale is `lambda_` times the separation of the parents, truncated so
+    that no offspring can fall outside the variable bounds. It is the bounded refinement of the
+    Laplace crossover (LX) of Deep and Thakur, which has no such guarantee.
+
+    The reference derives the offspring under the assumption that the first parent holds the smaller
+    value, and leaves the mirrored case to the reader; `do` implements that mirrored case, since a
+    mating pool is unordered.
+
+    References:
+        Thakur, M., Meghwani, S. S., & Jalota, H. (2014). A modified real coded genetic algorithm for
+            constrained optimization. Applied Mathematics and Computation, 235, 292-317.
+            https://doi.org/10.1016/j.amc.2014.02.093
+
+        Deep, K., & Thakur, M. (2007). A new crossover operator for real coded genetic algorithms.
+            Applied Mathematics and Computation, 188(1), 895-911.
+            (The Laplace crossover that BEX modifies.)
+    """
 
     @property
     def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
@@ -1334,7 +1433,17 @@ class BoundedExponentialCrossover(BaseCrossover):
 
         x_lower = np.array(self.lower_bounds)
         x_upper = np.array(self.upper_bounds)
-        span = parents2 - parents1  # y_i - x_1
+
+        # The absolute separation |y_i - x_i| of the parents, which sets the scale of the
+        # exponential. The reference derives beta under the stated assumption x_i < y_i and leaves
+        # the mirrored case to the reader, but a mating pool is unordered, so both orderings occur
+        # about equally often per decision variable. Using the *signed* difference flips the sign of
+        # every exponent argument whenever x_i > y_i, which inverts the exponential: the density then
+        # grows towards the truncation point instead of decaying away from the parent, so this parent
+        # centric operator turns into a bound seeking one for roughly half of all variables. The
+        # absolute separation is exactly the reference's mirrored case, and leaves the already
+        # correct x_i < y_i ordering untouched.
+        span = np.abs(parents2 - parents1)
 
         # Where the two parents share a value the span is zero and the offspring can only take that
         # same value, since every child is parent + beta * span. The exponent arguments below would
@@ -1346,7 +1455,7 @@ class BoundedExponentialCrossover(BaseCrossover):
         zero_span = span == 0
         safe_span = np.where(zero_span, 1.0, span)
 
-        u_i = self.rng.random((mating_pop_size // 2, num_var))  # random integers
+        u_i = self.rng.random((mating_pop_size // 2, num_var))
         r_i = self.rng.random((mating_pop_size // 2, num_var))
 
         # Both branches of each np.where below are evaluated eagerly; the unused branch can legitimately

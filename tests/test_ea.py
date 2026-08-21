@@ -1023,8 +1023,51 @@ def test_bounded_exponential_crossover_handles_shared_parent_values():
         offspring = crossover.do(population=pl.DataFrame(parents, schema=symbols), to_mate=[0, 1]).to_numpy()
 
         assert np.isfinite(offspring).all(), f"non-finite offspring for seed {seed}"
-        # A zero width span leaves the child no room to move away from the shared parent value.
+        # A zero span leaves the child no room to move away from the shared parent value.
         npt.assert_allclose(offspring[:, :3], parents[:, :3])
+
+
+@pytest.mark.ea
+def test_bounded_exponential_crossover_is_parent_centric_in_both_orderings():
+    """BEX must decay away from each parent whichever way round the pair is stored.
+
+    Thakur, Meghwani and Jalota (2014) derive beta assuming x_i < y_i. Feeding the signed parent
+    difference into the exponent inverts the density when x_i > y_i, so the offspring pile up on the
+    variable bound instead of around their parent - for roughly half of all decision variables.
+    """
+    publisher = Publisher()
+    problem = dtlz2(n_objectives=3, n_variables=5)  # every variable is bounded to [0, 1]
+    symbols = [var.symbol for var in problem.get_flattened_variables()]
+    lower, upper, lam = 0.0, 1.0, 0.3
+
+    near, far = 0.25, 0.75
+    n_pairs, repeats = 500, 20
+
+    for first, second in ((near, far), (far, near)):
+        crossover = BoundedExponentialCrossover(
+            problem=problem, publisher=publisher, verbosity=1, seed=0, lambda_=lam
+        )
+        parents = np.tile(np.array([[first] * len(symbols), [second] * len(symbols)]), (n_pairs, 1))
+        children = np.concatenate(
+            [
+                crossover.do(
+                    population=pl.DataFrame(parents, schema=symbols), to_mate=list(range(2 * n_pairs))
+                ).to_numpy()[:n_pairs, 0]
+                for _ in range(repeats)
+            ]
+        )
+
+        assert children.min() >= lower and children.max() <= upper, "offspring escaped the variable bounds"
+
+        # The density decays away from the parent and is truncated at the bounds, so a band centred
+        # on the parent must hold far more offspring than equally wide bands at the bounds.
+        band = 0.05
+        at_parent = np.mean(np.abs(children - first) < band)
+        at_bounds = np.mean((children - lower < band) | (upper - children < band))
+        assert at_parent > at_bounds, (
+            f"parents ({first}, {second}): {at_parent:.3f} of offspring landed within {band} of their "
+            f"parent but {at_bounds:.3f} landed against a bound; the exponential points the wrong way"
+        )
 
 
 @pytest.mark.ea
