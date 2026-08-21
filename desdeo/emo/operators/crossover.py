@@ -118,8 +118,8 @@ class SimulatedBinaryCrossover(BaseCrossover):
                 topics are provided by the operator at each verbosity level. Recommended to be set to 1.
             publisher (Publisher): the publisher to which the operator will publish messages.
             xover_probability (float, optional): the crossover probability parameter.
-                This parameter decides whether the decision variable components of the parents are swapped for the
-                offspring or not. Ranges between 0 and 1.0. Defaults to 1.0.
+                This parameter decides whether the SBX operation is performed on a decision variable.
+                Ranges between 0 and 1.0. Defaults to 1.0. Only change this if you know what you are doing.
             uniform_xover_probability (float, optional): the uniform crossover probability parameter.
                 This parameter decides whether the decision variable components of the parents are swapped for the
                 offspring or not. Ranges between 0 and 1.0. Defaults to 0.5. Only operates on variables that
