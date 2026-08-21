@@ -162,9 +162,17 @@ class SimulatedBinaryCrossover(BaseCrossover):
             pl.DataFrame: the offspring resulting from the crossover.
         """
         if self.bounded:
-            self.offspring_population = self.bounded_offsprings(population=population, to_mate=to_mate)
+            offspring = self.bounded_offsprings(population=population, to_mate=to_mate)
         else:
-            self.offspring_population = self.unbounded_offsprings(population=population, to_mate=to_mate)
+            offspring = self.unbounded_offsprings(population=population, to_mate=to_mate)
+
+        # An odd sized mating pool was padded with a duplicate parent, so the last pair produced one
+        # offspring too many.
+        original_pop_size = len(to_mate) if to_mate is not None else population.shape[0]
+        if original_pop_size % 2 == 1:
+            offspring = offspring.head(original_pop_size)
+
+        self.offspring_population = offspring
         self.notify()
 
         return self.offspring_population
@@ -195,7 +203,7 @@ class SimulatedBinaryCrossover(BaseCrossover):
             pl.DataFrame: the offspring resulting from the crossover.
         """
         mating_pop = self.get_parents(population=population, to_mate=to_mate)
-        mating_pop = mating_pop[self.variable_symbols].to_numpy()
+        mating_pop = mating_pop[self.variable_symbols].to_numpy().astype(float)
         mate_size = mating_pop.shape[0]
         num_var = mating_pop.shape[1]
 
@@ -289,12 +297,17 @@ class SimulatedBinaryCrossover(BaseCrossover):
 
         """
         mating_pop = self.get_parents(population=population, to_mate=to_mate)
-        mating_pop = mating_pop[self.variable_symbols].to_numpy()
+        mating_pop = mating_pop[self.variable_symbols].to_numpy().astype(float)
         mate_size = mating_pop.shape[0]
         num_var = mating_pop.shape[1]
 
         lower_bounds = np.asarray(self.lower_bounds, dtype=float)
         upper_bounds = np.asarray(self.upper_bounds, dtype=float)
+
+        # The truncated distribution below is only defined for parents inside the bounds: an
+        # oob parent makes beta_max negative, and raising it to a fractional power yields NaN.
+        # Pull such parents onto the bound instead.
+        mating_pop = np.clip(mating_pop, lower_bounds, upper_bounds)
 
         offspring = np.zeros_like(mating_pop)
 
@@ -480,6 +493,12 @@ class SinglePointBinaryCrossover(BaseCrossover):
         pop_size = self.parent_population.shape[0]
         num_var = len(self.variable_symbols)
 
+        if num_var < 2:  # noqa: PLR2004
+            raise ValueError(
+                "Single point binary crossover needs at least two decision variables, "
+                f"but the problem has {num_var}."
+            )
+
         parent_decision_vars = self.parent_population[self.variable_symbols].to_numpy().astype(np.bool)
 
         if to_mate is None:
@@ -503,7 +522,8 @@ class SinglePointBinaryCrossover(BaseCrossover):
         parents1 = mating_pop[0::2, :]
         parents2 = mating_pop[1::2, :]
 
-        cross_over_points = self.rng.integers(1, num_var - 1, mating_pop_size // 2)
+        # The high value of rng.integers is exclusive.
+        cross_over_points = self.rng.integers(1, num_var, mating_pop_size // 2)
 
         # create a mask where, on each row, the element is 1 before the crossover point,
         # and zero after it
@@ -638,7 +658,10 @@ class UniformIntegerCrossover(BaseCrossover):
         parents1 = mating_pop[0::2, :]
         parents2 = mating_pop[1::2, :]
 
-        mask = self.rng.choice([True, False], size=num_var)
+        # One independent mask per mating pair. A single mask of shape (num_var,) would broadcast
+        # over the whole mating pool, making every pair in the generation swap exactly the same
+        # decision variables, which is a fixed column split rather than uniform crossover.
+        mask = self.rng.choice([True, False], size=(mating_pop_size // 2, num_var))
 
         offspring1 = np.where(mask, parents1, parents2)  # True, pick from parent1, False, pick from parent2
         offspring2 = np.where(mask, parents2, parents1)  # True, pick from parent2, False, pick from parent1
@@ -762,7 +785,10 @@ class UniformMixedIntegerCrossover(BaseCrossover):
         parents1 = mating_pop[0::2, :]
         parents2 = mating_pop[1::2, :]
 
-        mask = self.rng.choice([True, False], size=num_var)
+        # One independent mask per mating pair. A single mask of shape (num_var,) would broadcast
+        # over the whole mating pool, making every pair in the generation swap exactly the same
+        # decision variables, which is a fixed column split rather than uniform crossover.
+        mask = self.rng.choice([True, False], size=(mating_pop_size // 2, num_var))
 
         offspring1 = np.where(mask, parents1, parents2)  # True, pick from parent1, False, pick from parent2
         offspring2 = np.where(mask, parents2, parents1)  # True, pick from parent2, False, pick from parent1
@@ -926,9 +952,11 @@ class BlendAlphaCrossover(BaseCrossover):
                 idx = (i // 2) * self.repeats + j
                 offsprings[idx] = lower + offspring_randoms[idx] * (upper - lower)
 
-        # If the original mating pop size is odd, we need to remove the last offspring to maintain the correct size.
+        # An odd sized mating pool was padded with a duplicate parent, so the final pair produced a
+        # full extra set of `repeats` offspring. Keep only as many as the unpadded pool would have
+        # produced. Dropping a single row unconditionally is only correct when `repeats` is 2.
         if original_pop_size % 2 == 1:
-            offsprings = offsprings[:-1, :]
+            offsprings = offsprings[: (original_pop_size * self.repeats + 1) // 2, :]
 
         self.offspring_population = pl.from_numpy(offsprings, schema=self.variable_symbols)
         self.notify()
@@ -1030,7 +1058,7 @@ class SingleArithmeticCrossover(BaseCrossover):
             pl.DataFrame: the offspring resulting from the crossover.
         """
         mating_pool = self.get_parents(population=population, to_mate=to_mate)
-        mating_pool = mating_pool[self.variable_symbols].to_numpy()
+        mating_pool = mating_pool[self.variable_symbols].to_numpy().astype(float)
         mating_pop_size = mating_pool.shape[0]
         num_vars = mating_pool.shape[1]
         original_pop_size = len(to_mate) if to_mate is not None else population.shape[0]
@@ -1051,15 +1079,8 @@ class SingleArithmeticCrossover(BaseCrossover):
 
         avg = 0.5 * (parents1[row_idx, col_idx] + parents2[row_idx, col_idx])
 
-        # Use advanced indexing to set arithmetic crossover gene
         offspring1[row_idx, col_idx] = avg
         offspring2[row_idx, col_idx] = avg
-
-        for i, k in zip(row_idx, col_idx, strict=True):
-            offspring1[i, k + 1 :] = parents2[i, k + 1 :]
-            offspring2[i, k + 1 :] = parents1[i, k + 1 :]
-            offspring1[i, :k] = parents1[i, :k]
-            offspring2[i, :k] = parents2[i, :k]
 
         offspring = np.vstack((offspring1, offspring2))
         if original_pop_size % 2 == 1:
@@ -1171,6 +1192,7 @@ class LocalCrossover(BaseCrossover):
         mating_pop = mating_pop[self.variable_symbols].to_numpy()
         mating_pop_size = mating_pop.shape[0]
         num_var = mating_pop.shape[1]
+        original_pop_size = len(to_mate) if to_mate is not None else population.shape[0]
 
         parents1 = mating_pop[0::2]
         parents2 = mating_pop[1::2]
@@ -1182,6 +1204,11 @@ class LocalCrossover(BaseCrossover):
 
             offspring[2 * i] = alpha * parents1[i] + (1 - alpha) * parents2[i]
             offspring[2 * i + 1] = (1 - alpha) * parents1[i] + alpha * parents2[i]
+
+        # An odd sized mating pool was padded with a duplicate parent, so the last pair produced one
+        # offspring too many. Drop it, as every other crossover operator here does.
+        if original_pop_size % 2 == 1:
+            offspring = offspring[:-1, :]
 
         self.offspring_population = pl.from_numpy(offspring, schema=self.variable_symbols).select(
             pl.all().cast(pl.Float64)
@@ -1309,18 +1336,28 @@ class BoundedExponentialCrossover(BaseCrossover):
         x_upper = np.array(self.upper_bounds)
         span = parents2 - parents1  # y_i - x_1
 
+        # Where the two parents share a value the span is zero and the offspring can only take that
+        # same value, since every child is parent + beta * span. The exponent arguments below would
+        # then divide by zero: harmless inf when the shared value is strictly inside the bounds, but
+        # 0/0 -> nan when it sits exactly *on* a bound, which used to leak NaN decision variables
+        # into the population (duplicate parents and bound-hugging variables are both common). Feed
+        # the exponents a dummy span of one so that beta stays finite; multiplying by the true zero
+        # span afterwards restores the parent value exactly.
+        zero_span = span == 0
+        safe_span = np.where(zero_span, 1.0, span)
+
         u_i = self.rng.random((mating_pop_size // 2, num_var))  # random integers
         r_i = self.rng.random((mating_pop_size // 2, num_var))
 
         # Both branches of each np.where below are evaluated eagerly; the unused branch can legitimately
-        # overflow or divide by zero (e.g. zero-width spans), producing inf/nan that np.where discards.
+        # overflow or divide by zero, producing inf/nan that np.where discards.
         # Silence the resulting benign numpy floating-point warnings.
         with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
-            exp_lower_1 = np.exp((x_lower - parents1) / (self.lambda_ * span))
-            exp_upper_1 = np.exp((parents1 - x_upper) / (self.lambda_ * span))
+            exp_lower_1 = np.exp((x_lower - parents1) / (self.lambda_ * safe_span))
+            exp_upper_1 = np.exp((parents1 - x_upper) / (self.lambda_ * safe_span))
 
-            exp_lower_2 = np.exp((x_lower - parents2) / (self.lambda_ * span))
-            exp_upper_2 = np.exp((parents2 - x_upper) / (self.lambda_ * span))
+            exp_lower_2 = np.exp((x_lower - parents2) / (self.lambda_ * safe_span))
+            exp_upper_2 = np.exp((parents2 - x_upper) / (self.lambda_ * safe_span))
 
             beta_1 = np.where(
                 r_i <= 0.5,  # noqa: PLR2004
@@ -1334,8 +1371,10 @@ class BoundedExponentialCrossover(BaseCrossover):
                 -self.lambda_ * np.log(1 - u_i * (1 - exp_upper_2)),
             )
 
-        offspring1 = parents1 + beta_1 * span
-        offspring2 = parents2 + beta_2 * span
+        # The `np.where` is belt and braces: beta * span is already exactly zero wherever the span
+        # is, but taking the parent value directly keeps a non-finite beta from reintroducing a NaN.
+        offspring1 = np.where(zero_span, parents1, parents1 + beta_1 * span)
+        offspring2 = np.where(zero_span, parents2, parents2 + beta_2 * span)
 
         mask = self.rng.random(mating_pop_size // 2) > self.xover_probability
         offspring1[mask, :] = parents1[mask, :]

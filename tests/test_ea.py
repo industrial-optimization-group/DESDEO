@@ -911,14 +911,140 @@ def test_local_crossover():
     to_mate = [0, 9, 1, 8, 2]
     offspring = crossover.do(population=population, to_mate=to_mate)
 
-    expected_len = len(to_mate) if len(to_mate) % 2 == 0 else len(to_mate) + 1
-    assert offspring.shape == (expected_len, num_vars)
+    # An odd sized mating pool is padded with a duplicate parent internally, but the extra offspring
+    # that pair produces is dropped, so the operator always returns one offspring per mated parent.
+    assert offspring.shape == (len(to_mate), num_vars)
 
     with npt.assert_raises(AssertionError):
         npt.assert_allclose(population[to_mate], offspring)
 
     for i in range(len(to_mate)):
         assert not np.allclose(population[to_mate[i]], offspring[i])
+
+
+@pytest.mark.ea
+def test_crossover_offspring_count_for_odd_mating_pools():
+    """Every crossover operator must return exactly one offspring per mated parent."""
+    publisher = Publisher()
+    problem = simple_test_problem()
+    population = pl.DataFrame(
+        np.random.default_rng(0).uniform(0, 10, (10, 2)),
+        schema=[var.symbol for var in problem.get_flattened_variables()],
+    )
+
+    operators = [
+        SimulatedBinaryCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0, bounded=False),
+        SimulatedBinaryCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0, bounded=True),
+        BlendAlphaCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0),
+        SingleArithmeticCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0),
+        LocalCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0),
+        BoundedExponentialCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0),
+    ]
+
+    for crossover in operators:
+        for to_mate in ([0, 1, 2, 3], [0, 1, 2, 3, 4]):
+            offspring = crossover.do(population=population, to_mate=to_mate)
+            assert offspring.height == len(to_mate), (
+                f"{type(crossover).__name__} returned {offspring.height} offspring for {len(to_mate)} parents"
+            )
+
+
+@pytest.mark.ea
+def test_single_point_binary_crossover_point_range():
+    """The crossover point must be able to fall anywhere that actually splits the parents."""
+    publisher = Publisher()
+    problem = simple_knapsack()
+    crossover = SinglePointBinaryCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
+    num_vars = len(crossover.variable_symbols)
+
+    # One all-ones parent mated with one all-zeros parent, so each offspring spells out the
+    # crossover point that produced it.
+    population = pl.DataFrame(
+        np.vstack((np.ones((1, num_vars)), np.zeros((1, num_vars)))), schema=crossover.variable_symbols
+    )
+
+    points_seen = set()
+    for _ in range(500):
+        for row in crossover.do(population=population, to_mate=[0, 1]).to_numpy():
+            points_seen.add(int(row.sum()) if row[0] == 1 else num_vars - int(row.sum()))
+
+    # A point of 0 or num_vars would just copy a parent, so the valid points are 1..num_vars - 1.
+    # The last gene used to never cross, which left the extreme points unreachable.
+    assert points_seen == set(range(1, num_vars))
+
+
+def test_single_point_binary_crossover_needs_two_variables():
+    """A single variable cannot be split, and must fail with a clear message."""
+    problem = simple_knapsack()
+    crossover = SinglePointBinaryCrossover(problem=problem, publisher=Publisher(), seed=0, verbosity=1)
+    crossover.variable_symbols = crossover.variable_symbols[:1]
+
+    population = pl.DataFrame(np.array([[1.0], [0.0]]), schema=crossover.variable_symbols)
+
+    with pytest.raises(ValueError, match="at least two decision variables"):
+        crossover.do(population=population, to_mate=[0, 1])
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize("crossover_class", [UniformIntegerCrossover, UniformMixedIntegerCrossover])
+def test_uniform_crossover_masks_vary_between_pairs(crossover_class):
+    """Each mating pair needs its own mask, otherwise the whole generation shares one column split."""
+    publisher = Publisher()
+    problem = simple_knapsack()
+    crossover = crossover_class(problem=problem, publisher=publisher, seed=0, verbosity=1)
+    num_vars = len(crossover.variable_symbols)
+
+    # Alternating all-zero and all-one parents, so every offspring is a readout of its pair's mask.
+    n_pairs = 8
+    population = pl.DataFrame(
+        np.tile(np.array([[0.0] * num_vars, [1.0] * num_vars]), (n_pairs, 1)), schema=crossover.variable_symbols
+    )
+
+    offspring = crossover.do(population=population, to_mate=list(range(2 * n_pairs))).to_numpy()
+    masks = {tuple(row) for row in offspring[:n_pairs]}
+
+    assert len(masks) > 1, "every pair received the same crossover mask"
+
+
+@pytest.mark.ea
+def test_bounded_exponential_crossover_handles_shared_parent_values():
+    """Parents sharing a value on a bound used to yield NaN offspring via a 0/0 span."""
+    publisher = Publisher()
+    problem = dtlz2(n_objectives=3, n_variables=5)
+    symbols = [var.symbol for var in problem.get_flattened_variables()]
+
+    for seed in range(25):
+        crossover = BoundedExponentialCrossover(problem=problem, publisher=publisher, verbosity=1, seed=seed)
+        parents = np.full((2, len(symbols)), 0.5)
+        parents[:, 0] = 0.0  # both parents pinned to the lower bound
+        parents[:, 1] = 1.0  # both parents pinned to the upper bound
+        parents[:, 2] = 0.25  # shared value strictly inside the bounds
+
+        offspring = crossover.do(population=pl.DataFrame(parents, schema=symbols), to_mate=[0, 1]).to_numpy()
+
+        assert np.isfinite(offspring).all(), f"non-finite offspring for seed {seed}"
+        # A zero width span leaves the child no room to move away from the shared parent value.
+        npt.assert_allclose(offspring[:, :3], parents[:, :3])
+
+
+@pytest.mark.ea
+def test_single_arithmetic_crossover_changes_one_gene():
+    """Single arithmetic crossover blends one gene and leaves the rest of the parent untouched."""
+    publisher = Publisher()
+    problem = dtlz2(n_objectives=3, n_variables=6)
+    symbols = [var.symbol for var in problem.get_flattened_variables()]
+
+    for seed in range(10):
+        crossover = SingleArithmeticCrossover(
+            problem=problem, publisher=publisher, xover_probability=1.0, verbosity=1, seed=seed
+        )
+        parents = np.array([[0.2] * 6, [0.8] * 6])
+        offspring = crossover.do(population=pl.DataFrame(parents, schema=symbols), to_mate=[0, 1]).to_numpy()
+
+        for child, parent in zip(offspring, parents, strict=True):
+            differing = np.flatnonzero(child != parent)
+            assert differing.size == 1, f"expected exactly one blended gene, changed {differing.size}"
+            npt.assert_allclose(child[differing], 0.5)
 
 
 @pytest.mark.ea
