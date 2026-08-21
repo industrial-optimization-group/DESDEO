@@ -307,6 +307,25 @@ def _build_variable_maps(
     return var_maps, combined_variables
 
 
+def _to_hashable(value: Any) -> Any:
+    """Recursively convert a (possibly nested) list into a tuple so it can go in a set."""
+    if isinstance(value, list):
+        return tuple(_to_hashable(v) for v in value)
+    return value
+
+
+def _constant_value_key(const: Constant | TensorConstant) -> Any:
+    """Return a hashable representation of a constant's value(s), for equality comparison.
+
+    ``Constant`` stores a single scalar in ``.value``. ``TensorConstant`` stores its data in
+    ``.values`` (plural) instead and has no ``.value`` attribute at all, so it must be read via
+    ``get_values()`` and made hashable.
+    """
+    if isinstance(const, TensorConstant):
+        return _to_hashable(const.get_values())
+    return const.value
+
+
 def _build_constant_maps(
     leaf_scenarios: list[str],
     scenario_problems: dict[str, Problem],
@@ -330,9 +349,9 @@ def _build_constant_maps(
 
     for sym in all_const_syms:
         values = {
-            leaf: const_per_leaf[leaf][sym].value
+            leaf: _constant_value_key(const_per_leaf[leaf][sym])
             for leaf in leaf_scenarios
-            if sym in const_per_leaf[leaf] and hasattr(const_per_leaf[leaf][sym], "value")
+            if sym in const_per_leaf[leaf]
         }
         if len(set(values.values())) <= 1:
             for leaf in leaf_scenarios:
