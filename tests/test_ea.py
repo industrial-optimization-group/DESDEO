@@ -54,9 +54,10 @@ from desdeo.emo.operators.termination import (
     MaxEvaluationsTerminator,
     MaxGenerationsTerminator,
 )
-from desdeo.problem import VariableDomainTypeEnum
+from desdeo.problem import VariableDomainTypeEnum, VariableTypeEnum
 from desdeo.problem.testproblems import (
     dtlz2,
+    mixed_variable_dimensions_problem,
     momip_ti2,
     river_pollution_problem,
     simple_integer_test_problem,
@@ -1123,6 +1124,163 @@ def test_mpt_mutation():
     assert result.shape == population.shape
 
     npt.assert_allclose(population, result)
+
+
+"""Every concrete mutation operator, paired with a problem whose variable domain it accepts."""
+ALL_MUTATIONS = [
+    (BoundedPolynomialMutation, "continuous"),
+    (BinaryFlipMutation, "binary"),
+    (IntegerRandomMutation, "integer"),
+    (MixedIntegerRandomMutation, "mixed"),
+    (MPTMutation, "mixed"),
+    (NonUniformMutation, "mixed"),
+    (PowerMutation, "continuous"),
+    (SelfAdaptiveGaussianMutation, "continuous"),
+]
+
+
+def _problem_for(domain: str):
+    """Return a test problem whose variable domain a mutation operator accepts."""
+    match domain:
+        case "continuous":
+            return dtlz2(n_objectives=3, n_variables=6)
+        case "binary":
+            return simple_knapsack()
+        case "integer":
+            return simple_integer_test_problem()
+        case _:
+            return momip_ti2()
+
+
+def _population(problem, n_rows: int) -> pl.DataFrame:
+    """Build a population of `n_rows` distinct, in-bounds, integer-feasible individuals."""
+    variables = problem.get_flattened_variables()
+    lower = np.array([var.lowerbound for var in variables], dtype=float)
+    upper = np.array([var.upperbound for var in variables], dtype=float)
+    # Evenly spaced inside the box, so that every entry of the population is distinct.
+    steps = np.linspace(0.1, 0.9, n_rows * len(variables)).reshape(n_rows, len(variables))
+    values = lower + steps * (upper - lower)
+    discrete = [var.variable_type in (VariableTypeEnum.binary, VariableTypeEnum.integer) for var in variables]
+    values[:, discrete] = np.round(values[:, discrete])
+    return pl.DataFrame(values, schema=[var.symbol for var in variables])
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(("mutation_class", "domain"), ALL_MUTATIONS)
+def test_mutation_preserves_population_orientation(mutation_class, domain: str):
+    """Test that mutation operators do not transpose a square population.
+
+    `DataFrame.to_numpy` returns an F-contiguous array. For a population with as many
+    individuals as variables, `pl.from_numpy` cannot infer the orientation from the shape and
+    reads such an array column-wise, which silently transposes the population.
+    """
+    problem = _problem_for(domain)
+    n_variables = len(problem.get_flattened_variables())
+
+    for n_rows in (n_variables - 1, n_variables, n_variables + 1):
+        mutation = mutation_class(problem=problem, publisher=Publisher(), seed=0, verbosity=1, mutation_probability=0.0)
+        population = _population(problem, n_rows)
+
+        # With a zero mutation probability every operator is the identity.
+        result = mutation.do(offsprings=population, parents=population)
+
+        assert result.columns == population.columns
+        npt.assert_allclose(
+            result.to_numpy().astype(float),
+            population.to_numpy().astype(float),
+            err_msg=f"{mutation_class.__name__} altered a {n_rows}x{n_variables} population it should have left alone",
+        )
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(("mutation_class", "domain"), ALL_MUTATIONS)
+def test_mutation_supports_tensor_variables(mutation_class, domain: str):
+    """Test that mutation operators handle problems whose variables are tensors.
+
+    Operators must read bounds and types from the flattened variables, which is what the
+    population columns correspond to, rather than from `problem.variables`.
+    """
+    if domain in ("binary", "integer"):
+        pytest.skip(f"{mutation_class.__name__} does not accept the mixed domain of the tensor test problem")
+
+    problem = mixed_variable_dimensions_problem()
+    mutation = mutation_class(problem=problem, publisher=Publisher(), seed=0, verbosity=1)
+    n_variables = len(problem.get_flattened_variables())
+    assert len(problem.variables) < n_variables, "expected a problem whose variables flatten out"
+
+    population = _population(problem, 5)
+    result = mutation.do(offsprings=population, parents=population)
+
+    assert result.shape == population.shape
+    assert result.columns == population.columns
+    # This problem also has variables whose bounds are a single point, which must not divide by zero.
+    assert np.isfinite(result.to_numpy().astype(float)).all()
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(("mutation_class", "domain"), ALL_MUTATIONS)
+def test_mutation_respects_bounds_and_integer_domain(mutation_class, domain: str):
+    """Test that mutated offspring stay inside the box and keep integer variables integral.
+
+    The templates only apply a repair function after mutation, and that function may be the
+    identity, so the operators cannot rely on being cleaned up afterwards.
+    """
+    if mutation_class is SelfAdaptiveGaussianMutation and domain != "continuous":
+        pytest.skip("SelfAdaptiveGaussianMutation is documented as a real-coded operator")
+
+    problem = _problem_for(domain)
+    variables = problem.get_flattened_variables()
+    lower = np.array([var.lowerbound for var in variables], dtype=float)
+    upper = np.array([var.upperbound for var in variables], dtype=float)
+    discrete = [var.variable_type in (VariableTypeEnum.binary, VariableTypeEnum.integer) for var in variables]
+
+    mutation = mutation_class(problem=problem, publisher=Publisher(), seed=0, verbosity=1, mutation_probability=1.0)
+    population = _population(problem, 10)
+
+    result = mutation.do(offsprings=population, parents=population).to_numpy().astype(float)
+
+    assert np.isfinite(result).all()
+    assert (result >= lower - 1e-9).all() and (result <= upper + 1e-9).all(), (
+        f"{mutation_class.__name__} produced offspring outside the variable bounds"
+    )
+    if any(discrete):
+        npt.assert_allclose(
+            result[:, discrete],
+            np.round(result[:, discrete]),
+            err_msg=f"{mutation_class.__name__} produced fractional values for integer variables",
+        )
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(("mutation_class", "domain"), ALL_MUTATIONS)
+def test_mutation_state_before_first_do(mutation_class, domain: str):
+    """Test that the state of a mutation operator can be queried before it has mutated anything.
+
+    Every `state` implementation guards on the offspring being unset, so the guard must see
+    None rather than an attribute that was annotated but never assigned.
+    """
+    mutation = mutation_class(problem=_problem_for(domain), publisher=Publisher(), seed=0, verbosity=2)
+
+    assert mutation.state() == []
+    mutation.notify()  # Must not raise either.
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(("mutation_class", "domain"), ALL_MUTATIONS)
+@pytest.mark.parametrize("verbosity", [1, 2])
+def test_mutation_provided_topics_match_state(mutation_class, domain: str, verbosity: int):
+    """Test that the topics a mutation operator advertises are the ones it actually sends.
+
+    A topic that is advertised but never sent leaves a subscriber waiting forever, while one
+    that is sent but never advertised makes `Publisher.check_consistency` report a false failure.
+    """
+    problem = _problem_for(domain)
+    mutation = mutation_class(problem=problem, publisher=Publisher(), seed=0, verbosity=verbosity)
+    population = _population(problem, 5)
+
+    mutation.do(offsprings=population, parents=population)
+
+    assert {message.topic for message in mutation.state()} == set(mutation.provided_topics[verbosity])
 
 
 @pytest.mark.ea
