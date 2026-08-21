@@ -75,7 +75,7 @@ API: [tools](../api/desdeo_tools.md).
 | Component | Examples | API |
 | --- | --- | --- |
 | Generators | random, Latin hypercube, binary/integer/mixed-integer, archive, seeded hybrid | [emo](../api/desdeo_emo.md) |
-| Crossover | simulated binary, single-point binary, blend-alpha, exponential, mixed-integer | [emo](../api/desdeo_emo.md) |
+| Crossover | simulated binary, blend-alpha, local, single-arithmetic, bounded exponential, single-point binary, uniform integer, uniform mixed-integer, composite | [emo](../api/desdeo_emo.md) |
 | Mutation | bounded polynomial, binary flip, integer/mixed-integer, power, non-uniform, self-adaptive Gaussian | [emo](../api/desdeo_emo.md) |
 | Selection | RVEA, NSGA-II, NSGA-III, IBEA selectors | [emo](../api/desdeo_emo.md) |
 | Scalar selection | tournament, roulette wheel | [emo](../api/desdeo_emo.md) |
@@ -83,6 +83,7 @@ API: [tools](../api/desdeo_tools.md).
 | Archivers | non-dominated and feasibility archives | [emo](../api/desdeo_emo.md) |
 
 Guide: [Implementing evolutionary algorithms](../howtoguides/how_to_implement_ea.md).
+Explanation: [Crossover operators](../explanation/crossover_operators.ipynb).
 
 ### Solvers and interfaces
 

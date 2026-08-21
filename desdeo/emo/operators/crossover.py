@@ -40,6 +40,12 @@ class BaseCrossover(Subscriber):
         self.rng = np.random.default_rng(seed)
         self.seed = seed
 
+    # TODO(@light-weaver): The row order of the offspring returned by `do` is not consistent across
+    # operators. Most of them build the two children separately and `np.vstack` them, so the output is
+    # all first-children followed by all second-children; SimulatedBinaryCrossover.unbounded_offsprings
+    # and LocalCrossover instead write offspring[i] / offspring[i+1] in place, so their children are
+    # interleaved. Row i of the output is therefore not reliably the child of parent i, which makes it
+    # impossible to trace lineage generically. Worth unifying on one convention and documenting it here.
     @abstractmethod
     def do(self, *, population: pl.DataFrame, to_mate: list[int] | None = None) -> pl.DataFrame:
         """Perform the crossover operation.
@@ -70,6 +76,9 @@ class BaseCrossover(Subscriber):
         return self.parent_population
 
 
+# TODO(@light-weaver): This operator does not check `problem.variable_domain` and will silently
+# produce non-integral values on an integer, binary or mixed-integer problem. BlendAlphaCrossover and
+# BoundedExponentialCrossover raise in that situation; the continuous operators should do the same.
 class SimulatedBinaryCrossover(BaseCrossover):
     """A class for creating a simulated binary crossover operator.
 
@@ -255,6 +264,10 @@ class SimulatedBinaryCrossover(BaseCrossover):
             diff = (mating_pop[i] - mating_pop[i + 1]) / 2
             offspring[i] = avg - beta * diff
             offspring[i + 1] = avg + beta * diff
+        # Clip the offspring to the bounds
+        lower_bounds = np.asarray(self.lower_bounds, dtype=float)
+        upper_bounds = np.asarray(self.upper_bounds, dtype=float)
+        offspring = np.clip(offspring, lower_bounds, upper_bounds)
         return pl.from_numpy(offspring, schema=self.variable_symbols)
 
     def bounded_offsprings(
@@ -519,8 +532,7 @@ class SinglePointBinaryCrossover(BaseCrossover):
 
         if num_var < 2:  # noqa: PLR2004
             raise ValueError(
-                "Single point binary crossover needs at least two decision variables, "
-                f"but the problem has {num_var}."
+                f"Single point binary crossover needs at least two decision variables, but the problem has {num_var}."
             )
 
         parent_decision_vars = self.parent_population[self.variable_symbols].to_numpy().astype(np.bool)
@@ -597,12 +609,12 @@ class SinglePointBinaryCrossover(BaseCrossover):
         return [
             PolarsDataFrameMessage(
                 topic=CrossoverMessageTopics.PARENTS,
-                source="SimulatedBinaryCrossover",
+                source=self.__class__.__name__,
                 value=self.parent_population,
             ),
             PolarsDataFrameMessage(
                 topic=CrossoverMessageTopics.OFFSPRINGS,
-                source="SimulatedBinaryCrossover",
+                source=self.__class__.__name__,
                 value=self.offspring_population,
             ),
         ]
@@ -731,12 +743,12 @@ class UniformIntegerCrossover(BaseCrossover):
         return [
             PolarsDataFrameMessage(
                 topic=CrossoverMessageTopics.PARENTS,
-                source="SimulatedBinaryCrossover",
+                source=self.__class__.__name__,
                 value=self.parent_population,
             ),
             PolarsDataFrameMessage(
                 topic=CrossoverMessageTopics.OFFSPRINGS,
-                source="SimulatedBinaryCrossover",
+                source=self.__class__.__name__,
                 value=self.offspring_population,
             ),
         ]
@@ -869,12 +881,12 @@ class UniformMixedIntegerCrossover(BaseCrossover):
         return [
             PolarsDataFrameMessage(
                 topic=CrossoverMessageTopics.PARENTS,
-                source="SimulatedBinaryCrossover",
+                source=self.__class__.__name__,
                 value=self.parent_population,
             ),
             PolarsDataFrameMessage(
                 topic=CrossoverMessageTopics.OFFSPRINGS,
-                source="SimulatedBinaryCrossover",
+                source=self.__class__.__name__,
                 value=self.offspring_population,
             ),
         ]
@@ -1057,6 +1069,7 @@ class BlendAlphaCrossover(BaseCrossover):
         return msgs
 
 
+# TODO(@light-weaver): No `problem.variable_domain` check; see the note on SimulatedBinaryCrossover.
 class SingleArithmeticCrossover(BaseCrossover):
     """Single Arithmetic Crossover for continuous problems.
 
@@ -1203,6 +1216,7 @@ class SingleArithmeticCrossover(BaseCrossover):
         return msgs
 
 
+# TODO(@light-weaver): No `problem.variable_domain` check; see the note on SimulatedBinaryCrossover.
 class LocalCrossover(BaseCrossover):
     """Local Crossover for continuous problems.
 

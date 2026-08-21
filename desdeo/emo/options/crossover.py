@@ -31,7 +31,7 @@ class SimulatedBinaryCrossoverOptions(BaseModel):
         default="SimulatedBinaryCrossover", frozen=True, description="The name of the crossover operator."
     )
     """The name of the crossover operator."""
-    xover_probability: float = Field(default=0.5, ge=0.0, le=1.0, description="The SBX crossover probability.")
+    xover_probability: float = Field(default=1.0, ge=0.0, le=1.0, description="The SBX crossover probability.")
     """The SBX crossover probability."""
     xover_distribution: float = Field(default=30.0, gt=0.0, description="The SBX distribution index.")
     """The SBX distribution index."""
