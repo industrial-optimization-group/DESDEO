@@ -121,6 +121,7 @@ class TournamentSelection(BaseScalarSelector):
         tournament_size: int = 2,
         seed: int | None = None,
         selection_probability: float | None = None,
+        deterministic: bool | None = None,
     ) -> None:
         """Initialize the tournament selection operator.
 
@@ -141,6 +142,11 @@ class TournamentSelection(BaseScalarSelector):
                 probabilities of choosing the k-best solution in the tournament is given by p * (1 - p) ** (k - 1),
                 where p is the selection probability. Note that doing selection with a probability proportional to
                 fitness is equivalent to roulette wheel selection.
+            deterministic (bool | None, optional): Whether the winner of a tournament is the fittest of its
+                participants, rather than being drawn by fitness. Defaults to None, which infers it from ``seed`` as
+                described above. Pass it explicitly to seed the random number generator without also making the
+                selection stochastic: the participants of each tournament are drawn at random whichever rule picks
+                the winner, so a run is only reproducible when the generator is seeded.
         """
         super().__init__(verbosity=verbosity, publisher=publisher)
         self.winner_size = winner_size
@@ -148,6 +154,7 @@ class TournamentSelection(BaseScalarSelector):
         self.seed = seed
         self.rng = np.random.default_rng(seed)
         self.selection_probability = selection_probability
+        self.deterministic = (seed is None) if deterministic is None else deterministic
         if self.seed is None and self.selection_probability is not None:
             raise ValueError(
                 "If selection_probability is provided, seed must also be provided to ensure stochastic selection."
@@ -205,7 +212,7 @@ class TournamentSelection(BaseScalarSelector):
         selected_indices = np.zeros(self.winner_size, dtype=int)
         for i in range(self.winner_size):
             tournament_indices = self.rng.choice(range(len(solutions[0])), size=self.tournament_size, replace=True)
-            if self.seed is None:
+            if self.deterministic:
                 selected_indices[i] = self.deterministic_select(tournament_indices, fitness[tournament_indices])
             else:
                 selected_indices[i] = self.stochastic_select(tournament_indices, fitness[tournament_indices])

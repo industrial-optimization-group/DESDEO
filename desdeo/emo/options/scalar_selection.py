@@ -66,6 +66,12 @@ def scalar_selector_constructor(
             winner_size=options.winner_size,
             publisher=publisher,
             verbosity=verbosity,
+            # Seeded so the run reproduces, and kept deterministic so the winner
+            # of each tournament is still its fittest participant. The
+            # participants themselves are drawn at random either way, so without
+            # the seed two runs of NSGA-II with the same seed differ.
+            seed=seed,
+            deterministic=True,
         )
     if options.name == "RouletteWheelSelection":
         return TournamentSelection(  # It implements both (and more)
