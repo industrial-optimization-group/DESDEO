@@ -364,3 +364,59 @@ def test_update_solution_description_metadata_missing_problem(client: TestClient
     )
 
     assert response.status_code == 404
+
+
+def test_update_solution_description_metadata_unknown_symbol(client: TestClient, session_and_user: dict):
+    """Test that a part referring to a symbol the problem does not have is rejected with 422."""
+    session = session_and_user["session"]
+    user = session_and_user["user"]
+    access_token = login(client)
+
+    problem = ProblemDB.from_problem(dtlz2(5, 3), user=user)
+    session.add(problem)
+    session.commit()
+    session.refresh(problem)
+
+    session.add(ProblemMetaDataDB(problem_id=problem.id, problem=problem))
+    session.commit()
+
+    for part in ({"symbol": "f_99"}, {"expression": ["Add", "f_1", "not_a_symbol"]}):
+        response = client.post(
+            "/solution-description/update_metadata",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={"problem_id": problem.id, "separator": "\n", "parts": [part]},
+        )
+
+        assert response.status_code == 422, part
+
+
+def test_update_solution_description_metadata_known_symbols(client: TestClient, session_and_user: dict):
+    """Test that parts referring to the problem's own symbols are accepted."""
+    session = session_and_user["session"]
+    user = session_and_user["user"]
+    access_token = login(client)
+
+    problem = ProblemDB.from_problem(dtlz2(5, 3), user=user)
+    session.add(problem)
+    session.commit()
+    session.refresh(problem)
+
+    session.add(ProblemMetaDataDB(problem_id=problem.id, problem=problem))
+    session.commit()
+
+    response = client.post(
+        "/solution-description/update_metadata",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={
+            "problem_id": problem.id,
+            "separator": "\n",
+            "parts": [
+                {"symbol": "f_1", "label": "First"},
+                {"expression": ["Max", "f_1", "f_2", "f_3"], "label": "Worst"},
+                {"expression": ["Multiply", "E", "x_1"], "label": "Scaled"},
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()["parts"]) == 3
