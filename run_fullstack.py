@@ -3,8 +3,13 @@
 
 Both processes run concurrently. Their output is prefixed with colored labels
 so they can be distinguished. Press Ctrl+C to shut down both.
+
+Run with --help to see the available options, e.g. --host 0.0.0.0 to expose
+the servers on the network and --no-open to not launch a browser window.
 """
 
+import argparse
+import shutil
 import signal
 import subprocess
 import sys
@@ -27,22 +32,66 @@ def stream_output(process: subprocess.Popen, label: str, color: str) -> None:
         print(f"{color}({label}){RESET} {line}", end="", flush=True)  # noqa: T201
 
 
-def main() -> int:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse the command line options."""
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host to bind both servers to. Use 0.0.0.0 to expose them on the network (default: %(default)s).",
+    )
+    parser.add_argument("--port", type=int, default=8000, help="Backend port (default: %(default)s).")
+    parser.add_argument(
+        "--frontend-port",
+        type=int,
+        default=None,
+        help="Frontend port (default: let Vite choose, usually 5173).",
+    )
+    parser.add_argument(
+        "--no-open",
+        dest="open_browser",
+        action="store_false",
+        help="Do not open a browser window for the frontend.",
+    )
+    parser.add_argument("--no-reload", dest="reload", action="store_false", help="Disable backend auto-reload.")
+    parser.add_argument(
+        "--log-level",
+        default="debug",
+        choices=["critical", "error", "warning", "info", "debug", "trace"],
+        help="Backend log level (default: %(default)s).",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
     """Run the backend and frontend as subprocesses."""
+    args = parse_args(argv)
+
     backend_cmd = [
         sys.executable,
         "-m",
         "uvicorn",
         "app:app",
-        "--reload",
         "--log-level",
-        "debug",
+        args.log_level,
         "--host",
-        "127.0.0.1",
+        args.host,
         "--port",
-        "8000",
+        str(args.port),
     ]
-    frontend_cmd = ["npm", "run", "dev", "--", "--open"]
+    if args.reload:
+        backend_cmd.append("--reload")
+
+    npm_path = shutil.which("npm")
+    if npm_path is None:
+        print(f"{RED}Could not find 'npm' on PATH. Is Node.js installed?{RESET}")  # noqa: T201
+        return 1
+
+    frontend_cmd = [npm_path, "run", "dev", "--", "--host", args.host]
+    if args.frontend_port is not None:
+        frontend_cmd += ["--port", str(args.frontend_port)]
+    if args.open_browser:
+        frontend_cmd.append("--open")
 
     procs: list[subprocess.Popen] = []
 
