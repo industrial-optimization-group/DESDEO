@@ -316,14 +316,6 @@ The first build takes longer than subsequent ones because there is no layer
 cache. Expect roughly a few minutes for the builder, and anther few minutes for
 both the API and the webui.
 
-Once the API pod is running, verify the solvers are present:
-
-```bash
-oc exec deployment/desdeo-api -- which bonmin ipopt cbc
-```
-
-All three should return paths under `/opt/solver_binaries/`.
-
 !!! warning
     If the webui build fails with `exit status 137`, the build pod ran out of
     memory. Increase the build pod memory limit in `webui-buildconfig.yaml`:
@@ -344,6 +336,14 @@ oc apply -f deploy/webui-deployment.yaml
 oc rollout status deployment/desdeo-api
 oc rollout status deployment/desdeo-webui
 ```
+
+Once the API pod is running, verify the solvers are present:
+
+```bash
+oc exec deployment/desdeo-api -- which bonmin ipopt cbc
+```
+
+All three should return paths under `/opt/solver_binaries/`.
 
 !!! warning
     Rahti enforces a maximum CPU limit-to-request ratio of 5:1. If
