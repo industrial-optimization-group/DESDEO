@@ -2,18 +2,11 @@
     "preference": null,
     "template": {
         "crossover": {
-            "name": "SimulatedBinaryCrossover",
-            "pair_xover_probability": 1.0,
-            "xover_probability": 0.5,
-            "xover_distribution": 30.0,
-            "truncated": true,
-            "uniform_xover_probability": 0.5,
-            "swap_uncrossed_variables": false
+            "name": "UniformMixedIntegerCrossover"
         },
         "mutation": {
-            "name": "BoundedPolynomialMutation",
-            "mutation_probability": null,
-            "distribution_index": 20.0
+            "name": "MixedIntegerRandomMutation",
+            "mutation_probability": null
         },
         "selection": {
             "name": "NSGA3Selector",
@@ -38,17 +31,15 @@
         "generator": {
             "n_points": 100,
             "seed": null,
-            "name": "LHSGenerator"
+            "name": "RandomMixedIntegerGenerator"
         },
         "repair": {
-            "name": "ClipRepair",
-            "lower_bounds": null,
-            "upper_bounds": null
+            "name": "NoRepair"
         },
         "use_archive": true,
         "seed": 42,
         "verbosity": 2,
-        "algorithm_name": "NSGA3",
+        "algorithm_name": "NSGA3_Mixed_Integer",
         "name": "Template1"
     }
 }

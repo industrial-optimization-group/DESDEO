@@ -119,7 +119,8 @@ class TournamentSelection(BaseScalarSelector):
         verbosity: int,
         publisher: Publisher,
         tournament_size: int = 2,
-        seed: int | None = None,
+        seed: int = 0,
+        stochastic: bool = False,
         selection_probability: float | None = None,
     ) -> None:
         """Initialize the tournament selection operator.
@@ -130,28 +131,34 @@ class TournamentSelection(BaseScalarSelector):
             publisher (Publisher): The publisher to send messages to.
             tournament_size (int, optional): The size of the tournament. Defaults to 2, which corresponds to binary
                 tournament.
-            seed (int | None, optional): The seed for the random number generator. If None, the deterministic tournament
-                selection is used, i.e., the solution with the highest fitness in the tournament is always selected.
-                Otherwise the selection is stochastic, and the solution is selected with a probability proportional to
-                its fitness. Defaults to None.
-            selection_probability (float | None, optional): The probability of selecting a solution in the tournament.
-                If None, but a seed is provided, then the probabilities are proportional to the fitness values of the
-                solutions in the tournament. If None and no seed is provided, then the selection is deterministic.
-                If a value is provided, and the seed is not None, then the selection is stochastic, and the
-                probabilities of choosing the k-best solution in the tournament is given by p * (1 - p) ** (k - 1),
-                where p is the selection probability. Note that doing selection with a probability proportional to
-                fitness is equivalent to roulette wheel selection.
+            seed (int, optional): The seed for the random number generator, which draws the tournaments and, when
+                `stochastic` is set, the winner within each one. Defaults to 0.
+            stochastic (bool, optional): If False, the solution with the highest fitness in the tournament always
+                wins. If True, the winner is drawn at random, with a probability proportional to fitness unless
+                `selection_probability` says otherwise, which is roulette wheel selection. Defaults to False.
+            selection_probability (float | None, optional): The probability of selecting a solution in the tournament,
+                only meaningful when `stochastic` is set. If None, the probabilities are proportional to the fitness
+                values of the solutions in the tournament. If a value p is given, the probability of choosing the
+                k-best solution in the tournament is p * (1 - p) ** (k - 1).
+
+        Raises:
+            ValueError: If `selection_probability` is given without `stochastic`, which would silently ignore it.
+
+        Note:
+            `seed` used to double as the switch between the two rules, so that leaving it unset made the selection
+            deterministic *and* seeded the generator from OS entropy. That made a whole run irreproducible even with
+            a fixed template seed, so the two are now separate: `seed` only seeds, and `stochastic` only chooses the
+            rule.
         """
         super().__init__(verbosity=verbosity, publisher=publisher)
         self.winner_size = winner_size
         self.tournament_size = tournament_size
         self.seed = seed
         self.rng = np.random.default_rng(seed)
+        self.stochastic = stochastic
         self.selection_probability = selection_probability
-        if self.seed is None and self.selection_probability is not None:
-            raise ValueError(
-                "If selection_probability is provided, seed must also be provided to ensure stochastic selection."
-            )
+        if not self.stochastic and self.selection_probability is not None:
+            raise ValueError("If selection_probability is provided, stochastic must be True for it to have an effect.")
 
     @staticmethod
     def deterministic_select(indices: np.ndarray, fitness: np.ndarray) -> int:
@@ -205,10 +212,10 @@ class TournamentSelection(BaseScalarSelector):
         selected_indices = np.zeros(self.winner_size, dtype=int)
         for i in range(self.winner_size):
             tournament_indices = self.rng.choice(range(len(solutions[0])), size=self.tournament_size, replace=True)
-            if self.seed is None:
-                selected_indices[i] = self.deterministic_select(tournament_indices, fitness[tournament_indices])
-            else:
+            if self.stochastic:
                 selected_indices[i] = self.stochastic_select(tournament_indices, fitness[tournament_indices])
+            else:
+                selected_indices[i] = self.deterministic_select(tournament_indices, fitness[tournament_indices])
         selected_solutions = solutions[0][selected_indices]
         selected_outputs = solutions[1][selected_indices]
         return selected_solutions, selected_outputs

@@ -47,10 +47,11 @@ class EMOEvaluator(Subscriber):
             publisher=publisher,
         )
         self.problem = problem
-        # TODO(@light-weaver, @gialmisi): This can be so much more efficient.
-        self.evaluator = lambda x: SimulatorEvaluator(problem).evaluate(
-            {name.symbol: x[name.symbol].to_list() for name in problem.get_flattened_variables()}, flat=True
-        )
+        # Build the underlying evaluator once. Constructing it per call re-ran its setup on every
+        # generation, and for a problem with surrogate objectives that setup is a joblib.load of
+        # every surrogate from disk -- roughly 0.6 s per model per generation.
+        self._simulator_evaluator = SimulatorEvaluator(problem)
+        self._flattened_variable_symbols = [name.symbol for name in problem.get_flattened_variables()]
         self.variable_symbols = [name.symbol for name in problem.variables]
         self.population: pl.DataFrame
         self.out: pl.DataFrame
@@ -66,7 +67,10 @@ class EMOEvaluator(Subscriber):
             pl.Dataframe: A dataframe of objective vectors, target vectors, and constraint vectors.
         """
         self.population = population
-        out = self.evaluator(population)
+        out = self._simulator_evaluator.evaluate(
+            {symbol: population[symbol].to_list() for symbol in self._flattened_variable_symbols},
+            flat=True,
+        )
         # remove variable_symbols from the output
         self.out = out.drop(self.variable_symbols, strict=False)
         self.new_evals = len(population)

@@ -1,8 +1,10 @@
 """Reference vector generation for decomposition-based evolutionary methods."""
 
+from functools import lru_cache
 from itertools import combinations
 
 import numpy as np
+from pymoo.util.ref_dirs import get_reference_directions
 from scipy.special import comb
 
 
@@ -154,6 +156,87 @@ def create_simplex(
     weight[:, -1] = lattice_resolution - temp[:, -1]
     values = weight / lattice_resolution
     return normalize(values)
+
+
+@lru_cache(maxsize=64)
+def _create_s_energy_cached(number_of_objectives: int, number_of_vectors: int, seed: int) -> tuple:
+    """Build and cache one Riesz s-energy design, returned as a hashable tuple of rows.
+
+    The construction is a seeded optimization costing roughly 0.5-3 s, and a benchmarking run
+    rebuilds the same design once per algorithm instantiation. Caching on the three inputs that
+    fully determine the result keeps that to once per process.
+    """
+    vectors = np.asarray(
+        get_reference_directions("energy", number_of_objectives, number_of_vectors, seed=seed),
+        dtype=float,
+    )
+    vectors = _ensure_axis_vectors(vectors)
+    return tuple(map(tuple, vectors))
+
+
+def _ensure_axis_vectors(vectors: np.ndarray) -> np.ndarray:
+    """Guarantee that every axis direction is represented exactly, without changing the count.
+
+    A decomposition-based algorithm only searches towards directions it has a vector for, so a set
+    missing an axis never targets that objective's extreme and the corresponding edge of the front is
+    simply not approximated. The current energy optimizer happens to pin the simplex vertices, but
+    that is its implementation detail; enforcing it here makes the guarantee DESDEO's own.
+
+    Any missing axis replaces whichever vector is closest to it, so the returned array keeps its
+    shape and the substitution costs the least in spacing.
+    """
+    number_of_objectives = vectors.shape[1]
+    axes = np.eye(number_of_objectives)
+    for axis_index in range(number_of_objectives):
+        axis = axes[axis_index]
+        if np.any(np.all(np.isclose(vectors, axis, atol=1e-9), axis=1)):
+            continue
+        closest = int(np.argmin(np.linalg.norm(vectors - axis, axis=1)))
+        vectors[closest] = axis
+    return vectors
+
+
+def create_s_energy(
+    number_of_objectives: int,
+    number_of_vectors: int,
+    seed: int = 0,
+) -> np.ndarray:
+    """Create reference vectors by minimizing the Riesz s-energy over the unit simplex.
+
+    Unlike the simplex lattice design, this produces *exactly* `number_of_vectors` vectors for any
+    combination of count and dimension. The lattice can only realize the binomial counts
+    `C(H + m - 1, m - 1)`, so it cannot hit an arbitrary target: at `m = 8` the reachable counts jump
+    36, 120, 330, and asking for 100 vectors yields 36. That matters because the population size of a
+    decomposition-based algorithm is its reference vector count.
+
+    Every axis direction is guaranteed to be present exactly, so each objective's extreme is always
+    a search target; see `_ensure_axis_vectors`.
+
+    Args:
+        number_of_objectives (int): Number of objectives (dimensions).
+        number_of_vectors (int): Exact number of reference vectors to produce.
+        seed (int, optional): Seed for the energy optimization, which is stochastic. Defaults to 0.
+
+    Returns:
+        np.ndarray: Array of reference vectors, shape `(number_of_vectors, number_of_objectives)`,
+            lying on the unit simplex (rows sum to one), including the `number_of_objectives` axis
+            vectors.
+
+    Raises:
+        ValueError: If `number_of_vectors` is smaller than `number_of_objectives`, which cannot
+            cover the simplex vertices.
+
+    References:
+        Blank, J., Deb, K., Dhebar, Y., Bandaru, S., & Seada, H. (2021). Generating Well-Spaced
+            Points on a Unit Simplex for Evolutionary Many-Objective Optimization. IEEE Transactions
+            on Evolutionary Computation, 25(1), 48-60. https://doi.org/10.1109/TEVC.2020.2992387
+    """
+    if number_of_vectors < number_of_objectives:
+        raise ValueError(
+            f"Cannot place {number_of_vectors} reference vectors in {number_of_objectives} dimensions: "
+            f"at least one vector per objective is needed to cover the simplex vertices."
+        )
+    return np.array(_create_s_energy_cached(number_of_objectives, number_of_vectors, seed), dtype=float)
 
 
 def normalize(values: np.ndarray) -> np.ndarray:

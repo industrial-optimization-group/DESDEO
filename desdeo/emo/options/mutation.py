@@ -154,9 +154,19 @@ class NonUniformMutationOptions(BaseModel):
     The probability of mutation. Defaults to None, which sets the mutation probability to
     1/<number of decision variables>.
     """
-    max_generations: int = Field(
-        gt=0, description="Maximum number of generations in the evolutionary run. Used to scale mutation decay."
+    max_generations: int | None = Field(
+        default=None,
+        gt=0,
+        description=(
+            "Maximum number of generations in the evolutionary run, used to scale mutation decay. "
+            "Defaults to None, which follows the budget reported by the terminator. Prefer the default: "
+            "a value that disagrees with the terminator makes the decay schedule finish too early or not at all."
+        ),
     )
+    """
+    Maximum number of generations in the evolutionary run, used to scale mutation decay. Defaults to None,
+    which follows the budget reported by the terminator.
+    """
     b: float = Field(
         default=5.0,
         ge=0.0,

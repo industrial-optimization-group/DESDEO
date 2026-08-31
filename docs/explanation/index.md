@@ -17,6 +17,7 @@ Explanations are understanding-oriented and are meant to help users understand h
 - **[Solvers](solvers.ipynb):** Learn how DESDEO can be used to interface to different optimizers
 - **[Test problems](test_problems.ipynb):** Learn about different test problems implemented in DESDEO
 - **[Evolutionary Algorithms in DESDEO](templates_and_pub_sub.ipynb):** Learn about the implementation of evolutionary algorithms in DESDEO
+- **[Crossover operators](crossover_operators.ipynb):** Learn how the available crossover operators differ, and what the offspring they generate actually look like
 - **[Pydantic Interface for Evolutionary Algorithms](pydantic_interface.md):** Learn about the Pydantic interface that acts as a configuration/abstraction layer for the EA components and templates in DESDEO
 - **[Scenarios](scenarios.md):** Learn about scenarios and scenario optimization tools implemented in DESDEO
 

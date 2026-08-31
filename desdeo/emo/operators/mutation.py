@@ -4,6 +4,7 @@ Various evolutionary operators for mutation in multiobjective optimization are d
 """
 
 import copy
+import warnings
 from abc import abstractmethod
 from collections.abc import Sequence
 
@@ -34,6 +35,20 @@ class BaseMutation(Subscriber):
         self.upper_bounds = [var.upperbound for var in problem.get_flattened_variables()]
         self.variable_types = [var.variable_type for var in problem.get_flattened_variables()]
         self.variable_combination: VariableDomainTypeEnum = problem.variable_domain
+        # Populated by `do`. Initialized here so that `state` can be called before the first
+        # mutation, e.g. by a logger that reports the operator's state up front.
+        self.offspring_original: pl.DataFrame | None = None
+        self.parents: pl.DataFrame | None = None
+        self.offspring: pl.DataFrame | None = None
+
+    @property
+    def is_discrete(self) -> list[bool]:
+        """Whether each (flattened) variable is restricted to integer values.
+
+        Returns:
+            list[bool]: one flag per variable, in the order of `variable_symbols`.
+        """
+        return [var_type in (VariableTypeEnum.binary, VariableTypeEnum.integer) for var_type in self.variable_types]
 
     @abstractmethod
     def do(self, offsprings: pl.DataFrame, parents: pl.DataFrame) -> pl.DataFrame:
@@ -70,6 +85,7 @@ class BoundedPolynomialMutation(BaseMutation):
                 MutationMessageTopics.MUTATION_PROBABILITY,
                 MutationMessageTopics.MUTATION_DISTRIBUTION,
                 MutationMessageTopics.OFFSPRING_ORIGINAL,
+                MutationMessageTopics.PARENTS,
                 MutationMessageTopics.OFFSPRINGS,
             ],
         }
@@ -110,9 +126,6 @@ class BoundedPolynomialMutation(BaseMutation):
         self.distribution_index = distribution_index
         self.rng = np.random.default_rng(seed)
         self.seed = seed
-        self.offspring_original: pl.DataFrame
-        self.parents: pl.DataFrame
-        self.offspring: pl.DataFrame
 
     def do(self, offsprings: pl.DataFrame, parents: pl.DataFrame) -> pl.DataFrame:
         """Perform the mutation operation.
@@ -128,15 +141,23 @@ class BoundedPolynomialMutation(BaseMutation):
         # TODO(@light-weaver): Extract to a numba jitted function
         self.offspring_original = offsprings
         self.parents = parents  # Not used, but kept for consistency
+        # Note: `to_numpy` hands back an F-contiguous array. Every `pl.from_numpy` in this module
+        # therefore states `orient="row"`: for a square population (as many individuals as
+        # variables) polars cannot infer the orientation from the shape, and would read such an
+        # array column-wise, transposing the population.
         offspring = offsprings.to_numpy(writable=True)
         min_val = np.ones_like(offspring) * self.lower_bounds
         max_val = np.ones_like(offspring) * self.upper_bounds
         k = self.rng.random(size=offspring.shape)
         miu = self.rng.random(size=offspring.shape)
-        temp = np.logical_and((k <= self.mutation_probability), (miu < 0.5))  # noqa: PLR2004
-        # The polynomial mutation formula can divide by zero (zero-width bounds) or raise negative
-        # scaled values to fractional powers; the offspring are clipped to the bounds afterwards, so
-        # the intermediate inf/nan is discarded. Silence the resulting benign numpy warnings.
+        # A fixed variable has a single feasible value, and scaling by the width of an empty
+        # interval would divide by zero. The resulting nan would survive the clipping below,
+        # because every comparison against nan is False, so leave those genes alone instead.
+        mutatable = np.logical_and(k <= self.mutation_probability, max_val > min_val)
+        temp = np.logical_and(mutatable, (miu < 0.5))  # noqa: PLR2004
+        # The polynomial mutation formula can still raise negative scaled values to fractional
+        # powers; the offspring are clipped to the bounds afterwards, so the intermediate inf is
+        # discarded. Silence the resulting benign numpy warnings.
         with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
             offspring_scaled = (offspring - min_val) / (max_val - min_val)
             offspring[temp] = offspring[temp] + (
@@ -150,7 +171,7 @@ class BoundedPolynomialMutation(BaseMutation):
                     - 1
                 )
             )
-            temp = np.logical_and((k <= self.mutation_probability), (miu >= 0.5))  # noqa: PLR2004
+            temp = np.logical_and(mutatable, (miu >= 0.5))  # noqa: PLR2004
             offspring[temp] = offspring[temp] + (
                 (max_val[temp] - min_val[temp])
                 * (
@@ -164,7 +185,7 @@ class BoundedPolynomialMutation(BaseMutation):
             )
         offspring[offspring > max_val] = max_val[offspring > max_val]
         offspring[offspring < min_val] = min_val[offspring < min_val]
-        self.offspring = pl.from_numpy(offspring, schema=self.variable_symbols)
+        self.offspring = pl.from_numpy(offspring, schema=self.variable_symbols, orient="row")
         self.notify()
         return self.offspring
 
@@ -173,7 +194,7 @@ class BoundedPolynomialMutation(BaseMutation):
 
     def state(self) -> Sequence[Message]:
         """Return the state of the mutation operator."""
-        if self.offspring_original is None or self.offspring is None:
+        if self.offspring_original is None or self.parents is None or self.offspring is None:
             return []
         if self.verbosity == 0:
             return []
@@ -238,6 +259,7 @@ class BinaryFlipMutation(BaseMutation):
             2: [
                 MutationMessageTopics.MUTATION_PROBABILITY,
                 MutationMessageTopics.OFFSPRING_ORIGINAL,
+                MutationMessageTopics.PARENTS,
                 MutationMessageTopics.OFFSPRINGS,
             ],
         }
@@ -279,9 +301,6 @@ class BinaryFlipMutation(BaseMutation):
 
         self.rng = np.random.default_rng(seed)
         self.seed = seed
-        self.offspring_original: pl.DataFrame
-        self.parents: pl.DataFrame
-        self.offspring: pl.DataFrame
 
     def do(self, offsprings: pl.DataFrame, parents: pl.DataFrame) -> pl.DataFrame:
         """Perform the binary flip mutation operation.
@@ -305,7 +324,9 @@ class BinaryFlipMutation(BaseMutation):
         # otherwise leave the bit's value as it is
         offspring = offspring ^ flip_mask
 
-        self.offspring = pl.from_numpy(offspring, schema=self.variable_symbols).select(pl.all()).cast(pl.Float64)
+        self.offspring = (
+            pl.from_numpy(offspring, schema=self.variable_symbols, orient="row").select(pl.all()).cast(pl.Float64)
+        )
         self.notify()
 
         return self.offspring
@@ -315,7 +336,7 @@ class BinaryFlipMutation(BaseMutation):
 
     def state(self) -> Sequence[Message]:
         """Return the state of the mutation operator."""
-        if self.offspring_original is None or self.offspring is None:
+        if self.offspring_original is None or self.parents is None or self.offspring is None:
             return []
         if self.verbosity == 0:
             return []
@@ -371,6 +392,7 @@ class IntegerRandomMutation(BaseMutation):
             2: [
                 MutationMessageTopics.MUTATION_PROBABILITY,
                 MutationMessageTopics.OFFSPRING_ORIGINAL,
+                MutationMessageTopics.PARENTS,
                 MutationMessageTopics.OFFSPRINGS,
             ],
         }
@@ -412,9 +434,6 @@ class IntegerRandomMutation(BaseMutation):
 
         self.rng = np.random.default_rng(seed)
         self.seed = seed
-        self.offspring_original: pl.DataFrame
-        self.parents: pl.DataFrame
-        self.offspring: pl.DataFrame
 
     def do(self, offsprings: pl.DataFrame, parents: pl.DataFrame) -> pl.DataFrame:
         """Perform the random integer mutation operation.
@@ -441,7 +460,9 @@ class IntegerRandomMutation(BaseMutation):
             population,
         )
 
-        self.offspring = pl.from_numpy(mutated, schema=self.variable_symbols).select(pl.all()).cast(pl.Float64)
+        self.offspring = (
+            pl.from_numpy(mutated, schema=self.variable_symbols, orient="row").select(pl.all()).cast(pl.Float64)
+        )
         self.notify()
 
         return self.offspring
@@ -451,7 +472,7 @@ class IntegerRandomMutation(BaseMutation):
 
     def state(self) -> Sequence[Message]:
         """Return the state of the mutation operator."""
-        if self.offspring_original is None or self.offspring is None:
+        if self.offspring_original is None or self.parents is None or self.offspring is None:
             return []
         if self.verbosity == 0:
             return []
@@ -507,6 +528,7 @@ class MixedIntegerRandomMutation(BaseMutation):
             2: [
                 MutationMessageTopics.MUTATION_PROBABILITY,
                 MutationMessageTopics.OFFSPRING_ORIGINAL,
+                MutationMessageTopics.PARENTS,
                 MutationMessageTopics.OFFSPRINGS,
             ],
         }
@@ -546,9 +568,6 @@ class MixedIntegerRandomMutation(BaseMutation):
 
         self.rng = np.random.default_rng(seed)
         self.seed = seed
-        self.offspring_original: pl.DataFrame
-        self.parents: pl.DataFrame
-        self.offspring: pl.DataFrame
 
     def do(self, offsprings: pl.DataFrame, parents: pl.DataFrame) -> pl.DataFrame:
         """Perform the random integer mutation operation.
@@ -571,14 +590,12 @@ class MixedIntegerRandomMutation(BaseMutation):
 
         mutation_pool = np.array(
             [
-                self.rng.integers(
-                    low=var.lowerbound, high=var.upperbound, size=population.shape[0], endpoint=True
-                ).astype(dtype=float)
-                if var.variable_type in [VariableTypeEnum.binary, VariableTypeEnum.integer]
-                else self.rng.uniform(low=var.lowerbound, high=var.upperbound, size=population.shape[0]).astype(
+                self.rng.integers(low=int(lower), high=int(upper), size=population.shape[0], endpoint=True).astype(
                     dtype=float
                 )
-                for var in self.problem.variables
+                if discrete
+                else self.rng.uniform(low=lower, high=upper, size=population.shape[0]).astype(dtype=float)
+                for lower, upper, discrete in zip(self.lower_bounds, self.upper_bounds, self.is_discrete, strict=True)
             ]
         ).T
 
@@ -589,7 +606,9 @@ class MixedIntegerRandomMutation(BaseMutation):
             population,
         )
 
-        self.offspring = pl.from_numpy(mutated, schema=self.variable_symbols).select(pl.all()).cast(pl.Float64)
+        self.offspring = (
+            pl.from_numpy(mutated, schema=self.variable_symbols, orient="row").select(pl.all()).cast(pl.Float64)
+        )
         self.notify()
 
         return self.offspring
@@ -599,7 +618,7 @@ class MixedIntegerRandomMutation(BaseMutation):
 
     def state(self) -> Sequence[Message]:
         """Return the state of the mutation operator."""
-        if self.offspring_original is None or self.offspring is None:
+        if self.offspring_original is None or self.parents is None or self.offspring is None:
             return []
         if self.verbosity == 0:
             return []
@@ -651,6 +670,7 @@ class MPTMutation(BaseMutation):
             2: [
                 MutationMessageTopics.MUTATION_PROBABILITY,
                 MutationMessageTopics.OFFSPRING_ORIGINAL,
+                MutationMessageTopics.PARENTS,
                 MutationMessageTopics.OFFSPRINGS,
             ],
         }
@@ -692,6 +712,9 @@ class MPTMutation(BaseMutation):
 
     def _mutate_value(self, x, lower_bound, upper_bound):
         """Apply small mutation to a single float value using mutation exponent."""
+        if upper_bound == lower_bound:
+            # A fixed variable has a single feasible value; scaling by the width would divide by zero.
+            return lower_bound
         t = (x - lower_bound) / (upper_bound - lower_bound)
         rnd = self.rng.uniform(0, 1)
 
@@ -720,18 +743,18 @@ class MPTMutation(BaseMutation):
 
         population = offsprings.to_numpy(writable=True).astype(float)
 
+        bounds = list(zip(self.lower_bounds, self.upper_bounds, self.is_discrete, strict=True))
         for i in range(population.shape[0]):
-            for j, var in enumerate(self.problem.variables):
+            for j, (lower_bound, upper_bound, discrete) in enumerate(bounds):
                 if self.rng.random() < self.mutation_probability:
-                    x = population[i, j]
-                    lower_bound, upper_bound = var.lowerbound, var.upperbound
-                    if var.variable_type in [VariableTypeEnum.binary, VariableTypeEnum.integer]:
-                        # Round after float mutation to keep integer domain
-                        population[i, j] = round(self._mutate_value(x, lower_bound, upper_bound))
-                    else:
-                        population[i, j] = self._mutate_value(x, lower_bound, upper_bound)
+                    mutated = self._mutate_value(population[i, j], lower_bound, upper_bound)
+                    # Round after float mutation to keep integer domain. `np.round` rather than
+                    # `round`, which raises on the NaN some crossover operators produce.
+                    population[i, j] = np.round(mutated) if discrete else mutated
 
-        self.offspring = pl.from_numpy(population, schema=self.variable_symbols).select(pl.all()).cast(pl.Float64)
+        self.offspring = (
+            pl.from_numpy(population, schema=self.variable_symbols, orient="row").select(pl.all()).cast(pl.Float64)
+        )
         self.notify()
         return self.offspring
 
@@ -740,7 +763,7 @@ class MPTMutation(BaseMutation):
 
     def state(self) -> Sequence[Message]:
         """Return the state of the mutation operator."""
-        if self.offspring_original is None or self.offspring is None:
+        if self.offspring_original is None or self.parents is None or self.offspring is None:
             return []
         if self.verbosity == 0:
             return []
@@ -776,13 +799,16 @@ class MPTMutation(BaseMutation):
         ]
 
 
-# TODO (@light-weaver): Get rid of the max_generations parameter and instead get it from a message
-# Additionally, allow the operator to use max_evaluations as a basis for decay
-# Make sure that the ratio never exceeds 1.0, otherwise there will be issues
 class NonUniformMutation(BaseMutation):
     """Non-uniform mutation operator.
 
     The mutation strength decays over generations.
+
+    The decay is driven by how far the run has progressed towards its budget. The budget is
+    taken from the terminator's messages, so the operator stays in step with the terminator
+    even when the number of generations is not known in advance (for example when the run is
+    terminated by a maximum number of function evaluations). A budget passed explicitly via
+    `max_generations` takes precedence over the messages.
     """
 
     @property
@@ -794,6 +820,7 @@ class NonUniformMutation(BaseMutation):
             2: [
                 MutationMessageTopics.MUTATION_PROBABILITY,
                 MutationMessageTopics.OFFSPRING_ORIGINAL,
+                MutationMessageTopics.PARENTS,
                 MutationMessageTopics.OFFSPRINGS,
             ],
         }
@@ -801,16 +828,21 @@ class NonUniformMutation(BaseMutation):
     @property
     def interested_topics(self):
         """The message topics that the mutation operator is interested in."""
-        return [TerminatorMessageTopics.GENERATION]
+        return [
+            TerminatorMessageTopics.GENERATION,
+            TerminatorMessageTopics.MAX_GENERATIONS,
+            TerminatorMessageTopics.EVALUATION,
+            TerminatorMessageTopics.MAX_EVALUATIONS,
+        ]
 
     def __init__(
         self,
         *,
         problem: Problem,
         seed: int,
-        max_generations: int,
         verbosity: int,
         publisher: Publisher,
+        max_generations: int | None = None,
         mutation_probability: float | None = None,
         b: float = 5.0,  # decay parameter
     ):
@@ -819,24 +851,68 @@ class NonUniformMutation(BaseMutation):
         Args:
             problem (Problem): The optimization problem definition.
             seed (int): Random number generator seed for reproducibility.
+            verbosity (int): The verbosity level of the operator. See the `provided_topics` attribute to see what
+                messages are provided at each verbosity level. Recommended value is 1.
+            publisher (Publisher): The publisher to which the operator will send messages.
+            max_generations (int | None): Maximum number of generations in the evolutionary run, used to scale
+                mutation decay. Defaults to None, in which case the budget reported by the terminator is used,
+                falling back to the number of function evaluations if the terminator does not bound the number
+                of generations. Prefer leaving this as None: a value that disagrees with the terminator makes the
+                decay schedule finish too early or not at all.
             mutation_probability (float | None): Probability of mutating each
                 gene. If None, defaults to 1 / number of variables.
             b (float): Non-uniform mutation decay parameter. Higher values cause
                 faster reduction in mutation strength over generations.
-            max_generations (int): Maximum number of generations in the evolutionary run. Used to scale mutation decay.
-            verbosity (int): The verbosity level of the operator. See the `provided_topics` attribute to see what
-                messages are provided at each verbosity level. Recommended value is 1.
-            publisher (Publisher): The publisher to which the operator will send messages.
         """
         super().__init__(problem, verbosity=verbosity, publisher=publisher)
+        if max_generations is not None and max_generations <= 0:
+            raise ValueError(f"max_generations must be a positive integer, got {max_generations}.")
         self.rng = np.random.default_rng(seed)
         self.seed = seed
         self.b = b
         self.current_generation = 0
         self.max_generations = max_generations
+        self.current_evaluations = 0
+        self.max_evaluations: int | None = None
+        # Budget reported by the terminator, used when max_generations was not given explicitly.
+        self.reported_max_generations: int | None = None
+        self._warned_past_budget = False
         self.mutation_probability = (
             1 / len(self.variable_symbols) if mutation_probability is None else mutation_probability
         )
+
+    @property
+    def decay_progress(self) -> float:
+        """The fraction of the run that has elapsed, in [0, 1].
+
+        A value of 0 means full mutation strength and a value of 1 means no mutation at all. The
+        ratio must never leave [0, 1]: a negative `1 - progress` would be raised to the power `b`
+        below, which yields a complex number for a fractional `b` and overflows the float range
+        for an integral one.
+
+        Returns:
+            float: the elapsed fraction of the run, clamped to [0, 1]. Zero if no budget is known.
+        """
+        max_generations = self.max_generations if self.max_generations is not None else self.reported_max_generations
+
+        if max_generations is not None and max_generations > 0:
+            progress = self.current_generation / max_generations
+            if progress > 1.0 and self.max_generations is not None and not self._warned_past_budget:
+                self._warned_past_budget = True
+                warnings.warn(
+                    f"{self.__class__.__name__} was given max_generations={self.max_generations}, but the run has "
+                    f"reached generation {self.current_generation}. The mutation strength has already decayed to "
+                    "zero and stays there for the rest of the run. Leave max_generations as None to let the "
+                    "operator follow the terminator's budget instead.",
+                    stacklevel=2,
+                )
+            return min(progress, 1.0)
+
+        if self.max_evaluations is not None and self.max_evaluations > 0:
+            return min(self.current_evaluations / self.max_evaluations, 1.0)
+
+        # Nothing bounds the run (e.g. a time based terminator), so keep the mutation at full strength.
+        return 0.0
 
     def _mutate_value(self, x: float, lower_bound: float, upper_bound: float, mutation_threshold: float = 0.5) -> float:
         """Apply non-uniform mutation to a single float value.
@@ -851,12 +927,10 @@ class NonUniformMutation(BaseMutation):
             float: The mutated gene value, clipped within the bounds [l, u].
         """
         r = self.rng.uniform(0, 1)  # Random number to choose direction
-        t = self.current_generation
-        max_generations = self.max_generations
         b = self.b
 
         u_rand = self.rng.uniform(0, 1)  # Random number for mutation strength
-        tau = (1 - t / max_generations) ** b
+        tau = (1 - self.decay_progress) ** b
 
         if r <= mutation_threshold:
             y = upper_bound - x
@@ -885,36 +959,69 @@ class NonUniformMutation(BaseMutation):
 
         population = offsprings.to_numpy(writable=True).astype(float)
 
+        bounds = list(zip(self.lower_bounds, self.upper_bounds, self.is_discrete, strict=True))
         for i in range(population.shape[0]):
-            for j, var in enumerate(self.problem.variables):
+            for j, (lower_bound, upper_bound, discrete) in enumerate(bounds):
                 if self.rng.random() < self.mutation_probability:
-                    x = population[i, j]
-                    lower_bound, upper_bound = var.lowerbound, var.upperbound
-                    if var.variable_type in [VariableTypeEnum.binary, VariableTypeEnum.integer]:
-                        population[i, j] = round(self._mutate_value(x, lower_bound, upper_bound))
-                    else:
-                        population[i, j] = self._mutate_value(x, lower_bound, upper_bound)
+                    mutated = self._mutate_value(population[i, j], lower_bound, upper_bound)
+                    # Round to keep the integer domain. `np.round` rather than `round`, which
+                    # raises on the NaN some crossover operators produce.
+                    population[i, j] = np.round(mutated) if discrete else mutated
 
-        self.offspring = pl.from_numpy(population, schema=self.variable_symbols).cast(pl.Float64)
+        self.offspring = pl.from_numpy(population, schema=self.variable_symbols, orient="row").cast(pl.Float64)
         self.notify()
 
         return self.offspring
 
     def update(self, message: Message):
-        """Update current generation (used to reduce mutation strength over time)."""
+        """Track the progress of the run (used to reduce mutation strength over time)."""
         if not isinstance(message.topic, TerminatorMessageTopics):
             return
         if not isinstance(message.value, int):
             return
-        if message.topic != TerminatorMessageTopics.GENERATION:
-            raise ValueError(f"Expected message topic {TerminatorMessageTopics.GENERATION}, got {message.topic}.")
-        self.current_generation = message.value
+        match message.topic:
+            case TerminatorMessageTopics.GENERATION:
+                self.current_generation = message.value
+            case TerminatorMessageTopics.MAX_GENERATIONS:
+                self.reported_max_generations = message.value
+            case TerminatorMessageTopics.EVALUATION:
+                self.current_evaluations = message.value
+            case TerminatorMessageTopics.MAX_EVALUATIONS:
+                self.max_evaluations = message.value
+            case _:
+                return
 
     def state(self) -> Sequence[Message]:
-        """Return state messages."""
+        """Return the state of the mutation operator."""
+        if self.offspring_original is None or self.parents is None or self.offspring is None:
+            return []
         if self.verbosity == 0:
             return []
+        if self.verbosity == 1:
+            return [
+                FloatMessage(
+                    topic=MutationMessageTopics.MUTATION_PROBABILITY,
+                    source=self.__class__.__name__,
+                    value=self.mutation_probability,
+                ),
+            ]
+        # verbosity == 2
         return [
+            PolarsDataFrameMessage(
+                topic=MutationMessageTopics.OFFSPRING_ORIGINAL,
+                source=self.__class__.__name__,
+                value=self.offspring_original,
+            ),
+            PolarsDataFrameMessage(
+                topic=MutationMessageTopics.PARENTS,
+                source=self.__class__.__name__,
+                value=self.parents,
+            ),
+            PolarsDataFrameMessage(
+                topic=MutationMessageTopics.OFFSPRINGS,
+                source=self.__class__.__name__,
+                value=self.offspring,
+            ),
             FloatMessage(
                 topic=MutationMessageTopics.MUTATION_PROBABILITY,
                 source=self.__class__.__name__,
@@ -940,6 +1047,7 @@ class SelfAdaptiveGaussianMutation(BaseMutation):
             2: [
                 MutationMessageTopics.MUTATION_PROBABILITY,
                 MutationMessageTopics.OFFSPRING_ORIGINAL,
+                MutationMessageTopics.PARENTS,
                 MutationMessageTopics.OFFSPRINGS,
             ],
         }
@@ -1018,7 +1126,7 @@ class SelfAdaptiveGaussianMutation(BaseMutation):
 
         new_offspring, self.step_sizes = self._mutation(offspring_array, self.step_sizes)
 
-        mutated_df = pl.from_numpy(new_offspring, schema=self.variable_symbols).cast(pl.Float64)
+        mutated_df = pl.from_numpy(new_offspring, schema=self.variable_symbols, orient="row").cast(pl.Float64)
         self.offspring = mutated_df
         self.notify()
 
@@ -1045,6 +1153,10 @@ class SelfAdaptiveGaussianMutation(BaseMutation):
                     new_eta[i, j] *= np.exp(self.tau_prime * common_noise + self.tau * rnd_number)
                     new_variables[i, j] += new_eta[i, j] * rnd_number
 
+        # Gaussian noise is unbounded, so keep the offspring inside the feasible box. Without this
+        # the operator relies on a repair function that the templates only apply afterwards.
+        new_variables = np.clip(new_variables, self.lower_bounds, self.upper_bounds)
+
         return new_variables, new_eta
 
     def update(self, *_, **__):
@@ -1052,7 +1164,7 @@ class SelfAdaptiveGaussianMutation(BaseMutation):
 
     def state(self) -> Sequence[Message]:
         """Return the state of the mutation operator."""
-        if self.offspring_original is None or self.offspring is None:
+        if self.offspring_original is None or self.parents is None or self.offspring is None:
             return []
         if self.verbosity == 0:
             return []
@@ -1101,6 +1213,7 @@ class PowerMutation(BaseMutation):
             2: [
                 MutationMessageTopics.MUTATION_PROBABILITY,
                 MutationMessageTopics.OFFSPRING_ORIGINAL,
+                MutationMessageTopics.PARENTS,
                 MutationMessageTopics.OFFSPRINGS,
             ],
         }
@@ -1138,9 +1251,6 @@ class PowerMutation(BaseMutation):
         )
         self.rng = np.random.default_rng(seed)
         self.seed = seed
-        self.offspring_original: pl.DataFrame
-        self.parents: pl.DataFrame
-        self.offspring: pl.DataFrame
 
     def do(self, offsprings: pl.DataFrame, parents: pl.DataFrame) -> pl.DataFrame:
         """Apply Power Mutation to the given offspring population.
@@ -1164,8 +1274,12 @@ class PowerMutation(BaseMutation):
         mutation_mask = self.rng.random(population.shape) < self.mutation_probability
         mutated = population.copy()
 
-        for i, var in enumerate(self.problem.variables):
-            lower_bound, upper_bound = var.lowerbound, var.upperbound
+        bounds = zip(self.lower_bounds, self.upper_bounds, self.is_discrete, strict=True)
+        for i, (lower_bound, upper_bound, discrete) in enumerate(bounds):
+            if upper_bound == lower_bound:
+                # A fixed variable has a single feasible value, and scaling by the width of an
+                # empty interval would divide by zero. Leave the column as it is.
+                continue
             x_i = population[:, i]
 
             u_i = self.rng.random(len(x_i))  # uniform random number
@@ -1175,12 +1289,17 @@ class PowerMutation(BaseMutation):
             direction = ((x_i - lower_bound) / (upper_bound - lower_bound)) < r_i  # used as condition
 
             xi_mutated = np.where(direction, x_i - s_i * (x_i - lower_bound), x_i + s_i * (upper_bound - x_i))
+            if discrete:
+                # Round after float mutation to keep the integer domain.
+                xi_mutated = np.round(xi_mutated)
 
             # Apply mutation based on mask
             mutated[:, i] = np.where(mutation_mask[:, i], xi_mutated, x_i)
 
         # Convert back to DataFrame
-        self.offspring = pl.from_numpy(mutated, schema=self.variable_symbols).select(pl.all()).cast(pl.Float64)
+        self.offspring = (
+            pl.from_numpy(mutated, schema=self.variable_symbols, orient="row").select(pl.all()).cast(pl.Float64)
+        )
         self.notify()
 
         return self.offspring
@@ -1194,7 +1313,9 @@ class PowerMutation(BaseMutation):
         Returns:
             List of messages reporting mutation probability, input, and output (at higher verbosity).
         """
-        if self.offspring_original is None or self.offspring is None or self.verbosity == 0:
+        if self.offspring_original is None or self.parents is None or self.offspring is None:
+            return []
+        if self.verbosity == 0:
             return []
 
         if self.verbosity == 1:

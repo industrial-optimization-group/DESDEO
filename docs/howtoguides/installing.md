@@ -362,7 +362,7 @@ The default cache location for uv will likely not work on a JYU machine, because
 doesn't have the necessary rights there. Thus, you should change the default cache location of
 uv to, for example, the anaconda environment.
 ```cmd
-conda env config vars set UV_CACHE_DIR=%CONDA_PREFIX%\uv_cache
+conda env config vars set UV_CACHE_DIR=%CONDA_PREFIX%\uv\cache VIRTUAL_ENV=%CONDA_PREFIX% UV_PROJECT_ENVIRONMENT=%CONDA_PREFIX% UV_PYTHON_INSTALL_DIR=%CONDA_PREFIX% UV_TOOL_DIR=%CONDA_PREFIX%\uv\tools
 conda activate desdeo
 ```
 
@@ -371,8 +371,6 @@ You can then use uv to install DESDEO and the required packages by typing
 ```cmd
 uv sync
 ```
-
-Newer versions of uv are able to automatically detect that you have a conda env active and will install the dependencies there.
 
 
 ## Where to go next?

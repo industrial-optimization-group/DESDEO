@@ -3,8 +3,12 @@
     "template": {
         "crossover": {
             "name": "SimulatedBinaryCrossover",
+            "pair_xover_probability": 1.0,
             "xover_probability": 0.5,
-            "xover_distribution": 30.0
+            "xover_distribution": 30.0,
+            "truncated": true,
+            "uniform_xover_probability": 0.5,
+            "swap_uncrossed_variables": false
         },
         "mutation": {
             "name": "BoundedPolynomialMutation",
@@ -34,10 +38,13 @@
         },
         "generator": {
             "n_points": 100,
+            "seed": null,
             "name": "LHSGenerator"
         },
         "repair": {
-            "name": "NoRepair"
+            "name": "ClipRepair",
+            "lower_bounds": null,
+            "upper_bounds": null
         },
         "use_archive": true,
         "seed": 42,

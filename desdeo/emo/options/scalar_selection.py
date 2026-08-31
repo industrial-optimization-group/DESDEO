@@ -64,13 +64,15 @@ def scalar_selector_constructor(
         return TournamentSelection(
             tournament_size=options.tournament_size,
             winner_size=options.winner_size,
+            seed=seed,
             publisher=publisher,
             verbosity=verbosity,
         )
     if options.name == "RouletteWheelSelection":
         return TournamentSelection(  # It implements both (and more)
             winner_size=options.winner_size,
-            seed=seed,  # By providing seed tournament selection behaves like roulette wheel
+            seed=seed,
+            stochastic=True,  # Drawing the winner by fitness is what makes it a roulette wheel
             publisher=publisher,
             verbosity=verbosity,
             tournament_size=options.tournament_size,

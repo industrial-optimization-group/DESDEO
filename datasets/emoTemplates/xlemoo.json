@@ -5,7 +5,7 @@
             "name": "SimulatedBinaryCrossover",
             "pair_xover_probability": 1.0,
             "xover_probability": 0.5,
-            "xover_distribution": 20.0,
+            "xover_distribution": 30.0,
             "truncated": true,
             "uniform_xover_probability": 0.5,
             "swap_uncrossed_variables": false
@@ -16,34 +16,32 @@
             "distribution_index": 20.0
         },
         "selection": {
-            "name": "IBEASelector",
-            "population_size": 100,
-            "kappa": 0.05,
-            "binary_indicator": "eps"
+            "name": "ElitistSelection",
+            "winner_size": 50,
+            "target_column": "asf"
         },
         "termination": {
             "name": "MaxGenerationsTerminator",
-            "max_generations": 100
+            "max_generations": 200
         },
         "generator": {
-            "n_points": 100,
+            "n_points": 50,
             "seed": null,
             "name": "LHSGenerator"
         },
         "repair": {
-            "name": "ClipRepair",
-            "lower_bounds": null,
-            "upper_bounds": null
+            "name": "NoRepair"
         },
         "use_archive": true,
         "seed": 42,
         "verbosity": 2,
-        "algorithm_name": "IBEA",
-        "name": "Template2",
-        "mate_selection": {
-            "name": "TournamentSelection",
-            "tournament_size": 2,
-            "winner_size": 100
-        }
+        "algorithm_name": "XLEMOO",
+        "name": "TemplateXLEMOO",
+        "n_darwin_per_cycle": 20,
+        "n_learning_per_cycle": 1,
+        "h_split": 0.2,
+        "l_split": 0.2,
+        "instantiation_factor": 10.0,
+        "scalarization": "asf_nondiff"
     }
 }
