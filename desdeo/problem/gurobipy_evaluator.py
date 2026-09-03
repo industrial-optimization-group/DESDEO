@@ -247,7 +247,12 @@ class GurobipyEvaluator:
         Returns:
             dict: dict containing the objective functions.
         """
-        objective_functions: dict[str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr] = {}
+        # Populate the dict the parser callback reads (self.objective_functions) in place, so that an
+        # objective may reference an earlier one, e.g. the weighted or expected value aggregates built
+        # from the per-scenario objectives of a combined scenario problem.
+        objective_functions: dict[str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr] = (
+            self.objective_functions
+        )
         for obj in problem.objectives:
             gp_expr = self.parse(obj.func, callback=self.get_expression_by_name)
             if isinstance(gp_expr, int | float):

@@ -61,6 +61,7 @@
 		description: string;
 		preferencesType: PreferenceType[];
 		supportsGroups?: boolean;  // NEW: Optional flag for GDM methods
+		noProblemRequired?: boolean; // Method operates on its own pre-computed data, not a DESDEO Problem
 	}
 
 	// Base methods without group parameters
@@ -114,6 +115,24 @@
 			description: 'SCORE bands for GDM.',
 			preferencesType: ['preferred ranges'],
 			supportsGroups: true
+		},
+		{
+			name: 'JINA (interactive single-scenario)',
+			path: '/interactive_methods/District-Heating-System',
+			description: 'Scenario-robust reference-point matching over a problem\'s pre-computed candidate pool.',
+			preferencesType: ['reference point']
+		},
+		{
+			name: 'JINA (interactive two-stage robustness)',
+			path: '/interactive_methods/District-Heating-System-Robust',
+			description: 'Multi-scenario, live-solving robust reference-point matching against a problem with an attached scenario model.',
+			preferencesType: ['reference point']
+		},
+		{
+			name: 'JINA (interactive combined multi-scenario)',
+			path: '/interactive_methods/District-Heating-Combined',
+			description: 'Same problems as the two-stage robustness method, but with no worst-case aggregation: one aspiration level per (objective, scenario) cell, so a target can differ between scenarios.',
+			preferencesType: ['reference point']
 		},
 	];
 
@@ -177,7 +196,9 @@
 
 	// Button enable logic: for group methods, enable if groupId exists; for individual methods, enable if problem exists
 	const isMethodEnabled = (method: Method) => {
-		if (method.supportsGroups && data.groupId) {
+		if (method.noProblemRequired) {
+			return true;
+		} else if (method.supportsGroups && data.groupId) {
 			// Group method: enable if we have a groupId (DM users can access group problems they don't own)
 			return true;
 		} else if (!problem) {

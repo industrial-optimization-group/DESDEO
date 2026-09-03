@@ -26,6 +26,12 @@ from .state import (
     CumulusModificationState,
     CumulusObjectiveConstraintState,
     CumulusSaveState,
+    DistrictHeatingCombinedIterationState,
+    DistrictHeatingCombinedWishlistState,
+    DistrictHeatingIterationState,
+    DistrictHeatingRobustIterationState,
+    DistrictHeatingRobustWishlistState,
+    DistrictHeatingWishlistState,
     EMOFetchState,
     EMOIterateState,
     EMOSaveState,
@@ -84,6 +90,12 @@ class StateKind(str, Enum):
     CUMULUS_FINAL = "cumulus.final"
     CUMULUS_MODIFY = "cumulus.modify"
     CUMULUS_OBJ_CONSTRAINT = "cumulus.objective_constraint"
+    DISTRICT_HEATING_ITERATE = "district_heating_system.iterate"
+    DISTRICT_HEATING_WISHLIST = "district_heating_system.wishlist_update"
+    DISTRICT_HEATING_ROBUST_ITERATE = "district_heating_robust.iterate"
+    DISTRICT_HEATING_ROBUST_WISHLIST = "district_heating_robust.wishlist_update"
+    DISTRICT_HEATING_COMBINED_ITERATE = "district_heating_combined.iterate"
+    DISTRICT_HEATING_COMBINED_WISHLIST = "district_heating_combined.wishlist_update"
 
 
 class State(SQLModel, table=True):
@@ -226,6 +238,12 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.CUMULUS_FINAL: CumulusFinalState,
     StateKind.CUMULUS_MODIFY: CumulusModificationState,
     StateKind.CUMULUS_OBJ_CONSTRAINT: CumulusObjectiveConstraintState,
+    StateKind.DISTRICT_HEATING_ITERATE: DistrictHeatingIterationState,
+    StateKind.DISTRICT_HEATING_WISHLIST: DistrictHeatingWishlistState,
+    StateKind.DISTRICT_HEATING_ROBUST_ITERATE: DistrictHeatingRobustIterationState,
+    StateKind.DISTRICT_HEATING_ROBUST_WISHLIST: DistrictHeatingRobustWishlistState,
+    StateKind.DISTRICT_HEATING_COMBINED_ITERATE: DistrictHeatingCombinedIterationState,
+    StateKind.DISTRICT_HEATING_COMBINED_WISHLIST: DistrictHeatingCombinedWishlistState,
 }
 
 SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
@@ -252,6 +270,12 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
     CumulusSaveState: StateKind.CUMULUS_SAVE,
     CumulusModificationState: StateKind.CUMULUS_MODIFY,
     CumulusObjectiveConstraintState: StateKind.CUMULUS_OBJ_CONSTRAINT,
+    DistrictHeatingIterationState: StateKind.DISTRICT_HEATING_ITERATE,
+    DistrictHeatingWishlistState: StateKind.DISTRICT_HEATING_WISHLIST,
+    DistrictHeatingRobustIterationState: StateKind.DISTRICT_HEATING_ROBUST_ITERATE,
+    DistrictHeatingRobustWishlistState: StateKind.DISTRICT_HEATING_ROBUST_WISHLIST,
+    DistrictHeatingCombinedIterationState: StateKind.DISTRICT_HEATING_COMBINED_ITERATE,
+    DistrictHeatingCombinedWishlistState: StateKind.DISTRICT_HEATING_COMBINED_WISHLIST,
 }
 
 

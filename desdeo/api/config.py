@@ -88,3 +88,18 @@ AuthConfig = AuthDebugConfig() if SettingsConfig.debug else AuthDeployConfig()
 DatabaseConfig = DatabaseDebugConfig() if SettingsConfig.debug else DatabaseDeployConfig()
 
 ServerConfig = ServerDebugConfig() if SettingsConfig.debug else None
+
+
+class DistrictHeatingDataSettings(BaseSettings):
+    """Location of the pre-computed District Heating System candidate/scenario data.
+
+    Points at a folder containing `summary.csv` and `pairwise_transfer_matrix_long.csv`
+    (and, for the results dashboard, `antifragility_results.csv`,
+    `antifragility_deviations.csv`, `domain_criterion_results.csv`, `max_regret_results.csv`).
+    Nothing under desdeo/api reads or writes these files except this settings' `data_dir`.
+    """
+
+    data_dir: str = os.getenv("DH_DATA_DIR", "")
+
+
+DistrictHeatingDataConfig = DistrictHeatingDataSettings()

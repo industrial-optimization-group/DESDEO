@@ -6,6 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from desdeo.api.config import AuthConfig
 from desdeo.api.routers import (
     cumulus,
+    district_heating_combined,
+    district_heating_robust,
+    district_heating_system,
     enautilus,
     generic,
     nautilus_navigator,
@@ -47,6 +50,9 @@ app.include_router(site_selection.router)
 app.include_router(gdm_score_bands_routers.router)
 app.include_router(nautilus_navigator.router)
 app.include_router(solution_description.router)
+app.include_router(district_heating_system.router)
+app.include_router(district_heating_robust.router)
+app.include_router(district_heating_combined.router)
 
 
 @app.get("/health")

@@ -36,6 +36,21 @@ if TYPE_CHECKING:
 _EXCLUDE = {"id", "problem_id", "scenario_model_id"}
 
 
+def _reinterleave(layout: list[str] | None, scalars: list, tensors: list) -> list:
+    """Rebuild one combined pool list in its original scalar/tensor interleaving order.
+
+    `layout` is a list like ["tensor", "scalar", "tensor", ...], one entry per original pool
+    element, as recorded by `ScenarioModelDB.from_scenario_model`. Without a layout (rows
+    persisted before `pool_layout` existed), falls back to the old scalars-then-tensors
+    concatenation — correct only when the original pool was already single-typed.
+    """
+    if not layout:
+        return [*scalars, *tensors]
+    scalar_iter = iter(scalars)
+    tensor_iter = iter(tensors)
+    return [next(tensor_iter) if kind == "tensor" else next(scalar_iter) for kind in layout]
+
+
 class ScenarioModelDB(SQLModel, table=True):
     """Database table model for ScenarioModel."""
 
@@ -47,20 +62,49 @@ class ScenarioModelDB(SQLModel, table=True):
     scenarios: dict = Field(sa_column=Column(JSON))
     anticipation_stop: dict = Field(sa_column=Column(JSON), default={})
     scenario_probabilities: dict = Field(sa_column=Column(JSON), default={})
+    # `Scenario.constants`/`.variables` index into ONE combined (scalar+tensor) pool list, but
+    # this table stores scalars and tensors as two separate relationships. That loses the
+    # original interleaving order needed to reconstruct matching indices — this records it as
+    # e.g. {"constants": ["tensor", "scalar", ...], "variables": [...]}, one entry per original
+    # pool element in order. Empty/missing (old rows) falls back to the pre-existing
+    # scalars-then-tensors concatenation, which is only correct for an all-one-type pool.
+    pool_layout: dict = Field(sa_column=Column(JSON), default={})
 
     # Relationships
     user: "User" = Relationship(back_populates="scenario_models")
     base_problem: "ProblemDB" = Relationship(back_populates="scenario_models")
 
-    constants: list["ConstantDB"] = Relationship(back_populates="scenario_model", cascade_delete=True)
-    tensor_constants: list["TensorConstantDB"] = Relationship(back_populates="scenario_model", cascade_delete=True)
-    variables: list["VariableDB"] = Relationship(back_populates="scenario_model", cascade_delete=True)
-    tensor_variables: list["TensorVariableDB"] = Relationship(back_populates="scenario_model", cascade_delete=True)
-    objectives: list["ObjectiveDB"] = Relationship(back_populates="scenario_model", cascade_delete=True)
-    constraints: list["ConstraintDB"] = Relationship(back_populates="scenario_model", cascade_delete=True)
-    extra_funcs: list["ExtraFunctionDB"] = Relationship(back_populates="scenario_model", cascade_delete=True)
+    constants: list["ConstantDB"] = Relationship(
+        back_populates="scenario_model", cascade_delete=True, sa_relationship_kwargs={"order_by": "ConstantDB.id"}
+    )
+    tensor_constants: list["TensorConstantDB"] = Relationship(
+        back_populates="scenario_model",
+        cascade_delete=True,
+        sa_relationship_kwargs={"order_by": "TensorConstantDB.id"},
+    )
+    variables: list["VariableDB"] = Relationship(
+        back_populates="scenario_model", cascade_delete=True, sa_relationship_kwargs={"order_by": "VariableDB.id"}
+    )
+    tensor_variables: list["TensorVariableDB"] = Relationship(
+        back_populates="scenario_model",
+        cascade_delete=True,
+        sa_relationship_kwargs={"order_by": "TensorVariableDB.id"},
+    )
+    objectives: list["ObjectiveDB"] = Relationship(
+        back_populates="scenario_model", cascade_delete=True, sa_relationship_kwargs={"order_by": "ObjectiveDB.id"}
+    )
+    constraints: list["ConstraintDB"] = Relationship(
+        back_populates="scenario_model", cascade_delete=True, sa_relationship_kwargs={"order_by": "ConstraintDB.id"}
+    )
+    extra_funcs: list["ExtraFunctionDB"] = Relationship(
+        back_populates="scenario_model",
+        cascade_delete=True,
+        sa_relationship_kwargs={"order_by": "ExtraFunctionDB.id"},
+    )
     scalarization_funcs: list["ScalarizationFunctionDB"] = Relationship(
-        back_populates="scenario_model", cascade_delete=True
+        back_populates="scenario_model",
+        cascade_delete=True,
+        sa_relationship_kwargs={"order_by": "ScalarizationFunctionDB.id"},
     )
 
     @classmethod
@@ -85,6 +129,11 @@ class ScenarioModelDB(SQLModel, table=True):
         scalar_variables = [v for v in scenario_model.variables if isinstance(v, Variable)]
         tensor_variables = [v for v in scenario_model.variables if isinstance(v, TensorVariable)]
 
+        pool_layout = {
+            "constants": ["tensor" if isinstance(c, TensorConstant) else "scalar" for c in scenario_model.constants],
+            "variables": ["tensor" if isinstance(v, TensorVariable) else "scalar" for v in scenario_model.variables],
+        }
+
         return cls(
             user_id=user.id,
             base_problem_id=base_problem_id,
@@ -92,6 +141,7 @@ class ScenarioModelDB(SQLModel, table=True):
             scenarios={name: s.model_dump() for name, s in scenario_model.scenarios.items()},
             anticipation_stop=scenario_model.anticipation_stop,
             scenario_probabilities=scenario_model.scenario_probabilities,
+            pool_layout=pool_layout,
             constants=[ConstantDB.model_validate(c) for c in scalar_constants],
             tensor_constants=[TensorConstantDB.model_validate(c) for c in tensor_constants],
             variables=[VariableDB.model_validate(v) for v in scalar_variables],
@@ -114,10 +164,16 @@ class ScenarioModelDB(SQLModel, table=True):
         Returns:
             ScenarioModel: the reconstructed instance.
         """
-        constants = [Constant.model_validate(c.model_dump(exclude=_EXCLUDE)) for c in self.constants]
-        constants += [TensorConstant.model_validate(c.model_dump(exclude=_EXCLUDE)) for c in self.tensor_constants]
-        variables = [Variable.model_validate(v.model_dump(exclude=_EXCLUDE)) for v in self.variables]
-        variables += [TensorVariable.model_validate(v.model_dump(exclude=_EXCLUDE)) for v in self.tensor_variables]
+        constants = _reinterleave(
+            self.pool_layout.get("constants"),
+            scalars=[Constant.model_validate(c.model_dump(exclude=_EXCLUDE)) for c in self.constants],
+            tensors=[TensorConstant.model_validate(c.model_dump(exclude=_EXCLUDE)) for c in self.tensor_constants],
+        )
+        variables = _reinterleave(
+            self.pool_layout.get("variables"),
+            scalars=[Variable.model_validate(v.model_dump(exclude=_EXCLUDE)) for v in self.variables],
+            tensors=[TensorVariable.model_validate(v.model_dump(exclude=_EXCLUDE)) for v in self.tensor_variables],
+        )
 
         return ScenarioModel(
             scenario_tree=self.scenario_tree,
