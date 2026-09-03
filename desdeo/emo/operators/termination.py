@@ -203,6 +203,36 @@ class CompositeTerminator(BaseTerminator):
             self.max_evaluations = max(max_evaluations)
         self.mode = mode
 
+    @property
+    def interested_topics(self):
+        """Return the union of the topics the wrapped terminators listen for.
+
+        The template subscribes only its top-level components, so the wrapped
+        terminators never receive messages directly. The composite listens on
+        their behalf and forwards.
+        """
+        topics = []
+        for terminator in self.terminators:
+            for topic in terminator.interested_topics:
+                if topic not in topics:
+                    topics.append(topic)
+        return topics
+
+    def update(self, message: Message) -> None:
+        """Forward a message to every wrapped terminator.
+
+        Without this an inner evaluation count never moves and an evaluation
+        limit inside a composite never binds, while a generation limit still
+        does because it counts in its own check.
+        """
+        super().update(message)
+        # Only a child the publisher does not already deliver to; one that was
+        # subscribed itself would otherwise count every message twice.
+        delivered = self.publisher.subscribers.get(message.topic, [])
+        for terminator in self.terminators:
+            if terminator not in delivered:
+                terminator.update(message)
+
     def check(self) -> bool:
         """Check if the termination criterion is reached.
 
