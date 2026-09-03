@@ -283,10 +283,19 @@ class R2Indicator(BaseModel):
     """Container for the R2 indicator value of a solution set."""
 
     r2_value: float
+    """The R2 indicator value. **Higher is better, and the value is always negative.**
+
+    This is the utility form of R2, and it is the opposite orientation to every other indicator in
+    this module. See `r2_indicator` for why, and do not put it on a chart beside IGD+ or GD without
+    flipping its sign first."""
 
 
 def tchebycheff_utility(fx: np.ndarray, lambd: np.ndarray, z_star: np.ndarray, rho: float = 0.05) -> float:
-    """Calculates the augmented Tchebycheff utility of a solution."""
+    """Calculates the augmented Tchebycheff utility of a solution.
+
+    A *utility*, so it is the negated achievement scalarising value and **higher is better**. It is
+    always negative, reaching zero only for a solution sitting on the ideal point.
+    """
     diff = np.abs(z_star - fx)
     max_term = np.max(lambd * diff)
     sum_term = np.sum(diff)
@@ -298,6 +307,16 @@ def r2_indicator(
 ) -> R2Indicator:
     """Computes the unary R2 indicator for a given solution set.
 
+    **Higher is better, and the value is always negative** -- the opposite of every other indicator
+    in this module, and the single most likely thing to be got wrong about it.
+
+    Two conventions for unary R2 are in use and they differ by a sign. This is the *utility* form of
+    Brockhoff, Wagner and Trautmann: the mean over weight vectors of the best utility any solution
+    achieves, where the utility is a negated Tchebycheff distance. PlatEMO and jMetal report the
+    *distance* form instead -- the mean over weight vectors of the smallest Tchebycheff distance --
+    which is non-negative and minimised. The two are exact negations of each other, so
+    `-r2_value` converts this to the value those frameworks print.
+
     Args:
         solution_set (np.ndarray): The Pareto front approximation.
         lambda_set (np.ndarray): The set of normalized weight vectors (λ).
@@ -305,7 +324,15 @@ def r2_indicator(
         rho (float, optional): Small positive number for augmented Tchebycheff. Default is 0.05.
 
     Returns:
-        R2IndicatorResult: Pydantic class with R2 value.
+        R2IndicatorResult: Pydantic class with R2 value. Higher is better; see above.
+
+    References:
+        Brockhoff, D., Wagner, T., & Trautmann, H. (2012). On the properties of the R2 indicator.
+            In Proceedings of the 14th Annual Conference on Genetic and Evolutionary Computation
+            (pp. 465-472). https://doi.org/10.1145/2330163.2330230
+
+        Hansen, M. P., & Jaszkiewicz, A. (1998). Evaluating the quality of approximations to the
+            non-dominated set. IMM Technical Report IMM-REP-1998-7, Technical University of Denmark.
     """
     total_score = 0.0
     for lambd in lambda_set:

@@ -49,6 +49,7 @@ nav:
       - "How to user evolutionary algorithms": "howtoguides/ea.ipynb"
       - "How to configure evolutionary algorithms": "howtoguides/ea_options.ipynb"
       - "How to solve constrained problems with evolutionary algorithms": "howtoguides/ea_constraints.ipynb"
+      - "How to solve the RE problems": "howtoguides/re_problems.ipynb"
       - "How to implement evolutionary algorithms": "howtoguides/how_to_implement_ea.md"
       - "How to use the XLEMOO method": "howtoguides/xlemoo.ipynb"
       - "How to define problems with surrogates": "howtoguides/advancedSurrogates.ipynb"

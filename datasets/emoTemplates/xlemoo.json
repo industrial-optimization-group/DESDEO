@@ -7,7 +7,8 @@
             "xover_probability": 0.5,
             "xover_distribution": 30.0,
             "truncated": true,
-            "uniform_xover_probability": 0.5
+            "uniform_xover_probability": 0.5,
+            "swap_uncrossed_variables": false
         },
         "mutation": {
             "name": "BoundedPolynomialMutation",

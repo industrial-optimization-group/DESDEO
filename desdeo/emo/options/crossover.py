@@ -11,7 +11,9 @@ from desdeo.emo.operators.crossover import (
     BlendAlphaCrossover,
     BoundedExponentialCrossover,
     CompositeCrossover,
+    DifferentialEvolutionCrossover,
     LocalCrossover,
+    ParentCentricCrossover,
     SimulatedBinaryCrossover,
     SingleArithmeticCrossover,
     SinglePointBinaryCrossover,
@@ -58,6 +60,18 @@ class SimulatedBinaryCrossoverOptions(BaseModel):
     )
     """The uniform crossover probability. Only operates on variables that have already been selected for crossover
     by the xover_probability parameter."""
+    swap_uncrossed_variables: bool = Field(
+        default=False,
+        description=(
+            "Whether a decision variable not selected for SBX is exchanged between the two offspring "
+            "instead of inherited unchanged. Set only to reproduce jMetal (Java)."
+        ),
+    )
+    """Whether a decision variable not selected by `xover_probability` is exchanged between the two offspring
+    instead of inherited unchanged. Defaults to False, which is what every implementation surveyed does except
+    jMetal (Java), whose else-branch assigns `offspring1[i] = parent2[i]` and `offspring2[i] = parent1[i]`.
+    That adds a genuine uniform-crossover component on top of SBX: at the standard per-variable rate of 0.5,
+    half of the genome is swapped wholesale every time a pair recombines."""
 
 
 class SinglePointBinaryCrossoverOptions(BaseModel):
@@ -143,6 +157,55 @@ class BoundedExponentialCrossoverOptions(BaseModel):
     """The crossover probability."""
     lambda_: float = Field(default=0.1, gt=0.0, description="Positive scale λ for the exponential distribution.")
     """Positive scale λ for the exponential distribution."""
+    uniform_xover_probability: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Per-variable probability that the two offspring exchange which parent they descend from. "
+            "0.0 keeps the operator's original behaviour, where each offspring keeps its own parent's "
+            "identity in every variable."
+        ),
+    )
+    """Per-variable probability that the two offspring exchange which parent they descend from.
+
+    Defaults to 0.0, the operator's original behaviour. The same parameter on
+    `SimulatedBinaryCrossoverOptions` defaults to 0.5 and separates that operator's two arms by 10.9x
+    in median regret, so this is worth varying; the default stays at 0.0 because BEX is parent centric
+    by construction and the transfer has not been measured."""
+
+
+class DifferentialEvolutionCrossoverOptions(BaseModel):
+    """Options for Differential Evolution crossover (DE/rand/1/bin)."""
+
+    name: Literal["DifferentialEvolutionCrossover"] = Field(
+        default="DifferentialEvolutionCrossover", frozen=True, description="The name of the crossover operator."
+    )
+    """The name of the crossover operator."""
+    scaling_factor: float = Field(default=0.5, gt=0.0, description="The factor F applied to the difference vector.")
+    """The factor `F` applied to the difference vector `x_r2 - x_r3`. Defaults to 0.5, the midpoint of
+    the 0.4-1.0 range Storn and Price recommend."""
+    xover_probability: float = Field(default=0.9, ge=0.0, le=1.0, description="The binomial crossover rate CR.")
+    """The binomial crossover rate `CR`: the per-component probability that the offspring takes the
+    mutant's value rather than the target's. One component is always taken from the mutant regardless,
+    so no offspring is a copy of its target even at 0.0."""
+
+
+class ParentCentricCrossoverOptions(BaseModel):
+    """Options for Parent-Centric Crossover (PCX)."""
+
+    name: Literal["ParentCentricCrossover"] = Field(
+        default="ParentCentricCrossover", frozen=True, description="The name of the crossover operator."
+    )
+    """The name of the crossover operator."""
+    sigma_zeta: float = Field(
+        default=0.1, gt=0.0, description="Standard deviation along the centroid-to-parent direction."
+    )
+    """Standard deviation of the displacement along the direction from the parental centroid to the
+    index parent. Defaults to 0.1, the value used throughout Deb, Anand and Joshi (2002)."""
+    sigma_eta: float = Field(default=0.1, gt=0.0, description="Standard deviation orthogonal to that direction.")
+    """Standard deviation of the displacement orthogonal to the centroid-to-parent direction, in units
+    of the mean perpendicular distance of the other parents. Defaults to 0.1."""
 
 
 class CompositeCrossoverOptions(BaseModel):
@@ -168,6 +231,8 @@ CrossoverOptions = (
     | SingleArithmeticCrossoverOptions
     | LocalCrossoverOptions
     | BoundedExponentialCrossoverOptions
+    | DifferentialEvolutionCrossoverOptions
+    | ParentCentricCrossoverOptions
     | CompositeCrossoverOptions
 )
 
@@ -196,6 +261,8 @@ def crossover_constructor(
         "SingleArithmeticCrossover": SingleArithmeticCrossover,
         "LocalCrossover": LocalCrossover,
         "BoundedExponentialCrossover": BoundedExponentialCrossover,
+        "DifferentialEvolutionCrossover": DifferentialEvolutionCrossover,
+        "ParentCentricCrossover": ParentCentricCrossover,
         "CompositeCrossover": CompositeCrossover,
     }
     if options.name != "CompositeCrossover":

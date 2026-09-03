@@ -87,6 +87,14 @@
                     "exclusiveMinimum": 0.0,
                     "title": "Lambda",
                     "type": "number"
+                },
+                "uniform_xover_probability": {
+                    "default": 0.0,
+                    "description": "Per-variable probability that the two offspring exchange which parent they descend from. 0.0 keeps the operator's original behaviour, where each offspring keeps its own parent's identity in every variable.",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "title": "Uniform Xover Probability",
+                    "type": "number"
                 }
             },
             "title": "BoundedExponentialCrossoverOptions",
@@ -213,6 +221,12 @@
                                 "$ref": "#/$defs/BoundedExponentialCrossoverOptions"
                             },
                             {
+                                "$ref": "#/$defs/DifferentialEvolutionCrossoverOptions"
+                            },
+                            {
+                                "$ref": "#/$defs/ParentCentricCrossoverOptions"
+                            },
+                            {
                                 "$ref": "#/$defs/CompositeCrossoverOptions"
                             }
                         ]
@@ -330,6 +344,35 @@
                 "reservation_levels"
             ],
             "title": "DesirableRangesOptions",
+            "type": "object"
+        },
+        "DifferentialEvolutionCrossoverOptions": {
+            "description": "Options for Differential Evolution crossover (DE/rand/1/bin).",
+            "properties": {
+                "name": {
+                    "const": "DifferentialEvolutionCrossover",
+                    "default": "DifferentialEvolutionCrossover",
+                    "description": "The name of the crossover operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "scaling_factor": {
+                    "default": 0.5,
+                    "description": "The factor F applied to the difference vector.",
+                    "exclusiveMinimum": 0.0,
+                    "title": "Scaling Factor",
+                    "type": "number"
+                },
+                "xover_probability": {
+                    "default": 0.9,
+                    "description": "The binomial crossover rate CR.",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "title": "Xover Probability",
+                    "type": "number"
+                }
+            },
+            "title": "DifferentialEvolutionCrossoverOptions",
             "type": "object"
         },
         "ElitistSelectionOptions": {
@@ -581,11 +624,11 @@
                     "title": "Name",
                     "type": "string"
                 },
-                "max_time": {
+                "max_time_in_seconds": {
                     "default": 30.0,
                     "description": "The maximum time allowed (in seconds).",
                     "exclusiveMinimum": 0,
-                    "title": "Max Time",
+                    "title": "Max Time In Seconds",
                     "type": "number"
                 }
             },
@@ -788,6 +831,34 @@
             ],
             "title": "ParameterAdaptationStrategy",
             "type": "string"
+        },
+        "ParentCentricCrossoverOptions": {
+            "description": "Options for Parent-Centric Crossover (PCX).",
+            "properties": {
+                "name": {
+                    "const": "ParentCentricCrossover",
+                    "default": "ParentCentricCrossover",
+                    "description": "The name of the crossover operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "sigma_zeta": {
+                    "default": 0.1,
+                    "description": "Standard deviation along the centroid-to-parent direction.",
+                    "exclusiveMinimum": 0.0,
+                    "title": "Sigma Zeta",
+                    "type": "number"
+                },
+                "sigma_eta": {
+                    "default": 0.1,
+                    "description": "Standard deviation orthogonal to that direction.",
+                    "exclusiveMinimum": 0.0,
+                    "title": "Sigma Eta",
+                    "type": "number"
+                }
+            },
+            "title": "ParentCentricCrossoverOptions",
+            "type": "object"
         },
         "PowerMutationOptions": {
             "description": "Options for Power Mutation.",
@@ -1337,6 +1408,12 @@
                     "minimum": 0.0,
                     "title": "Uniform Xover Probability",
                     "type": "number"
+                },
+                "swap_uncrossed_variables": {
+                    "default": false,
+                    "description": "Whether a decision variable not selected for SBX is exchanged between the two offspring instead of inherited unchanged. Set only to reproduce jMetal (Java).",
+                    "title": "Swap Uncrossed Variables",
+                    "type": "boolean"
                 }
             },
             "title": "SimulatedBinaryCrossoverOptions",
@@ -1406,6 +1483,12 @@
                         },
                         {
                             "$ref": "#/$defs/BoundedExponentialCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/DifferentialEvolutionCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ParentCentricCrossoverOptions"
                         },
                         {
                             "$ref": "#/$defs/CompositeCrossoverOptions"
@@ -1592,6 +1675,12 @@
                         },
                         {
                             "$ref": "#/$defs/BoundedExponentialCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/DifferentialEvolutionCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ParentCentricCrossoverOptions"
                         },
                         {
                             "$ref": "#/$defs/CompositeCrossoverOptions"
@@ -1796,6 +1885,12 @@
                             "$ref": "#/$defs/BoundedExponentialCrossoverOptions"
                         },
                         {
+                            "$ref": "#/$defs/DifferentialEvolutionCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ParentCentricCrossoverOptions"
+                        },
+                        {
                             "$ref": "#/$defs/CompositeCrossoverOptions"
                         }
                     ],
@@ -1980,6 +2075,12 @@
                         },
                         {
                             "$ref": "#/$defs/BoundedExponentialCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/DifferentialEvolutionCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ParentCentricCrossoverOptions"
                         },
                         {
                             "$ref": "#/$defs/CompositeCrossoverOptions"

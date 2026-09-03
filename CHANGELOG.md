@@ -56,6 +56,23 @@ This project follows **Keep a Changelog** and **Semantic Versioning**:
 
 ## [2.7.0] - 25.8.2026
 
+### Highlights
+
+This release completes the support for scenario-based optimization that was
+started in 2.5.0. A scenario describes what the problem might look like in one
+plausible future, and a `ScenarioModel` collects such scenarios, the tree
+describing how they follow one another, and their probabilities. Scenario
+problems can now be solved interactively: CUMULUS (#550) is a classification
+based method built for them, and it is available through the core logic, the
+Web API and the Web GUI. It comes with soft constraints, worst case regret and
+the stochastic and robust aggregations needed to reduce a scenario problem to
+one a solver can handle.
+
+Scenarios are explained in the documentation at
+https://desdeo.readthedocs.io/en/latest/explanation/scenarios/, which walks
+through building a `ScenarioModel` and solving it. The same material is
+available as a notebook in `notebooks/scenarios.ipynb`.
+
 ### Core logic
 
 #### Added
@@ -260,6 +277,9 @@ This project follows **Keep a Changelog** and **Semantic Versioning**:
   metadata model and its `DescriptionPart` entries. A part is either literal
   text, a symbol looked up from the solver results, or a MathJSON expression
   evaluated against them (#550).
+- Added `validate_description_parts` in `routers/solution_description.py`, which
+  checks a description template on its own, so callers other than
+  `/update_metadata` can validate one (#578).
 - Added `get_solver_results_at` and `copy_problem_metadata` to
   `routers/utils.py`.
 - Added `desdeo/api/db_init_gdm.py` and `desdeo/api/db_init_summer_cabin.py`,
@@ -282,6 +302,20 @@ This project follows **Keep a Changelog** and **Semantic Versioning**:
   closes it afterwards. It was closed before the manager needed it.
 - Raised the debug access and refresh token lifetimes in `config.toml` from 15
   and 30 minutes to 480 minutes, for development and testing.
+- Solution descriptions expose tensor solver results element by element, as
+  `x_1`, `x_2` and `x_1_2` for nested tensors, instead of collapsing a tensor to
+  its first element, so a description part can aggregate over one, for example
+  the maximum over a schedule (#578).
+- The problem's constants are available to solution descriptions, so a part can
+  refer to `p_1` rather than having that value written into the expression. The
+  solution's own values take precedence over the constants (#578).
+- Solution description expressions substitute the known values into the MathJSON
+  tree before it is parsed, instead of parsing symbolically and then
+  substituting. Rendering a part that aggregates over a few hundred symbols went
+  from about 52 s to about 10 ms (#578).
+- `/update_metadata` rejects description parts referring to symbols the problem
+  does not have. Such a part previously failed only when a description was
+  requested (#578).
 
 ### Web GUI
 

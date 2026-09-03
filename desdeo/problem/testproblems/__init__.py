@@ -20,12 +20,14 @@ __all__ = [  # noqa: RUF022
     "dtlz4",
     "forest_problem",
     "forest_problem_discrete",
+    "gaa",
     "mcwb_equilateral_tbeam_problem",
     "mcwb_hollow_rectangular_problem",
     "mcwb_ragsdell1976_problem",
     "mcwb_solid_rectangular_problem",
     "mcwb_square_channel_problem",
     "mcwb_tapered_channel_problem",
+    "metallurgical_application",
     "mixed_variable_dimensions_problem",
     "momip_ti2",
     "momip_ti7",
@@ -36,6 +38,14 @@ __all__ = [  # noqa: RUF022
     "re22",
     "re23",
     "re24",
+    "re31",
+    "re32",
+    "re33",
+    "re34",
+    "re37",
+    "re41",
+    "re42",
+    "re61",
     "river_pollution_problem",
     "river_pollution_problem_discrete",
     "river_pollution_scenario",
@@ -78,6 +88,7 @@ from .ctp_problems import ctp1, ctp2, ctp3, ctp4, ctp5, ctp6, ctp7, ctp8
 from .dmitry_forest_problem_discrete import dmitry_forest_problem_disc
 from .dtlz_problems import dtlz1, dtlz2, dtlz4
 from .forest_problem import forest_problem, forest_problem_discrete
+from .gaa_problem import gaa
 from .knapsack_problem import simple_knapsack, simple_knapsack_vectors
 from .lame_superspheres_problem import lame_superspheres
 from .mcwb_problem import (
@@ -88,12 +99,13 @@ from .mcwb_problem import (
     mcwb_square_channel_problem,
     mcwb_tapered_channel_problem,
 )
+from .metallurgical_application_problem import metallurgical_application
 from .mixed_variable_dimensions_problem import mixed_variable_dimensions_problem
 from .momip_problem import momip_ti2, momip_ti7
 from .multi_valued_constraints import multi_valued_constraint_problem
 from .nimbus_problem import nimbus_test_problem
 from .pareto_navigator_problem import pareto_navigator_test_problem
-from .re_problem import re21, re22, re23, re24
+from .re_problem import re21, re22, re23, re24, re31, re32, re33, re34, re37, re41, re42, re61
 from .river_pollution_problems import (
     river_pollution_problem,
     river_pollution_problem_discrete,

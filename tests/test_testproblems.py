@@ -1,11 +1,12 @@
 """Test some of the test problems found in DESDEO."""
 
+import joblib
 import numpy as np
 import numpy.testing as npt
 import pytest
 
 from desdeo.mcdm import rpm_solve_solutions
-from desdeo.problem import PolarsEvaluator, PyomoEvaluator
+from desdeo.problem import PolarsEvaluator, PyomoEvaluator, SimulatorEvaluator
 from desdeo.problem.testproblems import (
     binh_and_korn,
     car_side_impact,
@@ -21,6 +22,7 @@ from desdeo.problem.testproblems import (
     dtlz2,
     dtlz4,
     forest_problem,
+    gaa,
     lame_superspheres,
     mcwb_equilateral_tbeam_problem,
     mcwb_hollow_rectangular_problem,
@@ -28,10 +30,15 @@ from desdeo.problem.testproblems import (
     mcwb_solid_rectangular_problem,
     mcwb_square_channel_problem,
     mcwb_tapered_channel_problem,
+    metallurgical_application,
     re21,
     re22,
     re23,
     re24,
+    re31,
+    re32,
+    re33,
+    re42,
     river_pollution_problem,
     river_pollution_scenario,
     spanish_sustainability_problem,
@@ -42,6 +49,7 @@ from desdeo.problem.testproblems import (
     zdt4,
     zdt6,
 )
+from desdeo.problem.testproblems import metallurgical_application_problem as metall
 from desdeo.tools import GurobipySolver, payoff_table_method
 
 
@@ -246,6 +254,415 @@ def test_re24():
     for i in range(len(res)):
         obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
         assert np.allclose(obj_values, expected_result[i])
+
+
+def _assert_re_problem(problem, n_variables: int, n_objectives: int, xs: dict, expected: np.ndarray):
+    """Assert the shape and the evaluated objective values of a bound-constrained RE problem.
+
+    The RE problems fold their original constraints into the last objective, so a correct
+    implementation carries no constraints at all -- that is asserted here rather than left implicit,
+    because a stray constraint would silently change which selection path an EMO run takes.
+
+    The expected values were produced by transcribing the equations of the suite's supplementary file
+    into numpy independently of the DESDEO expressions, so this catches a typo in either one. Several
+    of the rows additionally coincide with the components of the ideal and nadir points published with
+    the suite, which is noted at each call site; those rows check the transcription itself, not just
+    its restatement.
+    """
+    assert len(problem.variables) == n_variables
+    assert len(problem.objectives) == n_objectives
+    assert problem.constraints is None
+
+    res = PolarsEvaluator(problem).evaluate(xs)
+    for i in range(len(res)):
+        objective_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
+        npt.assert_allclose(objective_values, expected[i], rtol=1e-10)
+
+
+@pytest.mark.testproblem
+def test_re31():
+    """Test that the two bar truss design problem evaluates correctly."""
+    # Row 0 is the corner attaining the published ideal f_1 (5.53731918799e-05) and the published
+    # nadir f_2 (8246211.25124) and f_3 (19359919.7502); row 2 attains the published ideal f_2 (1/3).
+    _assert_re_problem(
+        re31(),
+        n_variables=3,
+        n_objectives=3,
+        xs={"x_1": [1e-5, 50.0, 100.0], "x_2": [1e-5, 50.0, 0.5], "x_3": [1.0, 2.0, 3.0]},
+        expected=np.array(
+            [
+                [5.537319187991e-05, 8.246211251235e06, 1.935991975022e07],
+                [3.354101966250e02, 8.944271909999e-01, 3.353101966250e02],
+                [5.015811388301e02, 3.333333333333e-01, 5.014811388301e02],
+            ]
+        ),
+    )
+
+
+@pytest.mark.testproblem
+def test_re32():
+    """Test that the welded beam design problem evaluates correctly."""
+    # Row 0 is the corner attaining the published ideal f_1 (0.010205496875) and the published nadir
+    # f_2 (17561.6) and f_3 (425062976.628); row 2 attains the published ideal f_2 (0.00043904).
+    _assert_re_problem(
+        re32(),
+        n_variables=4,
+        n_objectives=3,
+        xs={
+            "x_1": [0.125, 1.0, 5.0],
+            "x_2": [0.1, 5.0, 10.0],
+            "x_3": [0.1, 5.0, 10.0],
+            "x_4": [0.125, 1.0, 5.0],
+        },
+        expected=np.array(
+            [
+                [1.020549687500e-02, 1.756160000000e04, 4.250629766275e08],
+                [1.009400000000e01, 1.756160000000e-02, 0.0],
+                [3.339095000000e02, 4.390400000000e-04, 0.0],
+            ]
+        ),
+    )
+
+
+@pytest.mark.testproblem
+def test_re33():
+    """Test that the disc brake design problem evaluates correctly."""
+    # Row 0 is the corner attaining the published ideal f_1 (-0.721525) and the published nadir
+    # f_3 (25.0). Note that it has x_2 < x_1, an inverted disc that only the violation objective
+    # penalises -- the RE bounds allow it, so it must evaluate rather than raise.
+    _assert_re_problem(
+        re33(),
+        n_variables=4,
+        n_objectives=3,
+        xs={
+            "x_1": [80.0, 60.0, 55.0],
+            "x_2": [75.0, 90.0, 110.0],
+            "x_3": [1000.0, 2000.0, 3000.0],
+            "x_4": [20.0, 15.0, 11.0],
+        },
+        expected=np.array(
+            [
+                [-0.721525, 4.222191400832, 25.0],
+                [3.087, 2.871345029240, 0.0],
+                [4.44675, 2.318772136954, 0.0],
+            ]
+        ),
+    )
+
+
+@pytest.mark.testproblem
+def test_re42():
+    """Test that the conceptual marine design problem evaluates correctly."""
+    # Row 1 is the lower corner of the box, and it attains three published extreme values at once:
+    # the nadir f_1 (-1010.5229595) and f_3 (2611.9668107), and the ideal f_2 (3962.5578432). Those
+    # come from the suite's approximated front, so they agree with an exact evaluation of the corner
+    # to about eight significant figures rather than exactly.
+    _assert_re_problem(
+        re42(),
+        n_variables=6,
+        n_objectives=4,
+        xs={
+            "x_1": [212.16, 150.0, 274.32],
+            "x_2": [26.155, 20.0, 32.31],
+            "x_3": [19.0, 13.0, 25.0],
+            "x_4": [10.855, 10.0, 11.71],
+            "x_5": [16.0, 14.0, 18.0],
+            "x_6": [0.69, 0.63, 0.75],
+        },
+        expected=np.array(
+            [
+                [-5.691666596609e02, 9.869900828051e03, 9.182958350611e03, 2.328562286631e00],
+                [-1.010522955311e03, 3.962557772617e03, 2.611966792840e03, 1.845063160099e00],
+                [-3.789122000992e02, 2.002660694716e04, 2.577957489282e04, 7.141587967549e00],
+            ]
+        ),
+    )
+
+
+@pytest.mark.testproblem
+def test_re42_matches_the_published_extreme_points():
+    """The RE42 sea-days equation is easy to "fix" into a different problem, so pin it down.
+
+    The suite defines the number of sea days as (round trip miles / 24) * speed. Dividing by the speed
+    instead is the dimensionally sensible reading and gives an f_3 that is wrong by a factor of about
+    400, which no unit test on a single evaluation would obviously catch. The lower corner of the box
+    happens to sit on three components of the published ideal and nadir points at once, so comparing
+    against them detects the substitution directly.
+    """
+    problem = re42()
+    corner = {var.symbol: [var.lowerbound] for var in problem.variables}
+
+    res = PolarsEvaluator(problem).evaluate(corner)
+    values = np.array([res[obj.symbol][0] for obj in problem.objectives])
+
+    published_nadir_f1 = -1010.5229595219643
+    published_ideal_f2 = 3962.557843228888
+    published_nadir_f3 = 2611.9668107424536
+    npt.assert_allclose(values[[0, 1, 2]], [published_nadir_f1, published_ideal_f2, published_nadir_f3], rtol=1e-7)
+
+
+# The corners of the GAA design box, with the ten objective values and the constraint value that the
+# MOEA Framework's own GAATest asserts for them. Every aircraft in the family sits at the same corner,
+# which is why the product family penalty function is zero (to rounding) in the first case.
+_GAA_LOWER_CORNER = [0.24, 7.0, 0.0, 5.5, 19.0, 85.0, 14.0, 3.0, 0.46] * 3
+_GAA_UPPER_CORNER = [0.48, 11.0, 6.0, 5.968, 25.0, 110.0, 20.0, 3.75, 1.0] * 3
+_GAA_EXPECTED = np.array(
+    [
+        [
+            73.239998, 1880.3199970000003, 62.38500200000003, 2.1867999999999994, 480.173996,
+            41699.24730800003, 3032.0586889999995, 15.726500000000003, 189.25630300000014,
+            1.9229626863835638e-16,
+        ],
+        [
+            75.19549799999994, 2097.8436029999993, 95.00900000000001, 2.078, 291.2477919999998,
+            47369.88729400002, 891.8127029999995, 17.929600000000004, 198.903706, 0.0,
+        ],
+    ]
+)  # fmt: skip
+_GAA_EXPECTED_VIOLATION = np.array([0.33805332444444436, 2.3017063231666643])
+
+
+@pytest.mark.testproblem
+def test_gaa():
+    """Test that the general aviation aircraft problem reproduces its reference implementation.
+
+    The response surfaces are 27 fitted polynomials with about fifty coefficients each, so a
+    transcription error would be easy to make and invisible in the objective values on their own. The
+    two corners below are the ones the reference implementation's own test pins, which checks all 1424
+    non-zero coefficients at once against a source outside this repository.
+    """
+    problem = gaa()
+
+    assert len(problem.variables) == 27
+    assert len(problem.objectives) == 10
+    assert len(problem.constraints) == 1
+    # Range, maximum lift-to-drag and maximum cruise speed are maximised; the other seven are not.
+    assert [objective.maximize for objective in problem.objectives] == [False] * 6 + [True] * 3 + [False]
+
+    xs = {f"x_{i + 1}": [_GAA_LOWER_CORNER[i], _GAA_UPPER_CORNER[i]] for i in range(27)}
+    res = PolarsEvaluator(problem).evaluate(xs)
+
+    for row in range(2):
+        objective_values = np.array([res[obj.symbol][row] for obj in problem.objectives])
+        npt.assert_allclose(objective_values, _GAA_EXPECTED[row], rtol=1e-12, atol=1e-15)
+        npt.assert_allclose(res["g_1"][row], _GAA_EXPECTED_VIOLATION[row], rtol=1e-12)
+
+
+@pytest.mark.testproblem
+def test_gaa_folded_constraint():
+    """The folded variant must move the violation into an eleventh objective and drop the constraint.
+
+    This is the form the RE suite uses, and the form an unconstrained study needs, so the two have to
+    agree on the value -- otherwise the constrained and bound-constrained runs are different problems.
+    """
+    folded = gaa(fold_constraint=True)
+
+    assert len(folded.objectives) == 11
+    assert folded.constraints is None
+
+    xs = {f"x_{i + 1}": [_GAA_LOWER_CORNER[i], _GAA_UPPER_CORNER[i]] for i in range(27)}
+    res = PolarsEvaluator(folded).evaluate(xs)
+
+    npt.assert_allclose([res["f_11"][0], res["f_11"][1]], _GAA_EXPECTED_VIOLATION, rtol=1e-12)
+    for row in range(2):
+        npt.assert_allclose(
+            np.array([res[f"f_{i}"][row] for i in range(1, 11)]), _GAA_EXPECTED[row], rtol=1e-12, atol=1e-15
+        )
+
+
+@pytest.fixture(scope="module")
+def metall_cache(tmp_path_factory):
+    """A scratch cache for the metallurgical problem, so the tests never touch the user's real one.
+
+    Module scoped because the surrogates are trained on first use; sharing the directory means they
+    are trained once for the whole file rather than once per test.
+    """
+    return tmp_path_factory.mktemp("metall_cache")
+
+
+@pytest.mark.testproblem
+@pytest.mark.simulator_support
+def test_metallurgical_application(metall_cache):
+    """Test that the microalloyed steel design problem builds and evaluates."""
+    problem = metallurgical_application(cache_dir=metall_cache)
+
+    assert len(problem.variables) == 17
+    # The default is the paper's MOP-II, which is MOP-I without the Charpy objective.
+    assert [objective.symbol for objective in problem.objectives] == list(metall.MOP_II)
+    # The measured properties are maximised; the carbon equivalent and the cost are minimised.
+    assert [objective.maximize for objective in problem.objectives] == [True, True, True, False, False]
+    assert all(variable.lowerbound < variable.upperbound for variable in problem.variables)
+
+    xs = {variable.symbol: [variable.lowerbound, variable.upperbound] for variable in problem.variables}
+    res = SimulatorEvaluator(problem).evaluate(xs)
+
+    values = np.array([[res[objective.symbol][row] for objective in problem.objectives] for row in range(2)])
+    assert np.isfinite(values).all()
+
+    # Both analytical objectives can be checked exactly, at the upper bound of every element.
+    upper = {variable.symbol: variable.upperbound for variable in problem.variables}
+    # Equation (2) of the paper. The silicon term is the one the how-to guide leaves out.
+    expected_ce = (
+        upper["C"]
+        + (upper["Mn"] + upper["Si"]) / 6
+        + (upper["Cr"] + upper["Mo"] + upper["V"]) / 5
+        + (upper["Cu"] + upper["Ni"]) / 15
+    )
+    npt.assert_allclose(res["CE"][1], expected_ce)
+
+    expected_cost = sum(cost * upper[element] for element, cost in metall._ELEMENT_COSTS.items())
+    npt.assert_allclose(res["COST"][1], expected_cost)
+
+
+@pytest.mark.testproblem
+@pytest.mark.simulator_support
+def test_metallurgical_application_objective_subsets(metall_cache):
+    """Any subset of the objectives can be requested, and the box follows the datasets that are used.
+
+    The paper derives the bounds from "the intersection of the datasets used for all four surrogate
+    models", so dropping a property widens the box. That is exactly the difference between its MOP-I
+    and MOP-II, and it means the subsets are different problems rather than the same problem with
+    fewer objectives.
+    """
+    for subset in (["CE"], ["YS", "CE"], ["ELON", "UTS"], ["COST", "CHARPY"], list(metall.MOP_I)):
+        problem = metallurgical_application(subset, cache_dir=metall_cache)
+        # The order asked for is the order given back.
+        assert [objective.symbol for objective in problem.objectives] == subset
+        assert len(problem.variables) == 17
+
+    mop_i = metallurgical_application(metall.MOP_I, cache_dir=metall_cache)
+    mop_ii = metallurgical_application(metall.MOP_II, cache_dir=metall_cache)
+
+    # Dropping Charpy widens the box, and never narrows it: MOP-I's box sits inside MOP-II's.
+    for narrow, wide in zip(mop_i.variables, mop_ii.variables, strict=True):
+        assert narrow.symbol == wide.symbol
+        assert wide.lowerbound <= narrow.lowerbound
+        assert narrow.upperbound <= wide.upperbound
+    # And it is strictly wider somewhere, or the two formulations would be the same problem.
+    assert any(
+        narrow.upperbound < wide.upperbound or wide.lowerbound < narrow.lowerbound
+        for narrow, wide in zip(mop_i.variables, mop_ii.variables, strict=True)
+    )
+
+    with pytest.raises(ValueError, match="At least one objective"):
+        metallurgical_application([], cache_dir=metall_cache)
+
+    with pytest.raises(ValueError, match="Unknown objective"):
+        metallurgical_application(["YS", "TOUGHNESS"], cache_dir=metall_cache)
+
+    with pytest.raises(ValueError, match="repeats an objective"):
+        metallurgical_application(["YS", "YS"], cache_dir=metall_cache)
+
+
+@pytest.mark.testproblem
+@pytest.mark.simulator_support
+def test_metallurgical_application_matches_the_papers_model_choices(metall_cache):
+    """Pin the regressors and the excluded elements to the tables of the paper.
+
+    Table 1 gives the regressor chosen for each property by cross-validation, and Table 2 the
+    elements it found no effect for, which "were not considered for the model". Neither is visible in
+    the objective values, so a wrong choice here would go unnoticed: the Charpy energy in particular
+    scores a median cross-validated R^2 of 0.44 with gradient boosting and 0.17 with extra trees, and
+    both produce a problem that evaluates perfectly happily.
+    """
+    assert {target: spec.regressor for target, spec in metall._SURROGATE_SPEC.items()} == {
+        "YS": "ExtraTreesRegressor",
+        # The paper picks XGBoost here, by 0.8440 against 0.8437; see the note in the docstring.
+        "UTS": "GradientBoostingRegressor",
+        "ELON": "ExtraTreesRegressor",
+        "CHARPY": "GradientBoostingRegressor",
+    }
+    assert {target: spec.excluded for target, spec in metall._SURROGATE_SPEC.items()} == {
+        "YS": ("N", "B"),
+        "UTS": ("N", "B"),
+        "ELON": ("Ce",),
+        "CHARPY": ("Si", "B", "Ce", "Cu", "Zr"),
+    }
+    assert metall._SURROGATE_SPEC["CHARPY"].needs_temperature
+    assert metall.DEFAULT_CHARPY_TEMPERATURE == -80.0
+
+    # The wrapper must hand each model exactly the columns it was fitted on, in _ELEMENTS order.
+    problem = metallurgical_application(["CHARPY"], cache_dir=metall_cache)
+    wrapper = joblib.load(problem.objectives[0].surrogates[0])
+    assert [metall._ELEMENTS[i] for i in wrapper.indices] == list(metall._SURROGATE_SPEC["CHARPY"].inputs())
+    assert wrapper.temperature == metall.DEFAULT_CHARPY_TEMPERATURE
+
+
+@pytest.mark.testproblem
+@pytest.mark.simulator_support
+def test_metallurgical_application_surrogate_columns_are_aligned(metall_cache):
+    """The surrogates must receive the elements in the order they were trained on.
+
+    The surrogate evaluator builds each model's input from the decision variable dictionary in
+    insertion order and never looks at column names, so a mismatch between the declared variable
+    order and the training column order is silent: the problem still evaluates, and every value is
+    wrong. Predicting each model's own training data catches it, since a scrambled composition
+    destroys the fit. Charpy is left out because the problem pins one test temperature while its data
+    was measured across a range of them.
+    """
+    problem = metallurgical_application(["YS", "UTS", "ELON"], cache_dir=metall_cache)
+    evaluator = SimulatorEvaluator(problem)
+
+    def unexplained_variance(target: str, order) -> float:
+        data = metall._read_dataset(target, None, metall_cache, download=False)
+        predicted = evaluator.evaluate({element: data[element].to_list() for element in order})[target].to_numpy()
+        measured = data[target].to_numpy()
+        return float(np.sum((measured - predicted) ** 2) / np.sum((measured - measured.mean()) ** 2))
+
+    for target in ("YS", "UTS", "ELON"):
+        r_squared = 1 - unexplained_variance(target, metall._ELEMENTS)
+        # An R^2 of 1 is unreachable: the data holds repeated compositions with different measured
+        # values, because the same alloy behaves differently after different processing.
+        assert r_squared > 0.85, f"{target} fits its own training data poorly: R2 = {r_squared}"
+
+    # The same check with the elements reversed must fail badly, or it is not testing anything.
+    assert 1 - unexplained_variance("YS", tuple(reversed(metall._ELEMENTS))) < 0.5
+
+
+@pytest.mark.testproblem
+@pytest.mark.simulator_support
+def test_metallurgical_application_charpy(metall_cache):
+    """The Charpy objective is optional, and its test temperature is a parameter of the problem."""
+    assert "CHARPY" not in metallurgical_application(cache_dir=metall_cache).objectives[0].symbol
+    assert "CHARPY" not in metall.MOP_II
+    assert "CHARPY" in metall.MOP_I
+
+    problem = metallurgical_application(metall.MOP_I, cache_dir=metall_cache)
+    charpy = next(objective for objective in problem.objectives if objective.symbol == "CHARPY")
+    assert charpy.maximize
+
+    midpoint = {v.symbol: [(v.lowerbound + v.upperbound) / 2] for v in problem.variables}
+
+    def energy_at(temperature: float) -> float:
+        at = metallurgical_application(["CHARPY"], charpy_temperature=temperature, cache_dir=metall_cache)
+        # The box of a Charpy-only problem is the Charpy dataset's own range, so evaluate the
+        # midpoint of the six-objective problem, which lies inside it.
+        return SimulatorEvaluator(at).evaluate(midpoint)["CHARPY"][0]
+
+    warm, cold = energy_at(20.0), energy_at(-120.0)
+    assert np.isfinite(warm) and np.isfinite(cold)
+    # Steel absorbs less energy before fracturing when it is cold: the ductile-to-brittle transition,
+    # which the paper describes as the Charpy energy decreasing "at lower temperatures as ductile
+    # materials (such as steels) start showing brittle behaviour". It is the one property of the
+    # fitted model that physics pins down, so it is worth asserting.
+    assert warm > cold
+
+
+@pytest.mark.testproblem
+@pytest.mark.simulator_support
+def test_metallurgical_application_finds_data_without_downloading(metall_cache, monkeypatch, tmp_path):
+    """The datasets are found in the repository checkout, and only fetched when they are nowhere.
+
+    The first half must hold for the tests to run offline at all. The second half checks that a
+    missing dataset is reported clearly rather than silently downloaded when `download` is False.
+    """
+    assert metall._repository_data_dir() is not None
+    metallurgical_application(["CE"], cache_dir=metall_cache, download=False)
+
+    # With no repository and an empty cache there is nothing left to find.
+    monkeypatch.setattr(metall, "_repository_data_dir", lambda: None)
+    with pytest.raises(FileNotFoundError, match="not found locally"):
+        metallurgical_application(["CE"], cache_dir=tmp_path / "empty", download=False)
 
 
 @pytest.mark.testproblem

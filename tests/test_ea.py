@@ -14,7 +14,9 @@ from desdeo.emo.methods.templates import template1, template2
 from desdeo.emo.operators.crossover import (
     BlendAlphaCrossover,
     BoundedExponentialCrossover,
+    DifferentialEvolutionCrossover,
     LocalCrossover,
+    ParentCentricCrossover,
     SimulatedBinaryCrossover,
     SingleArithmeticCrossover,
     SinglePointBinaryCrossover,
@@ -56,10 +58,24 @@ from desdeo.emo.operators.termination import (
     ExternalCheckTerminator,
     MaxEvaluationsTerminator,
     MaxGenerationsTerminator,
+    MaxTimeTerminator,
 )
 from desdeo.emo.options.algorithms import ibea_options, nsga2_options, nsga3_options, rvea_options
-from desdeo.emo.options.crossover import SimulatedBinaryCrossoverOptions
+from desdeo.emo.options.crossover import (
+    DifferentialEvolutionCrossoverOptions,
+    ParentCentricCrossoverOptions,
+    SimulatedBinaryCrossoverOptions,
+    crossover_constructor,
+)
 from desdeo.emo.options.templates import emo_constructor
+from desdeo.emo.options.termination import (
+    CompositeTerminatorOptions,
+    ExternalCheckTerminatorOptions,
+    MaxEvaluationsTerminatorOptions,
+    MaxGenerationsTerminatorOptions,
+    MaxTimeTerminatorOptions,
+    terminator_constructor,
+)
 from desdeo.emo.options.termination import MaxEvaluationsTerminatorOptions as _MaxEvalOpts
 from desdeo.problem import VariableDomainTypeEnum, VariableTypeEnum
 from desdeo.problem.external import PymooProblemParams, create_pymoo_problem
@@ -1012,12 +1028,215 @@ def test_local_crossover():
 
 
 """Every concrete crossover operator, paired with a problem whose variable domain it accepts."""
+
+
+@pytest.mark.ea
+def test_differential_evolution_crossover():
+    """Test whether DE/rand/1/bin produces one offspring per target, all different from the parents."""
+    publisher = Publisher()
+    problem = simple_test_problem()
+    assert problem.variable_domain is VariableDomainTypeEnum.continuous
+
+    crossover = DifferentialEvolutionCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0)
+    num_vars = len(crossover.variable_symbols)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=1
+    )
+    population, _outputs = generator.do()
+
+    # Odd-length, to prove the operator does not depend on pairing.
+    to_mate = [0, 9, 1, 8, 2]
+    offspring = crossover.do(population=population, to_mate=to_mate)
+
+    assert offspring.shape == (len(to_mate), num_vars)
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population[to_mate], offspring)
+
+
+@pytest.mark.ea
+def test_differential_evolution_always_inherits_one_component_from_the_mutant():
+    """At CR = 0 the offspring must still differ from its target in exactly one component.
+
+    This is the `jrand` guarantee of the original formulation and the reason DE cannot stagnate by
+    copying: without it, an offspring at CR = 0 would be its target unchanged.
+    """
+    publisher = Publisher()
+    problem = simple_test_problem()
+    crossover = DifferentialEvolutionCrossover(
+        problem=problem, publisher=publisher, verbosity=1, seed=3, xover_probability=0.0
+    )
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=20, seed=1, verbosity=1
+    )
+    population, _outputs = generator.do()
+
+    parents = population[crossover.variable_symbols].to_numpy()
+    offspring = crossover.do(population=population)[crossover.variable_symbols].to_numpy()
+
+    differing = (~np.isclose(offspring, parents)).sum(axis=1)
+    npt.assert_array_equal(differing, np.ones(len(parents), dtype=int))
+
+
+@pytest.mark.ea
+def test_differential_evolution_takes_its_donors_from_the_whole_population():
+    """With the difference vector switched off, every offspring is a copy of some *other* member.
+
+    `scaling_factor` at the numerical floor makes the mutant equal to `x_r1`, so at CR = 1 the
+    offspring must coincide with a population member that is not its own target. That is what
+    distinguishes DE from the pairwise operators: the donors are unrelated to the target.
+    """
+    publisher = Publisher()
+    problem = simple_test_problem()
+    crossover = DifferentialEvolutionCrossover(
+        problem=problem, publisher=publisher, verbosity=1, seed=2, scaling_factor=1e-12, xover_probability=1.0
+    )
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=20, seed=5, verbosity=1
+    )
+    population, _outputs = generator.do()
+
+    parents = population[crossover.variable_symbols].to_numpy()
+    offspring = crossover.do(population=population)[crossover.variable_symbols].to_numpy()
+
+    distances = np.linalg.norm(offspring[:, None, :] - parents[None, :, :], axis=2)
+    npt.assert_allclose(distances.min(axis=1), 0.0, atol=1e-8)
+    # ...and never the target itself, whose row index matches the offspring's.
+    assert not np.any(distances.argmin(axis=1) == np.arange(len(parents)))
+
+
+@pytest.mark.ea
+def test_parent_centric_crossover():
+    """Test whether PCX produces one offspring per index parent, all different from the parents."""
+    publisher = Publisher()
+    problem = simple_test_problem()
+    assert problem.variable_domain is VariableDomainTypeEnum.continuous
+
+    crossover = ParentCentricCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0)
+    num_vars = len(crossover.variable_symbols)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=1
+    )
+    population, _outputs = generator.do()
+
+    to_mate = [0, 9, 1, 8, 2]
+    offspring = crossover.do(population=population, to_mate=to_mate)
+
+    assert offspring.shape == (len(to_mate), num_vars)
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population[to_mate], offspring)
+
+
+@pytest.mark.ea
+def test_parent_centric_crossover_collapses_onto_its_index_parent():
+    """As both spreads go to zero every offspring converges to its own index parent.
+
+    This is what "parent centric" means, stated so that it is exact: the operator is a perturbation
+    of one designated parent. A midpoint-biased operator collapses onto the midpoint of a pair
+    instead, and SBX collapses onto neither for any finite distribution index.
+
+    Deliberately not phrased as "the nearest population member is the index parent" -- with two
+    decision variables and thirty points the box is dense enough that another member is sometimes
+    nearer, which says something about the population rather than about the operator.
+    """
+    publisher = Publisher()
+    problem = simple_test_problem()
+    crossover = ParentCentricCrossover(
+        problem=problem, publisher=publisher, verbosity=1, seed=5, sigma_zeta=1e-12, sigma_eta=1e-12
+    )
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=30, seed=11, verbosity=1
+    )
+    population, _outputs = generator.do()
+
+    parents = population[crossover.variable_symbols].to_numpy()
+    offspring = crossover.do(population=population)[crossover.variable_symbols].to_numpy()
+
+    # Row i is the child of index parent i.
+    npt.assert_allclose(offspring, parents, atol=1e-9)
+
+
+@pytest.mark.ea
+def test_parent_centric_crossover_displaces_along_the_centroid_direction():
+    """With the orthogonal spread off, offspring lie exactly on the centroid-to-parent ray.
+
+    Scaling `sigma_zeta` then changes how far each offspring travels but not the direction it
+    travels in. That directional structure is what SBX, which perturbs each variable along its own
+    axis, does not have.
+    """
+    publisher = Publisher()
+    problem = simple_test_problem()
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=30, seed=4, verbosity=1
+    )
+    population, _outputs = generator.do()
+
+    symbols = [var.symbol for var in problem.get_flattened_variables()]
+    parents = population[symbols].to_numpy()
+
+    def displacement(sigma_zeta: float) -> np.ndarray:
+        # Same seed, so the same parent triples and the same normal draws: only the scale differs.
+        crossover = ParentCentricCrossover(
+            problem=problem, publisher=publisher, verbosity=1, seed=7, sigma_eta=1e-12, sigma_zeta=sigma_zeta
+        )
+        return crossover.do(population=population)[symbols].to_numpy() - parents
+
+    small, large = displacement(0.1), displacement(0.5)
+
+    # An offspring pushed onto a bound is clipped, and clipping is a projection that necessarily
+    # changes the direction. Compare only the offspring that both runs left strictly inside the box.
+    lower = np.array([var.lowerbound for var in problem.get_flattened_variables()])
+    upper = np.array([var.upperbound for var in problem.get_flattened_variables()])
+    inside = np.all(
+        [((parents + d) > lower + 1e-9) & ((parents + d) < upper - 1e-9) for d in (small, large)],
+        axis=(0, 2),
+    )
+    norms = np.linalg.norm(small, axis=1) * np.linalg.norm(large, axis=1)
+    usable = inside & (norms > 1e-12)
+    assert usable.sum() >= 5, f"only {usable.sum()} offspring stayed inside the box; test is vacuous"
+
+    cosine = np.abs(np.sum(small[usable] * large[usable], axis=1) / norms[usable])
+    npt.assert_allclose(cosine, 1.0, atol=1e-8)
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(
+    ("options", "expected"),
+    [
+        (DifferentialEvolutionCrossoverOptions(), DifferentialEvolutionCrossover),
+        (ParentCentricCrossoverOptions(), ParentCentricCrossover),
+    ],
+)
+def test_new_crossover_options_build_the_same_operator_as_direct_construction(options, expected):
+    """A field-name mismatch between an options model and `__init__` is otherwise silent."""
+    publisher = Publisher()
+    problem = simple_test_problem()
+    built = crossover_constructor(problem, publisher, 0, 2, options)
+    direct = expected(problem=problem, publisher=publisher, verbosity=2, seed=0)
+
+    assert isinstance(built, expected)
+    for field, value in options.model_dump().items():
+        if field == "name":
+            continue
+        assert getattr(built, field) == value
+        assert getattr(built, field) == getattr(direct, field)
+
+
 ALL_CROSSOVERS = [
     (SimulatedBinaryCrossover, "continuous"),
     (BlendAlphaCrossover, "continuous"),
     (SingleArithmeticCrossover, "continuous"),
     (LocalCrossover, "continuous"),
     (BoundedExponentialCrossover, "continuous"),
+    (DifferentialEvolutionCrossover, "continuous"),
+    (ParentCentricCrossover, "continuous"),
     (SinglePointBinaryCrossover, "binary"),
     (UniformIntegerCrossover, "integer"),
     (UniformMixedIntegerCrossover, "mixed"),
@@ -1029,6 +1248,8 @@ CONTINUOUS_ONLY_CROSSOVERS = [
     SingleArithmeticCrossover,
     LocalCrossover,
     BoundedExponentialCrossover,
+    DifferentialEvolutionCrossover,
+    ParentCentricCrossover,
 ]
 
 
@@ -1151,6 +1372,63 @@ def test_simulated_binary_crossover_pair_probability_copies_whole_pairs(truncate
     # An intermediate rate lands in between, and does so by copying whole rows rather than
     # individual variables -- which is exactly what the all-variables-at-once test above checks.
     assert 0.3 < untouched_rows(0.5) < 0.7
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize("truncated", [True, False])
+def test_simulated_binary_crossover_can_swap_the_uncrossed_variables(truncated):
+    """`swap_uncrossed_variables` reproduces jMetal (Java), and changes nothing else.
+
+    Every implementation surveyed inherits a variable that failed the per-variable draw unchanged.
+    jMetal's else-branch instead assigns `offspring1[i] = parent2[i]` and `offspring2[i] =
+    parent1[i]`, which puts a genuine uniform-crossover component on top of SBX: at the standard
+    per-variable rate of 0.5, half the genome is swapped wholesale whenever a pair recombines.
+
+    The two parents here are constant along each row, so an uncrossed variable is recognisable by
+    landing exactly on a parent value while a crossed one is perturbed away from both.
+    """
+    problem = dtlz2(n_objectives=3, n_variables=10)
+    symbols = [var.symbol for var in problem.get_flattened_variables()]
+    low, high = 0.2, 0.8
+    parents = pl.DataFrame(np.array([[low] * len(symbols), [high] * len(symbols)]), schema=symbols, orient="row")
+
+    def offspring(swap: bool) -> np.ndarray:
+        crossover = SimulatedBinaryCrossover(
+            problem=problem,
+            publisher=Publisher(),
+            seed=7,
+            verbosity=1,
+            truncated=truncated,
+            pair_xover_probability=1.0,
+            xover_probability=0.5,
+            uniform_xover_probability=0.0,
+            swap_uncrossed_variables=swap,
+        )
+        return crossover.do(population=parents, to_mate=[0, 1]).to_numpy().astype(float)
+
+    copied, swapped = offspring(swap=False), offspring(swap=True)
+
+    kept = np.isclose(copied[0], low)
+    assert kept.any(), "the per-variable rate should leave some variables uncrossed"
+
+    # The uncrossed variables flip from this parent's value to the other parent's.
+    assert np.allclose(swapped[0][kept], high)
+    assert np.allclose(swapped[1][kept], low)
+
+    # Everything else is untouched: same RNG stream, same SBX values on the crossed variables, so
+    # the flag isolates the swap rule instead of perturbing the whole operator.
+    assert np.allclose(copied[0][~kept], swapped[0][~kept])
+    assert np.allclose(copied[1][~kept], swapped[1][~kept])
+
+
+@pytest.mark.ea
+def test_simulated_binary_crossover_does_not_swap_uncrossed_variables_by_default():
+    """Reproducing jMetal has to be asked for explicitly, because jMetal is the outlier here."""
+    assert SimulatedBinaryCrossoverOptions().swap_uncrossed_variables is False
+    crossover = SimulatedBinaryCrossover(
+        problem=dtlz2(n_objectives=3, n_variables=8), publisher=Publisher(), seed=0, verbosity=1
+    )
+    assert crossover.swap_uncrossed_variables is False
 
 
 @pytest.mark.ea
@@ -1321,6 +1599,70 @@ def test_bounded_exponential_crossover_handles_shared_parent_values():
         assert np.isfinite(offspring).all(), f"non-finite offspring for seed {seed}"
         # A zero span leaves the child no room to move away from the shared parent value.
         npt.assert_allclose(offspring[:, :3], parents[:, :3])
+
+
+@pytest.mark.ea
+def test_bounded_exponential_crossover_uniform_component_exchanges_parental_identity():
+    """`uniform_xover_probability` must hand variables to the other parent's line, and only then.
+
+    BEX displaces each offspring from its own parent, so identity retention is structurally 1.0 and
+    the operator sits exactly where SBX sits with the parameter at 0.0. The claim under test is that
+    the parameter buys the same exchange SBX gets from flipping the sign of beta: at 0.0 every
+    offspring stays nearer its own parent in every variable, and at 0.5 about half the variables
+    cross over. Measuring which parent each offspring variable landed nearest is what makes that
+    falsifiable -- a shape assertion would pass whatever the swap did.
+    """
+    publisher = Publisher()
+    problem = dtlz2(n_objectives=3, n_variables=8)
+    symbols = [var.symbol for var in problem.get_flattened_variables()]
+
+    # Parents far apart in every variable, so "nearest parent" is unambiguous for a lambda this small.
+    n_pairs, low, high = 400, 0.1, 0.9
+    parents = np.tile(np.array([[low] * len(symbols), [high] * len(symbols)]), (n_pairs, 1))
+
+    retention = {}
+    for probability in (0.0, 0.5, 1.0):
+        crossover = BoundedExponentialCrossover(
+            problem=problem,
+            publisher=publisher,
+            verbosity=1,
+            seed=0,
+            lambda_=0.05,
+            uniform_xover_probability=probability,
+        )
+        children = crossover.do(
+            population=pl.DataFrame(parents, schema=symbols), to_mate=list(range(2 * n_pairs))
+        ).to_numpy()
+        # The first half of the children descend from the low parents, the second half from the high.
+        first_half = children[:n_pairs, :]
+        retention[probability] = float(np.mean(np.abs(first_half - low) < np.abs(first_half - high)))
+
+    assert retention[0.0] == 1.0, "at 0.0 every offspring must keep its own parent's identity"
+    assert retention[1.0] == 0.0, "at 1.0 every variable must be handed to the other parent's line"
+    assert 0.4 < retention[0.5] < 0.6, f"at 0.5 about half should cross, got {retention[0.5]:.3f}"
+
+
+@pytest.mark.ea
+def test_bounded_exponential_crossover_uniform_component_is_off_by_default():
+    """The default must not change what the operator already did.
+
+    BEX predates this parameter and the study's `bex` arm was measured without it, so a default of
+    0.5 -- which is what `SimulatedBinaryCrossover` uses -- would silently reinterpret existing
+    results. Whether 0.5 is better here is an open question, not an assumption to bake into a default.
+    """
+    publisher = Publisher()
+    problem = dtlz2(n_objectives=3, n_variables=5)
+    symbols = [var.symbol for var in problem.get_flattened_variables()]
+    population = pl.DataFrame(np.random.default_rng(0).random((10, len(symbols))), schema=symbols)
+
+    defaulted = BoundedExponentialCrossover(problem=problem, publisher=publisher, verbosity=1, seed=3)
+    explicit = BoundedExponentialCrossover(
+        problem=problem, publisher=publisher, verbosity=1, seed=3, uniform_xover_probability=0.0
+    )
+    assert defaulted.uniform_xover_probability == 0.0
+    assert defaulted.do(population=population, to_mate=list(range(10))).equals(
+        explicit.do(population=population, to_mate=list(range(10)))
+    )
 
 
 @pytest.mark.ea
@@ -2633,3 +2975,77 @@ def test_a_run_is_reproducible_from_the_template_seed(name):
 
     assert first.shape == second.shape
     npt.assert_array_equal(first, second)
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(
+    ("options", "expected", "extra"),
+    [
+        (MaxGenerationsTerminatorOptions(max_generations=5), MaxGenerationsTerminator, {}),
+        (MaxEvaluationsTerminatorOptions(max_evaluations=50), MaxEvaluationsTerminator, {}),
+        (MaxTimeTerminatorOptions(max_time_in_seconds=1.0), MaxTimeTerminator, {}),
+        (ExternalCheckTerminatorOptions(), ExternalCheckTerminator, {"external_check": lambda: False}),
+        (
+            CompositeTerminatorOptions(
+                terminators=[
+                    MaxGenerationsTerminatorOptions(max_generations=5),
+                    MaxEvaluationsTerminatorOptions(max_evaluations=50),
+                ]
+            ),
+            CompositeTerminator,
+            {},
+        ),
+    ],
+)
+def test_every_terminator_options_path_builds_and_checks(options, expected, extra):
+    """Every member of the terminator options union must survive `terminator_constructor`.
+
+    Three of the five raised before this was tested: the composite dumped its children to plain
+    dicts and then called `.model_dump()` on them, the external check was passed under the wrong
+    keyword and without a publisher, and the max-time field did not match its constructor parameter.
+    Nothing in the repository exercised these paths, so all three were silent.
+    """
+    terminator = terminator_constructor(options, Publisher(), **extra)
+
+    assert isinstance(terminator, expected)
+    assert terminator.check() is False
+
+
+@pytest.mark.ea
+def test_composite_terminator_inherits_its_children_budget():
+    """The composite must republish its children's budget, since it silences them.
+
+    `CompositeTerminator` sets `notify` to a no-op on every child, so a subscriber only ever hears
+    from the composite. `NonUniformMutation` reads the evaluation budget off those messages to decay
+    its step size, and RVEA's APD does the same, so a composite that did not carry the budget up
+    would leave both running as though no budget existed.
+    """
+    terminator = terminator_constructor(
+        CompositeTerminatorOptions(
+            terminators=[
+                MaxGenerationsTerminatorOptions(max_generations=7),
+                MaxEvaluationsTerminatorOptions(max_evaluations=123),
+            ]
+        ),
+        Publisher(),
+    )
+
+    assert terminator.max_generations == 7
+    assert terminator.max_evaluations == 123
+
+
+@pytest.mark.ea
+def test_composite_terminator_passes_the_external_check_to_its_children():
+    """A composite holding an external check must terminate when that check flips."""
+    should_stop = {"value": False}
+    terminator = terminator_constructor(
+        CompositeTerminatorOptions(
+            terminators=[MaxGenerationsTerminatorOptions(max_generations=99), ExternalCheckTerminatorOptions()]
+        ),
+        Publisher(),
+        external_check=lambda: should_stop["value"],
+    )
+
+    assert terminator.check() is False
+    should_stop["value"] = True
+    assert terminator.check() is True
