@@ -474,9 +474,6 @@ def emo_constructor(
         )
         components["learning_operator"] = learning_operator
 
-    [publisher.auto_subscribe(x) for x in components.values()]
-    [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components.values()]
-
     consistency = publisher.check_consistency()
 
     if not consistency[0]:

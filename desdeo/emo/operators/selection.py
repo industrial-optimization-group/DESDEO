@@ -642,7 +642,7 @@ class RVEASelector(BaseDecompositionSelector):
                 "Adaptation frequency was set to 0. Setting it to 100 for RVEA selector. "
                 "Set it to 0 only if you provide preference information.",
                 UserWarning,
-                stacklevel=2,
+                stacklevel=3,
             )
             reference_vector_options.adaptation_frequency = 100
 
