@@ -223,14 +223,10 @@ class GurobipyEvaluator:
         Returns:
             GurobipyModel: the GurobipyModel with the expressions added as attributes.
         """
-        extra_functions: dict[
-            str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr | gp.GenExpr | int | float
-        ] = {}
-
         for extra in problem.extra_funcs:
-            extra_functions[extra.symbol] = self.parse(extra.func, callback=self.get_expression_by_name)
+            self.extra_functions[extra.symbol] = self.parse(extra.func, callback=self.get_expression_by_name)
 
-        return extra_functions
+        return self.extra_functions
 
     def init_objectives(
         self, problem: Problem
@@ -247,27 +243,12 @@ class GurobipyEvaluator:
         Returns:
             dict: dict containing the objective functions.
         """
-        objective_functions: dict[str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr] = {}
         for obj in problem.objectives:
-            gp_expr = self.parse(obj.func, callback=self.get_expression_by_name)
-            if isinstance(gp_expr, int | float):
-                warnings.warn(
-                    "One or more of the problem objectives seems to be a constant.",
-                    GurobipyEvaluatorWarning,
-                    stacklevel=2,
-                )
-            if isinstance(gp_expr, gp.GenExpr):
-                msg = f"Gurobi does not support objective functions that are not linear or quadratic {gp_expr}"
-                raise GurobipyEvaluatorError(msg)
+            self.add_objective(obj)
 
-            objective_functions[obj.symbol] = gp_expr
+        return self.objective_functions
 
-            # the obj.symbol_min objectives are used when optimizing and building scalarizations etc...
-            objective_functions[f"{obj.symbol}_min"] = -(gp_expr) if obj.maximize else gp_expr
-
-        return objective_functions
-
-    def init_constraints(self, problem: Problem, model: gp.Model | None = None) -> gp.Model:
+    def init_constraints(self, problem: Problem, model: gp.Model | None = None) -> dict[str, gp.Constr]:
         """Add constraint expressions to a Gurobipy Model.
 
         Args:
@@ -278,9 +259,8 @@ class GurobipyEvaluator:
             GurobipyEvaluatorError: when an unsupported constraint type is encountered.
 
         Returns:
-            GurobipyModel: the GurobipyModel with the constraint expressions added.
+            dict: the dict with the constraint expressions added to the model.
         """
-        constraints = {}
         for cons in problem.constraints:
             gp_expr = self.parse(cons.func, callback=self.get_expression_by_name)
 
@@ -294,10 +274,10 @@ class GurobipyEvaluator:
                     msg = f"Constraint type of {con_type} not supported. Must be one of {ConstraintTypeEnum}."
                     raise GurobipyEvaluatorError(msg)
 
-            constraints[cons.symbol] = self.model.addConstr(gp_expr, name=cons.symbol)
+            self.constraints[cons.symbol] = self.model.addConstr(gp_expr, name=cons.symbol)
 
         self.model.update()
-        return constraints
+        return self.constraints
 
     def init_scalarizations(
         self, problem: Problem
@@ -314,12 +294,10 @@ class GurobipyEvaluator:
         Returns:
             dict: the dict with the scalarization expressions. Scalarization functions are always minimized.
         """
-        scalarizations: dict[str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr] = {}
-
         for scal in problem.scalarization_funcs:
-            scalarizations[scal.symbol] = self.parse(scal.func, self.get_expression_by_name)
+            self.add_scalarization_function(scal)
 
-        return scalarizations
+        return self.scalarizations
 
     def add_constraint(self, constraint: Constraint) -> gp.Constr:
         """Add a constraint expression to a GurobipyModel.

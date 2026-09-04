@@ -86,6 +86,43 @@ class _ElemResolution(NamedTuple):
     elem_desc: "str | None"
 
 
+def require_all_leaves(
+    sym: str,
+    per_leaf: "dict[str, str]",
+    scenario_model: "ScenarioModel",
+) -> None:
+    """Check that a symbol is defined in every leaf scenario.
+
+    Aggregating an element across scenarios only means something when every scenario
+    defines it.  An element that only some scenarios carry has no value in the others,
+    so a weighted sum, worst case or CVaR over all of them is not defined -- the result
+    would silently be an aggregate over a subset.
+
+    Shared elements pass: they map every leaf to the original symbol, which is exactly
+    the "one value for all scenarios" case.
+
+    Args:
+        sym: the original symbol being aggregated.
+        per_leaf: the symbol's {leaf -> combined symbol} map.
+        scenario_model: the model whose leaves the symbol must cover.
+
+    Raises:
+        ValueError: if any leaf scenario does not define the symbol.
+    """
+    missing = [leaf for leaf in scenario_model.leaf_scenarios if leaf not in per_leaf]
+    if not missing:
+        return
+
+    defined_in = sorted(per_leaf) or ["no scenario"]
+    msg = (
+        f"Symbol '{sym}' is defined only in {', '.join(defined_in)}, so it cannot be aggregated "
+        f"across all scenarios; it is missing from {', '.join(sorted(missing))}. "
+        "Aggregate a symbol that every scenario defines, or reference this one inside its own "
+        "scenario instead."
+    )
+    raise ValueError(msg)
+
+
 def resolve_elem(
     sym: str,
     symbol_maps: "dict[str, dict[str, dict[str, str]]]",
@@ -99,7 +136,8 @@ def resolve_elem(
     element from the base problem for name and description.
 
     Raises:
-        ValueError: if sym is not found in symbol_maps.
+        ValueError: if sym is not found in symbol_maps, or is not defined in every leaf
+            scenario (see :func:`require_all_leaves`).
     """
     found_type = None
     per_leaf = None
@@ -110,6 +148,8 @@ def resolve_elem(
             break
     if per_leaf is None:
         raise ValueError(f"Symbol '{sym}' not found in the combined problem.")
+
+    require_all_leaves(sym, per_leaf, scenario_model)
 
     elem_list = list(
         {
@@ -138,6 +178,61 @@ def resolve_elem(
         else _longest_common_name(_pool_names_for(scenario_model, found_type, sym, per_leaf), sym),
         elem_desc=getattr(base_elem, "description", None) if base_elem is not None else None,
     )
+
+
+# The order in which evaluators build and evaluate each kind of element.  An element may
+# reference the kinds before it, and earlier elements of its own kind; nothing may reference
+# a constraint, which is why constraints come last.
+_KIND_ORDER = {"extra_funcs": 0, "objectives": 1, "scalarization_funcs": 2, "constraints": 3}
+
+
+def leaf_expr(info: _ElemResolution, leaf: str) -> "str | list":
+    """Return the expression standing for the per-leaf copy of a resolved element.
+
+    Usually this is the per-leaf element's symbol.  Evaluators resolve a reference to an
+    element of an earlier kind, or to an earlier element of the same kind, so an aggregate
+    appended after the per-leaf elements it aggregates can simply name them.
+
+    The exception is aggregating a **constraint**.  ``append_aggregated_elem`` turns
+    anything that is not an objective or a scalarization function into an extra function,
+    and extra functions are evaluated before constraints, so the reference would point
+    forwards and never resolve.  There the per-leaf ``func`` is inlined instead.
+
+    Args:
+        info: the resolution returned by ``resolve_elem``.
+        leaf: name of the leaf scenario whose copy is wanted.
+
+    Returns:
+        The per-leaf element's symbol, or its inlined ``func`` when a reference could not
+        be resolved where the aggregate lands.
+    """
+    leaf_sym = info.per_leaf[leaf]
+
+    # Objectives and scalarization functions keep their kind; everything else aggregates
+    # into an extra function. Variables and constants have no func and no ordering.
+    aggregate_kind = info.found_type if info.found_type in ("objectives", "scalarization_funcs") else "extra_funcs"
+    if _KIND_ORDER.get(info.found_type, -1) <= _KIND_ORDER[aggregate_kind]:
+        return leaf_sym
+
+    return next((e.func for e in info.elem_list if e.symbol == leaf_sym), leaf_sym)
+
+
+def weighted_sum_expr(info: _ElemResolution, weights: "dict[str, float]") -> list:
+    """Build a weighted sum over the per-leaf copies of a resolved element.
+
+    Terms are inlined through :func:`leaf_expr` and generated in the iteration order
+    of *weights*.
+
+    Args:
+        info: the resolution returned by ``resolve_elem``.
+        weights: mapping from leaf scenario name to its weight.
+
+    Returns:
+        The weighted-sum expression, in MathJSON format.
+    """
+    terms = [["Multiply", weights[leaf], leaf_expr(info, leaf)] for leaf in weights]
+
+    return terms[0] if len(terms) == 1 else ["Add", *terms]
 
 
 def append_aggregated_elem(
@@ -403,8 +498,10 @@ def _combine_elements(
 
     Returns:
         A tuple of (combined list or None, symbol map).  The symbol map has the
-            original symbol as key and a {leaf -> new_symbol} dict as value. Leaves
-            that do not carry an element keep the original symbol as their value.
+            original symbol as key and a {leaf -> new_symbol} dict as value.  A shared
+            element maps every leaf to the original symbol; otherwise each leaf that
+            carries the element maps to its prefixed copy and leaves that do not carry
+            it are absent from the map.
     """
     combined: list = []
     seen: set[str] = set()
@@ -435,7 +532,9 @@ def _combine_elements(
             symbol_map[sym] = dict.fromkeys(leaf_scenarios, sym)
             entries = [(sym, first_leaf, renamed[first_leaf], None)]
         else:
-            symbol_map[sym] = {leaf: f"{leaf}_{sym}" if leaf in renamed else sym for leaf in leaf_scenarios}
+            # Leaves that do not carry the element get no entry at all: there is no
+            # combined element for them, so any symbol here would name nothing.
+            symbol_map[sym] = {leaf: f"{leaf}_{sym}" for leaf in leaf_scenarios if leaf in renamed}
             entries = [(f"{leaf}_{sym}", leaf, new_func, leaf) for leaf, new_func in renamed.items()]
 
         for new_sym, src_leaf, new_func, name_leaf in entries:
@@ -578,7 +677,9 @@ def build_combined_scenario_problem(
             name: new_sym
             for orig, per_leaf in objectives_map.items()
             for name, new_sym in (
-                [(orig, per_leaf[leaf]), (f"{orig}_min", f"{per_leaf[leaf]}_min")] if per_leaf[leaf] != orig else []
+                [(orig, per_leaf[leaf]), (f"{orig}_min", f"{per_leaf[leaf]}_min")]
+                if leaf in per_leaf and per_leaf[leaf] != orig
+                else []
             )
         }
         for leaf in leaf_scenarios
@@ -590,7 +691,11 @@ def build_combined_scenario_problem(
     # Build per-leaf rename maps for extra function symbols.
     # Constraints and scalarization functions may reference extra functions by symbol.
     ef_extra_maps: dict[str, dict[str, str]] = {
-        leaf: {orig: per_leaf[leaf] for orig, per_leaf in extra_funcs_map.items() if per_leaf[leaf] != orig}
+        leaf: {
+            orig: per_leaf[leaf]
+            for orig, per_leaf in extra_funcs_map.items()
+            if leaf in per_leaf and per_leaf[leaf] != orig
+        }
         for leaf in leaf_scenarios
     }
 

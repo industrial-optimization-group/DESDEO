@@ -12,7 +12,10 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
-from desdeo.problem.testproblems import simple_scenario_model
+from desdeo.problem.testproblems import (
+    simple_scenario_model,
+    summer_cabin_battery_problem_split_scenario,
+)
 from desdeo.tools.robust import add_single_objective_worst_case_regret, add_weighted_scenarios, add_worst_case_robust
 from desdeo.tools.scenarios import build_combined_scenario_problem, build_scenario_problem
 from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_asf, add_expected_value
@@ -420,32 +423,30 @@ def test_symbol_map_con3_per_leaf(symbol_maps):
 
 @pytest.mark.schema
 @pytest.mark.scenario
-def test_symbol_map_con1_missing_leaf_keeps_original(symbol_maps):
-    """con_1 is absent from s_2, so s_2 retains the original symbol."""
+def test_symbol_map_con1_missing_leaf_omitted(symbol_maps):
+    """con_1 is absent from s_2, so s_2 has no entry at all.
+
+    The map used to give such a leaf the original symbol, but no element of that name
+    exists in the combined problem: only the leaves that carry con_1 get a copy.
+    """
     cm = symbol_maps["constraints"]["con_1"]
-    assert cm["s_1"] == "s_1_con_1"
-    assert cm["s_2"] == "con_1"
-    assert cm["s_3"] == "s_3_con_1"
+    assert cm == {"s_1": "s_1_con_1", "s_3": "s_3_con_1"}
 
 
 @pytest.mark.schema
 @pytest.mark.scenario
-def test_symbol_map_con2_missing_leaf_keeps_original(symbol_maps):
-    """con_2 is absent from s_1, so s_1 retains the original symbol."""
+def test_symbol_map_con2_missing_leaf_omitted(symbol_maps):
+    """con_2 is absent from s_1, so s_1 has no entry at all."""
     cm = symbol_maps["constraints"]["con_2"]
-    assert cm["s_1"] == "con_2"
-    assert cm["s_2"] == "s_2_con_2"
-    assert cm["s_3"] == "s_3_con_2"
+    assert cm == {"s_2": "s_2_con_2", "s_3": "s_3_con_2"}
 
 
 @pytest.mark.schema
 @pytest.mark.scenario
-def test_symbol_map_con4_missing_leaf_keeps_original(symbol_maps):
-    """con_4 is absent from s_3, so s_3 retains the original symbol."""
+def test_symbol_map_con4_missing_leaf_omitted(symbol_maps):
+    """con_4 is absent from s_3, so s_3 has no entry at all."""
     cm = symbol_maps["constraints"]["con_4"]
-    assert cm["s_1"] == "s_1_con_4"
-    assert cm["s_2"] == "s_2_con_4"
-    assert cm["s_3"] == "con_4"
+    assert cm == {"s_1": "s_1_con_4", "s_2": "s_2_con_4"}
 
 
 # ---------------------------------------------------------------------------
@@ -455,12 +456,10 @@ def test_symbol_map_con4_missing_leaf_keeps_original(symbol_maps):
 
 @pytest.mark.schema
 @pytest.mark.scenario
-def test_symbol_map_extra_func_missing_leaf_keeps_original(symbol_maps):
-    """extra_1 is absent from s_3, so s_3 retains the original symbol."""
+def test_symbol_map_extra_func_missing_leaf_omitted(symbol_maps):
+    """extra_1 is absent from s_3, so s_3 has no entry at all."""
     em = symbol_maps["extra_funcs"]["extra_1"]
-    assert em["s_1"] == "s_1_extra_1"
-    assert em["s_2"] == "s_2_extra_1"
-    assert em["s_3"] == "extra_1"
+    assert em == {"s_1": "s_1_extra_1", "s_2": "s_2_extra_1"}
 
 
 # ---------------------------------------------------------------------------
@@ -524,19 +523,9 @@ def test_expected_asf_uses_scenario_probabilities(asf_result):
     func = ef.func
     assert func[0] == "Add"
 
-    # Each term is ["Multiply", weight, <inlined ASF expression>].
-    # Match by the per-leaf _alpha symbol embedded in the expression.
-    def find_alpha(node):
-        if isinstance(node, str) and node.endswith("_alpha"):
-            return node
-        if isinstance(node, list):
-            for child in node:
-                result = find_alpha(child)
-                if result:
-                    return result
-        return None
-
-    weights_by_leaf = {find_alpha(term[2]).removesuffix("__alpha"): term[1] for term in func[1:]}
+    # A scalarization aggregate stays a scalarization function and is appended after the
+    # per-leaf ones, so each term is ["Multiply", weight, "<leaf>_asf"].
+    weights_by_leaf = {term[2].removesuffix("_asf"): term[1] for term in func[1:]}
     assert weights_by_leaf["s_1"] == pytest.approx(0.2)
     assert weights_by_leaf["s_2"] == pytest.approx(0.3)
     assert weights_by_leaf["s_3"] == pytest.approx(0.5)
@@ -865,6 +854,18 @@ def test_weighted_result_added_as_objective(weighted_result):
         assert sym in obj_syms
 
 
+def _leaf_of(node, leaves):
+    """Return the leaf whose symbol prefix appears somewhere in *node*, or None."""
+    if isinstance(node, str):
+        return next((leaf for leaf in leaves if node.startswith(f"{leaf}_")), None)
+    if isinstance(node, list):
+        for child in node:
+            found = _leaf_of(child, leaves)
+            if found:
+                return found
+    return None
+
+
 @pytest.mark.schema
 @pytest.mark.scenario
 def test_weighted_expression_uses_provided_weights(weighted_result):
@@ -873,10 +874,54 @@ def test_weighted_expression_uses_provided_weights(weighted_result):
     obj = next(o for o in problem.objectives or [] if o.symbol == added["f_1"])
     func = obj.func
     assert func[0] == "Add"
-    terms = {term[2]: term[1] for term in func[1:]}
-    assert terms["s_1_f_1"] == pytest.approx(_WEIGHTS["s_1"])
-    assert terms["s_2_f_1"] == pytest.approx(_WEIGHTS["s_2"])
-    assert terms["s_3_f_1"] == pytest.approx(_WEIGHTS["s_3"])
+
+    # Each term is ["Multiply", weight, <inlined per-leaf func>]; match the term to
+    # its leaf through the leaf-prefixed symbols inside the inlined expression.
+    weights_by_leaf = {_leaf_of(term[2], _WEIGHTS): term[1] for term in func[1:]}
+    assert weights_by_leaf["s_1"] == pytest.approx(_WEIGHTS["s_1"])
+    assert weights_by_leaf["s_2"] == pytest.approx(_WEIGHTS["s_2"])
+    assert weights_by_leaf["s_3"] == pytest.approx(_WEIGHTS["s_3"])
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_weighted_expression_references_per_leaf_objectives(weighted_result):
+    """An objective aggregate names its per-leaf objectives rather than inlining them.
+
+    The aggregate is itself an objective, appended after the per-leaf ones, so the
+    reference resolves wherever the problem is evaluated.
+    """
+    problem, added = weighted_result
+    obj = next(o for o in problem.objectives or [] if o.symbol == added["f_1"])
+
+    for term in obj.func[1:]:
+        leaf = _leaf_of(term[2], _WEIGHTS)
+        assert term[2] == f"{leaf}_f_1", f"term for {leaf} should reference the per-leaf symbol"
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_weighted_expression_inlines_per_leaf_constraints(model):
+    """A constraint aggregate inlines, because it lands among the extra functions.
+
+    Extra functions are evaluated before constraints, so naming the per-leaf constraints
+    would be a forward reference that no evaluator can resolve.
+    """
+    combined, symbol_maps = build_combined_scenario_problem(model)
+    # con_3 comes from the base problem, so every leaf defines it.  Constraints that only
+    # some scenarios define get a per-leaf map entry pointing at a symbol that is not in
+    # the combined problem at all, which is a separate defect.
+    constraint_symbol = "con_3"
+    problem, added = add_weighted_scenarios(
+        model, [constraint_symbol], weights=_WEIGHTS, combined=combined, symbol_maps=symbol_maps
+    )
+
+    aggregate = next(e for e in problem.extra_funcs or [] if e.symbol == added[constraint_symbol])
+    per_leaf_funcs = {c.symbol: c.func for c in problem.constraints or []}
+
+    for term in aggregate.func[1:]:
+        leaf = _leaf_of(term[2], _WEIGHTS)
+        assert term[2] == per_leaf_funcs[symbol_maps["constraints"][constraint_symbol][leaf]]
 
 
 @pytest.mark.schema
@@ -1141,3 +1186,68 @@ def test_regret_constraint_expression_maximize():
     assert "8.0" in func_str  # ideal value
     assert "leaf_a_g" in func_str  # per-leaf objective symbol
     assert "_t_regret_wc_g" in func_str
+
+
+# ---------------------------------------------------------------------------
+# Partially-defined elements
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_symbol_map_omits_leaves_that_do_not_define_an_element(model):
+    """A leaf that does not carry an element gets no entry, rather than a bare symbol.
+
+    The map used to fall back to the original symbol for such leaves, but the combined
+    problem contains no element under that name, so the entry pointed at nothing.
+    """
+    _, symbol_maps = build_combined_scenario_problem(model)
+
+    # extra_1 is a pool element that only s_1 and s_2 carry.
+    assert set(symbol_maps["extra_funcs"]["extra_1"]) == {"s_1", "s_2"}
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_symbol_map_has_no_dangling_entries(model):
+    """Every symbol a map points at exists in the combined problem."""
+    combined, symbol_maps = build_combined_scenario_problem(model)
+    present = {
+        elem.symbol
+        for elements in (combined.objectives, combined.constraints, combined.extra_funcs)
+        for elem in (elements or [])
+    }
+
+    for kind in ("objectives", "constraints", "extra_funcs"):
+        for sym, per_leaf in symbol_maps[kind].items():
+            for leaf, mapped in per_leaf.items():
+                assert mapped in present, f"{kind} {sym}: leaf {leaf} maps to unknown symbol {mapped}"
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_aggregating_a_partially_defined_element_raises(model):
+    """Aggregating an element that only some scenarios define is rejected."""
+    combined, symbol_maps = build_combined_scenario_problem(model)
+
+    with pytest.raises(ValueError, match="defined only in s_1, s_2"):
+        add_expected_value(model, ["extra_1"], combined=combined, symbol_maps=symbol_maps)
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_aggregating_a_shared_element_is_allowed():
+    """A shared element maps every leaf to the original symbol and aggregates fine.
+
+    The summer cabin investment cost f_2 is one value for all scenarios, which is the
+    "same in every scenario" case rather than a partially-defined one.
+    """
+    scenario_model = summer_cabin_battery_problem_split_scenario()
+    combined, symbol_maps = build_combined_scenario_problem(scenario_model)
+
+    assert set(symbol_maps["objectives"]["f_2"]) == set(scenario_model.leaf_scenarios)
+    assert set(symbol_maps["objectives"]["f_2"].values()) == {"f_2"}
+
+    _, added = add_expected_value(scenario_model, ["f_2"], combined=combined, symbol_maps=symbol_maps)
+
+    assert added["f_2"] == "E_f_2"
