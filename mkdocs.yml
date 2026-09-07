@@ -44,7 +44,7 @@ nav:
       - "How to implement method interfaces in the Web-GUI": "howtoguides/implementing_method_interfaces.md"
       - "How to utilize 'MCDM' methods": "howtoguides/how_to_utilize_mcdm_methods.ipynb"
       - "How to use the NAUTILUS Navigator method": "howtoguides/nautilus_navigator.md"
-      - "How to use the NAUTILI method": "howtoguides/nautili.md"
+      - "How to use the NAUTILI method": "howtoguides/nautili.ipynb"
       - "How to use the Pareto navigator method": "howtoguides/pareto_navigator.md"
       - "How to user evolutionary algorithms": "howtoguides/ea.ipynb"
       - "How to configure evolutionary algorithms": "howtoguides/ea_options.ipynb"

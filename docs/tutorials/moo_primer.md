@@ -397,7 +397,7 @@ be discussed next.
 For examples of using scalarization-based methods in DESDEO, see the guide on
 [utilizing MCDM methods](../howtoguides/how_to_utilize_mcdm_methods.ipynb), as well as
 the method-specific guides for the [NAUTILUS Navigator](../howtoguides/nautilus_navigator.md),
-[NAUTILI](../howtoguides/nautili.md), and [Pareto Navigator](../howtoguides/pareto_navigator.md) methods.
+[NAUTILI](../howtoguides/nautili.ipynb), and [Pareto Navigator](../howtoguides/pareto_navigator.md) methods.
 
 ## Population-based methods
 

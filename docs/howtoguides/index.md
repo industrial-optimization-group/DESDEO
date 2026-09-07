@@ -20,7 +20,7 @@ Guides are goal-oriented and are meant to direct users towards specific goals wh
 - **[Utilizing MCDM methods](./how_to_utilize_mcdm_methods.ipynb):** How to utilize 'MCDM' methods
 
 - **[NAUTILUS Navigator](nautilus_navigator.md):** How to use the NAUTILUS Navigator method
-- **[NAUTILI](nautili.md):** How to use the NAUTILI method
+- **[NAUTILI](nautili.ipynb):** How to use the NAUTILI method
 - **[Using EAs in DESDEO](ea.ipynb):** How to use evolutionary algorithms
 - **[Using EAs in DESDEO (Pydantic Interface)](ea_options.ipynb):** How to use evolutionary algorithms with the Pydantic interface
 - **[Implementing new EA components](how_to_implement_ea.md):** How to implement new evolutionary algorithm components
