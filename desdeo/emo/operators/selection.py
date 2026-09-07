@@ -659,6 +659,11 @@ class RVEASelector(BaseDecompositionSelector):
         self.denominator: float | None = None
         # Which adaptation epoch was last acted on under an evaluation budget.
         self._adaptation_epoch = 0
+        # Whether the ideal so far was taken over infeasible members only, for
+        # want of any feasible one. Such an ideal can be better than any
+        # feasible design can reach, so it is replaced, not minimised into,
+        # the moment a feasible member appears.
+        self._ideal_is_provisional = False
         self.alpha = alpha
         self.selected_individuals: list | pl.DataFrame
         self.selected_targets: pl.DataFrame
@@ -722,16 +727,21 @@ class RVEASelector(BaseDecompositionSelector):
             # none, at the start on a tightly constrained problem or later once the
             # population has contracted, and a minimum over nothing raises. Keep the
             # previous ideal in that case, as the nadir below already does. With no
-            # ideal yet, take it over every member, as the unconstrained branch does;
-            # that is optimistic, which an ideal point may be, and it is replaced as
-            # soon as a feasible member appears.
+            # ideal yet, take a provisional one over every member. The ideal of
+            # infeasible members can be far better than any feasible design, and
+            # minimising into it would carry that error through every later
+            # generation, so the provisional ideal is replaced outright by the
+            # first feasible one, and only then minimised into as usual.
             if feasible.any():
                 feasible_ideal = np.min(targets[feasible], axis=0)
-                self.ideal = (
-                    feasible_ideal if self.ideal is None else np.min(np.vstack((self.ideal, feasible_ideal)), axis=0)
-                )
-            elif self.ideal is None:
+                if self.ideal is None or self._ideal_is_provisional:
+                    self.ideal = feasible_ideal
+                    self._ideal_is_provisional = False
+                else:
+                    self.ideal = np.min(np.vstack((self.ideal, feasible_ideal)), axis=0)
+            elif self.ideal is None or self._ideal_is_provisional:
                 self.ideal = np.min(targets, axis=0)
+                self._ideal_is_provisional = True
             try:
                 nadir = np.max(targets[feasible], axis=0)
                 self.nadir = nadir
