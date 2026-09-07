@@ -17,7 +17,7 @@ from desdeo.emo.options.algorithms import emo_constructor
 from desdeo.emo.options.templates import EMOOptions, ReferencePointOptions
 from desdeo.problem.testproblems import dtlz2
 from desdeo.tools.generics import EMOResult
-from desdeo.tools.patterns import Publisher, Subscriber
+from desdeo.tools.patterns import Publisher
 from desdeo.tools.scalarization import add_asf_nondiff
 
 
@@ -55,19 +55,6 @@ def _build_components(
         publisher=publisher,
         seed=0,
     )
-
-    components: list[Subscriber] = [
-        evaluator,
-        generator,
-        crossover,
-        mutation,
-        selector,
-        terminator,
-        archive,
-        learning_operator,
-    ]
-    [publisher.auto_subscribe(c) for c in components]
-    [publisher.register_topics(topics=c.provided_topics[c.verbosity], source=c.__class__.__name__) for c in components]
 
     return {
         "problem": problem,

@@ -92,7 +92,7 @@ from desdeo.problem.testproblems import (
 )
 from desdeo.tools.message import EvaluatorMessageTopics, IntMessage, TerminatorMessageTopics
 from desdeo.tools.non_dominated_sorting import fast_non_dominated_sort
-from desdeo.tools.patterns import Publisher, Subscriber
+from desdeo.tools.patterns import Publisher
 from desdeo.tools.reference_vectors import _ensure_axis_vectors, create_s_energy
 from desdeo.tools.utils import repair
 
@@ -293,9 +293,6 @@ def test_archives():
 
     non_dom_archive = NonDominatedArchive(problem=problem, publisher=publisher)
 
-    publisher.auto_subscribe(archive)
-    publisher.auto_subscribe(non_dom_archive)
-
     results = solver()
 
     norm_non_dom = non_dom_archive.solutions.with_columns(
@@ -342,26 +339,8 @@ def test_template1():
     terminator = MaxEvaluationsTerminator(max_evaluations=5000, publisher=publisher)
 
     non_dom_archive = NonDominatedArchive(problem=problem, publisher=publisher)
-    archive = Archive(problem=problem, publisher=publisher)
-
-    components: list[Subscriber] = [
-        evaluator,
-        generator,
-        crossover,
-        mutation,
-        selector,
-        terminator,
-        non_dom_archive,
-        archive,
-    ]
-
-    [publisher.auto_subscribe(component) for component in components]
-    [
-        publisher.register_topics(
-            topics=component.provided_topics[component.verbosity], source=component.__class__.__name__
-        )
-        for component in components
-    ]
+    # The plain archive subscribes itself on construction; this test only reads the non-dominated one.
+    Archive(problem=problem, publisher=publisher)
 
     assert publisher.check_consistency()[0], "Subscribers are subscribing to unregistered topics."
 
@@ -410,28 +389,9 @@ def test_template2():
     terminator = MaxEvaluationsTerminator(max_evaluations=500, publisher=publisher)
 
     non_dom_archive = NonDominatedArchive(problem=problem, publisher=publisher)
-    archive = Archive(problem=problem, publisher=publisher)
+    # The plain archive subscribes itself on construction; this test only reads the non-dominated one.
+    Archive(problem=problem, publisher=publisher)
     scalar_selector = TournamentSelection(publisher=publisher, winner_size=10, verbosity=0)
-
-    components: list[Subscriber] = [
-        evaluator,
-        generator,
-        crossover,
-        mutation,
-        selector,
-        terminator,
-        non_dom_archive,
-        archive,
-        scalar_selector,
-    ]
-
-    [publisher.auto_subscribe(component) for component in components]
-    [
-        publisher.register_topics(
-            topics=component.provided_topics[component.verbosity], source=component.__class__.__name__
-        )
-        for component in components
-    ]
 
     assert publisher.check_consistency()[0], "Subscribers are subscribing to unregistered topics."
 
@@ -701,27 +661,10 @@ def test_template_integer():
 
     terminator = MaxEvaluationsTerminator(max_evaluations=100, publisher=publisher)
 
-    non_dom_archive = NonDominatedArchive(problem=problem, publisher=publisher)
-    archive = Archive(problem=problem, publisher=publisher)
-
-    components: list[Subscriber] = [
-        evaluator,
-        generator,
-        crossover,
-        mutation,
-        selector,
-        terminator,
-        non_dom_archive,
-        archive,
-    ]
-
-    [publisher.auto_subscribe(component) for component in components]
-    [
-        publisher.register_topics(
-            topics=component.provided_topics[component.verbosity], source=component.__class__.__name__
-        )
-        for component in components
-    ]
+    # Both archives subscribe themselves on construction and collect during the run,
+    # even though this test only checks the template's own results.
+    NonDominatedArchive(problem=problem, publisher=publisher)
+    Archive(problem=problem, publisher=publisher)
 
     assert publisher.check_consistency(), "Subscribers are subscribing to unregistered topics."
 
@@ -864,27 +807,10 @@ def test_template_mixed_integer():
 
     terminator = MaxEvaluationsTerminator(max_evaluations=100, publisher=publisher)
 
-    non_dom_archive = NonDominatedArchive(problem=problem, publisher=publisher)
-    archive = Archive(problem=problem, publisher=publisher)
-
-    components: list[Subscriber] = [
-        evaluator,
-        generator,
-        crossover,
-        mutation,
-        selector,
-        terminator,
-        non_dom_archive,
-        archive,
-    ]
-
-    [publisher.auto_subscribe(component) for component in components]
-    [
-        publisher.register_topics(
-            topics=component.provided_topics[component.verbosity], source=component.__class__.__name__
-        )
-        for component in components
-    ]
+    # Both archives subscribe themselves on construction and collect during the run,
+    # even though this test only checks the template's own results.
+    NonDominatedArchive(problem=problem, publisher=publisher)
+    Archive(problem=problem, publisher=publisher)
 
     assert publisher.check_consistency(), "Subscribers are subscribing to unregistered topics."
 
@@ -2096,10 +2022,6 @@ def test_non_uniform_mutation_with_evaluation_based_termination():
     )
     terminator = MaxEvaluationsTerminator(2000, publisher=publisher)
 
-    components = [evaluator, generator, crossover, mutation, selector, terminator]
-    [publisher.auto_subscribe(x) for x in components]
-    [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
-
     assert publisher.check_consistency()[0]
 
     result = template1(
@@ -2281,10 +2203,6 @@ def test_crossover_in_ea():
             publisher=publisher,
         )
 
-        components = [evaluator, generator, crossover, mutation, selector, terminator]
-        [publisher.auto_subscribe(x) for x in components]
-        [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
-
         try:
             template1(
                 evaluator=evaluator,
@@ -2346,10 +2264,6 @@ def test_mutation_in_ea():
             publisher=publisher,
         )
 
-        components = [evaluator, generator, crossover, mutation, selector, terminator]
-        [publisher.auto_subscribe(x) for x in components]
-        [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
-
         try:
             template1(
                 evaluator=evaluator,
@@ -2368,8 +2282,6 @@ def test_max_gen_terminator():
     """Test the MaxGenerationsTerminator."""
     publisher = Publisher()
     terminator = MaxGenerationsTerminator(100, publisher)
-    publisher.auto_subscribe(terminator)
-
     assert terminator.current_generation == 1
     assert terminator.max_generations == 100
 
@@ -2385,8 +2297,6 @@ def test_max_eval_terminator():
     """Test the MaxEvaluationsTerminator."""
     publisher = Publisher()
     terminator = MaxEvaluationsTerminator(1000, publisher)
-    publisher.auto_subscribe(terminator)
-
     assert terminator.current_evaluations == 0
     assert terminator.max_evaluations == 1000
 
@@ -2411,10 +2321,6 @@ def test_composite_terminator():
     term1 = MaxGenerationsTerminator(10, publisher)
     term2 = MaxEvaluationsTerminator(1000, publisher)
     composite = CompositeTerminator([term1, term2], publisher, mode="any")
-    publisher.auto_subscribe(term1)
-    publisher.auto_subscribe(term2)
-    publisher.auto_subscribe(composite)
-
     assert composite.current_generation == 1
     assert composite.current_evaluations == 0
     # Composite indicator should get max from children
@@ -2438,10 +2344,6 @@ def test_composite_terminator():
     term1 = MaxGenerationsTerminator(10, publisher)
     term2 = MaxEvaluationsTerminator(1000, publisher)
     composite = CompositeTerminator([term1, term2], publisher, mode="any")
-    publisher.auto_subscribe(term1)
-    publisher.auto_subscribe(term2)
-    publisher.auto_subscribe(composite)
-
     # publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
     # assert composite.current_evaluations == 100
 
@@ -2459,10 +2361,6 @@ def test_composite_terminator():
     term1 = MaxGenerationsTerminator(10, publisher)
     term2 = MaxEvaluationsTerminator(1000, publisher)
     composite = CompositeTerminator([term1, term2], publisher, mode="all")
-    publisher.auto_subscribe(term1)
-    publisher.auto_subscribe(term2)
-    publisher.auto_subscribe(composite)
-
     # publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
     # assert composite.current_evaluations == 100
 
@@ -2539,10 +2437,6 @@ def test_nsga2_selection():
         problem=problem, evaluator=evaluator, publisher=publisher, n_points=population_size, seed=seed, verbosity=1
     )
 
-    components = [selector, evaluator, generator, scalar_selection, crossover, mutation]
-    [publisher.auto_subscribe(x) for x in components]
-    [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
-
     # first iteration
     solutions, outputs = generator.do()
     offspring = pl.DataFrame(
@@ -2581,9 +2475,6 @@ def test_nsga2_selection_dealing_with_boundaries():
     selector = NSGA2Selector(
         problem=problem, verbosity=2, publisher=publisher, population_size=population_size, seed=seed
     )
-
-    publisher.auto_subscribe(selector)
-    publisher.register_topics(selector.provided_topics[selector.verbosity], selector.__class__.__name__)
 
     # only boundaries in pop
     f_data_pop = {
@@ -2827,9 +2718,6 @@ def test_ibea_keeps_every_feasible_solution_it_cannot_replace():
         problem=problem, evaluator=evaluator, publisher=publisher, n_points=40, seed=0, verbosity=1
     )
     selector = IBEASelector(problem=problem, verbosity=1, publisher=publisher, population_size=20, seed=0)
-    for component in (evaluator, generator, selector):
-        publisher.auto_subscribe(component)
-
     solutions, outputs = generator.do()
     constraints = [c.symbol for c in problem.constraints]
     violations = np.maximum(outputs[constraints].to_numpy(), 0.0).sum(axis=1)
@@ -2895,9 +2783,6 @@ def test_nsga2_publishes_higher_is_better_fitness():
         verbosity=1,
     )
     selector = NSGA2Selector(problem=problem, verbosity=2, publisher=publisher, population_size=population_size, seed=0)
-    for component in (evaluator, generator, selector):
-        publisher.auto_subscribe(component)
-
     solutions, outputs = generator.do()
     half = len(solutions) // 2
     _, selected = selector.do(parents=(solutions[:half], outputs[:half]), offsprings=(solutions[half:], outputs[half:]))

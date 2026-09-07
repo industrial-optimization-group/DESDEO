@@ -7,6 +7,7 @@ from desdeo.tools.patterns import Publisher, createblanksubs
 
 INTERESTED_TOPICS = [GeneratorMessageTopics.OBJECTIVES, GeneratorMessageTopics.TARGETS]
 NOT_INTERESTED_TOPICS = [GeneratorMessageTopics.NEW_EVALUATIONS, GeneratorMessageTopics.POPULATION]
+BlankSubscriber = createblanksubs(INTERESTED_TOPICS)
 
 
 @pytest.mark.patterns
@@ -14,20 +15,91 @@ def test_publisher_subscriber():
     """Test whether a publisher and a subscriber can be initialized."""
     pub = Publisher()
     assert pub is not None
-    BlankSubscriber = createblanksubs(INTERESTED_TOPICS)
     sub = BlankSubscriber(publisher=pub)
     assert sub is not None
+
+
+@pytest.mark.patterns
+def test_post_init_runs_once_after_the_full_init_chain():
+    """`__post_init__` must run exactly once, after the most derived `__init__` has returned."""
+    pub = Publisher()
+
+    class Middle(BlankSubscriber):
+        def __init__(self, publisher: Publisher) -> None:
+            super().__init__(publisher=publisher)
+            self.tag = "middle"
+
+    class Leaf(Middle):
+        def __init__(self, publisher: Publisher) -> None:
+            super().__init__(publisher=publisher)
+            self.tag = "leaf"
+
+    tags_at_post_init = []
+
+    class Recording(Leaf):
+        def __post_init__(self):
+            tags_at_post_init.append(self.tag)
+            super().__post_init__()
+
+    Recording(publisher=pub)
+
+    # One entry means it fired once for the three-deep chain; "leaf" means it fired last.
+    assert tags_at_post_init == ["leaf"]
+
+
+@pytest.mark.patterns
+def test_construction_subscribes_and_registers():
+    """A subscriber wires itself to its publisher as soon as it is constructed."""
+    pub = Publisher()
+
+    class Provider(BlankSubscriber):
+        @property
+        def provided_topics(self):
+            return {0: NOT_INTERESTED_TOPICS}
+
+    sub = Provider(publisher=pub)
+
+    assert sub in pub.subscribers[INTERESTED_TOPICS[0]]
+    assert sub in pub.subscribers[INTERESTED_TOPICS[1]]
+    assert pub.registered_topics[NOT_INTERESTED_TOPICS[0]] == ["Provider"]
+
+
+@pytest.mark.patterns
+def test_registering_twice_is_a_no_op():
+    """Subscribing an already subscribed object must not duplicate it, or it would be notified twice."""
+    pub = Publisher()
+
+    class Provider(BlankSubscriber):
+        @property
+        def provided_topics(self):
+            return {0: NOT_INTERESTED_TOPICS}
+
+    sub = Provider(publisher=pub)
+
+    # The pattern used before subscribers registered themselves, and still found in user code.
+    pub.auto_subscribe(sub)
+    pub.register_topics(sub.provided_topics[sub.verbosity], sub.__class__.__name__)
+
+    assert pub.subscribers[INTERESTED_TOPICS[0]] == [sub]
+    assert pub.registered_topics[NOT_INTERESTED_TOPICS[0]] == ["Provider"]
+
+    # A duplicate entry would show up as the same message delivered twice.
+    message = [GenericMessage(topic=INTERESTED_TOPICS[0], value="message1", source="pytest")]
+    pub.notify(message)
+    assert sub.messages_received == message
+
+    pub.subscribe(sub, "ALL")
+    pub.subscribe(sub, "ALL")
+    assert pub.global_subscribers == [sub]
 
 
 @pytest.mark.patterns
 def test_sub_unsub():
     """Test whether a subscriber can subscribe to and unsubscribe from a topic."""
     pub = Publisher()
-    BlankSubscriber = createblanksubs(INTERESTED_TOPICS)
     sub = BlankSubscriber(publisher=pub)
 
-    # Test subscribing to topics
-    pub.auto_subscribe(sub)
+    # Subscribed by construction
     assert sub in pub.subscribers[sub.interested_topics[0]]
     assert sub in pub.subscribers[sub.interested_topics[1]]
 
@@ -46,10 +118,7 @@ def test_sub_unsub():
 def test_message_send():
     """Test whether a message can be sent to a subscriber."""
     pub = Publisher()
-    BlankSubscriber = createblanksubs(INTERESTED_TOPICS)
     sub = BlankSubscriber(publisher=pub)
-
-    pub.auto_subscribe(sub)
 
     message = [
         GenericMessage(topic=GeneratorMessageTopics.OBJECTIVES, value="message1", source="pytest"),
@@ -79,4 +148,4 @@ def test_message_send():
     pub.notify(message)
     assert GeneratorMessageTopics.NEW_EVALUATIONS not in [x.topic for x in sub.messages_received]
 
-    assert sub.messages_received == message[:2] # Only the first two messages should be received
+    assert sub.messages_received == message[:2]  # Only the first two messages should be received
