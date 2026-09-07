@@ -14,6 +14,7 @@ from desdeo.emo.options.termination import (
     MaxEvaluationsTerminatorOptions,
     MaxGenerationsTerminatorOptions,
 )
+from desdeo.problem.evaluator import PolarsEvaluator
 from desdeo.problem.testproblems import (
     car_side_impact,
     dtlz2,
@@ -206,6 +207,66 @@ def test_rvea_survives_a_generation_with_no_feasible_member():
 
     assert extras.archive is not None and extras.archive.selections is not None
     assert len(extras.archive.selections) > 0
+
+
+@pytest.mark.ea
+def test_rvea_replaces_a_provisional_ideal_once_a_feasible_member_appears():
+    """An ideal taken over infeasible members must not outlive them.
+
+    Infeasible designs can score far better than any feasible one, so an ideal
+    minimised into from them would stay wrong for the rest of the run. The
+    first feasible member replaces the provisional ideal outright; after that
+    the ideal is minimised into as usual.
+    """
+    problem = car_side_impact(three_obj=True)
+    symbols = [variable.symbol for variable in problem.variables]
+    lows = np.array([variable.lowerbound for variable in problem.variables], dtype=float)
+    spans = np.array([variable.upperbound - variable.lowerbound for variable in problem.variables], dtype=float)
+    constraints = [c.symbol for c in problem.constraints]
+    targets = [f"{o.symbol}_min" for o in problem.objectives]
+
+    options = algorithms.rvea_options()
+    options.template.selection.reference_vector_options.number_of_vectors = 24
+    options.template.selection.reference_vector_options.lattice_resolution = None
+    _, extras = algorithms.emo_constructor(problem=problem, emo_options=options)
+    selectors = {s for members in extras.publisher.subscribers.values() for s in members if isinstance(s, RVEASelector)}
+    assert len(selectors) == 1
+    selector = selectors.pop()
+    # The penalty schedule is normally fed by the terminator's messages.
+    selector.numerator, selector.denominator = 1, 100
+    evaluator = PolarsEvaluator(problem)
+
+    def evaluated(designs: np.ndarray) -> tuple[pl.DataFrame, pl.DataFrame]:
+        frame = pl.DataFrame(designs, schema=symbols, orient="row")
+        outputs = evaluator.evaluate(frame)
+        return frame, outputs.select([c for c in outputs.columns if c not in symbols])
+
+    rng = np.random.default_rng(0)
+    # Thin panels everywhere: every design breaks a constraint, and scores well for it.
+    corner = evaluated(lows + 0.02 * spans * rng.random((12, len(symbols))))
+    assert not (corner[1][constraints].to_numpy() <= 0).all(axis=1).any()
+    selector.do(corner, corner)
+    assert selector._ideal_is_provisional
+    provisional = selector.ideal.copy()
+
+    # Now a population with feasible members, found by drawing until enough exist.
+    draws = evaluated(lows + spans * rng.random((400, len(symbols))))
+    feasible = (draws[1][constraints].to_numpy() <= 0).all(axis=1)
+    assert feasible.sum() >= 12
+    keep = np.flatnonzero(feasible)[:12]
+    mixed = (draws[0][keep], draws[1][keep])
+    selector.do(mixed, corner)
+    assert not selector._ideal_is_provisional
+    feasible_ideal = mixed[1][targets].to_numpy().min(axis=0)
+    # Replaced outright: the ideal is the feasible members' own, not the corner's better one.
+    np.testing.assert_allclose(selector.ideal, feasible_ideal)
+    assert np.any(provisional < feasible_ideal)
+
+    # From here on, minimised into as usual.
+    better = evaluated(draws[0][np.flatnonzero(feasible)[12:24]].to_numpy())
+    selector.do(better, better)
+    expected = np.minimum(feasible_ideal, better[1][targets].to_numpy().min(axis=0))
+    np.testing.assert_allclose(selector.ideal, expected)
 
 
 @pytest.mark.ea
