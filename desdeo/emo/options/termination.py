@@ -49,8 +49,12 @@ class MaxTimeTerminatorOptions(BaseModel):
         default="MaxTimeTerminator", frozen=True, description="The name of the termination operator."
     )
     """The name of the termination operator."""
-    max_time: float = Field(default=30.0, gt=0, description="The maximum time allowed (in seconds).")
-    """The maximum time allowed (in seconds)."""
+    max_time_in_seconds: float = Field(default=30.0, gt=0, description="The maximum time allowed (in seconds).")
+    """The maximum time allowed (in seconds).
+
+    Named to match `MaxTimeTerminator.__init__`, because `terminator_constructor` splats
+    `model_dump()` as keyword arguments. It was `max_time` until that mismatch was found, which made
+    every construction through this options model raise `TypeError`."""
 
 
 class ExternalCheckTerminatorOptions(BaseModel):
@@ -125,19 +129,19 @@ def terminator_constructor(
         "ExternalCheckTerminator": ExternalCheckTerminator,
         "CompositeTerminator": CompositeTerminator,
     }
-    options: dict = options.model_dump()
-    name = options.pop("name")
-    if name not in ("ExternalCheckTerminator", "CompositeTerminator"):
-        return terminators[name](publisher=publisher, **options)
+    # The composite recurses on its children, so it has to branch *before* `model_dump()`: dumping is
+    # recursive, and a child turned into a plain dict has no `.model_dump()` for the recursive call
+    # to reach.
+    if options.name == "CompositeTerminator":
+        sub_terminators = [terminator_constructor(child, publisher, external_check) for child in options.terminators]
+        return CompositeTerminator(terminators=sub_terminators, publisher=publisher, mode=options.mode)
+
+    fields: dict = options.model_dump()
+    name = fields.pop("name")
     if name == "ExternalCheckTerminator":
         if external_check is None:
             raise ValueError("External check function must be provided for ExternalCheckTerminator.")
-        return terminators[name](external_check=external_check, **options)
-    if name == "CompositeTerminator":
-        sub_terminators = []
-        for term_options in options.pop("terminators"):
-            sub_terminators.append(terminator_constructor(term_options, publisher, external_check))
-            # sub_name = term_options.pop("name")
-            # sub_terminators.append(terminators[sub_name](publisher=publisher, **term_options))
-        return CompositeTerminator(terminators=sub_terminators, publisher=publisher, mode=options["mode"])
-    raise ValueError(f"Unknown terminator name: {name}")
+        return ExternalCheckTerminator(check_function=external_check, publisher=publisher, **fields)
+    if name not in terminators:
+        raise ValueError(f"Unknown terminator name: {name}")
+    return terminators[name](publisher=publisher, **fields)

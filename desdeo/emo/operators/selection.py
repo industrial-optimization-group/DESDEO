@@ -642,7 +642,7 @@ class RVEASelector(BaseDecompositionSelector):
                 "Adaptation frequency was set to 0. Setting it to 100 for RVEA selector. "
                 "Set it to 0 only if you provide preference information.",
                 UserWarning,
-                stacklevel=2,
+                stacklevel=3,
             )
             reference_vector_options.adaptation_frequency = 100
 
@@ -657,6 +657,13 @@ class RVEASelector(BaseDecompositionSelector):
         self.reference_vectors_gamma: np.ndarray
         self.numerator: float | None = None
         self.denominator: float | None = None
+        # Which adaptation epoch was last acted on under an evaluation budget.
+        self._adaptation_epoch = 0
+        # Whether the ideal so far was taken over infeasible members only, for
+        # want of any feasible one. Such an ideal can be better than any
+        # feasible design can reach, so it is replaced, not minimised into,
+        # the moment a feasible member appears.
+        self._ideal_is_provisional = False
         self.alpha = alpha
         self.selected_individuals: list | pl.DataFrame
         self.selected_targets: pl.DataFrame
@@ -716,12 +723,25 @@ class RVEASelector(BaseDecompositionSelector):
                 parents[1][self.constraints_symbols].vstack(offsprings[1][self.constraints_symbols]).to_numpy()
             )
             feasible = (constraints <= 0).all(axis=1)
-            # Note that
-            if self.ideal is None:
-                # TODO: This breaks if there are no feasible solutions in the initial population
-                self.ideal = np.min(targets[feasible], axis=0)
-            else:
-                self.ideal = np.min(np.vstack((self.ideal, np.min(targets[feasible], axis=0))), axis=0)
+            # The ideal is tracked over feasible members only. A generation may have
+            # none, at the start on a tightly constrained problem or later once the
+            # population has contracted, and a minimum over nothing raises. Keep the
+            # previous ideal in that case, as the nadir below already does. With no
+            # ideal yet, take a provisional one over every member. The ideal of
+            # infeasible members can be far better than any feasible design, and
+            # minimising into it would carry that error through every later
+            # generation, so the provisional ideal is replaced outright by the
+            # first feasible one, and only then minimised into as usual.
+            if feasible.any():
+                feasible_ideal = np.min(targets[feasible], axis=0)
+                if self.ideal is None or self._ideal_is_provisional:
+                    self.ideal = feasible_ideal
+                    self._ideal_is_provisional = False
+                else:
+                    self.ideal = np.min(np.vstack((self.ideal, feasible_ideal)), axis=0)
+            elif self.ideal is None or self._ideal_is_provisional:
+                self.ideal = np.min(targets, axis=0)
+                self._ideal_is_provisional = True
             try:
                 nadir = np.max(targets[feasible], axis=0)
                 self.nadir = nadir
@@ -784,6 +804,18 @@ class RVEASelector(BaseDecompositionSelector):
         elif self.parameter_adaptation_strategy == ParameterAdaptationStrategy.FUNCTION_EVALUATION_BASED:
             if message.topic == TerminatorMessageTopics.EVALUATION:
                 self.numerator = message.value
+                # The adaptation frequency is stated in generations. Under an
+                # evaluation budget one generation is about one population of
+                # evaluations, so adapt each time the count crosses that many
+                # evaluations times the frequency, as the generation-based
+                # branch adapts every frequency generations.
+                frequency = self.reference_vector_options.adaptation_frequency
+                if frequency > 0:
+                    every = frequency * max(int(self.reference_vector_options.number_of_vectors or 1), 1)
+                    epoch = self.numerator // every
+                    if epoch > self._adaptation_epoch:
+                        self._adaptation_epoch = epoch
+                        self._adapt()
             if message.topic == TerminatorMessageTopics.MAX_EVALUATIONS:
                 self.denominator = message.value
         return

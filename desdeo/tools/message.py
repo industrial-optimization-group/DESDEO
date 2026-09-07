@@ -25,6 +25,13 @@ class CrossoverMessageTopics(Enum):
     """ Alpha parameter used in crossover. """
     LAMBDA = "LAMBDA"
     """ Lambda parameter used in crossover. Primarily used in the bounded exponential xover. """
+    SCALING_FACTOR = "SCALING_FACTOR"
+    """ The scale applied to a difference vector. Primarily used in differential evolution. """
+    SIGMA_ZETA = "SIGMA_ZETA"
+    """ Standard deviation along the parent-to-centroid direction. Used in parent-centric crossover. """
+    SIGMA_ETA = "SIGMA_ETA"
+    """ Standard deviation orthogonal to the parent-to-centroid direction. Used in parent-centric
+    crossover. """
 
 
 class MutationMessageTopics(Enum):

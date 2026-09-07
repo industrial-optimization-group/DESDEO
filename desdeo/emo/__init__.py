@@ -32,7 +32,9 @@ from .options.algorithms import (
 from .options.crossover import (
     BlendAlphaCrossoverOptions,
     BoundedExponentialCrossoverOptions,
+    DifferentialEvolutionCrossoverOptions,
     LocalCrossoverOptions,
+    ParentCentricCrossoverOptions,
     SimulatedBinaryCrossoverOptions,
     SingleArithmeticCrossoverOptions,
     SinglePointBinaryCrossoverOptions,
@@ -165,7 +167,9 @@ preference_handling = SimpleNamespace(
 crossover = SimpleNamespace(
     BlendAlphaCrossoverOptions=BlendAlphaCrossoverOptions,
     BoundedExponentialCrossoverOptions=BoundedExponentialCrossoverOptions,
+    DifferentialEvolutionCrossoverOptions=DifferentialEvolutionCrossoverOptions,
     LocalCrossoverOptions=LocalCrossoverOptions,
+    ParentCentricCrossoverOptions=ParentCentricCrossoverOptions,
     SimulatedBinaryCrossoverOptions=SimulatedBinaryCrossoverOptions,
     SingleArithmeticCrossoverOptions=SingleArithmeticCrossoverOptions,
     SinglePointBinaryCrossoverOptions=SinglePointBinaryCrossoverOptions,

@@ -14,7 +14,9 @@ from desdeo.emo.methods.templates import template1, template2
 from desdeo.emo.operators.crossover import (
     BlendAlphaCrossover,
     BoundedExponentialCrossover,
+    DifferentialEvolutionCrossover,
     LocalCrossover,
+    ParentCentricCrossover,
     SimulatedBinaryCrossover,
     SingleArithmeticCrossover,
     SinglePointBinaryCrossover,
@@ -56,10 +58,24 @@ from desdeo.emo.operators.termination import (
     ExternalCheckTerminator,
     MaxEvaluationsTerminator,
     MaxGenerationsTerminator,
+    MaxTimeTerminator,
 )
 from desdeo.emo.options.algorithms import ibea_options, nsga2_options, nsga3_options, rvea_options
-from desdeo.emo.options.crossover import SimulatedBinaryCrossoverOptions
+from desdeo.emo.options.crossover import (
+    DifferentialEvolutionCrossoverOptions,
+    ParentCentricCrossoverOptions,
+    SimulatedBinaryCrossoverOptions,
+    crossover_constructor,
+)
 from desdeo.emo.options.templates import emo_constructor
+from desdeo.emo.options.termination import (
+    CompositeTerminatorOptions,
+    ExternalCheckTerminatorOptions,
+    MaxEvaluationsTerminatorOptions,
+    MaxGenerationsTerminatorOptions,
+    MaxTimeTerminatorOptions,
+    terminator_constructor,
+)
 from desdeo.emo.options.termination import MaxEvaluationsTerminatorOptions as _MaxEvalOpts
 from desdeo.problem import VariableDomainTypeEnum, VariableTypeEnum
 from desdeo.problem.external import PymooProblemParams, create_pymoo_problem
@@ -76,7 +92,7 @@ from desdeo.problem.testproblems import (
 )
 from desdeo.tools.message import EvaluatorMessageTopics, IntMessage, TerminatorMessageTopics
 from desdeo.tools.non_dominated_sorting import fast_non_dominated_sort
-from desdeo.tools.patterns import Publisher, Subscriber
+from desdeo.tools.patterns import Publisher
 from desdeo.tools.reference_vectors import _ensure_axis_vectors, create_s_energy
 from desdeo.tools.utils import repair
 
@@ -277,9 +293,6 @@ def test_archives():
 
     non_dom_archive = NonDominatedArchive(problem=problem, publisher=publisher)
 
-    publisher.auto_subscribe(archive)
-    publisher.auto_subscribe(non_dom_archive)
-
     results = solver()
 
     norm_non_dom = non_dom_archive.solutions.with_columns(
@@ -326,26 +339,8 @@ def test_template1():
     terminator = MaxEvaluationsTerminator(max_evaluations=5000, publisher=publisher)
 
     non_dom_archive = NonDominatedArchive(problem=problem, publisher=publisher)
-    archive = Archive(problem=problem, publisher=publisher)
-
-    components: list[Subscriber] = [
-        evaluator,
-        generator,
-        crossover,
-        mutation,
-        selector,
-        terminator,
-        non_dom_archive,
-        archive,
-    ]
-
-    [publisher.auto_subscribe(component) for component in components]
-    [
-        publisher.register_topics(
-            topics=component.provided_topics[component.verbosity], source=component.__class__.__name__
-        )
-        for component in components
-    ]
+    # The plain archive subscribes itself on construction; this test only reads the non-dominated one.
+    Archive(problem=problem, publisher=publisher)
 
     assert publisher.check_consistency()[0], "Subscribers are subscribing to unregistered topics."
 
@@ -394,28 +389,9 @@ def test_template2():
     terminator = MaxEvaluationsTerminator(max_evaluations=500, publisher=publisher)
 
     non_dom_archive = NonDominatedArchive(problem=problem, publisher=publisher)
-    archive = Archive(problem=problem, publisher=publisher)
+    # The plain archive subscribes itself on construction; this test only reads the non-dominated one.
+    Archive(problem=problem, publisher=publisher)
     scalar_selector = TournamentSelection(publisher=publisher, winner_size=10, verbosity=0)
-
-    components: list[Subscriber] = [
-        evaluator,
-        generator,
-        crossover,
-        mutation,
-        selector,
-        terminator,
-        non_dom_archive,
-        archive,
-        scalar_selector,
-    ]
-
-    [publisher.auto_subscribe(component) for component in components]
-    [
-        publisher.register_topics(
-            topics=component.provided_topics[component.verbosity], source=component.__class__.__name__
-        )
-        for component in components
-    ]
 
     assert publisher.check_consistency()[0], "Subscribers are subscribing to unregistered topics."
 
@@ -685,27 +661,10 @@ def test_template_integer():
 
     terminator = MaxEvaluationsTerminator(max_evaluations=100, publisher=publisher)
 
-    non_dom_archive = NonDominatedArchive(problem=problem, publisher=publisher)
-    archive = Archive(problem=problem, publisher=publisher)
-
-    components: list[Subscriber] = [
-        evaluator,
-        generator,
-        crossover,
-        mutation,
-        selector,
-        terminator,
-        non_dom_archive,
-        archive,
-    ]
-
-    [publisher.auto_subscribe(component) for component in components]
-    [
-        publisher.register_topics(
-            topics=component.provided_topics[component.verbosity], source=component.__class__.__name__
-        )
-        for component in components
-    ]
+    # Both archives subscribe themselves on construction and collect during the run,
+    # even though this test only checks the template's own results.
+    NonDominatedArchive(problem=problem, publisher=publisher)
+    Archive(problem=problem, publisher=publisher)
 
     assert publisher.check_consistency(), "Subscribers are subscribing to unregistered topics."
 
@@ -848,27 +807,10 @@ def test_template_mixed_integer():
 
     terminator = MaxEvaluationsTerminator(max_evaluations=100, publisher=publisher)
 
-    non_dom_archive = NonDominatedArchive(problem=problem, publisher=publisher)
-    archive = Archive(problem=problem, publisher=publisher)
-
-    components: list[Subscriber] = [
-        evaluator,
-        generator,
-        crossover,
-        mutation,
-        selector,
-        terminator,
-        non_dom_archive,
-        archive,
-    ]
-
-    [publisher.auto_subscribe(component) for component in components]
-    [
-        publisher.register_topics(
-            topics=component.provided_topics[component.verbosity], source=component.__class__.__name__
-        )
-        for component in components
-    ]
+    # Both archives subscribe themselves on construction and collect during the run,
+    # even though this test only checks the template's own results.
+    NonDominatedArchive(problem=problem, publisher=publisher)
+    Archive(problem=problem, publisher=publisher)
 
     assert publisher.check_consistency(), "Subscribers are subscribing to unregistered topics."
 
@@ -1012,12 +954,215 @@ def test_local_crossover():
 
 
 """Every concrete crossover operator, paired with a problem whose variable domain it accepts."""
+
+
+@pytest.mark.ea
+def test_differential_evolution_crossover():
+    """Test whether DE/rand/1/bin produces one offspring per target, all different from the parents."""
+    publisher = Publisher()
+    problem = simple_test_problem()
+    assert problem.variable_domain is VariableDomainTypeEnum.continuous
+
+    crossover = DifferentialEvolutionCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0)
+    num_vars = len(crossover.variable_symbols)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=1
+    )
+    population, _outputs = generator.do()
+
+    # Odd-length, to prove the operator does not depend on pairing.
+    to_mate = [0, 9, 1, 8, 2]
+    offspring = crossover.do(population=population, to_mate=to_mate)
+
+    assert offspring.shape == (len(to_mate), num_vars)
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population[to_mate], offspring)
+
+
+@pytest.mark.ea
+def test_differential_evolution_always_inherits_one_component_from_the_mutant():
+    """At CR = 0 the offspring must still differ from its target in exactly one component.
+
+    This is the `jrand` guarantee of the original formulation and the reason DE cannot stagnate by
+    copying: without it, an offspring at CR = 0 would be its target unchanged.
+    """
+    publisher = Publisher()
+    problem = simple_test_problem()
+    crossover = DifferentialEvolutionCrossover(
+        problem=problem, publisher=publisher, verbosity=1, seed=3, xover_probability=0.0
+    )
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=20, seed=1, verbosity=1
+    )
+    population, _outputs = generator.do()
+
+    parents = population[crossover.variable_symbols].to_numpy()
+    offspring = crossover.do(population=population)[crossover.variable_symbols].to_numpy()
+
+    differing = (~np.isclose(offspring, parents)).sum(axis=1)
+    npt.assert_array_equal(differing, np.ones(len(parents), dtype=int))
+
+
+@pytest.mark.ea
+def test_differential_evolution_takes_its_donors_from_the_whole_population():
+    """With the difference vector switched off, every offspring is a copy of some *other* member.
+
+    `scaling_factor` at the numerical floor makes the mutant equal to `x_r1`, so at CR = 1 the
+    offspring must coincide with a population member that is not its own target. That is what
+    distinguishes DE from the pairwise operators: the donors are unrelated to the target.
+    """
+    publisher = Publisher()
+    problem = simple_test_problem()
+    crossover = DifferentialEvolutionCrossover(
+        problem=problem, publisher=publisher, verbosity=1, seed=2, scaling_factor=1e-12, xover_probability=1.0
+    )
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=20, seed=5, verbosity=1
+    )
+    population, _outputs = generator.do()
+
+    parents = population[crossover.variable_symbols].to_numpy()
+    offspring = crossover.do(population=population)[crossover.variable_symbols].to_numpy()
+
+    distances = np.linalg.norm(offspring[:, None, :] - parents[None, :, :], axis=2)
+    npt.assert_allclose(distances.min(axis=1), 0.0, atol=1e-8)
+    # ...and never the target itself, whose row index matches the offspring's.
+    assert not np.any(distances.argmin(axis=1) == np.arange(len(parents)))
+
+
+@pytest.mark.ea
+def test_parent_centric_crossover():
+    """Test whether PCX produces one offspring per index parent, all different from the parents."""
+    publisher = Publisher()
+    problem = simple_test_problem()
+    assert problem.variable_domain is VariableDomainTypeEnum.continuous
+
+    crossover = ParentCentricCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0)
+    num_vars = len(crossover.variable_symbols)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=1
+    )
+    population, _outputs = generator.do()
+
+    to_mate = [0, 9, 1, 8, 2]
+    offspring = crossover.do(population=population, to_mate=to_mate)
+
+    assert offspring.shape == (len(to_mate), num_vars)
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population[to_mate], offspring)
+
+
+@pytest.mark.ea
+def test_parent_centric_crossover_collapses_onto_its_index_parent():
+    """As both spreads go to zero every offspring converges to its own index parent.
+
+    This is what "parent centric" means, stated so that it is exact: the operator is a perturbation
+    of one designated parent. A midpoint-biased operator collapses onto the midpoint of a pair
+    instead, and SBX collapses onto neither for any finite distribution index.
+
+    Deliberately not phrased as "the nearest population member is the index parent" -- with two
+    decision variables and thirty points the box is dense enough that another member is sometimes
+    nearer, which says something about the population rather than about the operator.
+    """
+    publisher = Publisher()
+    problem = simple_test_problem()
+    crossover = ParentCentricCrossover(
+        problem=problem, publisher=publisher, verbosity=1, seed=5, sigma_zeta=1e-12, sigma_eta=1e-12
+    )
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=30, seed=11, verbosity=1
+    )
+    population, _outputs = generator.do()
+
+    parents = population[crossover.variable_symbols].to_numpy()
+    offspring = crossover.do(population=population)[crossover.variable_symbols].to_numpy()
+
+    # Row i is the child of index parent i.
+    npt.assert_allclose(offspring, parents, atol=1e-9)
+
+
+@pytest.mark.ea
+def test_parent_centric_crossover_displaces_along_the_centroid_direction():
+    """With the orthogonal spread off, offspring lie exactly on the centroid-to-parent ray.
+
+    Scaling `sigma_zeta` then changes how far each offspring travels but not the direction it
+    travels in. That directional structure is what SBX, which perturbs each variable along its own
+    axis, does not have.
+    """
+    publisher = Publisher()
+    problem = simple_test_problem()
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=30, seed=4, verbosity=1
+    )
+    population, _outputs = generator.do()
+
+    symbols = [var.symbol for var in problem.get_flattened_variables()]
+    parents = population[symbols].to_numpy()
+
+    def displacement(sigma_zeta: float) -> np.ndarray:
+        # Same seed, so the same parent triples and the same normal draws: only the scale differs.
+        crossover = ParentCentricCrossover(
+            problem=problem, publisher=publisher, verbosity=1, seed=7, sigma_eta=1e-12, sigma_zeta=sigma_zeta
+        )
+        return crossover.do(population=population)[symbols].to_numpy() - parents
+
+    small, large = displacement(0.1), displacement(0.5)
+
+    # An offspring pushed onto a bound is clipped, and clipping is a projection that necessarily
+    # changes the direction. Compare only the offspring that both runs left strictly inside the box.
+    lower = np.array([var.lowerbound for var in problem.get_flattened_variables()])
+    upper = np.array([var.upperbound for var in problem.get_flattened_variables()])
+    inside = np.all(
+        [((parents + d) > lower + 1e-9) & ((parents + d) < upper - 1e-9) for d in (small, large)],
+        axis=(0, 2),
+    )
+    norms = np.linalg.norm(small, axis=1) * np.linalg.norm(large, axis=1)
+    usable = inside & (norms > 1e-12)
+    assert usable.sum() >= 5, f"only {usable.sum()} offspring stayed inside the box; test is vacuous"
+
+    cosine = np.abs(np.sum(small[usable] * large[usable], axis=1) / norms[usable])
+    npt.assert_allclose(cosine, 1.0, atol=1e-8)
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(
+    ("options", "expected"),
+    [
+        (DifferentialEvolutionCrossoverOptions(), DifferentialEvolutionCrossover),
+        (ParentCentricCrossoverOptions(), ParentCentricCrossover),
+    ],
+)
+def test_new_crossover_options_build_the_same_operator_as_direct_construction(options, expected):
+    """A field-name mismatch between an options model and `__init__` is otherwise silent."""
+    publisher = Publisher()
+    problem = simple_test_problem()
+    built = crossover_constructor(problem, publisher, 0, 2, options)
+    direct = expected(problem=problem, publisher=publisher, verbosity=2, seed=0)
+
+    assert isinstance(built, expected)
+    for field, value in options.model_dump().items():
+        if field == "name":
+            continue
+        assert getattr(built, field) == value
+        assert getattr(built, field) == getattr(direct, field)
+
+
 ALL_CROSSOVERS = [
     (SimulatedBinaryCrossover, "continuous"),
     (BlendAlphaCrossover, "continuous"),
     (SingleArithmeticCrossover, "continuous"),
     (LocalCrossover, "continuous"),
     (BoundedExponentialCrossover, "continuous"),
+    (DifferentialEvolutionCrossover, "continuous"),
+    (ParentCentricCrossover, "continuous"),
     (SinglePointBinaryCrossover, "binary"),
     (UniformIntegerCrossover, "integer"),
     (UniformMixedIntegerCrossover, "mixed"),
@@ -1029,6 +1174,8 @@ CONTINUOUS_ONLY_CROSSOVERS = [
     SingleArithmeticCrossover,
     LocalCrossover,
     BoundedExponentialCrossover,
+    DifferentialEvolutionCrossover,
+    ParentCentricCrossover,
 ]
 
 
@@ -1875,10 +2022,6 @@ def test_non_uniform_mutation_with_evaluation_based_termination():
     )
     terminator = MaxEvaluationsTerminator(2000, publisher=publisher)
 
-    components = [evaluator, generator, crossover, mutation, selector, terminator]
-    [publisher.auto_subscribe(x) for x in components]
-    [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
-
     assert publisher.check_consistency()[0]
 
     result = template1(
@@ -2060,10 +2203,6 @@ def test_crossover_in_ea():
             publisher=publisher,
         )
 
-        components = [evaluator, generator, crossover, mutation, selector, terminator]
-        [publisher.auto_subscribe(x) for x in components]
-        [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
-
         try:
             template1(
                 evaluator=evaluator,
@@ -2125,10 +2264,6 @@ def test_mutation_in_ea():
             publisher=publisher,
         )
 
-        components = [evaluator, generator, crossover, mutation, selector, terminator]
-        [publisher.auto_subscribe(x) for x in components]
-        [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
-
         try:
             template1(
                 evaluator=evaluator,
@@ -2147,8 +2282,6 @@ def test_max_gen_terminator():
     """Test the MaxGenerationsTerminator."""
     publisher = Publisher()
     terminator = MaxGenerationsTerminator(100, publisher)
-    publisher.auto_subscribe(terminator)
-
     assert terminator.current_generation == 1
     assert terminator.max_generations == 100
 
@@ -2164,8 +2297,6 @@ def test_max_eval_terminator():
     """Test the MaxEvaluationsTerminator."""
     publisher = Publisher()
     terminator = MaxEvaluationsTerminator(1000, publisher)
-    publisher.auto_subscribe(terminator)
-
     assert terminator.current_evaluations == 0
     assert terminator.max_evaluations == 1000
 
@@ -2190,10 +2321,6 @@ def test_composite_terminator():
     term1 = MaxGenerationsTerminator(10, publisher)
     term2 = MaxEvaluationsTerminator(1000, publisher)
     composite = CompositeTerminator([term1, term2], publisher, mode="any")
-    publisher.auto_subscribe(term1)
-    publisher.auto_subscribe(term2)
-    publisher.auto_subscribe(composite)
-
     assert composite.current_generation == 1
     assert composite.current_evaluations == 0
     # Composite indicator should get max from children
@@ -2217,10 +2344,6 @@ def test_composite_terminator():
     term1 = MaxGenerationsTerminator(10, publisher)
     term2 = MaxEvaluationsTerminator(1000, publisher)
     composite = CompositeTerminator([term1, term2], publisher, mode="any")
-    publisher.auto_subscribe(term1)
-    publisher.auto_subscribe(term2)
-    publisher.auto_subscribe(composite)
-
     # publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
     # assert composite.current_evaluations == 100
 
@@ -2238,10 +2361,6 @@ def test_composite_terminator():
     term1 = MaxGenerationsTerminator(10, publisher)
     term2 = MaxEvaluationsTerminator(1000, publisher)
     composite = CompositeTerminator([term1, term2], publisher, mode="all")
-    publisher.auto_subscribe(term1)
-    publisher.auto_subscribe(term2)
-    publisher.auto_subscribe(composite)
-
     # publisher.notify([IntMessage(topic=GeneratorMessageTopics.NEW_EVALUATIONS, value=100, source="test")])
     # assert composite.current_evaluations == 100
 
@@ -2318,10 +2437,6 @@ def test_nsga2_selection():
         problem=problem, evaluator=evaluator, publisher=publisher, n_points=population_size, seed=seed, verbosity=1
     )
 
-    components = [selector, evaluator, generator, scalar_selection, crossover, mutation]
-    [publisher.auto_subscribe(x) for x in components]
-    [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
-
     # first iteration
     solutions, outputs = generator.do()
     offspring = pl.DataFrame(
@@ -2360,9 +2475,6 @@ def test_nsga2_selection_dealing_with_boundaries():
     selector = NSGA2Selector(
         problem=problem, verbosity=2, publisher=publisher, population_size=population_size, seed=seed
     )
-
-    publisher.auto_subscribe(selector)
-    publisher.register_topics(selector.provided_topics[selector.verbosity], selector.__class__.__name__)
 
     # only boundaries in pop
     f_data_pop = {
@@ -2606,9 +2718,6 @@ def test_ibea_keeps_every_feasible_solution_it_cannot_replace():
         problem=problem, evaluator=evaluator, publisher=publisher, n_points=40, seed=0, verbosity=1
     )
     selector = IBEASelector(problem=problem, verbosity=1, publisher=publisher, population_size=20, seed=0)
-    for component in (evaluator, generator, selector):
-        publisher.auto_subscribe(component)
-
     solutions, outputs = generator.do()
     constraints = [c.symbol for c in problem.constraints]
     violations = np.maximum(outputs[constraints].to_numpy(), 0.0).sum(axis=1)
@@ -2674,9 +2783,6 @@ def test_nsga2_publishes_higher_is_better_fitness():
         verbosity=1,
     )
     selector = NSGA2Selector(problem=problem, verbosity=2, publisher=publisher, population_size=population_size, seed=0)
-    for component in (evaluator, generator, selector):
-        publisher.auto_subscribe(component)
-
     solutions, outputs = generator.do()
     half = len(solutions) // 2
     _, selected = selector.do(parents=(solutions[:half], outputs[:half]), offsprings=(solutions[half:], outputs[half:]))
@@ -2754,3 +2860,77 @@ def test_a_run_is_reproducible_from_the_template_seed(name):
 
     assert first.shape == second.shape
     npt.assert_array_equal(first, second)
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(
+    ("options", "expected", "extra"),
+    [
+        (MaxGenerationsTerminatorOptions(max_generations=5), MaxGenerationsTerminator, {}),
+        (MaxEvaluationsTerminatorOptions(max_evaluations=50), MaxEvaluationsTerminator, {}),
+        (MaxTimeTerminatorOptions(max_time_in_seconds=1.0), MaxTimeTerminator, {}),
+        (ExternalCheckTerminatorOptions(), ExternalCheckTerminator, {"external_check": lambda: False}),
+        (
+            CompositeTerminatorOptions(
+                terminators=[
+                    MaxGenerationsTerminatorOptions(max_generations=5),
+                    MaxEvaluationsTerminatorOptions(max_evaluations=50),
+                ]
+            ),
+            CompositeTerminator,
+            {},
+        ),
+    ],
+)
+def test_every_terminator_options_path_builds_and_checks(options, expected, extra):
+    """Every member of the terminator options union must survive `terminator_constructor`.
+
+    Three of the five raised before this was tested: the composite dumped its children to plain
+    dicts and then called `.model_dump()` on them, the external check was passed under the wrong
+    keyword and without a publisher, and the max-time field did not match its constructor parameter.
+    Nothing in the repository exercised these paths, so all three were silent.
+    """
+    terminator = terminator_constructor(options, Publisher(), **extra)
+
+    assert isinstance(terminator, expected)
+    assert terminator.check() is False
+
+
+@pytest.mark.ea
+def test_composite_terminator_inherits_its_children_budget():
+    """The composite must republish its children's budget, since it silences them.
+
+    `CompositeTerminator` sets `notify` to a no-op on every child, so a subscriber only ever hears
+    from the composite. `NonUniformMutation` reads the evaluation budget off those messages to decay
+    its step size, and RVEA's APD does the same, so a composite that did not carry the budget up
+    would leave both running as though no budget existed.
+    """
+    terminator = terminator_constructor(
+        CompositeTerminatorOptions(
+            terminators=[
+                MaxGenerationsTerminatorOptions(max_generations=7),
+                MaxEvaluationsTerminatorOptions(max_evaluations=123),
+            ]
+        ),
+        Publisher(),
+    )
+
+    assert terminator.max_generations == 7
+    assert terminator.max_evaluations == 123
+
+
+@pytest.mark.ea
+def test_composite_terminator_passes_the_external_check_to_its_children():
+    """A composite holding an external check must terminate when that check flips."""
+    should_stop = {"value": False}
+    terminator = terminator_constructor(
+        CompositeTerminatorOptions(
+            terminators=[MaxGenerationsTerminatorOptions(max_generations=99), ExternalCheckTerminatorOptions()]
+        ),
+        Publisher(),
+        external_check=lambda: should_stop["value"],
+    )
+
+    assert terminator.check() is False
+    should_stop["value"] = True
+    assert terminator.check() is True

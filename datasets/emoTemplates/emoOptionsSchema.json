@@ -221,6 +221,12 @@
                                 "$ref": "#/$defs/BoundedExponentialCrossoverOptions"
                             },
                             {
+                                "$ref": "#/$defs/DifferentialEvolutionCrossoverOptions"
+                            },
+                            {
+                                "$ref": "#/$defs/ParentCentricCrossoverOptions"
+                            },
+                            {
                                 "$ref": "#/$defs/CompositeCrossoverOptions"
                             }
                         ]
@@ -338,6 +344,35 @@
                 "reservation_levels"
             ],
             "title": "DesirableRangesOptions",
+            "type": "object"
+        },
+        "DifferentialEvolutionCrossoverOptions": {
+            "description": "Options for Differential Evolution crossover (DE/rand/1/bin).",
+            "properties": {
+                "name": {
+                    "const": "DifferentialEvolutionCrossover",
+                    "default": "DifferentialEvolutionCrossover",
+                    "description": "The name of the crossover operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "scaling_factor": {
+                    "default": 0.5,
+                    "description": "The factor F applied to the difference vector.",
+                    "exclusiveMinimum": 0.0,
+                    "title": "Scaling Factor",
+                    "type": "number"
+                },
+                "xover_probability": {
+                    "default": 0.9,
+                    "description": "The binomial crossover rate CR.",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "title": "Xover Probability",
+                    "type": "number"
+                }
+            },
+            "title": "DifferentialEvolutionCrossoverOptions",
             "type": "object"
         },
         "ElitistSelectionOptions": {
@@ -589,11 +624,11 @@
                     "title": "Name",
                     "type": "string"
                 },
-                "max_time": {
+                "max_time_in_seconds": {
                     "default": 30.0,
                     "description": "The maximum time allowed (in seconds).",
                     "exclusiveMinimum": 0,
-                    "title": "Max Time",
+                    "title": "Max Time In Seconds",
                     "type": "number"
                 }
             },
@@ -796,6 +831,34 @@
             ],
             "title": "ParameterAdaptationStrategy",
             "type": "string"
+        },
+        "ParentCentricCrossoverOptions": {
+            "description": "Options for Parent-Centric Crossover (PCX).",
+            "properties": {
+                "name": {
+                    "const": "ParentCentricCrossover",
+                    "default": "ParentCentricCrossover",
+                    "description": "The name of the crossover operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "sigma_zeta": {
+                    "default": 0.1,
+                    "description": "Standard deviation along the centroid-to-parent direction.",
+                    "exclusiveMinimum": 0.0,
+                    "title": "Sigma Zeta",
+                    "type": "number"
+                },
+                "sigma_eta": {
+                    "default": 0.1,
+                    "description": "Standard deviation orthogonal to that direction.",
+                    "exclusiveMinimum": 0.0,
+                    "title": "Sigma Eta",
+                    "type": "number"
+                }
+            },
+            "title": "ParentCentricCrossoverOptions",
+            "type": "object"
         },
         "PowerMutationOptions": {
             "description": "Options for Power Mutation.",
@@ -1422,6 +1485,12 @@
                             "$ref": "#/$defs/BoundedExponentialCrossoverOptions"
                         },
                         {
+                            "$ref": "#/$defs/DifferentialEvolutionCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ParentCentricCrossoverOptions"
+                        },
+                        {
                             "$ref": "#/$defs/CompositeCrossoverOptions"
                         }
                     ],
@@ -1606,6 +1675,12 @@
                         },
                         {
                             "$ref": "#/$defs/BoundedExponentialCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/DifferentialEvolutionCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ParentCentricCrossoverOptions"
                         },
                         {
                             "$ref": "#/$defs/CompositeCrossoverOptions"
@@ -1810,6 +1885,12 @@
                             "$ref": "#/$defs/BoundedExponentialCrossoverOptions"
                         },
                         {
+                            "$ref": "#/$defs/DifferentialEvolutionCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ParentCentricCrossoverOptions"
+                        },
+                        {
                             "$ref": "#/$defs/CompositeCrossoverOptions"
                         }
                     ],
@@ -1994,6 +2075,12 @@
                         },
                         {
                             "$ref": "#/$defs/BoundedExponentialCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/DifferentialEvolutionCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ParentCentricCrossoverOptions"
                         },
                         {
                             "$ref": "#/$defs/CompositeCrossoverOptions"
