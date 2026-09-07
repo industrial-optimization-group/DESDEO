@@ -2,9 +2,12 @@
 
 import pytest
 
+from desdeo.problem.evaluator import PolarsEvaluator
 from desdeo.problem.scenario import Scenario, ScenarioModel
 from desdeo.problem.schema import (
+    Constraint,
     ConstraintTypeEnum,
+    ExtraFunction,
     Objective,
     ObjectiveTypeEnum,
     Problem,
@@ -909,8 +912,8 @@ def test_weighted_expression_inlines_per_leaf_constraints(model):
     """
     combined, symbol_maps = build_combined_scenario_problem(model)
     # con_3 comes from the base problem, so every leaf defines it.  Constraints that only
-    # some scenarios define get a per-leaf map entry pointing at a symbol that is not in
-    # the combined problem at all, which is a separate defect.
+    # some scenarios define are absent from those leaves' map entries and cannot be
+    # aggregated at all; see test_aggregating_a_partially_defined_element_raises.
     constraint_symbol = "con_3"
     problem, added = add_weighted_scenarios(
         model, [constraint_symbol], weights=_WEIGHTS, combined=combined, symbol_maps=symbol_maps
@@ -1251,3 +1254,276 @@ def test_aggregating_a_shared_element_is_allowed():
     _, added = add_expected_value(scenario_model, ["f_2"], combined=combined, symbol_maps=symbol_maps)
 
     assert added["f_2"] == "E_f_2"
+
+
+# ---------------------------------------------------------------------------
+# Declaration order
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_leaf_scenarios_follow_tree_declaration_order():
+    """Leaf scenarios come out in the order the scenario tree declares them.
+
+    Leaves that the tree mentions only as children are auto-inserted; they used to be
+    collected through a set, so their order varied between processes.
+    """
+    model = summer_cabin_battery_problem_split_scenario()
+
+    assert list(model.leaf_scenarios) == ["S1a", "S1b", "S2a", "S2b"]
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_combined_elements_follow_declaration_order(model):
+    """Combined elements are appended in the order the scenario problems declare them.
+
+    An element may only reference elements appearing before it, so this order is part of
+    the combined problem's meaning and must not vary between processes.
+    """
+    combined, _ = build_combined_scenario_problem(model)
+    leaves = list(model.leaf_scenarios)
+    declared = [o.symbol for o in model.get_scenario_problem(leaves[0]).objectives]
+
+    seen: list[str] = []
+    for objective in combined.objectives:
+        leaf = next((leaf for leaf in leaves if objective.symbol.startswith(f"{leaf}_")), None)
+        original = objective.symbol.removeprefix(f"{leaf}_") if leaf else objective.symbol
+        if original not in seen:
+            seen.append(original)
+
+    assert seen == declared
+
+
+# ---------------------------------------------------------------------------
+# References to elements of the same kind
+# ---------------------------------------------------------------------------
+
+
+def _same_kind_reference_model() -> ScenarioModel:
+    """A model whose second objective is defined in terms of the first.
+
+    f_1 is scenario-specific (2x in s_1, 3x in s_2) and f_2 = f_1 + 1, so f_2 varies by
+    scenario even though its own expression is written identically for every scenario.
+    """
+
+    def objective(symbol: str, func: list) -> Objective:
+        return Objective(
+            name=symbol,
+            symbol=symbol,
+            func=func,
+            maximize=False,
+            objective_type=ObjectiveTypeEnum.analytical,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+        )
+
+    base = Problem(
+        name="Same-kind reference",
+        description="f_2 references f_1.",
+        variables=[
+            Variable(
+                name="x",
+                symbol="x",
+                variable_type=VariableTypeEnum.real,
+                lowerbound=0.0,
+                upperbound=10.0,
+                initial_value=1.0,
+            )
+        ],
+        objectives=[objective("f_1", ["Multiply", 1, "x"]), objective("f_2", ["Add", "f_1", 1])],
+    )
+
+    return ScenarioModel(
+        scenario_tree={"ROOT": ["s_1", "s_2"], "s_1": [], "s_2": []},
+        scenario_probabilities={"s_1": 0.5, "s_2": 0.5},
+        anticipation_stop={},
+        base_problem=base,
+        objectives=[objective("f_1", ["Multiply", 2, "x"]), objective("f_1", ["Multiply", 3, "x"])],
+        scenarios={"s_1": Scenario(objectives={"f_1": 0}), "s_2": Scenario(objectives={"f_1": 1})},
+    )
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_same_kind_reference_is_renamed_per_leaf():
+    """An objective referencing another objective points at that leaf's copy.
+
+    References to variables and to earlier kinds were always renamed, but never
+    references within a kind, so f_2 kept a bare f_1 that named nothing.
+    """
+    combined, symbol_maps = build_combined_scenario_problem(_same_kind_reference_model())
+
+    funcs = {o.symbol: o.func for o in combined.objectives}
+    assert funcs["s_1_f_2"] == ["Add", "s_1_f_1", 1]
+    assert funcs["s_2_f_2"] == ["Add", "s_2_f_1", 1]
+    assert symbol_maps["objectives"]["f_2"] == {"s_1": "s_1_f_2", "s_2": "s_2_f_2"}
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_same_kind_reference_is_not_treated_as_shared():
+    """f_2 varies by scenario through f_1, so it gets a copy per leaf.
+
+    Sharing is decided by comparing the renamed expressions.  While the reference was
+    left alone, f_2's expression was literally identical in every scenario, so it was
+    emitted once and the per-scenario variation was silently lost.
+    """
+    combined, _ = build_combined_scenario_problem(_same_kind_reference_model())
+
+    values = PolarsEvaluator(combined).evaluate({v.symbol: [1.0] for v in combined.variables})
+
+    assert values["s_1_f_2"][0] == pytest.approx(3.0)
+    assert values["s_2_f_2"][0] == pytest.approx(4.0)
+
+
+def _forward_reference_model(constraint_func: list) -> ScenarioModel:
+    """A model with a scenario-specific objective and one constraint with the given expression."""
+
+    def objective(symbol: str, func: list) -> Objective:
+        return Objective(
+            name=symbol,
+            symbol=symbol,
+            func=func,
+            maximize=False,
+            objective_type=ObjectiveTypeEnum.analytical,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+        )
+
+    base = Problem(
+        name="Forward reference",
+        description="A constraint that may reference a later kind.",
+        variables=[
+            Variable(
+                name="x",
+                symbol="x",
+                variable_type=VariableTypeEnum.real,
+                lowerbound=0.0,
+                upperbound=10.0,
+                initial_value=1.0,
+            )
+        ],
+        objectives=[objective("f_1", ["Multiply", 1, "x"])],
+        extra_funcs=[ExtraFunction(name="e_1", symbol="e_1", func=["Add", "x", 1])],
+        constraints=[Constraint(name="con_a", symbol="con_a", func=constraint_func, cons_type=ConstraintTypeEnum.LTE)],
+    )
+
+    return ScenarioModel(
+        scenario_tree={"ROOT": ["s_1", "s_2"], "s_1": [], "s_2": []},
+        scenario_probabilities={"s_1": 0.5, "s_2": 0.5},
+        anticipation_stop={},
+        base_problem=base,
+        objectives=[objective("f_1", ["Multiply", 2, "x"]), objective("f_1", ["Multiply", 3, "x"])],
+        scenarios={"s_1": Scenario(objectives={"f_1": 0}), "s_2": Scenario(objectives={"f_1": 1})},
+    )
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_aggregating_a_constraint_that_references_an_objective_raises():
+    """A constraint reaching forward to an objective cannot be aggregated by a weighted sum.
+
+    Aggregating a constraint inlines its expression into an extra function, and extra
+    functions are evaluated before objectives, so an inlined objective reference could
+    never resolve.  It used to surface as a ColumnNotFoundError during evaluation.
+    """
+    model = _forward_reference_model(["Add", "f_1", -5])
+    combined, symbol_maps = build_combined_scenario_problem(model)
+
+    with pytest.raises(ValueError, match="Define the quantity as an extra function"):
+        add_expected_value(model, ["con_a"], combined=combined, symbol_maps=symbol_maps)
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+@pytest.mark.parametrize("func", [["Add", "x", -5], ["Add", "e_1", -5]])
+def test_aggregating_a_constraint_over_earlier_kinds_is_allowed(func):
+    """A constraint over variables or extra functions inlines safely and still works."""
+    model = _forward_reference_model(func)
+    combined, symbol_maps = build_combined_scenario_problem(model)
+
+    problem, added = add_expected_value(model, ["con_a"], combined=combined, symbol_maps=symbol_maps)
+    values = PolarsEvaluator(problem).evaluate({v.symbol: [1.0] for v in problem.variables})
+
+    assert added["con_a"] in values.columns
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_other_aggregators_accept_a_forward_referencing_constraint():
+    """CVaR and the worst case put the per-leaf expression in a constraint, so they are fine.
+
+    Constraints are evaluated last, so the objective reference resolves there.  Only the
+    weighted-sum aggregators place the inlined expression among the extra functions.
+    """
+    model = _forward_reference_model(["Add", "f_1", -5])
+    combined, symbol_maps = build_combined_scenario_problem(model)
+
+    for problem, _ in (
+        add_conditional_value_at_risk(model, ["con_a"], alpha=0.9, combined=combined, symbol_maps=symbol_maps),
+        add_worst_case_robust(model, ["con_a"], combined=combined, symbol_maps=symbol_maps),
+    ):
+        PolarsEvaluator(problem).evaluate({v.symbol: [1.0] for v in problem.variables})
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_objective_referencing_an_extra_function_is_renamed_per_leaf():
+    """An objective referencing a scenario-specific extra function points at that leaf's copy.
+
+    Extra functions are evaluated before objectives, so the reference is legal.  Kinds used
+    to be combined objectives-first, though, so the extra function renames did not exist yet
+    and the objective kept a bare symbol -- which also made it compare equal across leaves
+    and be misclassified as shared.
+    """
+    x = Variable(
+        name="x",
+        symbol="x",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=0.0,
+        upperbound=10.0,
+        initial_value=1.0,
+    )
+    base = Problem(
+        name="Objective over an extra function",
+        description="f_1 is defined through the scenario-specific extra function q.",
+        variables=[x],
+        extra_funcs=[ExtraFunction(name="q", symbol="q", func=["Multiply", 1, "x"])],
+        objectives=[
+            Objective(
+                name="f_1",
+                symbol="f_1",
+                func=["Multiply", 1, "q"],
+                maximize=False,
+                objective_type=ObjectiveTypeEnum.analytical,
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            )
+        ],
+    )
+    model = ScenarioModel(
+        scenario_tree={"ROOT": ["s_1", "s_2"], "s_1": [], "s_2": []},
+        scenario_probabilities={"s_1": 0.5, "s_2": 0.5},
+        anticipation_stop={},
+        base_problem=base,
+        extra_funcs=[
+            ExtraFunction(name="q", symbol="q", func=["Multiply", 2, "x"]),
+            ExtraFunction(name="q", symbol="q", func=["Multiply", 3, "x"]),
+        ],
+        scenarios={"s_1": Scenario(extra_funcs={"q": 0}), "s_2": Scenario(extra_funcs={"q": 1})},
+    )
+
+    combined, _ = build_combined_scenario_problem(model)
+
+    funcs = {o.symbol: o.func for o in combined.objectives}
+    assert funcs["s_1_f_1"] == ["Multiply", 1, "s_1_q"]
+    assert funcs["s_2_f_1"] == ["Multiply", 1, "s_2_q"]
+
+    values = PolarsEvaluator(combined).evaluate({v.symbol: [1.0] for v in combined.variables})
+    assert values["s_1_f_1"][0] == pytest.approx(2.0)
+    assert values["s_2_f_1"][0] == pytest.approx(3.0)

@@ -314,7 +314,7 @@ def add_weighted_scenarios(
 
     for sym in symbols:
         info = resolve_elem(sym, symbol_maps, combined, scenario_model)
-        weighted_expr = weighted_sum_expr(info, {leaf: weights[leaf] for leaf in leaf_scenarios})
+        weighted_expr = weighted_sum_expr(info, {leaf: weights[leaf] for leaf in leaf_scenarios}, combined)
         weighted_sym = f"{prefix}{sym}"
         added_symbols[sym] = weighted_sym
 

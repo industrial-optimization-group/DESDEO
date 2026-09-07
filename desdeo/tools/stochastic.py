@@ -126,7 +126,7 @@ def add_expected_value(
         expected_sym = f"{prefix}{sym}"
         added_symbols[sym] = expected_sym
 
-        expected_expr = weighted_sum_expr(info, weights)
+        expected_expr = weighted_sum_expr(info, weights, combined)
 
         append_aggregated_elem(
             info.found_type,
