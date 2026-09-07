@@ -202,6 +202,6 @@ before starting the web-API.
 
 From here on, how you interact with the method depends on the method itself.
 See the method-specific how-to guides for details, for example
-[NAUTILUS Navigator](./nautilus_navigator.md) or [NAUTILI](./nautili.md), and
+[NAUTILUS Navigator](./nautilus_navigator.md) or [NAUTILI](./nautili.ipynb), and
 [Implementing method interfaces](./implementing_method_interfaces.md) if you are
 looking to add a UI for a new method.
