@@ -54,6 +54,64 @@ This project follows **Keep a Changelog** and **Semantic Versioning**:
 
 ---
 
+## [Unreleased]
+
+### Core logic
+
+#### Changed
+
+- Problem elements may now reference other elements of their own kind, as long
+  as the referenced element appears earlier in the problem definition: an
+  objective may be defined in terms of an earlier objective, and likewise for
+  extra functions, scalarization functions and constraints. All evaluators were
+  adjusted to support this. `PolarsEvaluator` evaluates scalarization functions
+  one at a time instead of in a single `select` (and likewise extra functions,
+  scalarization functions and constraints on the data-based path);
+  `GurobipyEvaluator` and `CVXPYEvaluator` register expressions as they are
+  built rather than publishing them only once every element of a kind has been
+  parsed; and `SympyEvaluator` substitutes the elements of a kind into each
+  other. Forward references, to an element declared later, remain an error.
+- `SympyEvaluator` now resolves constraints last, after scalarization functions,
+  matching the order the other evaluators use. A scalarization function that
+  references a constraint used to resolve there and now raises
+  `SympyEvaluatorError`; no other evaluator supported it. Constraints may
+  reference scalarization functions, which the scenario tools rely on.
+- `build_combined_scenario_problem` combines elements in the same order the
+  evaluators evaluate them (extra functions, objectives, scalarization
+  functions, constraints), so each kind's references to earlier kinds are
+  renamed to the per-leaf copies. Elements are combined in the order they are
+  declared, which is now deterministic.
+
+#### Fixed
+
+- `add_weighted_scenarios` referenced the per-leaf copies of a scalarization
+  function by symbol, producing an aggregate that no evaluator could resolve.
+  The aggregators now share one rule for when a per-leaf element is referenced
+  and when its expression is inlined (`leaf_expr` in
+  `desdeo/tools/scenarios.py`).
+- `SympyEvaluator` silently returned an unevaluated expression when a symbol
+  could not be substituted, instead of a number. Unresolved symbols now raise
+  `SympyEvaluatorError` naming the symbol.
+- References to elements of the same kind are renamed to their per-leaf copies
+  when a scenario problem is combined. They were left untouched before, which
+  both produced a reference to a symbol not in the combined problem and made
+  the element compare equal across leaves, so it was treated as shared and its
+  per-scenario variation was lost.
+- The symbol maps from `build_combined_scenario_problem` and
+  `build_scenario_symbol_maps` no longer give a leaf that does not define an
+  element the original symbol, which named nothing in the combined problem.
+  Such leaves are absent from the map, and aggregating an element that is not
+  defined in every scenario now raises a `ValueError` naming the missing
+  scenarios instead of failing during evaluation.
+- Aggregating a constraint that references an objective, a scalarization
+  function or another constraint now raises a `ValueError` explaining that the
+  quantity should be defined as an extra function, instead of failing during
+  evaluation.
+- Auto-inserted leaf scenarios keep the order the scenario tree declares them
+  in, rather than an order that varied between processes.
+
+---
+
 ## [2.7.0] - 25.8.2026
 
 ### Highlights

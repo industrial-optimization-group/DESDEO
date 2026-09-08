@@ -8,12 +8,14 @@ from desdeo.problem import (
     Constraint,
     ConstraintTypeEnum,
     Objective,
+    ObjectiveTypeEnum,
+    Problem,
     ScalarizationFunction,
     TensorVariable,
     Variable,
     VariableTypeEnum,
 )
-from desdeo.problem.gurobipy_evaluator import GurobipyEvaluatorError
+from desdeo.problem.gurobipy_evaluator import GurobipyEvaluator, GurobipyEvaluatorError
 from desdeo.problem.testproblems import (
     simple_constrained_quadratic_tensor_test_problem,
     simple_knapsack_vectors,
@@ -147,3 +149,86 @@ def test_gurobipy_solver_qp_with_tensors():
 
     assert np.allclose(xs["X"], [2 / 3, 2 / 3])
     assert np.isclose(ys["f_1"], -((2 / 3) ** 2))
+
+
+def _chained_objectives_problem() -> Problem:
+    """A problem whose second objective references the first one by symbol."""
+    return Problem(
+        name="Chained objectives",
+        description="f_2 is defined in terms of f_1's symbol.",
+        variables=[
+            Variable(
+                name="x",
+                symbol="x",
+                variable_type=VariableTypeEnum.real,
+                lowerbound=0.0,
+                upperbound=10.0,
+                initial_value=1.0,
+            )
+        ],
+        objectives=[
+            Objective(
+                name="f_1",
+                symbol="f_1",
+                func=["Add", "x", 1],
+                maximize=False,
+                objective_type=ObjectiveTypeEnum.analytical,
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            ),
+            Objective(
+                name="f_2",
+                symbol="f_2",
+                func=["Multiply", 2, "f_1"],
+                maximize=False,
+                objective_type=ObjectiveTypeEnum.analytical,
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            ),
+        ],
+    )
+
+
+@pytest.mark.gurobipy
+def test_objective_may_reference_earlier_objective():
+    """An objective can be defined in terms of an objective declared before it.
+
+    The expressions are registered on the evaluator as they are parsed, so a later
+    objective resolves an earlier one's symbol.  They used to be collected in a local
+    dict published only once every objective had been parsed, which made such a
+    reference unresolvable and left gurobipy out of step with the other evaluators.
+    """
+    problem = _chained_objectives_problem()
+    evaluator = GurobipyEvaluator(problem)
+
+    # f_1 = x + 1 was substituted into f_2, giving f_2 = 2x + 2.
+    f_1, f_2 = evaluator.objective_functions["f_1"], evaluator.objective_functions["f_2"]
+    assert f_2.getConstant() == pytest.approx(2 * f_1.getConstant())
+    assert f_2.size() == f_1.size() == 1
+    assert f_2.getVar(0).VarName == f_1.getVar(0).VarName
+    assert f_2.getCoeff(0) == pytest.approx(2 * f_1.getCoeff(0))
+
+    # And the problem solves: minimising 2x + 2 over x in [0, 10] puts x at 0.
+    results = GurobipySolver(problem).solve("f_2")
+    assert results.success
+    assert results.optimal_objectives["f_2"] == pytest.approx(2 * results.optimal_objectives["f_1"])
+    assert results.optimal_objectives["f_2"] == pytest.approx(2.0)
+
+
+@pytest.mark.gurobipy
+def test_objective_referencing_unknown_symbol_still_raises():
+    """Referencing a symbol that is not defined anywhere remains an error."""
+    problem = _chained_objectives_problem()
+    broken = problem.model_copy(
+        update={
+            "objectives": [
+                problem.objectives[0],
+                problem.objectives[1].model_copy(update={"func": ["Multiply", 2, "f_nonexistent"]}),
+            ]
+        }
+    )
+
+    with pytest.raises(GurobipyEvaluatorError, match="f_nonexistent"):
+        GurobipyEvaluator(broken)

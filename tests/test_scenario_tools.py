@@ -2,9 +2,12 @@
 
 import pytest
 
+from desdeo.problem.evaluator import PolarsEvaluator
 from desdeo.problem.scenario import Scenario, ScenarioModel
 from desdeo.problem.schema import (
+    Constraint,
     ConstraintTypeEnum,
+    ExtraFunction,
     Objective,
     ObjectiveTypeEnum,
     Problem,
@@ -12,7 +15,10 @@ from desdeo.problem.schema import (
     Variable,
     VariableTypeEnum,
 )
-from desdeo.problem.testproblems import simple_scenario_model
+from desdeo.problem.testproblems import (
+    simple_scenario_model,
+    summer_cabin_battery_problem_split_scenario,
+)
 from desdeo.tools.robust import add_single_objective_worst_case_regret, add_weighted_scenarios, add_worst_case_robust
 from desdeo.tools.scenarios import build_combined_scenario_problem, build_scenario_problem
 from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_asf, add_expected_value
@@ -420,32 +426,30 @@ def test_symbol_map_con3_per_leaf(symbol_maps):
 
 @pytest.mark.schema
 @pytest.mark.scenario
-def test_symbol_map_con1_missing_leaf_keeps_original(symbol_maps):
-    """con_1 is absent from s_2, so s_2 retains the original symbol."""
+def test_symbol_map_con1_missing_leaf_omitted(symbol_maps):
+    """con_1 is absent from s_2, so s_2 has no entry at all.
+
+    The map used to give such a leaf the original symbol, but no element of that name
+    exists in the combined problem: only the leaves that carry con_1 get a copy.
+    """
     cm = symbol_maps["constraints"]["con_1"]
-    assert cm["s_1"] == "s_1_con_1"
-    assert cm["s_2"] == "con_1"
-    assert cm["s_3"] == "s_3_con_1"
+    assert cm == {"s_1": "s_1_con_1", "s_3": "s_3_con_1"}
 
 
 @pytest.mark.schema
 @pytest.mark.scenario
-def test_symbol_map_con2_missing_leaf_keeps_original(symbol_maps):
-    """con_2 is absent from s_1, so s_1 retains the original symbol."""
+def test_symbol_map_con2_missing_leaf_omitted(symbol_maps):
+    """con_2 is absent from s_1, so s_1 has no entry at all."""
     cm = symbol_maps["constraints"]["con_2"]
-    assert cm["s_1"] == "con_2"
-    assert cm["s_2"] == "s_2_con_2"
-    assert cm["s_3"] == "s_3_con_2"
+    assert cm == {"s_2": "s_2_con_2", "s_3": "s_3_con_2"}
 
 
 @pytest.mark.schema
 @pytest.mark.scenario
-def test_symbol_map_con4_missing_leaf_keeps_original(symbol_maps):
-    """con_4 is absent from s_3, so s_3 retains the original symbol."""
+def test_symbol_map_con4_missing_leaf_omitted(symbol_maps):
+    """con_4 is absent from s_3, so s_3 has no entry at all."""
     cm = symbol_maps["constraints"]["con_4"]
-    assert cm["s_1"] == "s_1_con_4"
-    assert cm["s_2"] == "s_2_con_4"
-    assert cm["s_3"] == "con_4"
+    assert cm == {"s_1": "s_1_con_4", "s_2": "s_2_con_4"}
 
 
 # ---------------------------------------------------------------------------
@@ -455,12 +459,10 @@ def test_symbol_map_con4_missing_leaf_keeps_original(symbol_maps):
 
 @pytest.mark.schema
 @pytest.mark.scenario
-def test_symbol_map_extra_func_missing_leaf_keeps_original(symbol_maps):
-    """extra_1 is absent from s_3, so s_3 retains the original symbol."""
+def test_symbol_map_extra_func_missing_leaf_omitted(symbol_maps):
+    """extra_1 is absent from s_3, so s_3 has no entry at all."""
     em = symbol_maps["extra_funcs"]["extra_1"]
-    assert em["s_1"] == "s_1_extra_1"
-    assert em["s_2"] == "s_2_extra_1"
-    assert em["s_3"] == "extra_1"
+    assert em == {"s_1": "s_1_extra_1", "s_2": "s_2_extra_1"}
 
 
 # ---------------------------------------------------------------------------
@@ -524,19 +526,9 @@ def test_expected_asf_uses_scenario_probabilities(asf_result):
     func = ef.func
     assert func[0] == "Add"
 
-    # Each term is ["Multiply", weight, <inlined ASF expression>].
-    # Match by the per-leaf _alpha symbol embedded in the expression.
-    def find_alpha(node):
-        if isinstance(node, str) and node.endswith("_alpha"):
-            return node
-        if isinstance(node, list):
-            for child in node:
-                result = find_alpha(child)
-                if result:
-                    return result
-        return None
-
-    weights_by_leaf = {find_alpha(term[2]).removesuffix("__alpha"): term[1] for term in func[1:]}
+    # A scalarization aggregate stays a scalarization function and is appended after the
+    # per-leaf ones, so each term is ["Multiply", weight, "<leaf>_asf"].
+    weights_by_leaf = {term[2].removesuffix("_asf"): term[1] for term in func[1:]}
     assert weights_by_leaf["s_1"] == pytest.approx(0.2)
     assert weights_by_leaf["s_2"] == pytest.approx(0.3)
     assert weights_by_leaf["s_3"] == pytest.approx(0.5)
@@ -865,6 +857,18 @@ def test_weighted_result_added_as_objective(weighted_result):
         assert sym in obj_syms
 
 
+def _leaf_of(node, leaves):
+    """Return the leaf whose symbol prefix appears somewhere in *node*, or None."""
+    if isinstance(node, str):
+        return next((leaf for leaf in leaves if node.startswith(f"{leaf}_")), None)
+    if isinstance(node, list):
+        for child in node:
+            found = _leaf_of(child, leaves)
+            if found:
+                return found
+    return None
+
+
 @pytest.mark.schema
 @pytest.mark.scenario
 def test_weighted_expression_uses_provided_weights(weighted_result):
@@ -873,10 +877,54 @@ def test_weighted_expression_uses_provided_weights(weighted_result):
     obj = next(o for o in problem.objectives or [] if o.symbol == added["f_1"])
     func = obj.func
     assert func[0] == "Add"
-    terms = {term[2]: term[1] for term in func[1:]}
-    assert terms["s_1_f_1"] == pytest.approx(_WEIGHTS["s_1"])
-    assert terms["s_2_f_1"] == pytest.approx(_WEIGHTS["s_2"])
-    assert terms["s_3_f_1"] == pytest.approx(_WEIGHTS["s_3"])
+
+    # Each term is ["Multiply", weight, <inlined per-leaf func>]; match the term to
+    # its leaf through the leaf-prefixed symbols inside the inlined expression.
+    weights_by_leaf = {_leaf_of(term[2], _WEIGHTS): term[1] for term in func[1:]}
+    assert weights_by_leaf["s_1"] == pytest.approx(_WEIGHTS["s_1"])
+    assert weights_by_leaf["s_2"] == pytest.approx(_WEIGHTS["s_2"])
+    assert weights_by_leaf["s_3"] == pytest.approx(_WEIGHTS["s_3"])
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_weighted_expression_references_per_leaf_objectives(weighted_result):
+    """An objective aggregate names its per-leaf objectives rather than inlining them.
+
+    The aggregate is itself an objective, appended after the per-leaf ones, so the
+    reference resolves wherever the problem is evaluated.
+    """
+    problem, added = weighted_result
+    obj = next(o for o in problem.objectives or [] if o.symbol == added["f_1"])
+
+    for term in obj.func[1:]:
+        leaf = _leaf_of(term[2], _WEIGHTS)
+        assert term[2] == f"{leaf}_f_1", f"term for {leaf} should reference the per-leaf symbol"
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_weighted_expression_inlines_per_leaf_constraints(model):
+    """A constraint aggregate inlines, because it lands among the extra functions.
+
+    Extra functions are evaluated before constraints, so naming the per-leaf constraints
+    would be a forward reference that no evaluator can resolve.
+    """
+    combined, symbol_maps = build_combined_scenario_problem(model)
+    # con_3 comes from the base problem, so every leaf defines it.  Constraints that only
+    # some scenarios define are absent from those leaves' map entries and cannot be
+    # aggregated at all; see test_aggregating_a_partially_defined_element_raises.
+    constraint_symbol = "con_3"
+    problem, added = add_weighted_scenarios(
+        model, [constraint_symbol], weights=_WEIGHTS, combined=combined, symbol_maps=symbol_maps
+    )
+
+    aggregate = next(e for e in problem.extra_funcs or [] if e.symbol == added[constraint_symbol])
+    per_leaf_funcs = {c.symbol: c.func for c in problem.constraints or []}
+
+    for term in aggregate.func[1:]:
+        leaf = _leaf_of(term[2], _WEIGHTS)
+        assert term[2] == per_leaf_funcs[symbol_maps["constraints"][constraint_symbol][leaf]]
 
 
 @pytest.mark.schema
@@ -1141,3 +1189,341 @@ def test_regret_constraint_expression_maximize():
     assert "8.0" in func_str  # ideal value
     assert "leaf_a_g" in func_str  # per-leaf objective symbol
     assert "_t_regret_wc_g" in func_str
+
+
+# ---------------------------------------------------------------------------
+# Partially-defined elements
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_symbol_map_omits_leaves_that_do_not_define_an_element(model):
+    """A leaf that does not carry an element gets no entry, rather than a bare symbol.
+
+    The map used to fall back to the original symbol for such leaves, but the combined
+    problem contains no element under that name, so the entry pointed at nothing.
+    """
+    _, symbol_maps = build_combined_scenario_problem(model)
+
+    # extra_1 is a pool element that only s_1 and s_2 carry.
+    assert set(symbol_maps["extra_funcs"]["extra_1"]) == {"s_1", "s_2"}
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_symbol_map_has_no_dangling_entries(model):
+    """Every symbol a map points at exists in the combined problem."""
+    combined, symbol_maps = build_combined_scenario_problem(model)
+    present = {
+        elem.symbol
+        for elements in (combined.objectives, combined.constraints, combined.extra_funcs)
+        for elem in (elements or [])
+    }
+
+    for kind in ("objectives", "constraints", "extra_funcs"):
+        for sym, per_leaf in symbol_maps[kind].items():
+            for leaf, mapped in per_leaf.items():
+                assert mapped in present, f"{kind} {sym}: leaf {leaf} maps to unknown symbol {mapped}"
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_aggregating_a_partially_defined_element_raises(model):
+    """Aggregating an element that only some scenarios define is rejected."""
+    combined, symbol_maps = build_combined_scenario_problem(model)
+
+    with pytest.raises(ValueError, match="defined only in s_1, s_2"):
+        add_expected_value(model, ["extra_1"], combined=combined, symbol_maps=symbol_maps)
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_aggregating_a_shared_element_is_allowed():
+    """A shared element maps every leaf to the original symbol and aggregates fine.
+
+    The summer cabin investment cost f_2 is one value for all scenarios, which is the
+    "same in every scenario" case rather than a partially-defined one.
+    """
+    scenario_model = summer_cabin_battery_problem_split_scenario()
+    combined, symbol_maps = build_combined_scenario_problem(scenario_model)
+
+    assert set(symbol_maps["objectives"]["f_2"]) == set(scenario_model.leaf_scenarios)
+    assert set(symbol_maps["objectives"]["f_2"].values()) == {"f_2"}
+
+    _, added = add_expected_value(scenario_model, ["f_2"], combined=combined, symbol_maps=symbol_maps)
+
+    assert added["f_2"] == "E_f_2"
+
+
+# ---------------------------------------------------------------------------
+# Declaration order
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_leaf_scenarios_follow_tree_declaration_order():
+    """Leaf scenarios come out in the order the scenario tree declares them.
+
+    Leaves that the tree mentions only as children are auto-inserted; they used to be
+    collected through a set, so their order varied between processes.
+    """
+    model = summer_cabin_battery_problem_split_scenario()
+
+    assert list(model.leaf_scenarios) == ["S1a", "S1b", "S2a", "S2b"]
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_combined_elements_follow_declaration_order(model):
+    """Combined elements are appended in the order the scenario problems declare them.
+
+    An element may only reference elements appearing before it, so this order is part of
+    the combined problem's meaning and must not vary between processes.
+    """
+    combined, _ = build_combined_scenario_problem(model)
+    leaves = list(model.leaf_scenarios)
+    declared = [o.symbol for o in model.get_scenario_problem(leaves[0]).objectives]
+
+    seen: list[str] = []
+    for objective in combined.objectives:
+        leaf = next((leaf for leaf in leaves if objective.symbol.startswith(f"{leaf}_")), None)
+        original = objective.symbol.removeprefix(f"{leaf}_") if leaf else objective.symbol
+        if original not in seen:
+            seen.append(original)
+
+    assert seen == declared
+
+
+# ---------------------------------------------------------------------------
+# References to elements of the same kind
+# ---------------------------------------------------------------------------
+
+
+def _same_kind_reference_model() -> ScenarioModel:
+    """A model whose second objective is defined in terms of the first.
+
+    f_1 is scenario-specific (2x in s_1, 3x in s_2) and f_2 = f_1 + 1, so f_2 varies by
+    scenario even though its own expression is written identically for every scenario.
+    """
+
+    def objective(symbol: str, func: list) -> Objective:
+        return Objective(
+            name=symbol,
+            symbol=symbol,
+            func=func,
+            maximize=False,
+            objective_type=ObjectiveTypeEnum.analytical,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+        )
+
+    base = Problem(
+        name="Same-kind reference",
+        description="f_2 references f_1.",
+        variables=[
+            Variable(
+                name="x",
+                symbol="x",
+                variable_type=VariableTypeEnum.real,
+                lowerbound=0.0,
+                upperbound=10.0,
+                initial_value=1.0,
+            )
+        ],
+        objectives=[objective("f_1", ["Multiply", 1, "x"]), objective("f_2", ["Add", "f_1", 1])],
+    )
+
+    return ScenarioModel(
+        scenario_tree={"ROOT": ["s_1", "s_2"], "s_1": [], "s_2": []},
+        scenario_probabilities={"s_1": 0.5, "s_2": 0.5},
+        anticipation_stop={},
+        base_problem=base,
+        objectives=[objective("f_1", ["Multiply", 2, "x"]), objective("f_1", ["Multiply", 3, "x"])],
+        scenarios={"s_1": Scenario(objectives={"f_1": 0}), "s_2": Scenario(objectives={"f_1": 1})},
+    )
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_same_kind_reference_is_renamed_per_leaf():
+    """An objective referencing another objective points at that leaf's copy.
+
+    References to variables and to earlier kinds were always renamed, but never
+    references within a kind, so f_2 kept a bare f_1 that named nothing.
+    """
+    combined, symbol_maps = build_combined_scenario_problem(_same_kind_reference_model())
+
+    funcs = {o.symbol: o.func for o in combined.objectives}
+    assert funcs["s_1_f_2"] == ["Add", "s_1_f_1", 1]
+    assert funcs["s_2_f_2"] == ["Add", "s_2_f_1", 1]
+    assert symbol_maps["objectives"]["f_2"] == {"s_1": "s_1_f_2", "s_2": "s_2_f_2"}
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_same_kind_reference_is_not_treated_as_shared():
+    """f_2 varies by scenario through f_1, so it gets a copy per leaf.
+
+    Sharing is decided by comparing the renamed expressions.  While the reference was
+    left alone, f_2's expression was literally identical in every scenario, so it was
+    emitted once and the per-scenario variation was silently lost.
+    """
+    combined, _ = build_combined_scenario_problem(_same_kind_reference_model())
+
+    values = PolarsEvaluator(combined).evaluate({v.symbol: [1.0] for v in combined.variables})
+
+    assert values["s_1_f_2"][0] == pytest.approx(3.0)
+    assert values["s_2_f_2"][0] == pytest.approx(4.0)
+
+
+def _forward_reference_model(constraint_func: list) -> ScenarioModel:
+    """A model with a scenario-specific objective and one constraint with the given expression."""
+
+    def objective(symbol: str, func: list) -> Objective:
+        return Objective(
+            name=symbol,
+            symbol=symbol,
+            func=func,
+            maximize=False,
+            objective_type=ObjectiveTypeEnum.analytical,
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+        )
+
+    base = Problem(
+        name="Forward reference",
+        description="A constraint that may reference a later kind.",
+        variables=[
+            Variable(
+                name="x",
+                symbol="x",
+                variable_type=VariableTypeEnum.real,
+                lowerbound=0.0,
+                upperbound=10.0,
+                initial_value=1.0,
+            )
+        ],
+        objectives=[objective("f_1", ["Multiply", 1, "x"])],
+        extra_funcs=[ExtraFunction(name="e_1", symbol="e_1", func=["Add", "x", 1])],
+        constraints=[Constraint(name="con_a", symbol="con_a", func=constraint_func, cons_type=ConstraintTypeEnum.LTE)],
+    )
+
+    return ScenarioModel(
+        scenario_tree={"ROOT": ["s_1", "s_2"], "s_1": [], "s_2": []},
+        scenario_probabilities={"s_1": 0.5, "s_2": 0.5},
+        anticipation_stop={},
+        base_problem=base,
+        objectives=[objective("f_1", ["Multiply", 2, "x"]), objective("f_1", ["Multiply", 3, "x"])],
+        scenarios={"s_1": Scenario(objectives={"f_1": 0}), "s_2": Scenario(objectives={"f_1": 1})},
+    )
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_aggregating_a_constraint_that_references_an_objective_raises():
+    """A constraint reaching forward to an objective cannot be aggregated by a weighted sum.
+
+    Aggregating a constraint inlines its expression into an extra function, and extra
+    functions are evaluated before objectives, so an inlined objective reference could
+    never resolve.  It used to surface as a ColumnNotFoundError during evaluation.
+    """
+    model = _forward_reference_model(["Add", "f_1", -5])
+    combined, symbol_maps = build_combined_scenario_problem(model)
+
+    with pytest.raises(ValueError, match="Define the quantity as an extra function"):
+        add_expected_value(model, ["con_a"], combined=combined, symbol_maps=symbol_maps)
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+@pytest.mark.parametrize("func", [["Add", "x", -5], ["Add", "e_1", -5]])
+def test_aggregating_a_constraint_over_earlier_kinds_is_allowed(func):
+    """A constraint over variables or extra functions inlines safely and still works."""
+    model = _forward_reference_model(func)
+    combined, symbol_maps = build_combined_scenario_problem(model)
+
+    problem, added = add_expected_value(model, ["con_a"], combined=combined, symbol_maps=symbol_maps)
+    values = PolarsEvaluator(problem).evaluate({v.symbol: [1.0] for v in problem.variables})
+
+    assert added["con_a"] in values.columns
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_other_aggregators_accept_a_forward_referencing_constraint():
+    """CVaR and the worst case put the per-leaf expression in a constraint, so they are fine.
+
+    Constraints are evaluated last, so the objective reference resolves there.  Only the
+    weighted-sum aggregators place the inlined expression among the extra functions.
+    """
+    model = _forward_reference_model(["Add", "f_1", -5])
+    combined, symbol_maps = build_combined_scenario_problem(model)
+
+    for problem, _ in (
+        add_conditional_value_at_risk(model, ["con_a"], alpha=0.9, combined=combined, symbol_maps=symbol_maps),
+        add_worst_case_robust(model, ["con_a"], combined=combined, symbol_maps=symbol_maps),
+    ):
+        PolarsEvaluator(problem).evaluate({v.symbol: [1.0] for v in problem.variables})
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_objective_referencing_an_extra_function_is_renamed_per_leaf():
+    """An objective referencing a scenario-specific extra function points at that leaf's copy.
+
+    Extra functions are evaluated before objectives, so the reference is legal.  Kinds used
+    to be combined objectives-first, though, so the extra function renames did not exist yet
+    and the objective kept a bare symbol -- which also made it compare equal across leaves
+    and be misclassified as shared.
+    """
+    x = Variable(
+        name="x",
+        symbol="x",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=0.0,
+        upperbound=10.0,
+        initial_value=1.0,
+    )
+    base = Problem(
+        name="Objective over an extra function",
+        description="f_1 is defined through the scenario-specific extra function q.",
+        variables=[x],
+        extra_funcs=[ExtraFunction(name="q", symbol="q", func=["Multiply", 1, "x"])],
+        objectives=[
+            Objective(
+                name="f_1",
+                symbol="f_1",
+                func=["Multiply", 1, "q"],
+                maximize=False,
+                objective_type=ObjectiveTypeEnum.analytical,
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            )
+        ],
+    )
+    model = ScenarioModel(
+        scenario_tree={"ROOT": ["s_1", "s_2"], "s_1": [], "s_2": []},
+        scenario_probabilities={"s_1": 0.5, "s_2": 0.5},
+        anticipation_stop={},
+        base_problem=base,
+        extra_funcs=[
+            ExtraFunction(name="q", symbol="q", func=["Multiply", 2, "x"]),
+            ExtraFunction(name="q", symbol="q", func=["Multiply", 3, "x"]),
+        ],
+        scenarios={"s_1": Scenario(extra_funcs={"q": 0}), "s_2": Scenario(extra_funcs={"q": 1})},
+    )
+
+    combined, _ = build_combined_scenario_problem(model)
+
+    funcs = {o.symbol: o.func for o in combined.objectives}
+    assert funcs["s_1_f_1"] == ["Multiply", 1, "s_1_q"]
+    assert funcs["s_2_f_1"] == ["Multiply", 1, "s_2_q"]
+
+    values = PolarsEvaluator(combined).evaluate({v.symbol: [1.0] for v in combined.variables})
+    assert values["s_1_f_1"][0] == pytest.approx(2.0)
+    assert values["s_2_f_1"][0] == pytest.approx(3.0)

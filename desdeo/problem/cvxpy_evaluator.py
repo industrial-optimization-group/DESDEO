@@ -148,12 +148,10 @@ class CVXPYEvaluator:
         Returns:
             dict[str, cp.Expression]: a dict containing the extra function expressions.
         """
-        extra_functions: dict[str, cp.Expression] = {}
-
         for extra in problem.extra_funcs:
-            extra_functions[extra.symbol] = self.parse(extra.func, callback=self.get_expression_by_name)
+            self.extra_functions[extra.symbol] = self.parse(extra.func, callback=self.get_expression_by_name)
 
-        return extra_functions
+        return self.extra_functions
 
     def init_objectives(self, problem: Problem) -> dict[str, cp.Expression]:
         """Add objective function expressions to a CVXPY evaluator.
@@ -199,12 +197,10 @@ class CVXPYEvaluator:
         Returns:
             dict[str, cp.Expression]: the dict with the scalarization expressions.
         """
-        scalarizations: dict[str, cp.Expression] = {}
-
         for scal in problem.scalarization_funcs:
-            scalarizations[scal.symbol] = self.parse(scal.func, self.get_expression_by_name)
+            self.add_scalarization_function(scal)
 
-        return scalarizations
+        return self.scalarizations
 
     def add_constraint(self, constraint: Constraint) -> cp.Constraint:
         """Add a constraint expression to the CVXPY problem.
