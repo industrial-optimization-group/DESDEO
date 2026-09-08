@@ -26,8 +26,8 @@ spec:
   source:
     type: Git
     git:
-      uri: https://github.com/gialmisi/DESDEO.git
-      ref: rahti-deploy
+      uri: https://github.com/industrial-optimization-group/DESDEO.git
+      ref: master
 
   strategy:
     type: Docker
