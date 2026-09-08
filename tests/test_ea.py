@@ -20,6 +20,7 @@ from desdeo.emo.operators.crossover import (
     SimulatedBinaryCrossover,
     SingleArithmeticCrossover,
     SinglePointBinaryCrossover,
+    UniformCrossover,
     UniformIntegerCrossover,
     UniformMixedIntegerCrossover,
 )
@@ -65,6 +66,7 @@ from desdeo.emo.options.crossover import (
     DifferentialEvolutionCrossoverOptions,
     ParentCentricCrossoverOptions,
     SimulatedBinaryCrossoverOptions,
+    UniformCrossoverOptions,
     crossover_constructor,
 )
 from desdeo.emo.options.templates import emo_constructor
@@ -892,6 +894,86 @@ def test_blend_alpha_crossover():
 
 
 @pytest.mark.ea
+def test_uniform_crossover():
+    """Test whether the uniform (discrete) crossover operator works as intended."""
+    publisher = Publisher()
+    problem = simple_test_problem()
+    assert problem.variable_domain is VariableDomainTypeEnum.continuous
+
+    crossover = UniformCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0)
+    num_vars = len(crossover.variable_symbols)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=1
+    )
+    population, _outputs = generator.do()
+
+    # An odd-length mating order, to exercise the padding path.
+    to_mate = [0, 9, 1, 8, 2]
+    offspring = crossover.do(population=population, to_mate=to_mate)
+
+    assert offspring.shape == (len(to_mate), num_vars)
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, offspring)
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize("rate", [0.0, 0.25, 0.5, 0.75, 1.0])
+def test_uniform_crossover_only_ever_copies_parent_values(rate: float):
+    """The defining property: no value is blended, and the swap rate is the one that was asked for.
+
+    This is what separates discrete crossover from every other continuous operator in the module.
+    SBX, BLX-alpha, the bounded exponential and the parent-centric operators all interpolate, so
+    their offspring hold values that appear in neither parent. Here every gene must be exactly one
+    of the two parent values, at any rate, and the fraction taken from the *other* parent must track
+    `uniform_xover_probability`.
+
+    A shape assertion cannot see either property: an operator that blended every gene, or one that
+    ignored the rate and always swapped half, would pass one.
+    """
+    rng = np.random.default_rng(0)
+    problem = simple_test_problem()
+    symbols = [v.symbol for v in problem.get_flattened_variables()]
+
+    # Distinct, well-separated parents, so "equals one parent" cannot be satisfied by coincidence.
+    n_pairs = 200
+    population = pl.DataFrame(rng.uniform(0.0, 1.0, size=(2 * n_pairs, len(symbols))), schema=symbols)
+
+    crossover = UniformCrossover(
+        problem=problem, publisher=Publisher(), verbosity=2, seed=1, uniform_xover_probability=rate
+    )
+    offspring = crossover.do(population=population, to_mate=list(range(2 * n_pairs)))
+
+    parents = crossover.parent_population[symbols].to_numpy()
+    children = offspring[symbols].to_numpy()[:n_pairs]
+    first, second = parents[0::2], parents[1::2]
+
+    from_first = np.isclose(children, first)
+    from_second = np.isclose(children, second)
+    assert (from_first | from_second).all(), "a gene was blended rather than inherited whole"
+
+    swapped = (from_second & ~from_first).mean()
+    assert swapped == pytest.approx(rate, abs=0.05), f"swap rate {swapped:.3f} does not match {rate}"
+
+
+@pytest.mark.ea
+def test_uniform_crossover_options_round_trip():
+    """The options model must build the operator with the same defaults as direct construction."""
+    problem = simple_test_problem()
+    publisher = Publisher()
+
+    direct = UniformCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
+    built = crossover_constructor(
+        problem=problem, publisher=publisher, seed=0, verbosity=1, options=UniformCrossoverOptions()
+    )
+
+    assert isinstance(built, UniformCrossover)
+    assert built.uniform_xover_probability == direct.uniform_xover_probability
+    assert built.pair_xover_probability == direct.pair_xover_probability
+
+
+@pytest.mark.ea
 def test_single_arithmetic_crossover():
     """Tests the single arithmetic crossover operator."""
     publisher = Publisher()
@@ -1163,6 +1245,7 @@ ALL_CROSSOVERS = [
     (BoundedExponentialCrossover, "continuous"),
     (DifferentialEvolutionCrossover, "continuous"),
     (ParentCentricCrossover, "continuous"),
+    (UniformCrossover, "continuous"),
     (SinglePointBinaryCrossover, "binary"),
     (UniformIntegerCrossover, "integer"),
     (UniformMixedIntegerCrossover, "mixed"),
@@ -1176,6 +1259,7 @@ CONTINUOUS_ONLY_CROSSOVERS = [
     BoundedExponentialCrossover,
     DifferentialEvolutionCrossover,
     ParentCentricCrossover,
+    UniformCrossover,
 ]
 
 

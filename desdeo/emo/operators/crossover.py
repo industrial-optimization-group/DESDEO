@@ -945,6 +945,176 @@ class UniformMixedIntegerCrossover(BaseCrossover):
         ]
 
 
+class UniformCrossover(BaseCrossover):
+    """Uniform (discrete) crossover for continuous problems.
+
+    Every decision variable is inherited whole from one parent or the other, with the two offspring
+    taking complementary choices.
+
+    `UniformMixedIntegerCrossover` performs the same recombination without a domain guard and is
+    therefore usable on continuous problems, but it fixes the per-variable rate at 0.5, offers no
+    per-pair probability.
+
+    References:
+        Syswerda, G. (1989). Uniform crossover in genetic algorithms. In Proceedings of the Third
+            International Conference on Genetic Algorithms (pp. 2-9). Morgan Kaufmann.
+
+        Picek, S., Jakobovic, D., & Golub, M. (2013). On the recombination operator in the real-coded
+            genetic algorithms. In 2013 IEEE Congress on Evolutionary Computation (pp. 3103-3110).
+            https://doi.org/10.1109/CEC.2013.6557948
+            (Empirical comparison of discrete crossover against the blending operators.)
+    """
+
+    def __init__(
+        self,
+        *,
+        problem: Problem,
+        seed: int,
+        verbosity: int,
+        publisher: Publisher,
+        pair_xover_probability: float = 1.0,
+        uniform_xover_probability: float = 0.5,
+    ):
+        """Initialize a uniform crossover operator.
+
+        Args:
+            problem (Problem): the problem object.
+            seed (int): the seed for the random number generator.
+            verbosity (int): the verbosity level of the component. The keys in `provided_topics` tell
+                what topics are provided by the operator at each verbosity level.
+            publisher (Publisher): the publisher to which the operator will publish messages.
+            pair_xover_probability (float, optional): the probability that a parent pair is recombined
+                at all. Drawn once per pair: on failure the pair is copied to the offspring unchanged,
+                with every decision variable kept together. This is the `p_c` reported in the
+                literature. Ranges between 0 and 1.0. Defaults to 1.0.
+            uniform_xover_probability (float, optional): the per-variable probability that the two
+                parents' values for that variable are exchanged between the offspring. Ranges between
+                0 and 1.0. Defaults to 0.5, the rate Syswerda (1989) describes and the only rate
+                `UniformMixedIntegerCrossover` offers. Named to match the parameter of the same
+                meaning on `SimulatedBinaryCrossover`, so the two can be set to the same value and
+                compared. At 0.0 the offspring are copies of the parents; at 1.0 the pair is swapped
+                wholesale, which is also a no-op at the population level.
+        """
+        super().__init__(problem, verbosity=verbosity, publisher=publisher, seed=seed)
+        self.problem = problem
+
+        if problem.variable_domain is not VariableDomainTypeEnum.continuous:
+            raise ValueError("UniformCrossover only works on continuous problems.")
+        if not 0 <= pair_xover_probability <= 1:
+            raise ValueError("Pair crossover probability must be between 0 and 1.")
+        if not 0 <= uniform_xover_probability <= 1:
+            raise ValueError("Uniform crossover probability must be between 0 and 1.")
+
+        self.pair_xover_probability = pair_xover_probability
+        self.uniform_xover_probability = uniform_xover_probability
+        self.parent_population: pl.DataFrame | None = None
+        self.offspring_population: pl.DataFrame | None = None
+
+    @property
+    def provided_topics(self) -> dict[int, Sequence[CrossoverMessageTopics]]:
+        """The message topics provided by the uniform crossover operator."""
+        return {
+            0: [],
+            1: [CrossoverMessageTopics.XOVER_PROBABILITY],
+            2: [
+                CrossoverMessageTopics.XOVER_PROBABILITY,
+                CrossoverMessageTopics.PARENTS,
+                CrossoverMessageTopics.OFFSPRINGS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        """The message topics the uniform crossover operator is interested in."""
+        return []
+
+    def do(
+        self,
+        *,
+        population: pl.DataFrame,
+        to_mate: list[int] | None = None,
+    ) -> pl.DataFrame:
+        """Perform the uniform crossover operation.
+
+        Args:
+            population (pl.DataFrame): the population to perform the crossover with.
+            to_mate (list[int] | None): the indices of the population members that should
+                participate in the crossover. If `None`, the whole population is subject to the
+                crossover.
+
+        Returns:
+            pl.DataFrame: the offspring resulting from the crossover.
+        """
+        mating_pop = self.get_parents(population=population, to_mate=to_mate)
+        mating_pop = mating_pop[self.variable_symbols].to_numpy().astype(float)
+        num_var = mating_pop.shape[1]
+
+        parents1 = mating_pop[0::2, :]
+        parents2 = mating_pop[1::2, :]
+        n_pairs = parents1.shape[0]
+
+        # One independent mask per mating pair. A single mask of shape (num_var,) would broadcast over
+        # the whole mating pool, making every pair in the generation exchange exactly the same
+        # variables -- a fixed column split rather than uniform crossover.
+        swap = self.rng.random((n_pairs, num_var)) < self.uniform_xover_probability
+
+        # The per-pair draw comes first and covers the whole row, so a pair that fails keeps its
+        # variables together. Folding it into the per-variable rate would destroy that correlation,
+        # which is the reason the two levels are separate.
+        recombined = self.rng.random(n_pairs) <= self.pair_xover_probability
+        swap &= recombined[:, np.newaxis]
+
+        offspring1 = np.where(swap, parents2, parents1)
+        offspring2 = np.where(swap, parents1, parents2)
+        offspring = np.vstack((offspring1, offspring2))
+
+        # An odd sized mating pool was padded with a duplicate parent, so the last pair produced one
+        # offspring too many.
+        original_pop_size = len(to_mate) if to_mate is not None else population.shape[0]
+        offspring = offspring[:original_pop_size]
+
+        self.offspring_population = pl.from_numpy(offspring, schema=self.variable_symbols, orient="row")
+        self.notify()
+
+        return self.offspring_population
+
+    def update(self, *_, **__):
+        """Do nothing. The operator has no state that reacts to other components."""
+
+    def state(self) -> Sequence[Message]:
+        """Return the state of the uniform crossover operator."""
+        if self.parent_population is None or self.offspring_population is None:
+            return []
+        if self.verbosity == 0:
+            return []
+        if self.verbosity == 1:
+            return [
+                FloatMessage(
+                    topic=CrossoverMessageTopics.XOVER_PROBABILITY,
+                    source=self.__class__.__name__,
+                    value=self.uniform_xover_probability,
+                ),
+            ]
+        # verbosity == 2 or higher
+        return [
+            FloatMessage(
+                topic=CrossoverMessageTopics.XOVER_PROBABILITY,
+                source=self.__class__.__name__,
+                value=self.uniform_xover_probability,
+            ),
+            PolarsDataFrameMessage(
+                topic=CrossoverMessageTopics.PARENTS,
+                source=self.__class__.__name__,
+                value=self.parent_population,
+            ),
+            PolarsDataFrameMessage(
+                topic=CrossoverMessageTopics.OFFSPRINGS,
+                source=self.__class__.__name__,
+                value=self.offspring_population,
+            ),
+        ]
+
+
 class BlendAlphaCrossover(BaseCrossover):
     """Blend-alpha (BLX-alpha) crossover for continuous problems.
 
