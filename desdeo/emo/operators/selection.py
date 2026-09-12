@@ -1495,6 +1495,20 @@ class IBEASelector(BaseSelector):
         span[span == 0] = 1.0
         return self.binary_indicator((targets - target_min) / span)
 
+    def _adaptive_kappa(self, components: np.ndarray) -> float:
+        """Adaptive IBEA's kappa: the configured kappa scaled by the largest indicator magnitude.
+
+        The scaling makes kappa independent of the objectives' range. When the set has collapsed onto a
+        single objective vector every indicator value is zero, and so is the scale: dividing by it
+        raised ZeroDivisionError in the fitness kernels and would turn the vectorised survivor
+        selection into NaN. A set with no spread has nothing to scale, so the configured kappa is used
+        unscaled. Every exp(-0 / kappa) is then 1 and each member's fitness is -(n - 1), a tie, which is
+        the honest reading of a set the indicator cannot separate. Wherever the scale is positive the
+        value is exactly what it was before.
+        """
+        scale = float(np.abs(components).max())
+        return self.kappa * scale if scale > 0 else self.kappa
+
     def _infeasible_fitness(self, targets: np.ndarray, violations: np.ndarray) -> np.ndarray:
         """Fitness for a set that is partly or wholly infeasible, feasible solutions first.
 
@@ -1504,7 +1518,7 @@ class IBEASelector(BaseSelector):
         higher-is-better, which is what the mating tournament expects.
         """
         components = self._indicator_components(targets)
-        fitness = _ibea_fitness(components, kappa=self.kappa * np.abs(components).max())
+        fitness = _ibea_fitness(components, kappa=self._adaptive_kappa(components))
 
         infeasible = violations > 0
         if not np.any(infeasible):
@@ -1560,17 +1574,16 @@ class IBEASelector(BaseSelector):
 
         # Adaptation
         fitness_components = self._indicator_components(alltargets[self.target_symbols].to_numpy())
-        kappa_mult = np.max(np.abs(fitness_components))
 
         chosen = _ibea_select_all(
-            fitness_components, population_size=self.population_size, kappa=kappa_mult * self.kappa
+            fitness_components, population_size=self.population_size, kappa=self._adaptive_kappa(fitness_components)
         )
         self.selected_individuals = solutions.filter(chosen)
         self.selected_targets = alltargets.filter(chosen)
         self.selection = chosen
 
         fitness_components = fitness_components[chosen][:, chosen]
-        self.fitness = _ibea_fitness(fitness_components, kappa=self.kappa * np.abs(fitness_components).max())
+        self.fitness = _ibea_fitness(fitness_components, kappa=self._adaptive_kappa(fitness_components))
 
         self.notify()
         return self.selected_individuals, self.selected_targets

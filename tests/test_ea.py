@@ -2822,6 +2822,46 @@ def test_ibea_keeps_every_feasible_solution_it_cannot_replace():
 
 
 @pytest.mark.ea
+def test_ibea_survives_a_population_collapsed_onto_one_objective_vector():
+    """Adaptive kappa scales by the largest indicator value, which is zero for a collapsed set.
+
+    It used to divide by that zero: ZeroDivisionError in the fitness kernel, NaN in the vectorised
+    survivor selection. It happened on linked-Pareto-set ZCAT instances and on one RE41 subset. With no
+    spread to scale, the configured kappa is used and every member gets the same fitness; with any
+    spread, kappa is exactly what it was.
+    """
+    from desdeo.emo.operators.selection import _ibea_fitness, _ibea_select_all  # noqa: PLC0415
+
+    problem = car_side_impact(three_obj=False)
+    publisher = Publisher()
+    selector = IBEASelector(problem=problem, verbosity=1, publisher=publisher, population_size=5, seed=0)
+
+    collapsed = np.zeros((10, 10))
+    assert selector._adaptive_kappa(collapsed) == selector.kappa
+    assert selector._adaptive_kappa(np.array([[0.0, 0.4], [-0.2, 0.0]])) == selector.kappa * 0.4
+    npt.assert_array_equal(_ibea_fitness(collapsed, kappa=selector._adaptive_kappa(collapsed)), np.full(10, -9.0))
+    assert _ibea_select_all(collapsed, population_size=5, kappa=selector._adaptive_kappa(collapsed)).sum() == 5
+
+    # End to end: one feasible solution repeated, so every pairwise indicator value is zero.
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=40, seed=0, verbosity=1
+    )
+    solutions, outputs = generator.do()
+    constraints = [c.symbol for c in problem.constraints]
+    feasible = np.flatnonzero(np.maximum(outputs[constraints].to_numpy(), 0.0).sum(axis=1) <= 0)
+    assert len(feasible) > 0, "the fixture needs one feasible solution to repeat"
+    rows = [int(feasible[0])] * 12
+
+    _, selected = selector.do(
+        parents=(solutions[rows[:6]], outputs[rows[:6]]), offsprings=(solutions[rows[6:]], outputs[rows[6:]])
+    )
+
+    assert len(selected) == selector.population_size
+    assert np.all(selector.fitness == selector.fitness[0])
+
+
+@pytest.mark.ea
 @pytest.mark.parametrize("name", ["nsga2", "ibea"])
 def test_constrained_selectors_reach_a_feasible_population(name):
     """Both selectors must drive a constrained run to feasibility, not merely tolerate constraints.
