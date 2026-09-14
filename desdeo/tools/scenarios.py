@@ -834,13 +834,23 @@ def build_scenario_symbol_maps(
     """Derive element symbol maps from an already-built combined scenario problem.
 
     A lightweight alternative to calling `build_combined_scenario_problem`
-    when the combined problem is already available.  Infers the per-leaf symbol
-    for each base element by checking whether ``{leaf}_{orig}`` exists among the
-    combined problem's element symbols.
+    when the combined problem is already available.  The element symbols are
+    collected from the per-leaf scenario problems, so an element a scenario
+    introduces without the base problem declaring it is covered; the per-leaf
+    symbol is then inferred by checking whether ``{leaf}_{orig}`` exists among
+    the combined problem's element symbols.
 
-    Covers ``objectives``, ``extra_funcs``, ``constraints``, and
-    ``scalarization_funcs``; variables are excluded because their naming depends
-    on ``anticipation_stop`` and cannot be inferred from symbol presence alone.
+    For the keys it covers, the result equals the same-named keys returned by
+    `build_combined_scenario_problem`, and `tests/test_scenarios.py` asserts
+    that.  Covers ``objectives``, ``extra_funcs``, ``constraints``, and
+    ``scalarization_funcs``; variables and constants are excluded because their
+    naming depends on ``anticipation_stop`` and cannot be inferred from symbol
+    presence alone.
+
+    Only leaf scenarios are consulted, matching
+    `build_combined_scenario_problem`, which builds the combined problem from
+    the leaves alone.  Elements assigned to interior tree nodes do not reach the
+    combined problem and are therefore absent here too.
 
     Args:
         problem: the combined scenario problem (as returned by
@@ -854,10 +864,21 @@ def build_scenario_symbol_maps(
             the same-named keys from `build_combined_scenario_problem`.
     """
     leaf_scenarios = list(scenario_model.leaf_scenarios)
-    base = scenario_model.base_problem
 
-    def _map(base_elems, combined_elems):
+    # The symbol universe must come from the per-leaf scenario problems, not from
+    # base_problem: a scenario may introduce an element the base problem does not
+    # declare, and such an element is present in the combined problem.  This mirrors
+    # `_combine_elements`, which derives its symbols the same way, so that the two
+    # builders cannot drift apart.
+    leaf_problems = {leaf: scenario_model.get_scenario_problem(leaf) for leaf in leaf_scenarios}
+
+    def _map(get_list, combined_elems):
         combined_syms = {e.symbol for e in (combined_elems or [])}
+
+        # Declaration order, leaf by leaf, exactly as `_combine_elements` orders them.
+        all_syms = dict.fromkeys(
+            elem.symbol for leaf in leaf_scenarios for elem in (get_list(leaf_problems[leaf]) or [])
+        )
 
         def _leaf_symbol(sym: str, leaf: str) -> "str | None":
             """The combined symbol for *sym* in *leaf*, or None when the leaf has none.
@@ -871,15 +892,13 @@ def build_scenario_symbol_maps(
             return sym if sym in combined_syms else None
 
         return {
-            elem.symbol: {
-                leaf: mapped for leaf in leaf_scenarios if (mapped := _leaf_symbol(elem.symbol, leaf)) is not None
-            }
-            for elem in (base_elems or [])
+            sym: {leaf: mapped for leaf in leaf_scenarios if (mapped := _leaf_symbol(sym, leaf)) is not None}
+            for sym in all_syms
         }
 
     return {
-        "objectives": _map(base.objectives, problem.objectives),
-        "extra_funcs": _map(base.extra_funcs, problem.extra_funcs),
-        "constraints": _map(base.constraints, problem.constraints),
-        "scalarization_funcs": _map(base.scalarization_funcs, problem.scalarization_funcs),
+        "objectives": _map(lambda p: p.objectives, problem.objectives),
+        "extra_funcs": _map(lambda p: p.extra_funcs, problem.extra_funcs),
+        "constraints": _map(lambda p: p.constraints, problem.constraints),
+        "scalarization_funcs": _map(lambda p: p.scalarization_funcs, problem.scalarization_funcs),
     }

@@ -4,6 +4,8 @@ References:
     TBD
 """
 
+import warnings
+from collections.abc import Iterable
 from enum import Enum
 
 import numpy as np
@@ -374,7 +376,7 @@ def _minimize_soft_constraint_violations(
 def _fix_worst_case_epigraphs(
     result: SolverResults,
     problem: Problem,
-    symbol_maps: "dict[str, dict[str, dict[str, str]]]",
+    leaf_scenarios: "Iterable[str]",
 ) -> SolverResults:
     """Tighten worst-case epigraph variables to the true max/min of leaf values.
 
@@ -386,13 +388,28 @@ def _fix_worst_case_epigraphs(
     this also covers regret-style epigraphs whose bound is offset by a per-leaf ideal
     value baked into the constraint rather than present anywhere in the solved leaf
     values.
+
+    ``leaf_scenarios`` are the leaf scenario names of the model the combined problem was
+    built from, and are taken directly rather than recovered from a symbol map: the
+    aggregate symbol is whatever prefix the caller of `add_worst_case_robust` chose, so
+    it cannot be decomposed back into an original symbol reliably.  A leaf that does not
+    carry the element simply has no bound constraint and is skipped.
+
+    Args:
+        result: the solver results to tighten.
+        problem: the combined problem the results belong to.
+        leaf_scenarios: leaf scenario names, e.g. ``scenario_model.leaf_scenarios``.
+
+    Returns:
+        SolverResults: a copy with every worst-case epigraph variable, and the element it
+            backs, set to the true worst case over the leaves.
     """
     _epigraph_name_prefixes = (
         "Worst-case robust epigraph variable for ",
         "Worst-case regret epigraph variable for ",
     )
 
-    all_base_syms = {s for m in symbol_maps.values() for s in m}
+    leaves = list(leaf_scenarios)
     obj_by_sym = {obj.symbol: obj for obj in problem.objectives}
     new_vars = dict(result.optimal_variables)
     new_objs = dict(result.optimal_objectives)
@@ -400,17 +417,28 @@ def _fix_worst_case_epigraphs(
     new_scal = dict(result.scalarization_values or {})
     constraint_values = result.constraint_values or {}
 
+    # An epigraph left untightened is reported as a worse worst case than the solution
+    # actually attains, so a skip is worth reporting rather than passing over quietly.
+    # Skipping a leaf that carries no bound constraint is normal and stays silent.
+    detected: list[str] = []
+    untightened: list[str] = []
+    unrecognized: list[str] = []
+
     for var in problem.variables:
         t_sym = var.symbol
-        if not t_sym.startswith("_t_") or not var.name.startswith(_epigraph_name_prefixes):
+        if not t_sym.startswith("_t_"):
             continue
+        if not var.name.startswith(_epigraph_name_prefixes):
+            # `_t_` is used only by the worst-case aggregations, so a symbol that looks
+            # like an epigraph but whose name does not is either a user variable or a
+            # sign that the names in `desdeo.tools.robust` have drifted from the
+            # prefixes above.  The latter would silently disable this whole function.
+            unrecognized.append(t_sym)
+            continue
+        detected.append(t_sym)
         agg_sym = t_sym[len("_t_") :]
-        candidates = [s for s in all_base_syms if agg_sym.endswith(s)]
-        if not candidates:
-            continue
-        original_sym = max(candidates, key=len)
-        leaf_map = next((m[original_sym] for m in symbol_maps.values() if original_sym in m), None)
-        if leaf_map is None or t_sym not in new_vars:
+        if t_sym not in new_vars:
+            untightened.append(t_sym)
             continue
 
         t_val = float(new_vars[t_sym])
@@ -421,13 +449,16 @@ def _fix_worst_case_epigraphs(
         # is either `g_s - t <= 0` (minimise-t formulation) or `t - g_s <= 0`
         # (maximise-t formulation), so `g_s` can be recovered from the constraint value.
         bound_vals = []
-        for leaf in leaf_map:
+        for leaf in leaves:
             con_sym = f"{leaf}_{agg_sym}_con"
             if con_sym not in constraint_values:
                 continue
             cv = float(constraint_values[con_sym])
             bound_vals.append(t_val - cv if is_maximize_t else cv + t_val)
         if not bound_vals:
+            # Every aggregation adds at least one per-leaf bound constraint, so finding
+            # none of them is never legitimate.
+            untightened.append(t_sym)
             continue
         true_worst = min(bound_vals) if is_maximize_t else max(bound_vals)
         new_vars[t_sym] = true_worst
@@ -435,6 +466,33 @@ def _fix_worst_case_epigraphs(
             if agg_sym in d:
                 d[agg_sym] = true_worst
                 break
+
+    if detected and not constraint_values:
+        warnings.warn(
+            "No constraint values are available in the solver results, so none of the "
+            f"worst-case epigraph variables {sorted(detected)} could be tightened. The "
+            "worst-case values reported for them may be worse than the solution attains. "
+            "This usually means the solver did not populate 'constraint_values'.",
+            stacklevel=2,
+        )
+    elif untightened:
+        warnings.warn(
+            f"Could not tighten the worst-case epigraph variables {sorted(untightened)}: "
+            "no per-leaf bound constraint was found for them in the solver results. The "
+            "worst-case values reported for them may be worse than the solution attains. "
+            "Check that 'leaf_scenarios' belongs to the scenario model the problem was "
+            "built from.",
+            stacklevel=2,
+        )
+    if unrecognized:
+        warnings.warn(
+            f"Ignoring the variables {sorted(unrecognized)}, whose symbols look like "
+            "worst-case epigraph variables but whose names do not match any known "
+            "epigraph constructor. If these were built by desdeo.tools.robust, its "
+            "variable names have drifted from the prefixes this function looks for and "
+            "worst-case values will be reported untightened.",
+            stacklevel=2,
+        )
 
     return result.model_copy(
         update={
@@ -555,7 +613,7 @@ def solve_sub_problems(
 
     if _symbol_maps is not None:
         results = {
-            sf: _fix_worst_case_epigraphs(r, problem, _symbol_maps) if r is not None else None
+            sf: _fix_worst_case_epigraphs(r, problem, scenario_model.leaf_scenarios) if r is not None else None
             for sf, r in results.items()
         }
     return results
@@ -627,6 +685,6 @@ def generate_starting_point(
     result = asf_solver.solve(asf_target)
 
     if scenario_model is not None and result.success:
-        result = _fix_worst_case_epigraphs(result, problem, build_scenario_symbol_maps(problem, scenario_model))
+        result = _fix_worst_case_epigraphs(result, problem, scenario_model.leaf_scenarios)
 
     return result

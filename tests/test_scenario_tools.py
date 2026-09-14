@@ -20,7 +20,11 @@ from desdeo.problem.testproblems import (
     summer_cabin_battery_problem_split_scenario,
 )
 from desdeo.tools.robust import add_single_objective_worst_case_regret, add_weighted_scenarios, add_worst_case_robust
-from desdeo.tools.scenarios import build_combined_scenario_problem, build_scenario_problem
+from desdeo.tools.scenarios import (
+    build_combined_scenario_problem,
+    build_scenario_problem,
+    build_scenario_symbol_maps,
+)
 from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_asf, add_expected_value
 
 
@@ -1527,3 +1531,54 @@ def test_objective_referencing_an_extra_function_is_renamed_per_leaf():
     values = PolarsEvaluator(combined).evaluate({v.symbol: [1.0] for v in combined.variables})
     assert values["s_1_f_1"][0] == pytest.approx(2.0)
     assert values["s_2_f_1"][0] == pytest.approx(3.0)
+
+
+# ---------------------------------------------------------------------------
+# build_scenario_symbol_maps
+# ---------------------------------------------------------------------------
+
+SHARED_MAP_KEYS = ("objectives", "extra_funcs", "constraints", "scalarization_funcs")
+
+
+@pytest.mark.scenario
+def test_symbol_maps_agree_with_combined_builder(model, combined, symbol_maps):
+    """The lightweight builder must agree with build_combined_scenario_problem.
+
+    The two derive the same information by different routes, so any divergence is
+    a bug in one of them.  Regression test: build_scenario_symbol_maps used to
+    enumerate only base_problem's elements, silently omitting every element a
+    scenario introduces.
+    """
+    lite = build_scenario_symbol_maps(combined, model)
+
+    for key in SHARED_MAP_KEYS:
+        assert lite[key] == symbol_maps[key], f"{key} maps differ"
+
+
+@pytest.mark.scenario
+def test_symbol_maps_cover_scenario_introduced_elements(model, combined):
+    """Elements a scenario introduces without the base problem declaring them are covered."""
+    base_symbols = {
+        "objectives": {e.symbol for e in (model.base_problem.objectives or [])},
+        "extra_funcs": {e.symbol for e in (model.base_problem.extra_funcs or [])},
+        "constraints": {e.symbol for e in (model.base_problem.constraints or [])},
+        "scalarization_funcs": {e.symbol for e in (model.base_problem.scalarization_funcs or [])},
+    }
+    introduced = {
+        key: {sym for leaf in model.leaf_scenarios for sym in getattr(model.scenarios[leaf], key)} - base_symbols[key]
+        for key in SHARED_MAP_KEYS
+    }
+    assert any(introduced.values()), "fixture no longer exercises scenario-introduced elements"
+
+    lite = build_scenario_symbol_maps(combined, model)
+    for key, symbols in introduced.items():
+        for sym in symbols:
+            assert sym in lite[key], f"{key} map is missing scenario-introduced symbol {sym!r}"
+            assert lite[key][sym], f"{key} map for {sym!r} has no leaves"
+
+
+@pytest.mark.scenario
+def test_symbol_maps_exclude_variables_and_constants(model, combined):
+    """Variables and constants stay out: their naming depends on anticipation_stop."""
+    lite = build_scenario_symbol_maps(combined, model)
+    assert set(lite) == set(SHARED_MAP_KEYS)
