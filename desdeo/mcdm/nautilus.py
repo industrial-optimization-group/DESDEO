@@ -125,8 +125,8 @@ def solve_reachable_solution(
     )
 
     # solve the problem
-    solver = init_solver(problem_w_asf)
-    return solver.solve(target)
+    solver_instance = init_solver(problem_w_asf)
+    return solver_instance.solve(target)
 
 
 # NAUTILUS initializer and steppers

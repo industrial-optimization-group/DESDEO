@@ -16,6 +16,7 @@ from desdeo.problem.testproblems import (
     binh_and_korn,
     river_pollution_problem,
 )
+from desdeo.tools import guess_best_solver
 
 
 @pytest.mark.slow
@@ -222,3 +223,41 @@ def test_all_steps():
     )
     assert len(all_resp) == 5
     assert type(all_resp[0]) is NAUTILI_Response
+
+
+@pytest.mark.nautili
+def test_solve_reachable_solution_forwards_solver_options():
+    """`solver_options` must reach the solver, and be ignored when no solver is given.
+
+    Regression test: the parameter was declared and documented but never passed on, so a
+    caller supplying options got silence rather than an effect or an error.
+    """
+    problem = binh_and_korn()
+    prev_nav_point = {"f_1": 80.0, "f_2": 30.0}
+    group_improvement_direction = {"f_1": 50, "f_2": 30}
+    received = []
+
+    class RecordingSolver:
+        """Wraps the solver the method would have picked and records the options given."""
+
+        def __init__(self, problem, options=None):
+            received.append(options)
+            self._inner = guess_best_solver(problem)(problem)
+
+        def solve(self, target):
+            return self._inner.solve(target)
+
+    options = {"a_marker_option": 1}
+    solve_reachable_solution(
+        problem, group_improvement_direction, prev_nav_point,
+        solver=RecordingSolver, solver_options=options,
+    )
+    assert received == [options], "solver_options did not reach the solver"
+
+    # documented contract: options are ignored when the solver is not given
+    received.clear()
+    solve_reachable_solution(
+        problem, group_improvement_direction, prev_nav_point,
+        solver=RecordingSolver, solver_options=None,
+    )
+    assert received == [None]
