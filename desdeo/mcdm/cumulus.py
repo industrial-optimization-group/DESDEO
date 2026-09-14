@@ -567,6 +567,7 @@ def generate_starting_point(
     scalarization_options: dict | None = None,
     solver: BaseSolver | None = None,
     solver_options: SolverOptions | None = None,
+    scenario_model: ScenarioModel | None = None,
 ) -> SolverResults:
     r"""Generates a starting point for the CUMULUS method.
 
@@ -584,12 +585,17 @@ def generate_starting_point(
         reference_point (dict[str, float]|None): an objective dictionary with a reference point.
             If not given, ideal will be used as reference point.
         scalarization_options (dict | None, optional): optional kwargs passed to the scalarization function.
+            The augmentation term coefficient `rho` defaults to 0.01 unless given here.
             Defaults to None.
         solver (BaseSolver | None, optional): solver used to solve the problem.
             If not given, an appropriate solver will be automatically determined based on the features of `problem`.
             Defaults to None.
         solver_options (SolverOptions | None, optional): optional options passed
             to the `solver`. Ignored if `solver` is `None`.
+            Defaults to None.
+        scenario_model (ScenarioModel | None, optional): when provided, worst-case
+            epigraph variables in the result are tightened to the true worst case implied
+            by the per-leaf bound constraints, as in `solve_sub_problems`.
             Defaults to None.
 
     Returns:
@@ -612,8 +618,15 @@ def generate_starting_point(
     # solve ASF
     add_asf = add_asf_diff if problem.is_twice_differentiable else add_asf_nondiff
 
-    problem_w_asf, asf_target = add_asf(problem, "asf", _reference_point, **(scalarization_options or {}))
+    _scalarization_options = {"rho": 0.01} | (scalarization_options or {})
+
+    problem_w_asf, asf_target = add_asf(problem, "asf", _reference_point, **_scalarization_options)
 
     asf_solver = init_solver(problem_w_asf, _solver_options) if _solver_options else init_solver(problem_w_asf)
 
-    return asf_solver.solve(asf_target)
+    result = asf_solver.solve(asf_target)
+
+    if scenario_model is not None and result.success:
+        result = _fix_worst_case_epigraphs(result, problem, build_scenario_symbol_maps(problem, scenario_model))
+
+    return result
