@@ -104,8 +104,8 @@ Guide: [Solvers](../explanation/solvers.ipynb). API: [tools](../api/desdeo_tools
 ### Quality indicators
 
 Available in `desdeo.tools.indicators_unary` and
-`desdeo.tools.indicators_binary`: hypervolume, IGD+, R2, R-metric, additive
-epsilon (unary and binary), and related batch variants.
+`desdeo.tools.indicators_binary`: hypervolume, IGD+, R2, R-metric, D-PHI, PHI+,
+additive epsilon (unary and binary), and related batch variants.
 API: [tools](../api/desdeo_tools.md).
 
 ## Decision-support utilities
