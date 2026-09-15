@@ -218,7 +218,7 @@ class BaseDecompositionSelector(BaseSelector):
             self.interactive_adapt_2(
                 corrected_sols,
                 predefined_distance=self.reference_vector_options.adaptation_distance,
-                ord=2 if self.reference_vector_options.vector_type == "spherical" else 1,
+                norm_order=2 if self.reference_vector_options.vector_type == "spherical" else 1,
             )
         elif self.reference_vector_options.preferred_ranges:
             corrected_ranges = np.array(

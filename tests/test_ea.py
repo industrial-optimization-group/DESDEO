@@ -3058,3 +3058,30 @@ def test_composite_terminator_passes_the_external_check_to_its_children():
     assert terminator.check() is False
     should_stop["value"] = True
     assert terminator.check() is True
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(
+    "preference",
+    [
+        {"reference_point": {"f_1": 0.5, "f_2": 0.1, "f_3": 0.9}},
+        {"preferred_solutions": {"f_1": [0.5, 0.1], "f_2": [0.1, 0.9], "f_3": [0.9, 0.3]}},
+        {"non_preferred_solutions": {"f_1": [0.5, 0.1, 0.9], "f_2": [0.1, 0.9, 0.4], "f_3": [0.9, 0.3, 0.1]}},
+        {"preferred_ranges": {"f_1": [0.2, 0.6], "f_2": [0.1, 0.5], "f_3": [0.4, 0.9]}},
+    ],
+    ids=lambda preference: next(iter(preference)),
+)
+def test_decomposition_selector_adapts_to_each_preference_type(preference):
+    """Each preference type in ReferenceVectorOptions must adapt the reference vectors on construction."""
+    selector = NSGA3Selector(
+        problem=dtlz2(n_objectives=3, n_variables=12),
+        publisher=Publisher(),
+        reference_vector_options=ReferenceVectorOptions(number_of_vectors=20, **preference),
+        verbosity=0,
+    )
+
+    initial = selector.reference_vectors_initial
+    adapted = selector.reference_vectors
+    assert adapted.shape[1] == 3
+    assert np.isfinite(adapted).all()
+    assert adapted.shape != initial.shape or not np.allclose(adapted, initial)
