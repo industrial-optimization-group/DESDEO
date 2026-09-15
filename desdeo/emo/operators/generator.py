@@ -85,7 +85,7 @@ class BaseGenerator(Subscriber):
         return [
             PolarsDataFrameMessage(
                 topic=GeneratorMessageTopics.VERBOSE_OUTPUTS,
-                value=pl.concat([self.population, self.out], how="horizontal"),
+                value=self.population.hstack(self.out),
                 source=self.__class__.__name__,
             ),
             IntMessage(
@@ -448,7 +448,7 @@ class ArchiveGenerator(BaseGenerator):
         return [
             PolarsDataFrameMessage(
                 topic=GeneratorMessageTopics.VERBOSE_OUTPUTS,
-                value=pl.concat([self.solutions, self.outputs], how="horizontal"),
+                value=self.solutions.hstack(self.outputs),
                 source=self.__class__.__name__,
             ),
             IntMessage(
