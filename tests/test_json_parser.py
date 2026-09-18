@@ -2088,7 +2088,7 @@ def test_polars_matrix_arithmetics():
         ("(X @ Y) / (5 * Sum(Zmat))", [(X[i] @ Y[i]) / (5 * np.sum(Zmat[i])) for i in range(2)]),
         (
             "(Xmat + Ymat) / (Ymat - Xmat) * Cos(7)",
-            [(Xmat[i] + Ymat[i]) / (Ymat[i] - Xmat[i]) / np.cos(7) for i in range(2)],
+            [(Xmat[i] + Ymat[i]) / (Ymat[i] - Xmat[i]) * np.cos(7) for i in range(2)],
         ),
     ]
 
