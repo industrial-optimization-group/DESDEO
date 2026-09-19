@@ -314,7 +314,7 @@ summer_cabin_scenarios = ScenarioModel(
 
 # Using scenario models
 
-Currently, there are two ways of using scenario models withing DESDEO: constructing Problems corresponding to individual scenarios and building aggregate problems consisting of multiple scenarios.
+Currently, there are two ways of using scenario models within DESDEO: constructing Problems corresponding to individual scenarios and building aggregate problems consisting of multiple scenarios.
 
 You can construct individual scenario problems by calling the `get_scenario_problem` function. This is unlikely to be that useful on its own, but can be useful for sanity checks or for constructing more complex methods.
 

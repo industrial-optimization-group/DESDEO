@@ -14,8 +14,9 @@ an archive class, or a class that visualizes intermediate results.
 The `Publisher` class is a class that stores the subscribers and forwards the messages to them. The `Publisher` class
 is not connected to the evolutionary algorithms and only serves as a message router. As mentioned earlier, the
 components do not know about each other, and the `Publisher` class is the only class that knows about all the
-connections in between components. The user of the evolutionary algorithms is responsible for creating the connections.
-However, the implementations of the operators do provide default, so called topics that the operator must subscribe to.
+connections in between components. Each subscriber declares the topics it listens for in `interested_topics` and the
+topics it sends in `provided_topics`, and it registers both with its publisher as soon as it has been constructed.
+The user can still adjust the wiring afterwards with `subscribe` and `unsubscribe`.
 
 The way the pattern works is as follows. Each operator has a `do` method which is called by the evolutionary algorithm
 when the operator is to be executed. This method has some default arguments, depending upon the class of the operator.
@@ -36,14 +37,34 @@ Note that the operators do not know about the other operators. The subscribers d
 This decoupling allows for a more modular design and easier extensibility of the evolutionary algorithms.
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC, ABCMeta, abstractmethod
 from collections.abc import Sequence
 from typing import Literal
 
 from desdeo.tools.message import AllowedMessagesAtVerbosity, Message, MessageTopics
 
 
-class Subscriber(ABC):
+class _SubscriberMeta(ABCMeta):
+    """Metaclass that calls `__post_init__` once a subscriber is fully initialized.
+
+    `type.__call__` is the single place where `__new__` and `__init__` are run, so hooking it
+    fires `__post_init__` exactly once per instantiation, however deep the inheritance chain is,
+    and only after the most derived `__init__` has returned. Derives from `ABCMeta` because
+    `Subscriber` is an abstract base class.
+
+    Note that `__init__` is not run when an instance is unpickled or copied, so `__post_init__`
+    is not either. A subscriber restored in a worker process keeps the subscriptions it was
+    pickled with rather than registering itself a second time.
+    """
+
+    def __call__(cls, *args, **kwargs):
+        """Instantiate `cls` as usual, then run the new instance's `__post_init__`."""
+        instance = super().__call__(*args, **kwargs)
+        instance.__post_init__()
+        return instance
+
+
+class Subscriber(ABC, metaclass=_SubscriberMeta):
     """Base class for both subscriber and message sender.
 
     These are used in the evolutionary algorithms to send messages between the different components. The pattern
@@ -78,6 +99,15 @@ class Subscriber(ABC):
             raise ValueError("Verbosity must be a non-negative integer.")
         self.publisher = publisher
         self.verbosity: int = verbosity
+
+    def __post_init__(self):
+        """Register to the publisher _after_ the subscriber has been initialized.
+
+        Called by `_SubscriberMeta` when the `__init__` chain of the concrete class has returned,
+        so subclasses need not (and should not) call it themselves.
+        """
+        self.publisher.auto_subscribe(self)
+        self.publisher.register_topics(self.provided_topics[self.verbosity], self.__class__.__name__)
 
     def notify(self) -> None:
         """Notify the publisher of changes in the subject.
@@ -129,17 +159,23 @@ class Publisher:
         be used to subscribe to multiple topics by calling it multiple times. Moreover, the user can force the
         subscriber to receive all messages by setting the topic to "ALL".
 
+        Subscribing the same object to the same topic twice is a no-op. Subscribers register themselves when they
+        are constructed, so an explicit call here is usually redundant, and a duplicate entry would mean `update`
+        being called once per message per duplicate.
+
         Args:
             subscriber (Subscriber): the subscriber to notify.
             topic (str): the message topic (key in message dictionary) to subscribe to.
                 If "ALL", the subscriber is notified of all messages.
         """
         if topic == "ALL":
-            self.global_subscribers.append(subscriber)
+            if not any(x is subscriber for x in self.global_subscribers):
+                self.global_subscribers.append(subscriber)
             return
         if topic not in self.subscribers:
             self.subscribers[topic] = []
-        self.subscribers[topic].append(subscriber)
+        if not any(x is subscriber for x in self.subscribers[topic]):
+            self.subscribers[topic].append(subscriber)
 
     def auto_subscribe(self, subscriber: Subscriber) -> None:
         """Store a subscriber for multiple message keys. The subscriber must have the topics attribute.
@@ -188,6 +224,9 @@ class Publisher:
     def register_topics(self, topics: list[MessageTopics], source: str) -> None:
         """Register topics provided to the publisher.
 
+        Registering a source that already provides the topic is a no-op. Subscribers register their own provided
+        topics when they are constructed, so an explicit call here is usually redundant.
+
         Args:
             topics (list[MessageTopics]): the topics to register.
             source (str): the source of the topics.
@@ -195,7 +234,7 @@ class Publisher:
         for topic in topics:
             if topic not in self.registered_topics:
                 self.registered_topics[topic] = [source]
-            else:
+            elif source not in self.registered_topics[topic]:
                 self.registered_topics[topic].append(source)
 
     def check_consistency(self) -> tuple[bool, dict[MessageTopics, list[str]]]:

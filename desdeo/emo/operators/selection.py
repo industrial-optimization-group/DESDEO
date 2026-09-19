@@ -218,7 +218,7 @@ class BaseDecompositionSelector(BaseSelector):
             self.interactive_adapt_2(
                 corrected_sols,
                 predefined_distance=self.reference_vector_options.adaptation_distance,
-                ord=2 if self.reference_vector_options.vector_type == "spherical" else 1,
+                norm_order=2 if self.reference_vector_options.vector_type == "spherical" else 1,
             )
         elif self.reference_vector_options.preferred_ranges:
             corrected_ranges = np.array(
@@ -642,7 +642,7 @@ class RVEASelector(BaseDecompositionSelector):
                 "Adaptation frequency was set to 0. Setting it to 100 for RVEA selector. "
                 "Set it to 0 only if you provide preference information.",
                 UserWarning,
-                stacklevel=2,
+                stacklevel=3,
             )
             reference_vector_options.adaptation_frequency = 100
 
@@ -657,6 +657,13 @@ class RVEASelector(BaseDecompositionSelector):
         self.reference_vectors_gamma: np.ndarray
         self.numerator: float | None = None
         self.denominator: float | None = None
+        # Which adaptation epoch was last acted on under an evaluation budget.
+        self._adaptation_epoch = 0
+        # Whether the ideal so far was taken over infeasible members only, for
+        # want of any feasible one. Such an ideal can be better than any
+        # feasible design can reach, so it is replaced, not minimised into,
+        # the moment a feasible member appears.
+        self._ideal_is_provisional = False
         self.alpha = alpha
         self.selected_individuals: list | pl.DataFrame
         self.selected_targets: pl.DataFrame
@@ -716,12 +723,25 @@ class RVEASelector(BaseDecompositionSelector):
                 parents[1][self.constraints_symbols].vstack(offsprings[1][self.constraints_symbols]).to_numpy()
             )
             feasible = (constraints <= 0).all(axis=1)
-            # Note that
-            if self.ideal is None:
-                # TODO: This breaks if there are no feasible solutions in the initial population
-                self.ideal = np.min(targets[feasible], axis=0)
-            else:
-                self.ideal = np.min(np.vstack((self.ideal, np.min(targets[feasible], axis=0))), axis=0)
+            # The ideal is tracked over feasible members only. A generation may have
+            # none, at the start on a tightly constrained problem or later once the
+            # population has contracted, and a minimum over nothing raises. Keep the
+            # previous ideal in that case, as the nadir below already does. With no
+            # ideal yet, take a provisional one over every member. The ideal of
+            # infeasible members can be far better than any feasible design, and
+            # minimising into it would carry that error through every later
+            # generation, so the provisional ideal is replaced outright by the
+            # first feasible one, and only then minimised into as usual.
+            if feasible.any():
+                feasible_ideal = np.min(targets[feasible], axis=0)
+                if self.ideal is None or self._ideal_is_provisional:
+                    self.ideal = feasible_ideal
+                    self._ideal_is_provisional = False
+                else:
+                    self.ideal = np.min(np.vstack((self.ideal, feasible_ideal)), axis=0)
+            elif self.ideal is None or self._ideal_is_provisional:
+                self.ideal = np.min(targets, axis=0)
+                self._ideal_is_provisional = True
             try:
                 nadir = np.max(targets[feasible], axis=0)
                 self.nadir = nadir
@@ -784,6 +804,18 @@ class RVEASelector(BaseDecompositionSelector):
         elif self.parameter_adaptation_strategy == ParameterAdaptationStrategy.FUNCTION_EVALUATION_BASED:
             if message.topic == TerminatorMessageTopics.EVALUATION:
                 self.numerator = message.value
+                # The adaptation frequency is stated in generations. Under an
+                # evaluation budget one generation is about one population of
+                # evaluations, so adapt each time the count crosses that many
+                # evaluations times the frequency, as the generation-based
+                # branch adapts every frequency generations.
+                frequency = self.reference_vector_options.adaptation_frequency
+                if frequency > 0:
+                    every = frequency * max(int(self.reference_vector_options.number_of_vectors or 1), 1)
+                    epoch = self.numerator // every
+                    if epoch > self._adaptation_epoch:
+                        self._adaptation_epoch = epoch
+                        self._adapt()
             if message.topic == TerminatorMessageTopics.MAX_EVALUATIONS:
                 self.denominator = message.value
         return
@@ -812,7 +844,7 @@ class RVEASelector(BaseDecompositionSelector):
         if isinstance(self.selected_individuals, pl.DataFrame):
             message = PolarsDataFrameMessage(
                 topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
-                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                value=self.selected_individuals.hstack(self.selected_targets),
                 source=self.__class__.__name__,
             )
         else:
@@ -1265,7 +1297,7 @@ class NSGA3Selector(BaseDecompositionSelector):
         if isinstance(self.selected_individuals, pl.DataFrame):
             message = PolarsDataFrameMessage(
                 topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
-                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                value=self.selected_individuals.hstack(self.selected_targets),
                 source=self.__class__.__name__,
             )
         else:
@@ -1463,6 +1495,20 @@ class IBEASelector(BaseSelector):
         span[span == 0] = 1.0
         return self.binary_indicator((targets - target_min) / span)
 
+    def _adaptive_kappa(self, components: np.ndarray) -> float:
+        """Adaptive IBEA's kappa: the configured kappa scaled by the largest indicator magnitude.
+
+        The scaling makes kappa independent of the objectives' range. When the set has collapsed onto a
+        single objective vector every indicator value is zero, and so is the scale: dividing by it
+        raised ZeroDivisionError in the fitness kernels and would turn the vectorised survivor
+        selection into NaN. A set with no spread has nothing to scale, so the configured kappa is used
+        unscaled. Every exp(-0 / kappa) is then 1 and each member's fitness is -(n - 1), a tie, which is
+        the honest reading of a set the indicator cannot separate. Wherever the scale is positive the
+        value is exactly what it was before.
+        """
+        scale = float(np.abs(components).max())
+        return self.kappa * scale if scale > 0 else self.kappa
+
     def _infeasible_fitness(self, targets: np.ndarray, violations: np.ndarray) -> np.ndarray:
         """Fitness for a set that is partly or wholly infeasible, feasible solutions first.
 
@@ -1472,7 +1518,7 @@ class IBEASelector(BaseSelector):
         higher-is-better, which is what the mating tournament expects.
         """
         components = self._indicator_components(targets)
-        fitness = _ibea_fitness(components, kappa=self.kappa * np.abs(components).max())
+        fitness = _ibea_fitness(components, kappa=self._adaptive_kappa(components))
 
         infeasible = violations > 0
         if not np.any(infeasible):
@@ -1528,17 +1574,16 @@ class IBEASelector(BaseSelector):
 
         # Adaptation
         fitness_components = self._indicator_components(alltargets[self.target_symbols].to_numpy())
-        kappa_mult = np.max(np.abs(fitness_components))
 
         chosen = _ibea_select_all(
-            fitness_components, population_size=self.population_size, kappa=kappa_mult * self.kappa
+            fitness_components, population_size=self.population_size, kappa=self._adaptive_kappa(fitness_components)
         )
         self.selected_individuals = solutions.filter(chosen)
         self.selected_targets = alltargets.filter(chosen)
         self.selection = chosen
 
         fitness_components = fitness_components[chosen][:, chosen]
-        self.fitness = _ibea_fitness(fitness_components, kappa=self.kappa * np.abs(fitness_components).max())
+        self.fitness = _ibea_fitness(fitness_components, kappa=self._adaptive_kappa(fitness_components))
 
         self.notify()
         return self.selected_individuals, self.selected_targets
@@ -1562,7 +1607,7 @@ class IBEASelector(BaseSelector):
         if isinstance(self.selected_individuals, pl.DataFrame):
             message = PolarsDataFrameMessage(
                 topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
-                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                value=self.selected_individuals.hstack(self.selected_targets),
                 source=self.__class__.__name__,
             )
         else:
@@ -1932,7 +1977,7 @@ class NSGA2Selector(BaseSelector):
         if isinstance(self.selected_individuals, pl.DataFrame):
             message = PolarsDataFrameMessage(
                 topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
-                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                value=self.selected_individuals.hstack(self.selected_targets),
                 source=self.__class__.__name__,
             )
         else:
@@ -2132,7 +2177,7 @@ class SMSEMOASelector(BaseSelector):
         if isinstance(self.selected_individuals, pl.DataFrame):
             message = PolarsDataFrameMessage(
                 topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
-                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                value=self.selected_individuals.hstack(self.selected_targets),
                 source=self.__class__.__name__,
             )
         else:

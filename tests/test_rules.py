@@ -26,7 +26,7 @@ from desdeo.explanations import (
     parse_rules_to_variable_bounds,
 )
 from desdeo.problem.testproblems import dtlz2
-from desdeo.tools.patterns import Publisher, Subscriber
+from desdeo.tools.patterns import Publisher
 from desdeo.tools.scalarization import add_asf_nondiff
 
 
@@ -433,21 +433,9 @@ def test_format_rule_table_after_xlemoo_run():
     mutation = BoundedPolynomialMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
     selector = ElitistSelection(publisher=publisher, verbosity=2, winner_size=population_size, target_column=asf_symbol)
     terminator = MaxGenerationsTerminator(60, publisher=publisher)
-    archive = Archive(problem=problem, publisher=publisher)
+    # Subscribes itself on construction; this test does not read it back.
+    Archive(problem=problem, publisher=publisher)
     learning_operator = LearningModeOperator(problem=problem, selector=selector, publisher=publisher, seed=0)
-
-    components: list[Subscriber] = [
-        evaluator,
-        generator,
-        crossover,
-        mutation,
-        selector,
-        terminator,
-        archive,
-        learning_operator,
-    ]
-    [publisher.auto_subscribe(c) for c in components]
-    [publisher.register_topics(topics=c.provided_topics[c.verbosity], source=c.__class__.__name__) for c in components]
 
     result = template_xlemoo(
         evaluator=evaluator,

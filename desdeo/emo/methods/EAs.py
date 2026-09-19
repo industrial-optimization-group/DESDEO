@@ -124,10 +124,6 @@ def rvea(
     else:
         terminator = MaxGenerationsTerminator(n_generations, publisher=publisher)
 
-    components = [evaluator, generator, crossover, mutation, selector, terminator]
-    [publisher.auto_subscribe(x) for x in components]
-    [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
-
     return (
         partial(
             template1,
@@ -226,10 +222,6 @@ def nsga3(
             publisher=publisher,
         )
 
-    components = [evaluator, generator, crossover, mutation, selector, terminator]
-    [publisher.auto_subscribe(x) for x in components]
-    [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
-
     return (
         partial(
             template1,
@@ -326,17 +318,6 @@ def ibea(
 
     scalar_selector = TournamentSelection(publisher=publisher, verbosity=0, winner_size=population_size, seed=seed)
 
-    components = [
-        evaluator,
-        generator,
-        crossover,
-        mutation,
-        selector,
-        terminator,
-        scalar_selector,
-    ]
-    [publisher.auto_subscribe(x) for x in components]
-    [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
     return (
         partial(
             template2,
@@ -436,10 +417,6 @@ def nsga3_mixed_integer(
             publisher=publisher,
         )
 
-    components = [evaluator, generator, crossover, mutation, selector, terminator]
-    [publisher.auto_subscribe(x) for x in components]
-    [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
-
     return (
         partial(
             template1,
@@ -535,10 +512,6 @@ def rvea_mixed_integer(
         terminator = MaxEvaluationsTerminator(max_evaluations, publisher=publisher)
     else:
         terminator = MaxGenerationsTerminator(n_generations, publisher=publisher)
-
-    components = [evaluator, generator, crossover, mutation, selector, terminator]
-    [publisher.auto_subscribe(x) for x in components]
-    [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components]
 
     return (
         partial(

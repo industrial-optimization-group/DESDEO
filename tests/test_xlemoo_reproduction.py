@@ -42,16 +42,11 @@ def _attach_full_archive(extras) -> Archive:
 
     The learning operator no longer holds its own unbounded archive (only H/L groups),
     so tests asking convergence questions about the whole run need to hook one in
-    themselves. We attach it post-`emo_constructor`; the publisher dispatches messages
-    to whoever's subscribed at notify-time, regardless of when they joined.
+    themselves. Constructing it subscribes it, and doing so post-`emo_constructor` is
+    fine: the publisher dispatches messages to whoever is subscribed at notify-time,
+    regardless of when they joined.
     """
-    archive = Archive(problem=extras.problem, publisher=extras.publisher)
-    extras.publisher.auto_subscribe(archive)
-    extras.publisher.register_topics(
-        topics=archive.provided_topics[archive.verbosity],
-        source=archive.__class__.__name__,
-    )
-    return archive
+    return Archive(problem=extras.problem, publisher=extras.publisher)
 
 
 @pytest.mark.slow

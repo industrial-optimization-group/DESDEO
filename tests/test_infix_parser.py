@@ -126,7 +126,7 @@ def test_basic_unary_to_json():
 
         # More complex expression
         complex_input = f"{op}(2 * x_20 / (3 + y))"
-        complex_output = [op, ["Multiply", 2, ["Divide", "x_20", ["Add", 3, "y"]]]]
+        complex_output = [op, ["Divide", ["Multiply", 2, "x_20"], ["Add", 3, "y"]]]
         assert parser.parse(complex_input) == complex_output
 
 
@@ -239,7 +239,8 @@ def test_infix_binh_and_korn_to_json():
     assert parsed_cons_1 == [
         "Add",
         ["Power", ["Add", "x_1", ["Negate", "c_2"]], 2],
-        ["Add", ["Power", "x_2", 2], ["Negate", 25]],
+        ["Power", "x_2", 2],
+        ["Negate", 25],
     ]
 
     parsed_cons_2 = parser.parse(infix_cons_2)
@@ -484,7 +485,7 @@ def test_bracket_access():
         ),
         (
             "data_E[1] + feature_F[2] - target_G[3]",
-            ["Add", ["At", "data_E", 1], ["Add", ["At", "feature_F", 2], ["Negate", ["At", "target_G", 3]]]],
+            ["Add", ["At", "data_E", 1], ["At", "feature_F", 2], ["Negate", ["At", "target_G", 3]]],
         ),
         (
             "high_dim_tensor_H[1,2,3] ** low_dim_tensor_I[4,5]",
@@ -739,3 +740,52 @@ def test_min_with_variable_names_with_multiple_underscores():
     res = parser.parse(expression)
 
     assert isinstance(res, list)
+
+
+@pytest.mark.infix_parser
+def test_mixed_multiplication_and_division_chains_to_json():
+    """Test that a chain mixing division and multiplication is grouped from the left.
+
+    A division followed by a multiplication must not swallow the rest of the chain:
+    '4 / 2 * 3' is (4 / 2) * 3, not 4 / (2 * 3). The same holds for a chain
+    mixing addition and subtraction.
+    """
+    parser = InfixExpressionParser()
+
+    assert parser.parse("4 / 2 * 3") == ["Multiply", ["Divide", 4, 2], 3]
+    assert parser.parse("a / b * c") == ["Multiply", ["Divide", "a", "b"], "c"]
+    assert parser.parse("a * b / c * d") == ["Multiply", ["Divide", ["Multiply", "a", "b"], "c"], "d"]
+    assert parser.parse("a / b / c * d") == ["Multiply", ["Divide", "a", "b", "c"], "d"]
+    assert parser.parse("a + b - c") == ["Add", "a", "b", ["Negate", "c"]]
+    assert parser.parse("a - b + c") == ["Add", "a", ["Negate", "b"], "c"]
+
+    # Chains of one operator, and parenthesised chains, keep their form.
+    assert parser.parse("a / b / c") == ["Divide", "a", "b", "c"]
+    assert parser.parse("(a / b) * c") == ["Multiply", ["Divide", "a", "b"], "c"]
+    assert parser.parse("a / (b * c)") == ["Divide", "a", ["Multiply", "b", "c"]]
+
+
+@pytest.mark.infix_parser
+def test_mixed_chains_evaluate_left_to_right():
+    """Test that mixed chains of division and multiplication evaluate as in ordinary arithmetic."""
+    data = pl.DataFrame({"a": [7.5], "b": [2.0], "c": [3.0], "d": [0.4]})
+    a, b, c, d = (data[name][0] for name in ("a", "b", "c", "d"))
+
+    tests = [
+        ("4 / 2 * 3", 4 / 2 * 3),
+        ("a / b * c", a / b * c),
+        ("a / b * c * d", a / b * c * d),
+        ("a * b / c * d", a * b / c * d),
+        ("a / b / c * d", a / b / c * d),
+        ("a - b + c - d", a - b + c - d),
+        ("a / b * c + d / b * a", a / b * c + d / b * a),
+        # The polar moment of the welded beam's weld group, as written in DESDEO's test problems.
+        (
+            "2 * ((2**(1/2))/2 * a * b * (b**2 / 12 + ((a + c) / 2) ** 2))",
+            2 * ((2 ** (1 / 2)) / 2 * a * b * (b**2 / 12 + ((a + c) / 2) ** 2)),
+        ),
+    ]
+
+    for infix_expression, expected in tests:
+        result = evaluate_expression_helper(infix_expression, data)
+        npt.assert_almost_equal(result, expected, decimal=8, err_msg=f"Failed for expression: {infix_expression}")

@@ -12,7 +12,7 @@ from desdeo.emo.operators.mutation import BoundedPolynomialMutation
 from desdeo.emo.operators.scalar_selection import ElitistSelection
 from desdeo.emo.operators.termination import MaxGenerationsTerminator
 from desdeo.problem.testproblems import dtlz2
-from desdeo.tools.patterns import Publisher, Subscriber
+from desdeo.tools.patterns import Publisher
 from desdeo.tools.scalarization import add_asf_nondiff
 
 
@@ -65,27 +65,13 @@ def _build_operator(components: dict) -> LearningModeOperator:
 
 
 def _run_darwinian(components: dict, operator: LearningModeOperator, generations: int) -> None:
-    """Wire publisher subscriptions, then run ``generations`` Darwinian iterations of an ElitistSelection EA.
+    """Run ``generations`` Darwinian iterations of an ElitistSelection EA.
 
-    The ``operator`` is subscribed before the loop runs so it receives the same VERBOSE_OUTPUTS messages
-    that an archive would, populating its H- and L-groups as the population evolves.
+    The ``operator`` is not used here, but it must already exist when the loop starts: constructing it
+    subscribes it, and only then does it receive the same VERBOSE_OUTPUTS messages an archive would,
+    populating its H- and L-groups as the population evolves.
     """
     terminator = MaxGenerationsTerminator(generations, publisher=components["publisher"])
-    subs: list[Subscriber] = [
-        components["evaluator"],
-        components["generator"],
-        components["crossover"],
-        components["mutation"],
-        components["selector"],
-        operator,
-        terminator,
-    ]
-    [components["publisher"].auto_subscribe(s) for s in subs]
-    [
-        components["publisher"].register_topics(topics=s.provided_topics[s.verbosity], source=s.__class__.__name__)
-        for s in subs
-    ]
-
     evaluator = components["evaluator"]
     generator = components["generator"]
     crossover = components["crossover"]
@@ -146,13 +132,8 @@ def test_learning_mode_stores_ml_model():
 def test_learning_mode_returns_none_before_any_update():
     """Before any VERBOSE_OUTPUTS has been observed, the operator returns ``None`` instead of crashing."""
     components = _build_components()
+    # The operator subscribes itself on construction, but nothing is ever published to it.
     operator = _build_operator(components)
-    # Subscribe but never publish anything to the operator.
-    components["publisher"].auto_subscribe(operator)
-    components["publisher"].register_topics(
-        topics=operator.provided_topics[operator.verbosity],
-        source=operator.__class__.__name__,
-    )
 
     assert operator.do() is None
 

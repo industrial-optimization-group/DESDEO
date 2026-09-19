@@ -990,9 +990,9 @@ def test_mcwb_tapered_channel_problem():
     f1 = res["f_1"][0]
     f2 = res["f_2"][0]
 
-    # these are the values we are getting now, are they even correct?
+    # According to Kenny, Ray and Singh (EMO 2025)
     assert np.isclose(f1, 27573.75)
-    assert np.isnan(f2)
+    assert np.isclose(f2, 1.2e-6, rtol=1e-9)
 
 
 @pytest.mark.testproblem
@@ -1006,9 +1006,10 @@ def test_mcwb_ragsdell1976_problem():
     f1 = res["f_1"][0]
     f2 = res["f_2"][0]
 
-    # these are the values we are getting now, are they even correct?
-    assert np.isclose(f1, 0.02511625)
-    assert np.isclose(f2, 1.2e-06, rtol=1e-3, atol=1e-9)
+    # The values of the reference implementation of Kenny, Ray and Singh (EMO 2025)
+    # at this point, with Ragsdell's original imperial constants.
+    assert np.isclose(f1, 0.3124875)
+    assert np.isclose(f2, 35.1232, rtol=1e-9)
 
 
 @pytest.mark.testproblem

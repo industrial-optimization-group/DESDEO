@@ -17,7 +17,7 @@ Once you have your project set up, you can start adding resources to your projec
 
 To add a new resource i.e. piece of your web application, navigate to the `+Add` page. There, you want to choose `Import from Git` option.
 
-First, you will need to input a Github adress to the repository that contains your DESDEO webapi code, for example `https://github.com/industrial-optimization-group/DESDEO`. You are unlikely to be using the main branch of the Git for your deployment, so click `Show advanced Git options` and add the name of your desired branch under `Git reference`. You probably don't need to touch any of the other advanced options.
+First, you will need to input a Github address to the repository that contains your DESDEO webapi code, for example `https://github.com/industrial-optimization-group/DESDEO`. You are unlikely to be using the main branch of the Git for your deployment, so click `Show advanced Git options` and add the name of your desired branch under `Git reference`. You probably don't need to touch any of the other advanced options.
 
 At this point, the system should have automatically figured out that you want to host a Python application and chosen you an appropriate `Builder Image version`. But if not, you can set it up manually.
 !!! Note
