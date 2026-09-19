@@ -11,8 +11,10 @@ JINA (interactive multi-scenario) turns it into non-anticipativity constraints: 
 the scenario's hourly decisions must equal the baseline's. JINA (interactive two-stage robustness)
 does not read it.
 
-The compound-disruption stress test, the precomputed regret pool and the single-scenario candidate
-pool are not attached: they were built for the original scenario timing.
+JINA single-scenario's candidate pool (summary.csv and pairwise_transfer_matrix_long.csv under
+`DH_DATA_DIR`) is attached too, so all three JINA methods work against this problem; the pool must be
+the one generated for this scenario timing. The compound-disruption stress test and the precomputed
+regret pool are not attached: they were built for the original timing.
 
 Run from `desdeo/api` (so `sqlite:///./test.db` is the server's database), with `DH_DATA_DIR` set:
     python -m desdeo.api.db_init_district_heating_warning
@@ -34,6 +36,7 @@ from desdeo.api.db_init_district_heating import (
     STRATEGIC_VAR_UNITS,
     _assert_round_trip,
     _refresh_cell_ranges,
+    add_pool_metadata,
 )
 from desdeo.api.models import ProblemDB, User, UserRole
 from desdeo.api.models.problem import JinaMultiScenarioMetaData, ProblemMetaDataDB
@@ -145,6 +148,11 @@ def main() -> None:
         session.add(metadata_db)
         session.commit()
         session.refresh(metadata_db)
+
+        # JINA single-scenario looks designs up in a pre-computed candidate pool (summary.csv +
+        # pairwise_transfer_matrix_long.csv under DH_DATA_DIR) instead of solving; the other two
+        # methods solve live from the problem and scenario model persisted above and ignore it.
+        add_pool_metadata(session, problem_db, metadata_db)
 
         jina_metadata = JinaMultiScenarioMetaData(
             metadata_id=metadata_db.id,
