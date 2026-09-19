@@ -18,6 +18,8 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
+import pandas as pd
+
 from desdeo.api.routers.district_heating_robust_data import GUROBI_OPTIONS, JinaScenarioContext, JinaScenarioError
 from desdeo.problem.schema import Problem
 from desdeo.tools import GurobipySolver
@@ -26,8 +28,11 @@ from desdeo.tools.design_fixing import asf_at_reference_point, asf_weights_from_
 
 @dataclass
 class CompoundScenarioSet:
-    """N named deterministic problems (strategic variables NOT yet fixed — that happens per
-    design at solve time) to stress-test candidate designs against.
+    """N named deterministic problems to stress-test candidate designs against.
+
+    The strategic variables are NOT yet fixed — that happens per design at solve time.
+
+    That happens per design at solve time) to stress-test candidate designs against.
     """
 
     names: list[str]
@@ -81,10 +86,11 @@ def run_compound_analysis(
     candidate_ids: list[int],
     reference_point: dict[str, float],
 ) -> list[dict]:
-    """For each candidate design and each combined scenario, fix the design's strategic variables
-    and solve ONE ASF against `reference_point` — so each row is the objective vector of a single
-    achievable recourse decision, and the DM steers the re-evaluation the same way they steered
-    the search that produced the designs.
+    """Re-evaluate every candidate design under every combined scenario, with one ASF solve each.
+
+    For each candidate design and each combined scenario, the design's strategic variables are fixed and ONE ASF is
+    solved against `reference_point` — so each row is the objective vector of a single achievable recourse decision,
+    and the DM steers the re-evaluation the same way they steered the search that produced the designs.
 
     This replaces a payoff-table re-evaluation (one independent solve per objective), which
     returned each pair's ideal point: four values from four different recourse decisions, a row no
@@ -129,12 +135,11 @@ def summarize_compound_results(
     design_registry: dict[int, dict],
     solution_number_map: dict[int, int],
 ) -> list[dict]:
-    """Worst compound-disruption case vs. single-disruption worst case (`robust_vals`), per
-    candidate and objective — a large gap means compound disruptions expose real additional risk
-    that single-disruption robustness testing misses.
-    """
-    import pandas as pd
+    """Worst compound-disruption case vs. single-disruption worst case (`robust_vals`), per candidate and objective.
 
+    A large gap means compound disruptions expose real additional risk that single-disruption robustness testing
+    misses.
+    """
     df = pd.DataFrame(rows)
     summary_rows = []
     for design_id in candidate_ids:
@@ -164,7 +169,9 @@ def compute_superadditivity(
     reference_rows: list[dict],
     pair_components: dict[str, tuple[str, str]],
 ) -> None:
-    """Mutates `combo_rows` in place, adding `{obj}_superadd` to every (design, combo) row whose
+    """Add each (design, combo) row's super-additivity, in place.
+
+    Mutates `combo_rows` in place, adding `{obj}_superadd` to every (design, combo) row whose
     baseline/A-alone/B-alone reference values are all feasible:
 
         super_add = combined - (baseline + (A_alone - baseline) + (B_alone - baseline))
@@ -175,9 +182,7 @@ def compute_superadditivity(
     sub-additive (the disruptions overlap/saturate). Requires a `reference_rows` entry named
     "baseline" plus one for each name `pair_components` refers to, per design.
     """
-    ref_lookup = {
-        (r["design_id"], r["combined_scenario"]): r for r in reference_rows if r.get("status") == "ok"
-    }
+    ref_lookup = {(r["design_id"], r["combined_scenario"]): r for r in reference_rows if r.get("status") == "ok"}
     for row in combo_rows:
         if row.get("status") != "ok":
             continue

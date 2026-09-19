@@ -32,6 +32,8 @@ class DistrictHeatingCombinedCell(SQLModel):
 
 
 class DistrictHeatingCombinedInitializeRequest(SQLModel):
+    """Request to start or resume a JINA multi-scenario session for a problem."""
+
     problem_id: int
     session_id: int | None = Field(default=None)
 
@@ -78,6 +80,8 @@ class DistrictHeatingCombinedInitializeResponse(SQLModel):
 
 
 class DistrictHeatingCombinedIterateRequest(SQLModel):
+    """Request to solve one iteration against the decision maker's reference point."""
+
     problem_id: int
     session_id: int | None = Field(default=None)
     reference_point: dict[str, float] = Field(
@@ -102,6 +106,8 @@ class DistrictHeatingCombinedIterateRequest(SQLModel):
 
 
 class DistrictHeatingCombinedCellResult(SQLModel):
+    """Outcome of one (objective, scenario) cell in an iteration."""
+
     symbol: str
     aspiration: float
     achieved: float
@@ -152,8 +158,10 @@ class DistrictHeatingCombinedSolution(SQLModel):
 
 
 class DistrictHeatingCombinedIterateResponse(SQLModel):
-    """State after one iteration — also what /get-or-initialize returns, so the UI has one shape
-    to render whether it just solved or is resuming an existing session.
+    """State after one iteration.
+
+    Also what /get-or-initialize returns, so the UI has one shape to render whether it just solved or is resuming an
+    existing session.
     """
 
     state_id: int
@@ -215,6 +223,8 @@ class DistrictHeatingCombinedSessionTreeEntry(SQLModel):
 
 
 class DistrictHeatingCombinedSessionTreeResponse(SQLModel):
+    """All iterations of a session, oldest first."""
+
     entries: list[DistrictHeatingCombinedSessionTreeEntry] = Field(sa_column=Column(JSON))
 
 
@@ -227,11 +237,15 @@ class DistrictHeatingCombinedWishlistUpdateRequest(SQLModel):
 
 
 class DistrictHeatingCombinedWishlistResponse(SQLModel):
+    """The wish list after an add or remove."""
+
     state_id: int
     wish_list: list[int] = Field(sa_column=Column(JSON))
 
 
 class DistrictHeatingCombinedAnalysisRequest(SQLModel):
+    """Request to analyse the wish-listed designs."""
+
     problem_id: int
     session_id: int | None = Field(default=None)
     domain_thresholds: dict[str, float] | None = Field(
@@ -252,8 +266,7 @@ class DistrictHeatingCombinedAnalysisResponse(SQLModel):
     domain_criterion: list[dict] = Field(
         sa_column=Column(JSON),
         description=(
-            "Per design: how many scenarios meet each thresholded objective, plus "
-            "mean_domain_criterion across them."
+            "Per design: how many scenarios meet each thresholded objective, plus mean_domain_criterion across them."
         ),
     )
     domain_thresholds: dict[str, float] = Field(sa_column=Column(JSON))

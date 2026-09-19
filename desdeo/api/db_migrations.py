@@ -60,5 +60,5 @@ if __name__ == "__main__":
     from desdeo.api.db import engine as _engine
 
     for name in add_missing_columns(_engine):
-        print(f"[db-migrate] added {name}")
-    print("[db-migrate] Done.")
+        print(f"[db-migrate] added {name}")  # noqa: T201  # command-line entry point
+    print("[db-migrate] Done.")  # noqa: T201

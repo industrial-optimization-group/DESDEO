@@ -149,9 +149,7 @@ class ScenarioModelDB(SQLModel, table=True):
             objectives=[ObjectiveDB.model_validate(o) for o in scenario_model.objectives],
             constraints=[ConstraintDB.model_validate(c) for c in scenario_model.constraints],
             extra_funcs=[ExtraFunctionDB.model_validate(e) for e in scenario_model.extra_funcs],
-            scalarization_funcs=[
-                ScalarizationFunctionDB.model_validate(s) for s in scenario_model.scalarization_funcs
-            ],
+            scalarization_funcs=[ScalarizationFunctionDB.model_validate(s) for s in scenario_model.scalarization_funcs],
         )
 
     def to_scenario_model(self, base_problem: Problem) -> ScenarioModel:
@@ -184,8 +182,7 @@ class ScenarioModelDB(SQLModel, table=True):
             constraints=[Constraint.model_validate(c.model_dump(exclude=_EXCLUDE)) for c in self.constraints],
             extra_funcs=[ExtraFunction.model_validate(e.model_dump(exclude=_EXCLUDE)) for e in self.extra_funcs],
             scalarization_funcs=[
-                ScalarizationFunction.model_validate(s.model_dump(exclude=_EXCLUDE))
-                for s in self.scalarization_funcs
+                ScalarizationFunction.model_validate(s.model_dump(exclude=_EXCLUDE)) for s in self.scalarization_funcs
             ],
             scenarios={name: Scenario.model_validate(s) for name, s in self.scenarios.items()},
             anticipation_stop=self.anticipation_stop,

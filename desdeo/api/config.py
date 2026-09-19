@@ -1,10 +1,9 @@
 """Defines dataclasses to store configurations loaded from 'config.toml'."""
 
-import tomllib
-import os
 import json
+import os
+import tomllib
 from pathlib import Path
-from typing import List
 
 from pydantic_settings import BaseSettings
 
@@ -41,7 +40,7 @@ class AuthDebugConfig(BaseSettings):
     authjwt_algorithm: str = config_data["auth-debug"]["authjwt_algorithm"]
     authjwt_access_token_expires: int = config_data["auth-debug"]["authjwt_access_token_expires"]
     authjwt_refresh_token_expires: int = config_data["auth-debug"]["authjwt_refresh_token_expires"]
-    cors_origins: List[str] = config_data["auth-debug"]["cors_origins"]
+    cors_origins: list[str] = config_data["auth-debug"]["cors_origins"]
     cookie_domain: str = config_data["auth-debug"]["cookie_domain"]
 
 
@@ -79,7 +78,7 @@ class AuthDeployConfig(BaseSettings):
     authjwt_algorithm: str = config_data["auth-deploy"]["authjwt_algorithm"]
     authjwt_access_token_expires: int = config_data["auth-deploy"]["authjwt_access_token_expires"]
     authjwt_refresh_token_expires: int = config_data["auth-deploy"]["authjwt_refresh_token_expires"]
-    cors_origins: List[str] = json.loads(os.getenv("CORS_ORIGINS", "[]"))
+    cors_origins: list[str] = json.loads(os.getenv("CORS_ORIGINS", "[]"))
     cookie_domain: str = os.getenv("COOKIE_DOMAIN", "")
 
 

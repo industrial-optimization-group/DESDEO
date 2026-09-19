@@ -82,16 +82,18 @@ def _get_pool_or_503(ctx: JinaPoolContext) -> CandidatePool:
 
 def _build_meta(ctx: JinaPoolContext, pool: CandidatePool, problem_name: str) -> JinaProblemMeta:
     objectives = [
-        JinaObjectiveMeta(symbol=sym, name=m.name, unit=m.unit, label=m.label, maximize=m.maximize, varies_by_scenario=True)
+        JinaObjectiveMeta(
+            symbol=sym, name=m.name, unit=m.unit, label=m.label, maximize=m.maximize, varies_by_scenario=True
+        )
         for sym, m in ctx.obj_meta.items()
     ]
     strategic_vars = [
-        JinaStrategicVarMeta(symbol=sym, name=m.name, label=m.label, component=m.component, unit=m.unit, axis_max=m.axis_max)
+        JinaStrategicVarMeta(
+            symbol=sym, name=m.name, label=m.label, component=m.component, unit=m.unit, axis_max=m.axis_max
+        )
         for sym, m in ctx.strategic_meta.items()
     ]
-    scalarizers = [
-        JinaScalarizerMeta(name=s.name, emphasize=s.emphasize, label=s.label) for s in ctx.scalarizer_defs
-    ]
+    scalarizers = [JinaScalarizerMeta(name=s.name, emphasize=s.emphasize, label=s.label) for s in ctx.scalarizer_defs]
 
     return JinaProblemMeta(
         problem_id=ctx.problem_id,
@@ -226,8 +228,12 @@ def get_or_initialize(
     ctx = _get_context_or_503(problem_db.id)
     pool = _get_pool_or_503(ctx)
 
-    latest_iteration_db = _latest_state_db(db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_ITERATE)
-    latest_wishlist_db = _latest_state_db(db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_WISHLIST)
+    latest_iteration_db = _latest_state_db(
+        db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_ITERATE
+    )
+    latest_wishlist_db = _latest_state_db(
+        db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_WISHLIST
+    )
     wish_list = list(latest_wishlist_db.state.wish_list) if latest_wishlist_db else []
 
     if latest_iteration_db is None:
@@ -291,7 +297,9 @@ def _wishlist_update(
     wish_list = list(latest_wishlist_db.state.wish_list) if latest_wishlist_db else []
 
     if add:
-        latest_iteration_db = _latest_state_db(db_session, problem_db.id, session_id, StateKind.DISTRICT_HEATING_ITERATE)
+        latest_iteration_db = _latest_state_db(
+            db_session, problem_db.id, session_id, StateKind.DISTRICT_HEATING_ITERATE
+        )
         all_seen_ids = set(latest_iteration_db.state.already_shown_ids) if latest_iteration_db else set()
 
         skipped = [d for d in request.design_ids if d not in all_seen_ids]
@@ -365,14 +373,15 @@ def session_tree(
 @router.get("/strategic-designs")
 def strategic_designs(
     problem_id: int,
-    user: Annotated[User, Depends(get_current_user)],  # noqa: ARG001 - auth-only, no per-user filtering
+    user: Annotated[User, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_session)],
 ) -> DistrictHeatingStrategicDesignsResponse:
-    """Every design in the candidate pool — capacities, originating scenario, and full
-    performance breakdown, for the DM to browse. Ports `Vis_strategic_decisions.ipynb`.
-    Stateless read of the whole pool — unlike the sibling multi-scenario method, this isn't
-    scoped to a session, since the pool itself isn't session-scoped either (it's precomputed
-    once, not discovered incrementally).
+    """Every design in the candidate pool.
+
+    Capacities, originating scenario, and full performance breakdown, for the DM to browse. Ports
+    `Vis_strategic_decisions.ipynb`. Stateless read of the whole pool — unlike the sibling multi-scenario method,
+    this isn't scoped to a session, since the pool itself isn't session-scoped either (it's precomputed once, not
+    discovered incrementally).
     """
     problem_db = _get_problem_or_404(user, problem_id, db_session)
     ctx = _get_context_or_503(problem_db.id)
@@ -401,7 +410,9 @@ def analysis(
 
     ctx = _get_context_or_503(problem_db.id)
     pool = _get_pool_or_503(ctx)
-    latest_wishlist_db = _latest_state_db(db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_WISHLIST)
+    latest_wishlist_db = _latest_state_db(
+        db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_WISHLIST
+    )
     wish_list = list(latest_wishlist_db.state.wish_list) if latest_wishlist_db else []
 
     result = compute_wish_list_analysis(

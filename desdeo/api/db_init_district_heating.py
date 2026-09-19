@@ -24,7 +24,10 @@ from desdeo.api.db import engine
 from desdeo.api.models import ProblemDB, User, UserRole
 from desdeo.api.models.generic_states import StateDB, StateKind
 from desdeo.api.models.problem import JinaMultiScenarioMetaData, JinaPoolMetaData, ProblemMetaDataDB
+from desdeo.api.models.problem import JinaMultiScenarioMetaData as _Meta
 from desdeo.api.models.scenario import ScenarioModelDB
+from desdeo.api.routers.district_heating_combined_data import store_cell_ranges
+from desdeo.api.routers.district_heating_compound import _dm_dir, _load_dm_module
 from desdeo.api.routers.district_heating_robust_data import invalidate_context
 from desdeo.api.routers.district_heating_system_data import DistrictHeatingDataError, invalidate_pool_context
 from desdeo.problem.schema import Problem
@@ -72,12 +75,11 @@ POOL_LAMBDA_OBJECTIVE = "obj1"  # matches the notebook's "AF_λ = U - λ·D on O
 
 
 def _build_problem_and_scenario_model():
-    """Build the district heating Problem (objectives relabelled with real names/units) and its
-    ScenarioModel, using the DM's own modules — same code the request-time path used to run on
+    """Build the district heating Problem and its ScenarioModel from the DM's own modules.
+
+    Objectives are relabelled with real names and units. This is the same code the request-time path used to run on
     every first request, now run once here instead.
     """
-    from desdeo.api.routers.district_heating_compound import _dm_dir, _load_dm_module
-
     dm_dir = _dm_dir()
     dh_problem_vectorized = _load_dm_module("dh_problem_vectorized", dm_dir)
     base_data1 = _load_dm_module("base_data1", dm_dir)
@@ -115,26 +117,27 @@ def _build_problem_and_scenario_model():
 
 
 def _assert_round_trip(problem: Problem, scenario_model, problem_db: ProblemDB, sm_db: ScenarioModelDB) -> None:
-    """Re-read what was just persisted and check it matches the in-memory originals. Aborts
-    loudly on mismatch — this is the regression gate for the persistence layer, not just a
-    nice-to-have.
+    """Re-read what was just persisted and check it matches the in-memory originals.
+
+    Aborts loudly on mismatch — this is the regression gate for the persistence layer, not just a nice-to-have.
     """
     reloaded_problem = Problem.from_problemdb(problem_db)
     reloaded_sm = sm_db.to_scenario_model(reloaded_problem)
 
     orig_obj_symbols = [o.symbol for o in problem.objectives]
     reloaded_obj_symbols = [o.symbol for o in reloaded_problem.objectives]
-    assert orig_obj_symbols == reloaded_obj_symbols, (
-        f"Objective symbol order mismatch: {orig_obj_symbols} != {reloaded_obj_symbols}"
-    )
+    if not (orig_obj_symbols == reloaded_obj_symbols):
+        raise RuntimeError(f"Objective symbol order mismatch: {orig_obj_symbols} != {reloaded_obj_symbols}")
 
-    assert reloaded_sm.anticipation_stop == scenario_model.anticipation_stop, (
-        f"anticipation_stop mismatch: {scenario_model.anticipation_stop} != {reloaded_sm.anticipation_stop}"
-    )
+    if not (reloaded_sm.anticipation_stop == scenario_model.anticipation_stop):
+        raise RuntimeError(
+            f"anticipation_stop mismatch: {scenario_model.anticipation_stop} != {reloaded_sm.anticipation_stop}"
+        )
 
     orig_leaves = sorted(scenario_model.leaf_scenarios)
     reloaded_leaves = sorted(reloaded_sm.leaf_scenarios)
-    assert orig_leaves == reloaded_leaves, f"leaf_scenarios mismatch: {orig_leaves} != {reloaded_leaves}"
+    if not (orig_leaves == reloaded_leaves):
+        raise RuntimeError(f"leaf_scenarios mismatch: {orig_leaves} != {reloaded_leaves}")
 
     def _const_value(c):
         # Constant has `.value` (scalar); TensorConstant has `.values` (nested list).
@@ -145,22 +148,23 @@ def _assert_round_trip(problem: Problem, scenario_model, problem_db: ProblemDB, 
         reloaded_p = reloaded_sm.get_scenario_problem(leaf)
         orig_consts = {c.symbol: _const_value(c) for c in orig_p.constants}
         reloaded_consts = {c.symbol: _const_value(c) for c in reloaded_p.constants}
-        assert orig_consts.keys() == reloaded_consts.keys(), (
-            f"Scenario {leaf!r} constant symbol set mismatch: "
-            f"{set(orig_consts) ^ set(reloaded_consts)} differ"
-        )
+        if not (orig_consts.keys() == reloaded_consts.keys()):
+            raise RuntimeError(
+                f"Scenario {leaf!r} constant symbol set mismatch: {set(orig_consts) ^ set(reloaded_consts)} differ"
+            )
         for sym, val in orig_consts.items():
             reloaded_val = reloaded_consts[sym]
             same = (val == reloaded_val) if not hasattr(val, "__len__") else list(val) == list(reloaded_val)
-            assert same, f"Scenario {leaf!r} constant {sym!r} mismatch: {val!r} != {reloaded_val!r}"
+            if not (same):
+                raise RuntimeError(f"Scenario {leaf!r} constant {sym!r} mismatch: {val!r} != {reloaded_val!r}")
 
     print("Round-trip assertion passed: persisted problem + scenario model match the originals.")
 
 
 def add_pool_metadata(session: Session, problem_db: ProblemDB, metadata_db: ProblemMetaDataDB) -> JinaPoolMetaData:
-    """Attach the `JinaPoolMetaData` row a district heating `ProblemDB` needs for JINA
-    single-scenario, if it doesn't already have one. Idempotent — safe to call against an
-    already-migrated problem.
+    """Attach the `JinaPoolMetaData` row JINA single-scenario needs, unless the problem already has one.
+
+    Idempotent — safe to call against an already-migrated problem.
     """
     existing = metadata_db.jina_pool_metadata or []
     if existing:
@@ -192,9 +196,13 @@ def add_pool_metadata(session: Session, problem_db: ProblemDB, metadata_db: Prob
 
 
 def _backfill_sessions(session: Session, problem_id: int) -> int:
-    """Any existing JINA StateDB row (either method) has problem_id=None (the old request-time
-    code never set it) — point it at the newly-persisted problem so session history doesn't go
-    blank once lookups filter by problem_id.
+    """Point existing JINA StateDB rows that have no problem_id at the newly persisted problem.
+
+    Any existing JINA StateDB row (either method) has problem_id=None, because the old request-time code never set
+    it. Pointing it at the persisted problem keeps session history from going blank once lookups filter by
+    problem_id.
+
+    Point it at the newly-persisted problem so session history doesn't go blank once lookups filter by problem_id.
     """
     kinds = (
         StateKind.DISTRICT_HEATING_ROBUST_ITERATE,
@@ -215,6 +223,7 @@ def _backfill_sessions(session: Session, problem_id: int) -> int:
 
 
 def main() -> None:
+    """Register the district heating problem, its scenario model and JINA metadata in the server database."""
     if not DistrictHeatingDataConfig.data_dir:
         raise DistrictHeatingDataError(
             "DH_DATA_DIR is not set — required to build the district heating problem's data."
@@ -277,10 +286,10 @@ def main() -> None:
         _assert_round_trip(problem, scenario_model, reloaded_problem_db, reloaded_sm_db)
 
         reloaded_pool_meta = (reloaded_problem_db.problem_metadata.jina_pool_metadata or [])[0]
-        assert reloaded_pool_meta.data_dir == DistrictHeatingDataConfig.data_dir, "JinaPoolMetaData data_dir mismatch"
-        assert reloaded_pool_meta.strategic_var_symbols == list(STRATEGIC_VAR_LABELS.keys()), (
-            "JinaPoolMetaData strategic_var_symbols mismatch"
-        )
+        if not (reloaded_pool_meta.data_dir == DistrictHeatingDataConfig.data_dir):
+            raise RuntimeError("JinaPoolMetaData data_dir mismatch")
+        if not (reloaded_pool_meta.strategic_var_symbols == list(STRATEGIC_VAR_LABELS.keys())):
+            raise RuntimeError("JinaPoolMetaData strategic_var_symbols mismatch")
         print("Round-trip assertion passed: persisted pool metadata matches what was written.")
 
         backfilled = _backfill_sessions(session, problem_id)
@@ -291,8 +300,10 @@ def main() -> None:
 
     _refresh_cell_ranges(problem_id)
 
-    print(f"\nDone. Select problem_id={problem_id} in the UI to use JINA multi-scenario or "
-          "JINA single-scenario with the district heating problem.")
+    print(
+        f"\nDone. Select problem_id={problem_id} in the UI to use JINA multi-scenario or "
+        "JINA single-scenario with the district heating problem."
+    )
 
 
 def _refresh_cell_ranges(problem_id: int) -> None:
@@ -307,12 +318,10 @@ def _refresh_cell_ranges(problem_id: int) -> None:
     request time whenever they are absent or incomplete. A problem that is set up but slow to open
     beats a setup script that refuses to finish.
     """
-    from desdeo.api.routers.district_heating_combined_data import store_cell_ranges
-
     print("\nPrecomputing per-cell attainable ranges (one payoff table per scenario)...")
     try:
         count = store_cell_ranges(problem_id)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         print(f"  WARNING: could not precompute cell ranges ({type(e).__name__}: {e}).")
         print("  The method still works - it will compute them on first load instead.")
         return
@@ -326,15 +335,9 @@ def refresh_cell_ranges_only() -> None:
     it. Cheaper than re-running the whole init, and safe to run at any time: the method validates
     what it reads and recomputes anything that does not fit.
     """
-    from sqlmodel import Session
-
-    from desdeo.api.models.problem import JinaMultiScenarioMetaData as _Meta
-
     with Session(engine) as session:
         rows = session.exec(select(_Meta)).all()
-        problem_ids = sorted(
-            {row.metadata_instance.problem_id for row in rows if row.metadata_instance is not None}
-        )
+        problem_ids = sorted({row.metadata_instance.problem_id for row in rows if row.metadata_instance is not None})
 
     if not problem_ids:
         print("No problems have JINA multi-scenario metadata; nothing to refresh.")

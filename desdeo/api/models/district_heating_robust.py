@@ -47,8 +47,9 @@ class JinaScalarizerMeta(SQLModel):
 
 
 class JinaProblemMeta(SQLModel):
-    """Everything the frontend needs to render generically against the loaded problem — one
-    fetch (bundled into `DistrictHeatingRobustIterateResponse`), not per-endpoint duplication.
+    """Everything the frontend needs to render generically against the loaded problem.
+
+    One fetch (bundled into `DistrictHeatingRobustIterateResponse`), not per-endpoint duplication.
     """
 
     problem_id: int
@@ -80,7 +81,11 @@ class DistrictHeatingRobustIterateRequest(SQLModel):
     note: str | None = Field(default=None)
     max_solutions: int | None = Field(
         default=None,
-        description="Cap on how many distinct designs to return this round; null means show every scalarizer variant's result. Every scalarizer still solves live regardless — this only trims what's returned/highlighted, not what's solved.",
+        description=(
+            "Cap on how many distinct designs to return this round; null means show every scalarizer variant's "
+            "result. Every scalarizer still solves live regardless — this only trims what's returned/highlighted, "
+            "not what's solved."
+        ),
     )
 
 
@@ -160,8 +165,9 @@ class DistrictHeatingRobustAnalysisResponse(SQLModel):
 
 
 class DistrictHeatingRobustStrategicDesign(SQLModel):
-    """One discovered strategic (first-stage) design — variable values, the scalarizer that
-    discovered it, and its worst-case robust objectives.
+    """One discovered strategic (first-stage) design.
+
+    Variable values, the scalarizer that discovered it, and its worst-case robust objectives.
     """
 
     design_id: int
@@ -174,15 +180,18 @@ class DistrictHeatingRobustStrategicDesign(SQLModel):
 
 
 class DistrictHeatingRobustStrategicDesignsResponse(SQLModel):
-    """Every strategic design discovered this session, for the DM to browse variable values and
-    cross-scenario performance. Stateless read of the already-solved `design_registry` — no new
-    Gurobi solve.
+    """Every strategic design discovered this session, with its variable values and cross-scenario performance.
+
+    A stateless read of the already-solved `design_registry` — no new Gurobi solve.
     """
 
     designs: list[DistrictHeatingRobustStrategicDesign] = Field(sa_column=Column(JSON))
     axis_max: dict[str, float | None] = Field(
         sa_column=Column(JSON),
-        description="Upper bound per strategic variable, or null if unbounded — also this problem's existing capacity per component, where that convention applies.",
+        description=(
+            "Upper bound per strategic variable, or null if unbounded — also this problem's existing capacity per "
+            "component, where that convention applies."
+        ),
     )
 
 
@@ -212,8 +221,9 @@ class DistrictHeatingRobustCombinedScenarioRequest(SQLModel):
 
 
 class DistrictHeatingRobustCombinedScenarioResponse(SQLModel):
-    """Compound-disruption stress test results, built via the problem's configured
-    `compound_scenario_hook` (see `desdeo.api.routers.jina_compound`).
+    """Compound-disruption stress test results.
+
+    Built via the problem's configured `compound_scenario_hook` (see `desdeo.api.routers.jina_compound`).
     """
 
     candidate_ids: list[int] = Field(sa_column=Column(JSON))
@@ -244,7 +254,10 @@ class DistrictHeatingRobustCombinedScenarioResponse(SQLModel):
     pair_components: dict[str, tuple[str, str]] | None = Field(
         default=None,
         sa_column=Column(JSON),
-        description="{combo_name: (reference_name_a, reference_name_b)} — which two reference_rows entries a combo name pairs, for the frontend to resolve a chosen (A, B) pair to its combo name.",
+        description=(
+            "{combo_name: (reference_name_a, reference_name_b)} — which two reference_rows entries a combo name "
+            "pairs, for the frontend to resolve a chosen (A, B) pair to its combo name."
+        ),
     )
 
 

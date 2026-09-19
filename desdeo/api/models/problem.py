@@ -396,18 +396,35 @@ class JinaMultiScenarioMetaData(SQLModel, table=True):
     metadata_type: str = "jina_multiscenario_metadata"
 
     default_domain_thresholds: dict[str, float] | None = Field(
-        sa_column=Column(JSON), default=None, description="{objective_symbol: threshold}, pre-fills the DM-editable domain-criterion inputs."
+        sa_column=Column(JSON),
+        default=None,
+        description="{objective_symbol: threshold}, pre-fills the DM-editable domain-criterion inputs.",
     )
     default_af_absolute_floors: dict[str, float] | None = Field(
-        sa_column=Column(JSON), default=None, description="{objective_symbol: floor}, pre-fills the antifragility-floor inputs."
+        sa_column=Column(JSON),
+        default=None,
+        description="{objective_symbol: floor}, pre-fills the antifragility-floor inputs.",
     )
     design_tolerance: float = Field(
-        default=1.0, description="Absolute dedup tolerance for strategic-design signatures, in each strategic variable's own units."
+        default=1.0,
+        description="Absolute dedup tolerance for strategic-design signatures, in each strategic variable's own units.",
     )
-    emphasis_factor: float = Field(default=3.0, description="Generic-ASF shift factor for the per-objective emphasis scalarizer variants.")
-    baseline_scenario: str | None = Field(default=None, description="Scenario name treated as the undisrupted baseline; falls back to a name-based heuristic, then the first scenario.")
+    emphasis_factor: float = Field(
+        default=3.0, description="Generic-ASF shift factor for the per-objective emphasis scalarizer variants."
+    )
+    baseline_scenario: str | None = Field(
+        default=None,
+        description=(
+            "Scenario name treated as the undisrupted baseline; falls back to a name-based heuristic, then the "
+            "first scenario."
+        ),
+    )
     compound_scenario_hook: str | None = Field(
-        default=None, description="'module.path:function' resolving to a compound-disruption scenario builder; absent means the compound-disruption stress test is unavailable for this problem."
+        default=None,
+        description=(
+            "'module.path:function' resolving to a compound-disruption scenario builder; absent means the "
+            "compound-disruption stress test is unavailable for this problem."
+        ),
     )
     compound_reference_hook: str | None = Field(
         default=None,
@@ -419,11 +436,25 @@ class JinaMultiScenarioMetaData(SQLModel, table=True):
         ),
     )
     regret_pool_source: str | None = Field(
-        default=None, description="Identifier for an optional precomputed pool to blend into regret/antifragility normalization, resolved by the analysis code; absent means session-discovered designs only."
+        default=None,
+        description=(
+            "Identifier for an optional precomputed pool to blend into regret/antifragility normalization, "
+            "resolved by the analysis code; absent means session-discovered designs only."
+        ),
     )
-    strategic_var_labels: dict[str, str] | None = Field(sa_column=Column(JSON), default=None, description="{symbol: display label} override for strategic (first-stage) variables.")
-    strategic_var_components: dict[str, str] | None = Field(sa_column=Column(JSON), default=None, description="{symbol: short component name}, e.g. for compact table columns.")
-    strategic_var_units: dict[str, str] | None = Field(sa_column=Column(JSON), default=None, description="{symbol: unit string}, e.g. 'MW'.")
+    strategic_var_labels: dict[str, str] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description="{symbol: display label} override for strategic (first-stage) variables.",
+    )
+    strategic_var_components: dict[str, str] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description="{symbol: short component name}, e.g. for compact table columns.",
+    )
+    strategic_var_units: dict[str, str] | None = Field(
+        sa_column=Column(JSON), default=None, description="{symbol: unit string}, e.g. 'MW'."
+    )
     combined_cell_ranges: dict[str, list[float]] | None = Field(
         sa_column=Column(JSON),
         default=None,
@@ -467,24 +498,56 @@ class JinaPoolMetaData(SQLModel, table=True):
 
     metadata_type: str = "jina_pool_metadata"
 
-    data_dir: str = Field(description="Folder containing summary.csv and pairwise_transfer_matrix_long.csv for this problem's pre-computed candidate pool.")
+    data_dir: str = Field(
+        description=(
+            "Folder containing summary.csv and pairwise_transfer_matrix_long.csv for this problem's pre-computed "
+            "candidate pool."
+        )
+    )
     strategic_var_symbols: list[str] = Field(
-        sa_column=Column(JSON), description="Which variable symbols are the 'strategic' (first-stage) capacity variables, matching columns in the pool CSVs."
+        sa_column=Column(JSON),
+        description=(
+            "Which variable symbols are the 'strategic' (first-stage) capacity variables, matching columns in the "
+            "pool CSVs."
+        ),
     )
     obj_emphasis_symbols: list[str] | None = Field(
-        sa_column=Column(JSON), default=None, description="Objective symbols that get a dedicated generic-ASF emphasis scalarizer variant; absent means all objectives."
+        sa_column=Column(JSON),
+        default=None,
+        description=(
+            "Objective symbols that get a dedicated generic-ASF emphasis scalarizer variant; absent means all "
+            "objectives."
+        ),
     )
-    strategic_var_labels: dict[str, str] | None = Field(sa_column=Column(JSON), default=None, description="{symbol: display label} override for strategic (first-stage) variables.")
-    strategic_var_components: dict[str, str] | None = Field(sa_column=Column(JSON), default=None, description="{symbol: short component name}, e.g. for compact table columns.")
-    strategic_var_units: dict[str, str] | None = Field(sa_column=Column(JSON), default=None, description="{symbol: unit string}, e.g. 'MW'.")
+    strategic_var_labels: dict[str, str] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description="{symbol: display label} override for strategic (first-stage) variables.",
+    )
+    strategic_var_components: dict[str, str] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description="{symbol: short component name}, e.g. for compact table columns.",
+    )
+    strategic_var_units: dict[str, str] | None = Field(
+        sa_column=Column(JSON), default=None, description="{symbol: unit string}, e.g. 'MW'."
+    )
     default_domain_thresholds: dict[str, float] | None = Field(
-        sa_column=Column(JSON), default=None, description="{objective_symbol: threshold}, pre-fills the DM-editable domain-criterion inputs."
+        sa_column=Column(JSON),
+        default=None,
+        description="{objective_symbol: threshold}, pre-fills the DM-editable domain-criterion inputs.",
     )
     default_af_absolute_floors: dict[str, float] | None = Field(
-        sa_column=Column(JSON), default=None, description="{objective_symbol: floor}, pre-fills the antifragility-floor inputs."
+        sa_column=Column(JSON),
+        default=None,
+        description="{objective_symbol: floor}, pre-fills the antifragility-floor inputs.",
     )
     lambda_objective: str | None = Field(
-        default=None, description="Objective symbol used by the loss-aversion (λ) re-ranking card; absent means the first af_objectives entry, or the card is hidden if none exist."
+        default=None,
+        description=(
+            "Objective symbol used by the loss-aversion (λ) re-ranking card; absent means the first af_objectives "
+            "entry, or the card is hidden if none exist."
+        ),
     )
 
     metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="jina_pool_metadata")

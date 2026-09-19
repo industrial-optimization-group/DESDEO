@@ -43,10 +43,11 @@ def _dm_dir() -> Path:
 
 
 def _load_dm_module(name: str, dm_dir: Path):
-    """Load one of the DM's own modules by explicit file path. These modules import each other
-    by bare name (`from base_data1 import ...`, `from config import ...`), some of them lazily
-    inside function bodies — so `dm_dir` needs to stay on `sys.path` for the lifetime of the
-    process, not just during this load.
+    """Load one of the DM's own modules by explicit file path.
+
+    These modules import each other by bare name (`from base_data1 import ...`, `from config import ...`), some of
+    them lazily inside function bodies — so `dm_dir` needs to stay on `sys.path` for the lifetime of the process,
+    not just during this load.
 
     Critically, `uvicorn --app-dir=./desdeo/api/` (this project's own documented launch command)
     puts `desdeo/api/` on `sys.path`, which makes DESDEO's own `desdeo/api/config.py` importable
@@ -67,7 +68,7 @@ def _load_dm_module(name: str, dm_dir: Path):
 
 
 def _disruption_params(base_data1, config) -> dict:
-    historical_el_buy, historical_el_sell = base_data1.load_electricity_price_spike_csv(config.PRICE_SPIKE_CSV)
+    historical_el_buy, _historical_el_sell = base_data1.load_electricity_price_spike_csv(config.PRICE_SPIKE_CSV)
     historical_demand = base_data1.load_demand_spike_csv(config.DEMAND_SPIKE_CSV)
     return {
         "price_spike": {"elec_price_spike_value": 1.0, "elec_price_spike_duration": len(historical_el_buy)},
@@ -103,9 +104,10 @@ def _load_dm_modules_and_params():
 
 @lru_cache(maxsize=1)
 def _build_pairwise_disruption_scenarios_cached() -> tuple[list[str], dict]:
-    """Build the 21 pairwise combined-disruption deterministic `Problem`s, cached — this step is
-    comparatively fast (no payoff-table solve, just `Problem` construction), unlike the main
-    robust context, so it's fine to keep it separate from that cache.
+    """Build the 21 pairwise combined-disruption deterministic `Problem`s, cached.
+
+    This step is comparatively fast (no payoff-table solve, just `Problem` construction), unlike the main robust
+    context, so it's fine to keep it separate from that cache.
     """
     m = _load_dm_modules_and_params()
     scenario_profiles1, disruption_params = m["scenario_profiles1"], m["disruption_params"]
@@ -136,9 +138,10 @@ def _build_pairwise_disruption_scenarios_cached() -> tuple[list[str], dict]:
 
 
 def build_pairwise_disruption_scenarios(ctx: JinaScenarioContext) -> CompoundScenarioSet:
-    """The `compound_scenario_hook` implementation for the district heating problem. Builds each
-    combined scenario's deterministic `Problem` on `ctx.problem` (the persisted base problem),
-    matching the notebook's own `build_dh_scenario_model(combined_scenarios, base_problem=...)`.
+    """The `compound_scenario_hook` implementation for the district heating problem.
+
+    Builds each combined scenario's deterministic `Problem` on `ctx.problem` (the persisted base problem), matching
+    the notebook's own `build_dh_scenario_model(combined_scenarios, base_problem=...)`.
     """
     combo_names, built = _build_pairwise_disruption_scenarios_cached()
     dh_problem_vectorized = built["dh_problem_vectorized"]
@@ -147,16 +150,19 @@ def build_pairwise_disruption_scenarios(ctx: JinaScenarioContext) -> CompoundSce
     return CompoundScenarioSet(
         names=combo_names,
         problems=combo_problems,
-        description=f"all {len(combo_names)} pairwise combinations of the {len(DISRUPTION_ORDER)} non-baseline disruptions",
+        description=(
+            f"all {len(combo_names)} pairwise combinations of the {len(DISRUPTION_ORDER)} non-baseline disruptions"
+        ),
         pair_components=built["pair_components"],
     )
 
 
 @lru_cache(maxsize=1)
 def _build_reference_scenarios_cached() -> tuple[list[str], dict]:
-    """Build the 8 reference deterministic `Problem`s (baseline + each of the 7 single
-    disruptions alone) — needed to compute super-additivity: how far a combined scenario's
-    outcome runs beyond the sum of its two single-disruption effects.
+    """Build the 8 reference deterministic `Problem`s (baseline + each of the 7 single disruptions alone).
+
+    Needed to compute super-additivity: how far a combined scenario's outcome runs beyond the sum of its two
+    single-disruption effects.
     """
     m = _load_dm_modules_and_params()
     scenario_profiles1, disruption_params = m["scenario_profiles1"], m["disruption_params"]
@@ -188,8 +194,9 @@ def _build_reference_scenarios_cached() -> tuple[list[str], dict]:
 
 
 def build_reference_scenarios(ctx: JinaScenarioContext) -> CompoundScenarioSet:
-    """The `compound_reference_hook` implementation for the district heating problem — baseline +
-    each single disruption alone, for `jina_compound.compute_superadditivity` to subtract against
+    """The `compound_reference_hook` implementation for the district heating problem.
+
+    Baseline + each single disruption alone, for `jina_compound.compute_superadditivity` to subtract against
     `build_pairwise_disruption_scenarios`'s combo results.
     """
     names, built = _build_reference_scenarios_cached()

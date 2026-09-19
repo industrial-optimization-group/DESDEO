@@ -24,8 +24,15 @@ import json
 import logging
 import math
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
+import pandas as pd
+from sqlmodel import Session
+
+from desdeo.api.db import engine
+from desdeo.api.models.problem import ProblemDB
+from desdeo.api.models.scenario import ScenarioModelDB
 from desdeo.api.routers.district_heating_robust_data import (
     GUROBI_OPTIONS,
     JinaScenarioContext,
@@ -33,10 +40,12 @@ from desdeo.api.routers.district_heating_robust_data import (
     ScalarizerDef,
     get_context,
 )
+from desdeo.api.routers.district_heating_system_data import compute_robustness_metrics
+from desdeo.problem import Constraint, ConstraintTypeEnum
 from desdeo.problem.schema import Problem
 from desdeo.tools import GurobipySolver, payoff_table_method
 from desdeo.tools.partial_scalarization import add_asf_partial_diff
-from desdeo.tools.scenarios import build_scenario_problem
+from desdeo.tools.scenarios import build_combined_scenario_problem, build_scenario_problem
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +57,10 @@ ASF_RHO = 0.01
 # `nadir - ideal` can be exactly zero for a cell no design can move (an objective already at its
 # bound in that scenario). The ASF requires strictly positive weights, so those collapse to this.
 MIN_WEIGHT = 1e-9
+
+
+# A cell binds when its scaled deviation equals the ASF max term up to this tolerance.
+_BIND_TOL = 1e-6
 
 
 @dataclass
@@ -92,10 +105,12 @@ class CombinedContext:
 
     @property
     def symbols(self) -> list[str]:
+        """Symbols of all cells, in grid order."""
         return [c.symbol for c in self.cells]
 
     @property
     def weights(self) -> dict[str, float]:
+        """Weight of each cell, keyed by its symbol."""
         return {c.symbol: c.weight for c in self.cells}
 
 
@@ -104,8 +119,9 @@ _cache_lock = threading.Lock()
 
 
 def get_combined_context(problem_id: int) -> CombinedContext:
-    """Cached per problem. Building one runs a payoff table per scenario, so it is far too slow
-    to redo per request.
+    """Cached per problem.
+
+    Building one runs a payoff table per scenario, so it is far too slow to redo per request.
     """
     with _cache_lock:
         ctx = _cache.get(problem_id)
@@ -116,6 +132,7 @@ def get_combined_context(problem_id: int) -> CombinedContext:
 
 
 def invalidate_combined_context(problem_id: int) -> None:
+    """Drop a problem's cached context, e.g. after its metadata or cell ranges change."""
     with _cache_lock:
         _cache.pop(problem_id, None)
 
@@ -223,9 +240,7 @@ def required_cell_symbols(base: JinaScenarioContext) -> list[str]:
     return out
 
 
-def compute_cell_ranges(
-    base: JinaScenarioContext, scenario_model: "object"
-) -> tuple[dict[str, float], dict[str, float]]:
+def compute_cell_ranges(base: JinaScenarioContext, scenario_model: object) -> tuple[dict[str, float], dict[str, float]]:
     """Run one payoff table per scenario to get every cell's attainable range.
 
     A cell's ideal is what that objective could reach if the investment were tailored to that
@@ -246,7 +261,7 @@ def compute_cell_ranges(
         try:
             scenario_problem = build_scenario_problem(scenario_model, leaf)
             ideal_s, nadir_s = payoff_table_method(scenario_problem, solver_factory)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             raise JinaScenarioError(
                 f"Could not compute the payoff table for scenario {leaf!r}: {type(e).__name__}: {e}"
             ) from e
@@ -260,8 +275,6 @@ def compute_cell_ranges(
 
 def _jina_metadata_row(session, problem_id: int):
     """The problem's `JinaMultiScenarioMetaData` row, or None if it has none."""
-    from desdeo.api.models.problem import ProblemDB
-
     problem_db = session.get(ProblemDB, problem_id)
     if problem_db is None or problem_db.problem_metadata is None:
         return None
@@ -279,15 +292,11 @@ def load_stored_cell_ranges(
     optimisation, so a stale or partial cache must cost time, never correctness - a wrong range
     would silently mis-scale every aspiration level in the ASF.
     """
-    from sqlmodel import Session
-
-    from desdeo.api.db import engine
-
     try:
         with Session(engine) as session:
             row = _jina_metadata_row(session, problem_id)
             stored = dict(row.combined_cell_ranges or {}) if row is not None else {}
-    except Exception:  # noqa: BLE001 - a cache read must never be able to break the method
+    except Exception:
         logger.exception("Could not read stored cell ranges for problem %s; recomputing.", problem_id)
         return None
 
@@ -330,10 +339,6 @@ def store_cell_ranges(problem_id: int) -> int:
     `JinaMultiScenarioMetaData` row to attach them to - that row is where the method's other
     per-problem settings live, so a problem without one is not set up for this method at all.
     """
-    from sqlmodel import Session
-
-    from desdeo.api.db import engine
-
     base = get_context(problem_id)
     scenario_model = base_scenario_model(base)
     ideal, nadir = compute_cell_ranges(base, scenario_model)
@@ -359,10 +364,6 @@ def load_information_hours(problem_id: int) -> dict[str, int] | None:
 
     None - every problem registered without it - leaves the operation anticipative, as before.
     """
-    from sqlmodel import Session
-
-    from desdeo.api.db import engine
-
     with Session(engine) as session:
         row = _jina_metadata_row(session, problem_id)
         hours = getattr(row, "information_hours", None) if row is not None else None
@@ -370,7 +371,7 @@ def load_information_hours(problem_id: int) -> dict[str, int] | None:
 
 
 def add_information_constraints(
-    base: JinaScenarioContext, scenario_model: "object", combined: Problem, information_hours: dict[str, int]
+    base: JinaScenarioContext, scenario_model: object, combined: Problem, information_hours: dict[str, int]
 ) -> Problem:
     """Non-anticipativity: before its information hour, a scenario operates exactly like the baseline.
 
@@ -384,9 +385,6 @@ def add_information_constraints(
     contains "baseline". Only this method adds these constraints; the two-stage robustness method
     keeps using the context's combined problem as it is.
     """
-    from desdeo.problem import Constraint, ConstraintTypeEnum
-    from desdeo.tools.scenarios import build_combined_scenario_problem
-
     leaves = list(base.all_scenarios)
     baseline = base.settings.baseline_scenario or next((s for s in leaves if "baseline" in s.lower()), leaves[0])
     unknown = sorted(set(information_hours) - set(leaves))
@@ -436,11 +434,6 @@ def base_scenario_model(base: JinaScenarioContext):
     `JinaScenarioContext` keeps the scenario model's id rather than the model itself, so the
     per-scenario payoff tables above have to reload it.
     """
-    from sqlmodel import Session
-
-    from desdeo.api.db import engine
-    from desdeo.api.models.scenario import ScenarioModelDB
-
     with Session(engine) as session:
         sm_db = session.get(ScenarioModelDB, base.scenario_model_id)
         if sm_db is None:
@@ -450,6 +443,8 @@ def base_scenario_model(base: JinaScenarioContext):
 
 @dataclass
 class CombinedCellResult:
+    """Outcome of one cell in an iteration."""
+
     symbol: str
     aspiration: float
     achieved: float
@@ -464,6 +459,8 @@ class CombinedCellResult:
 
 @dataclass
 class CombinedIterationResult:
+    """Outcome of one scalarizer variant in an iteration."""
+
     scalarizer: str
     """Which variant produced this — `balanced`, or `emphasize_<objective>`."""
     alpha: float
@@ -476,7 +473,8 @@ class CombinedIterationResult:
 def build_shifted_reference_point(
     cctx: CombinedContext, g: dict[str, float], emphasize: str | None
 ) -> dict[str, float]:
-    """Ask for more on one objective, using the same generic-ASF shift the other JINA methods use:
+    """Ask for more on one objective, using the same generic-ASF shift the other JINA methods use.
+
     `g_i' = ideal_i + (g_i - ideal_i) / emphasis_factor`.
 
     The difference from the multi-scenario method is only in what "one objective" means here. That
@@ -500,9 +498,7 @@ def build_shifted_reference_point(
     return shifted
 
 
-def run_combined_iteration(
-    cctx: CombinedContext, reference_point: dict[str, float]
-) -> list[CombinedIterationResult]:
+def run_combined_iteration(cctx: CombinedContext, reference_point: dict[str, float]) -> list[CombinedIterationResult]:
     """Solve every scalarizer variant against the decision maker's per-cell aspiration levels.
 
     Each variant is the *same* scalarization of the *same* combined problem — `add_asf_partial_diff`
@@ -516,8 +512,6 @@ def run_combined_iteration(
     an ideal, an emphasis variant can legitimately be harder than the balanced one. If *every*
     variant fails, that is a real error and is raised.
     """
-    from concurrent.futures import ThreadPoolExecutor
-
     g = {sym: float(reference_point[sym]) for sym in cctx.symbols}
 
     with ThreadPoolExecutor(max_workers=len(cctx.scalarizer_defs)) as pool:
@@ -553,7 +547,7 @@ def _solve_variant(
             cctx.combined_problem, f"ASF_{sdef.name}", g, weights=weights, weights_aug=weights, rho=ASF_RHO
         )
         result = GurobipySolver(asf_problem, options=GUROBI_OPTIONS).solve(target)
-    except Exception:  # noqa: BLE001 - one variant failing must not sink the whole round
+    except Exception:
         return None
 
     if not result.success:
@@ -574,7 +568,7 @@ def _solve_variant(
                 scaled=scaled,
                 # Same tolerance the notebook prints with; alpha is a scaled quantity, so this is
                 # a comparison between two O(1) numbers rather than between raw objective values.
-                binds=abs(scaled - alpha) < 1e-6,
+                binds=abs(scaled - alpha) < _BIND_TOL,
             )
         )
 
@@ -660,14 +654,8 @@ def compute_combined_analysis(
     sign-adjusted — `compute_robustness_metrics` assumes every objective is minimized. Every
     objective this has been used with so far is a minimize objective.
     """
-    import pandas as pd
-
-    from desdeo.api.routers.district_heating_system_data import compute_robustness_metrics
-
     thresholds = (
-        domain_thresholds
-        if domain_thresholds is not None
-        else (cctx.base.settings.default_domain_thresholds or {})
+        domain_thresholds if domain_thresholds is not None else (cctx.base.settings.default_domain_thresholds or {})
     )
     wish_design_ids = sorted(set(wish_list_ids))
 

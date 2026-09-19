@@ -49,6 +49,12 @@ from desdeo.api.routers.district_heating_robust_data import (
     run_iteration,
     strategic_axis_max,
 )
+from desdeo.api.routers.jina_compound import (
+    compute_superadditivity,
+    resolve_hook,
+    run_compound_analysis,
+    summarize_compound_results,
+)
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.api.routers.utils import fetch_interactive_session, fetch_parent_state, fetch_problem_with_role_check
 
@@ -92,7 +98,9 @@ def _build_meta(ctx: JinaScenarioContext) -> JinaProblemMeta:
         for sym, m in ctx.obj_meta.items()
     ]
     strategic_vars = [
-        JinaStrategicVarMeta(symbol=sym, name=m.name, label=m.label, component=m.component, unit=m.unit, axis_max=m.axis_max)
+        JinaStrategicVarMeta(
+            symbol=sym, name=m.name, label=m.label, component=m.component, unit=m.unit, axis_max=m.axis_max
+        )
         for sym, m in ctx.strategic_meta.items()
     ]
     scalarizers = [JinaScalarizerMeta(name=s.name, emphasize=s.emphasize, label=s.label) for s in ctx.scalarizer_defs]
@@ -129,8 +137,8 @@ def _design_registry_from_state(state: DistrictHeatingRobustIterationState | Non
     if state is None:
         return {}
     registry: dict[int, dict] = {}
-    for design_id_str, entry in state.design_registry.items():
-        entry = dict(entry)
+    for design_id_str, stored in state.design_registry.items():
+        entry = dict(stored)
         entry["signature"] = tuple(entry["signature"])
         registry[int(design_id_str)] = entry
     return registry
@@ -154,8 +162,12 @@ def iterate(
     ctx = _get_context_or_503(problem_db.id)
     session_id = interactive_session.id if interactive_session is not None else None
 
-    latest_iteration_db = _latest_state_db(db_session, problem_db.id, session_id, StateKind.DISTRICT_HEATING_ROBUST_ITERATE)
-    latest_wishlist_db = _latest_state_db(db_session, problem_db.id, session_id, StateKind.DISTRICT_HEATING_ROBUST_WISHLIST)
+    latest_iteration_db = _latest_state_db(
+        db_session, problem_db.id, session_id, StateKind.DISTRICT_HEATING_ROBUST_ITERATE
+    )
+    latest_wishlist_db = _latest_state_db(
+        db_session, problem_db.id, session_id, StateKind.DISTRICT_HEATING_ROBUST_WISHLIST
+    )
 
     design_registry = _design_registry_from_state(latest_iteration_db.state if latest_iteration_db else None)
     solution_number_map = (
@@ -170,7 +182,9 @@ def iterate(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Reference point is missing objective(s): {missing}. Must provide all of {ctx.obj_symbols}.",
         )
-    g_robust = {ctx.robust_symbol_map[obj]: val for obj, val in request.reference_point.items() if obj in ctx.obj_symbols}
+    g_robust = {
+        ctx.robust_symbol_map[obj]: val for obj, val in request.reference_point.items() if obj in ctx.obj_symbols
+    }
 
     solutions = run_iteration(
         ctx, g_robust, iteration_number, design_registry, solution_number_map, request.max_solutions
@@ -227,8 +241,12 @@ def get_or_initialize(
 
     ctx = _get_context_or_503(problem_db.id)
 
-    latest_iteration_db = _latest_state_db(db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_ROBUST_ITERATE)
-    latest_wishlist_db = _latest_state_db(db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_ROBUST_WISHLIST)
+    latest_iteration_db = _latest_state_db(
+        db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_ROBUST_ITERATE
+    )
+    latest_wishlist_db = _latest_state_db(
+        db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_ROBUST_WISHLIST
+    )
     wish_list = list(latest_wishlist_db.state.wish_list) if latest_wishlist_db else []
 
     if latest_iteration_db is None:
@@ -288,14 +306,16 @@ def _wishlist_update(
     parent_state = fetch_parent_state(user, request, db_session, interactive_session=interactive_session)
     session_id = interactive_session.id if interactive_session is not None else None
 
-    latest_wishlist_db = _latest_state_db(db_session, problem_db.id, session_id, StateKind.DISTRICT_HEATING_ROBUST_WISHLIST)
+    latest_wishlist_db = _latest_state_db(
+        db_session, problem_db.id, session_id, StateKind.DISTRICT_HEATING_ROBUST_WISHLIST
+    )
     wish_list = list(latest_wishlist_db.state.wish_list) if latest_wishlist_db else []
 
     if add:
-        latest_iteration_db = _latest_state_db(db_session, problem_db.id, session_id, StateKind.DISTRICT_HEATING_ROBUST_ITERATE)
-        all_seen_ids = (
-            {int(k) for k in latest_iteration_db.state.design_registry} if latest_iteration_db else set()
+        latest_iteration_db = _latest_state_db(
+            db_session, problem_db.id, session_id, StateKind.DISTRICT_HEATING_ROBUST_ITERATE
         )
+        all_seen_ids = {int(k) for k in latest_iteration_db.state.design_registry} if latest_iteration_db else set()
 
         skipped = [d for d in request.design_ids if d not in all_seen_ids]
         wish_list.extend(d for d in request.design_ids if d in all_seen_ids)
@@ -373,15 +393,18 @@ def strategic_designs(
     db_session: Annotated[Session, Depends(get_session)],
     session_id: int | None = None,
 ) -> DistrictHeatingRobustStrategicDesignsResponse:
-    """Every strategic design discovered this session — variable values, discovering scalarizer,
-    and worst-case robust objectives, for the DM to browse. Stateless read of the already-solved
-    `design_registry` — no new Gurobi solve.
+    """Every strategic design discovered this session.
+
+    Variable values, discovering scalarizer, and worst-case robust objectives, for the DM to browse. Stateless read
+    of the already-solved `design_registry` — no new Gurobi solve.
     """
     problem_db = _get_problem_or_404(user, problem_id, db_session)
     effective_session_id = session_id if session_id is not None else user.active_session_id
 
     ctx = _get_context_or_503(problem_db.id)
-    latest_iteration_db = _latest_state_db(db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_ROBUST_ITERATE)
+    latest_iteration_db = _latest_state_db(
+        db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_ROBUST_ITERATE
+    )
     design_registry = _design_registry_from_state(latest_iteration_db.state if latest_iteration_db else None)
     solution_number_map = (
         {int(k): v for k, v in latest_iteration_db.state.solution_number_map.items()} if latest_iteration_db else {}
@@ -399,15 +422,20 @@ def analysis(
     user: Annotated[User, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_session)],
 ) -> DistrictHeatingRobustAnalysisResponse:
-    """Robustness + antifragility analysis for the current wish list. Stateless read, no
-    `StateDB` write.
+    """Robustness + antifragility analysis for the current wish list.
+
+    Stateless read, no `StateDB` write.
     """
     problem_db = _get_problem_or_404(user, request.problem_id, db_session)
     effective_session_id = request.session_id if request.session_id is not None else user.active_session_id
 
     ctx = _get_context_or_503(problem_db.id)
-    latest_iteration_db = _latest_state_db(db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_ROBUST_ITERATE)
-    latest_wishlist_db = _latest_state_db(db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_ROBUST_WISHLIST)
+    latest_iteration_db = _latest_state_db(
+        db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_ROBUST_ITERATE
+    )
+    latest_wishlist_db = _latest_state_db(
+        db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_ROBUST_WISHLIST
+    )
 
     design_registry = _design_registry_from_state(latest_iteration_db.state if latest_iteration_db else None)
     wish_list = list(latest_wishlist_db.state.wish_list) if latest_wishlist_db else []
@@ -424,17 +452,11 @@ def combined_scenario_analysis(
     user: Annotated[User, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_session)],
 ) -> DistrictHeatingRobustCombinedScenarioResponse:
-    """Compound-disruption stress test: re-evaluate candidate designs under every combined
-    scenario the problem's configured hook produces (see `desdeo.api.routers.jina_compound`).
-    Slow — solves live, no `StateDB` write.
-    """
-    from desdeo.api.routers.jina_compound import (
-        compute_superadditivity,
-        resolve_hook,
-        run_compound_analysis,
-        summarize_compound_results,
-    )
+    """Compound-disruption stress test.
 
+    Re-evaluate candidate designs under every combined scenario the problem's configured hook produces (see
+    `desdeo.api.routers.jina_compound`). Slow — solves live, no `StateDB` write.
+    """
     problem_db = _get_problem_or_404(user, request.problem_id, db_session)
     effective_session_id = request.session_id if request.session_id is not None else user.active_session_id
 
@@ -445,8 +467,12 @@ def combined_scenario_analysis(
             detail="This problem does not define a compound-scenario hook.",
         )
 
-    latest_iteration_db = _latest_state_db(db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_ROBUST_ITERATE)
-    latest_wishlist_db = _latest_state_db(db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_ROBUST_WISHLIST)
+    latest_iteration_db = _latest_state_db(
+        db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_ROBUST_ITERATE
+    )
+    latest_wishlist_db = _latest_state_db(
+        db_session, problem_db.id, effective_session_id, StateKind.DISTRICT_HEATING_ROBUST_WISHLIST
+    )
 
     design_registry = _design_registry_from_state(latest_iteration_db.state if latest_iteration_db else None)
     solution_number_map = (
@@ -471,10 +497,7 @@ def combined_scenario_analysis(
     if missing_objs:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"reference_point is missing objective(s) {missing_objs}; it must cover all of "
-                f"{ctx.obj_symbols}."
-            ),
+            detail=(f"reference_point is missing objective(s) {missing_objs}; it must cover all of {ctx.obj_symbols}."),
         )
     reference_point = {s: float(request.reference_point[s]) for s in ctx.obj_symbols}
 
@@ -502,9 +525,7 @@ def combined_scenario_analysis(
             # `combined + baseline - A_alone - B_alone`, so re-evaluating the reference scenarios
             # against different aspirations would make that difference measure the change of
             # reference point as much as the interaction of the two disruptions.
-            reference_rows = run_compound_analysis(
-                ctx, reference_set, design_registry, candidate_ids, reference_point
-            )
+            reference_rows = run_compound_analysis(ctx, reference_set, design_registry, candidate_ids, reference_point)
             compute_superadditivity(ctx.obj_symbols, rows, reference_rows, scenario_set.pair_components)
             supports_superadditivity = True
 

@@ -33,13 +33,22 @@ from desdeo.problem.schema import Problem
 REQUIRE_FULL_COVERAGE = True
 
 
+# An objective counts for antifragility only if some design has an upside above this.
+_AF_UPSIDE_TOL = 1e-9
+
+
+# Spreads smaller than this are treated as zero (normalize by 1 instead).
+_MIN_SPREAD = 1e-9
+
+
 class DistrictHeatingDataError(RuntimeError):
     """Raised when a configured data directory or its expected files are missing/unreadable."""
 
 
 class JinaPoolError(RuntimeError):
-    """Raised when a problem can't be used with the JINA single-scenario method — no pool
-    metadata attached, no `data_dir`, or no `strategic_var_symbols` declared.
+    """Raised when a problem can't be used with the JINA single-scenario method.
+
+    No pool metadata attached, no `data_dir`, or no `strategic_var_symbols` declared.
     """
 
 
@@ -50,6 +59,8 @@ class JinaPoolError(RuntimeError):
 
 @dataclass
 class ObjectiveMeta:
+    """Display metadata for one objective."""
+
     symbol: str
     name: str
     unit: str | None
@@ -59,6 +70,8 @@ class ObjectiveMeta:
 
 @dataclass
 class StrategicVarMeta:
+    """Display metadata for one strategic (first-stage) variable."""
+
     symbol: str
     name: str
     label: str
@@ -69,6 +82,8 @@ class StrategicVarMeta:
 
 @dataclass
 class ScalarizerDef:
+    """One scalarizer of the candidate pool: its family, augmentation rho and optional weights."""
+
     name: str
     family: str
     rho: float
@@ -94,10 +109,11 @@ class JinaPoolSettings:
 
 @dataclass
 class JinaPoolContext:
-    """Everything needed to run the JINA single-scenario pool-matching method against one
-    problem — objective/strategic-variable metadata and scalarizer definitions, all derived from
-    the problem's own `Problem` + `JinaPoolMetaData`. Does not hold the loaded pool itself (that's
-    cached separately, keyed the same way, since loading is a slower/rarer operation).
+    """Everything needed to run the JINA single-scenario pool-matching method against one problem.
+
+    Objective/strategic-variable metadata and scalarizer definitions, all derived from the problem's own `Problem` +
+    `JinaPoolMetaData`. Does not hold the loaded pool itself (that's cached separately, keyed the same way, since
+    loading is a slower/rarer operation).
     """
 
     problem_id: int
@@ -134,7 +150,7 @@ def _resolve_settings(problem_db: ProblemDB) -> JinaPoolSettings:
 
 
 _context_cache: dict[int, JinaPoolContext] = {}
-_context_locks: "defaultdict[int, threading.Lock]" = defaultdict(threading.Lock)
+_context_locks: defaultdict[int, threading.Lock] = defaultdict(threading.Lock)
 
 
 def get_pool_context(problem_id: int) -> JinaPoolContext:
@@ -291,10 +307,11 @@ _pool_cache: dict[int, CandidatePool] = {}
 
 
 def load_candidate_pool(ctx: JinaPoolContext) -> CandidatePool:
-    """Load and cache the candidate pool for one problem's context, ported as-is from cells
-    4/6/8/10 of the_DM_session.ipynb (just parametrized by `ctx` instead of module globals).
-    Cached per `problem_id` (not by `ctx` identity — `JinaPoolContext` isn't hashable, holding
-    plain `dict`s), invalidated together with the context via `invalidate_pool_context`.
+    """Load and cache the candidate pool for one problem's context.
+
+    Ported as-is from cells 4/6/8/10 of the_DM_session.ipynb (just parametrized by `ctx` instead of module globals).
+    Cached per `problem_id` (not by `ctx` identity — `JinaPoolContext` isn't hashable, holding plain `dict`s),
+    invalidated together with the context via `invalidate_pool_context`.
     """
     if ctx.problem_id in _pool_cache:
         return _pool_cache[ctx.problem_id]
@@ -336,7 +353,7 @@ def load_candidate_pool(ctx: JinaPoolContext) -> CandidatePool:
 
     try:
         transfer_df = pd.read_csv(transfer_csv, sep=";", decimal=",", encoding="utf-8-sig")
-    except Exception:  # noqa: BLE001 - mirrors the notebook's own fallback
+    except Exception:
         transfer_df = pd.read_csv(transfer_csv)
     transfer_df.columns = transfer_df.columns.str.strip()
 
@@ -390,10 +407,12 @@ def load_candidate_pool(ctx: JinaPoolContext) -> CandidatePool:
 
 
 def _safe_spread(spread: float) -> float:
-    return spread if abs(spread) > 1e-9 else 1.0
+    return spread if abs(spread) > _MIN_SPREAD else 1.0
 
 
-def _aasf_score(pool: CandidatePool, design_rows: pd.DataFrame, g: dict[str, float], rho: float, obj_cols: list[str]) -> float:
+def _aasf_score(
+    pool: CandidatePool, design_rows: pd.DataFrame, g: dict[str, float], rho: float, obj_cols: list[str]
+) -> float:
     terms = []
     for _, row in design_rows.iterrows():
         sc = row["target_operation_scenario"]
@@ -419,26 +438,30 @@ def _generic_asf_score(
     return _aasf_score(pool, design_rows, g_shifted, rho, obj_cols)
 
 
-def _guess_score(pool: CandidatePool, design_rows: pd.DataFrame, g: dict[str, float], rho: float, obj_cols: list[str]) -> float:
+def _guess_score(
+    pool: CandidatePool, design_rows: pd.DataFrame, g: dict[str, float], rho: float, obj_cols: list[str]
+) -> float:
     terms = []
     for _, row in design_rows.iterrows():
         sc = row["target_operation_scenario"]
         for obj in obj_cols:
             denom = abs(pool.nadir_sc[(obj, sc)] - g[obj])
-            denom = denom if denom > 1e-9 else 1e-9
+            denom = max(1e-09, denom)
             terms.append((1.0 / denom) * float(row[obj]))
     arr = np.array(terms)
     return float(np.max(arr) + rho * np.sum(arr))
 
 
-def _stom_score(pool: CandidatePool, design_rows: pd.DataFrame, g: dict[str, float], rho: float, obj_cols: list[str]) -> float:
+def _stom_score(
+    pool: CandidatePool, design_rows: pd.DataFrame, g: dict[str, float], rho: float, obj_cols: list[str]
+) -> float:
     terms = []
     aug_terms = []
     for _, row in design_rows.iterrows():
         sc = row["target_operation_scenario"]
         for obj in obj_cols:
             denom = abs(g[obj] - pool.ideal_sc[(obj, sc)])
-            denom = denom if denom > 1e-9 else 1e-9
+            denom = max(1e-09, denom)
             w_iq = 1.0 / denom
             gap = abs(float(row[obj]) - pool.ideal_sc[(obj, sc)])
             terms.append(w_iq * gap)
@@ -447,7 +470,11 @@ def _stom_score(pool: CandidatePool, design_rows: pd.DataFrame, g: dict[str, flo
 
 
 def score_design(
-    pool: CandidatePool, design_rows: pd.DataFrame, g: dict[str, float], scalarizer_def: ScalarizerDef, obj_cols: list[str]
+    pool: CandidatePool,
+    design_rows: pd.DataFrame,
+    g: dict[str, float],
+    scalarizer_def: ScalarizerDef,
+    obj_cols: list[str],
 ) -> float:
     """Dispatch to the scalarizer family named in `scalarizer_def`. Lower score = better match."""
     fam = scalarizer_def.family
@@ -462,7 +489,9 @@ def score_design(
     raise ValueError(f"Unknown scalarizer family: {fam}")
 
 
-def reference_point_from_percent(pool: CandidatePool, percent: dict[str, float], obj_cols: list[str]) -> dict[str, float]:
+def reference_point_from_percent(
+    pool: CandidatePool, percent: dict[str, float], obj_cols: list[str]
+) -> dict[str, float]:
     """0-100 'closeness to ideal' per objective (100 = global ideal, 0 = global nadir)."""
     out = {}
     for obj in obj_cols:
@@ -481,6 +510,7 @@ def reference_point_from_raw(values: dict[str, float], obj_cols: list[str]) -> d
 
 
 def midpoint_reference_point(pool: CandidatePool, obj_cols: list[str]) -> dict[str, float]:
+    """Reference point halfway between the pool's ideal and nadir for each objective."""
     return {obj: 0.5 * (pool.global_ideal[obj] + pool.global_nadir[obj]) for obj in obj_cols}
 
 
@@ -624,7 +654,7 @@ def compute_robustness_metrics(
     return result
 
 
-def compute_antifragility_metrics(
+def compute_antifragility_metrics(  # noqa: C901  # metric definitions kept together
     transfer_df: pd.DataFrame,
     objectives_to_minimize: list[str],
     baseline_scenario: str,
@@ -651,7 +681,9 @@ def compute_antifragility_metrics(
         raise ValueError(f"Baseline scenario '{baseline_scenario}' not found in {scen_col}.")
 
     best_per_scenario = (
-        df.groupby(scen_col)[objectives_to_minimize].min().rename(columns={o: f"{o}_best" for o in objectives_to_minimize})
+        df.groupby(scen_col)[objectives_to_minimize]
+        .min()
+        .rename(columns={o: f"{o}_best" for o in objectives_to_minimize})
     )
     worst_per_scenario = (
         df.groupby(scen_col)[objectives_to_minimize]
@@ -765,9 +797,10 @@ def compute_antifragility_metrics(
 
 
 def list_strategic_designs(pool: CandidatePool, strategic_symbols: list[str], obj_cols: list[str]) -> list[dict]:
-    """Every design in the candidate pool — strategic capacities, the scenario it was originally
-    optimized for, and its full performance breakdown. Port of the design table built in
-    `Vis_strategic_decisions.ipynb`. Purely a read/reshape of the already-loaded
+    """Every design in the candidate pool.
+
+    Strategic capacities, the scenario it was originally optimized for, and its full performance breakdown. Port of
+    the design table built in `Vis_strategic_decisions.ipynb`. Purely a read/reshape of the already-loaded
     `pool.pool_transfer` (which carries the `fixed_*` capacity columns straight from
     `pairwise_transfer_matrix_long.csv`) — no new computation.
     """
@@ -801,10 +834,11 @@ def compute_wish_list_analysis(
     domain_thresholds: dict[str, float] | None = None,
     af_absolute_floors: dict[str, float] | None = None,
 ) -> dict:
-    """Robustness + antifragility analysis for the current wish list, exactly as
-    `stage_2c_analysis.ipynb` computes it (cells 4, 14): max regret over the full pool,
-    domain criterion over the wish list, antifragility over the full pool (for stable
-    normalization) filtered down to the wish list for display.
+    """Robustness + antifragility analysis for the current wish list.
+
+    Computed exactly as `stage_2c_analysis.ipynb` does (cells 4, 14): max regret over the full pool, domain
+    criterion over the wish list, antifragility over the full pool (for stable normalization) filtered down to the
+    wish list for display.
 
     `domain_thresholds`/`af_absolute_floors` are the DM-facing robustness criteria the
     notebook has the DM hand-edit as constants before re-running; here they're caller-supplied,
@@ -845,7 +879,7 @@ def compute_wish_list_analysis(
     af_all = af_pool["summary"].rename(columns={"reference_id": "design_id"})
     af_dev_all = af_pool["deviations"].rename(columns={"reference_id": "design_id"})
 
-    af_objectives = [o for o in obj_cols if (af_all[f"{o}_U"] > 1e-9).any()]
+    af_objectives = [o for o in obj_cols if (af_all[f"{o}_U"] > _AF_UPSIDE_TOL).any()]
 
     af_wish = af_all[af_all["design_id"].isin(wish_design_ids)].copy()
     for o in af_objectives:

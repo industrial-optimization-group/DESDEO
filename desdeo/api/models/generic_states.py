@@ -55,7 +55,7 @@ if TYPE_CHECKING:
     from .session import InteractiveSessionDB
 
 
-class StateKind(str, Enum):
+class StateKind(str, Enum):  # StrEnum would change str() of every kind
     """Stores the normalized kinds `{method}.{phase}` of supported states.
 
     Note:

@@ -22,10 +22,13 @@ schema, no domain-specific logic), just living in a project-specific module.
 
 from __future__ import annotations
 
+import contextlib
+import math
 import re
 from typing import TYPE_CHECKING, Any
 
 from desdeo.problem.schema import Constraint, ConstraintTypeEnum, Problem
+from desdeo.tools.partial_scalarization import add_asf_partial_diff
 from desdeo.tools.utils import payoff_table_method
 
 if TYPE_CHECKING:
@@ -77,19 +80,17 @@ def fix_variables(problem: Problem, values: dict[str, float], label: str) -> Pro
         objectives=list(problem.objectives),
         constraints=new_constraints,
     )
-    try:
+    with contextlib.suppress(Exception):
         ideal = problem.get_ideal_point()
         nadir = problem.get_nadir_point()
         if ideal is not None and nadir is not None:
             p_fixed = p_fixed.update_ideal_and_nadir(ideal, nadir)
-    except Exception:  # noqa: BLE001
-        pass
     return p_fixed
 
 
 def payoff_ideal_or_none(
     problem: Problem,
-    solver: "Callable[[Problem], SolverResults] | type",
+    solver: Callable[[Problem], SolverResults] | type,
     objective_symbols: list[str],
 ) -> tuple[dict[str, float | None], str]:
     """Solve one single-objective LP per objective on a fixed-variable problem.
@@ -107,16 +108,16 @@ def payoff_ideal_or_none(
     """
     try:
         ideal, _ = payoff_table_method(problem=problem, solver=solver)
-    except Exception as e:  # noqa: BLE001
-        return {obj: None for obj in objective_symbols}, str(e)
+    except Exception as e:
+        return dict.fromkeys(objective_symbols), str(e)
 
     values = {obj: float(ideal[obj]) for obj in objective_symbols}
-    if any(v != v for v in values.values()):  # NaN != NaN
+    if any(math.isnan(v) for v in values.values()):
         msg = (
             "infeasible (the underlying solve did not reach optimality -- these fixed variable "
             "values likely cannot operate feasibly under this scenario)"
         )
-        return {obj: None for obj in objective_symbols}, msg
+        return dict.fromkeys(objective_symbols), msg
     return values, "ok"
 
 
@@ -141,7 +142,7 @@ def asf_weights_from_ideal_nadir(
 
 def asf_at_reference_point(
     problem: Problem,
-    solver: "Callable[[Problem], SolverResults] | type",
+    solver: Callable[[Problem], SolverResults] | type,
     objective_symbols: list[str],
     reference_point: dict[str, float],
     weights: dict[str, float],
@@ -169,8 +170,6 @@ def asf_at_reference_point(
     Returns:
         (`{objective_symbol: value}` or all-`None` on failure, `"ok"` or a status/error string).
     """
-    from desdeo.tools.partial_scalarization import add_asf_partial_diff
-
     try:
         scalarized, target = add_asf_partial_diff(
             problem,
@@ -181,19 +180,19 @@ def asf_at_reference_point(
             rho=rho,
         )
         result = solver(scalarized).solve(target)
-    except Exception as e:  # noqa: BLE001
-        return {obj: None for obj in objective_symbols}, str(e)
+    except Exception as e:
+        return dict.fromkeys(objective_symbols), str(e)
 
     # A solver result carries `success`, so unlike the payoff-table path infeasibility is
     # reported directly rather than inferred from NaNs. Both are still checked: a solver can
     # report success and still hand back NaNs.
     if not result.success:
-        return {obj: None for obj in objective_symbols}, (
+        return dict.fromkeys(objective_symbols), (
             f"infeasible (ASF solve did not reach optimality -- these fixed variable values "
             f"likely cannot operate feasibly under this scenario): {result.message}"
         )
 
     values = {obj: float(result.optimal_objectives[obj]) for obj in objective_symbols}
-    if any(v != v for v in values.values()):  # NaN != NaN
-        return {obj: None for obj in objective_symbols}, "infeasible (ASF solve returned NaN objectives)"
+    if any(math.isnan(v) for v in values.values()):
+        return dict.fromkeys(objective_symbols), "infeasible (ASF solve returned NaN objectives)"
     return values, "ok"

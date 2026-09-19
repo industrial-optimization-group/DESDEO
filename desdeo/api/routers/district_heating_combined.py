@@ -61,6 +61,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/method/district-heating-combined")
 
 
+# How many offending symbols an error message lists before eliding the rest.
+_MAX_SYMBOLS_LISTED = 5
+
+
 def _get_problem_or_404(user: User, request_problem_id: int, db_session: Session):
     problem_db = fetch_problem_with_role_check(user, request_problem_id, db_session)
     if problem_db is None:
@@ -94,8 +98,9 @@ def _latest_state_db(db_session: Session, problem_id: int, session_id: int | Non
 
 
 def _design_registry_from_state(state: DistrictHeatingCombinedIterationState | None) -> dict[int, dict]:
-    """Registry entries round-trip through JSON, so `signature` comes back as a list. Convert it
-    back to a tuple here, once, rather than at every comparison site.
+    """Registry entries round-trip through JSON, so `signature` comes back as a list.
+
+    Convert it back to a tuple here, once, rather than at every comparison site.
     """
     if state is None:
         return {}
@@ -153,8 +158,7 @@ def initialize(
     user: Annotated[User, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_session)],
 ) -> DistrictHeatingCombinedInitializeResponse:
-    """The (objective, scenario) grid the decision maker fills in, with each cell's attainable
-    span.
+    """The (objective, scenario) grid the decision maker fills in, with each cell's attainable span.
 
     Slow on the first call for a problem — it runs one payoff table per scenario to get those
     spans — and cached per problem afterwards.
@@ -261,15 +265,18 @@ def iterate(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                f"reference_point is missing {len(missing)} cell(s): {missing[:5]}"
-                f"{'...' if len(missing) > 5 else ''}. It must cover every cell from /initialize."
+                f"reference_point is missing {len(missing)} cell(s): {missing[:_MAX_SYMBOLS_LISTED]}"
+                f"{'...' if len(missing) > _MAX_SYMBOLS_LISTED else ''}. It must cover every cell from /initialize."
             ),
         )
     unknown = [sym for sym in request.reference_point if sym not in cctx.cells_by_symbol]
     if unknown:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"reference_point has unknown symbol(s): {unknown[:5]}{'...' if len(unknown) > 5 else ''}.",
+            detail=(
+                f"reference_point has unknown symbol(s): {unknown[:_MAX_SYMBOLS_LISTED]}"
+                f"{'...' if len(unknown) > _MAX_SYMBOLS_LISTED else ''}."
+            ),
         )
 
     latest_iteration_db = _latest_state_db(
@@ -415,8 +422,7 @@ def session_tree(
     db_session: Annotated[Session, Depends(get_session)],
     session_id: int | None = None,
 ) -> DistrictHeatingCombinedSessionTreeResponse:
-    """Every iteration in a session, oldest first, so past rounds can be browsed without
-    re-solving."""
+    """Every iteration in a session, oldest first, so past rounds can be browsed without re-solving."""
     problem_db = _get_problem_or_404(user, problem_id, db_session)
     effective_session_id = session_id if session_id is not None else user.active_session_id
 
@@ -449,8 +455,10 @@ def wishlist_add(
     user: Annotated[User, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_session)],
 ) -> DistrictHeatingCombinedWishlistResponse:
-    """Add design ids to the running wish list. Only designs already seen in some iteration
-    qualify."""
+    """Add design ids to the running wish list.
+
+    Only designs already seen in some iteration qualify.
+    """
     return _wishlist_update(user, db_session, request, add=True)
 
 
@@ -511,8 +519,9 @@ def analysis(
     user: Annotated[User, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_session)],
 ) -> DistrictHeatingCombinedAnalysisResponse:
-    """Domain criterion over the wish-listed designs: how many scenarios each design meets each
-    objective's threshold in.
+    """Domain criterion over the wish-listed designs.
+
+    How many scenarios each design meets each objective's threshold in.
     """
     problem_db = _get_problem_or_404(user, request.problem_id, db_session)
     cctx = _get_context_or_422(problem_db.id)

@@ -101,9 +101,10 @@ class DistrictHeatingAnalysisResponse(SQLModel):
 
 
 class DistrictHeatingStrategicDesign(SQLModel):
-    """One design in the candidate pool — strategic capacities, the scenario it was originally
-    optimized for, and its full performance breakdown. Port of the design table in
-    `Vis_strategic_decisions.ipynb`.
+    """One design in the candidate pool.
+
+    Strategic capacities, the scenario it was originally optimized for, and its full performance breakdown. Port of
+    the design table in `Vis_strategic_decisions.ipynb`.
     """
 
     design_id: int
@@ -115,14 +116,18 @@ class DistrictHeatingStrategicDesign(SQLModel):
 
 
 class DistrictHeatingStrategicDesignsResponse(SQLModel):
-    """Every design in the candidate pool, for the DM to browse capacities and cross-scenario
-    performance. Stateless read of the pre-computed pool — no session dependency.
+    """Every design in the candidate pool, for the DM to browse capacities and cross-scenario performance.
+
+    Stateless read of the pre-computed pool — no session dependency.
     """
 
     designs: list[DistrictHeatingStrategicDesign] = Field(sa_column=Column(JSON))
     axis_max: dict[str, float | None] = Field(
         sa_column=Column(JSON),
-        description="Upper bound per strategic capacity variable (null if unbounded) — also this problem's existing capacity per component.",
+        description=(
+            "Upper bound per strategic capacity variable (null if unbounded) — also this problem's existing "
+            "capacity per component."
+        ),
     )
 
 

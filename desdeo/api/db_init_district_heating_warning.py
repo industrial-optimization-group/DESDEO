@@ -39,6 +39,7 @@ from desdeo.api.models import ProblemDB, User, UserRole
 from desdeo.api.models.problem import JinaMultiScenarioMetaData, ProblemMetaDataDB
 from desdeo.api.models.scenario import ScenarioModelDB
 from desdeo.api.routers.district_heating_combined_data import invalidate_combined_context
+from desdeo.api.routers.district_heating_compound import _dm_dir, _load_dm_module
 from desdeo.api.routers.district_heating_robust_data import invalidate_context
 from desdeo.api.routers.district_heating_system_data import DistrictHeatingDataError
 
@@ -79,8 +80,6 @@ def _describe_timeline(dh_scenarios_warning) -> str:
 
 
 def _build_problem_and_scenario_model():
-    from desdeo.api.routers.district_heating_compound import _dm_dir, _load_dm_module
-
     dm_dir = _dm_dir()
     dh_problem_vectorized = _load_dm_module("dh_problem_vectorized", dm_dir)
     base_data1 = _load_dm_module("base_data1", dm_dir)
@@ -109,6 +108,7 @@ def _build_problem_and_scenario_model():
 
 
 def main() -> None:
+    """Register the warning-timeline district heating problem, its scenario model and JINA metadata."""
     if not DistrictHeatingDataConfig.data_dir:
         raise DistrictHeatingDataError("DH_DATA_DIR is not set — required to build the district heating problem.")
     _check_database()
@@ -173,8 +173,10 @@ def main() -> None:
         _assert_round_trip(problem, scenario_model, reloaded_problem_db, reloaded_sm_db)
 
         reloaded_meta = (reloaded_problem_db.problem_metadata.jina_multiscenario_metadata or [])[0]
-        assert reloaded_meta.information_hours == info_hours, "information_hours mismatch after persisting"
-        assert reloaded_meta.baseline_scenario == baseline, "baseline_scenario mismatch after persisting"
+        if not (reloaded_meta.information_hours == info_hours):
+            raise RuntimeError("information_hours mismatch after persisting")
+        if not (reloaded_meta.baseline_scenario == baseline):
+            raise RuntimeError("baseline_scenario mismatch after persisting")
         print("Round-trip assertion passed: information hours and baseline persisted.")
 
     invalidate_context(problem_id)

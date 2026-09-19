@@ -233,18 +233,6 @@ from .cumulus import (
     SoftConstraintSpec,
     UncertaintyMeasureSpec,
 )
-from .district_heating_system import (
-    DistrictHeatingAnalysisRequest,
-    DistrictHeatingAnalysisResponse,
-    DistrictHeatingIterateRequest,
-    DistrictHeatingIterateResponse,
-    DistrictHeatingMatchedSolution,
-    DistrictHeatingSessionTreeEntry,
-    DistrictHeatingStrategicDesign,
-    DistrictHeatingStrategicDesignsResponse,
-    DistrictHeatingWishlistResponse,
-    DistrictHeatingWishlistUpdateRequest,
-)
 from .district_heating_robust import (
     DistrictHeatingRobustAnalysisRequest,
     DistrictHeatingRobustAnalysisResponse,
@@ -262,6 +250,18 @@ from .district_heating_robust import (
     JinaProblemMeta,
     JinaScalarizerMeta,
     JinaStrategicVarMeta,
+)
+from .district_heating_system import (
+    DistrictHeatingAnalysisRequest,
+    DistrictHeatingAnalysisResponse,
+    DistrictHeatingIterateRequest,
+    DistrictHeatingIterateResponse,
+    DistrictHeatingMatchedSolution,
+    DistrictHeatingSessionTreeEntry,
+    DistrictHeatingStrategicDesign,
+    DistrictHeatingStrategicDesignsResponse,
+    DistrictHeatingWishlistResponse,
+    DistrictHeatingWishlistUpdateRequest,
 )
 from .emo import (
     EMOFetchRequest,

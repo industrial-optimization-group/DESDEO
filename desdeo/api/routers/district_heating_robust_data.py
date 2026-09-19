@@ -18,8 +18,10 @@ from __future__ import annotations
 import json
 import threading
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
+import pandas as pd
 from sqlmodel import Session
 
 from desdeo.api.db import engine
@@ -41,9 +43,14 @@ from desdeo.tools.scenarios import build_combined_scenario_problem
 GUROBI_OPTIONS = {"OutputFlag": 0}
 
 
+# An objective counts for antifragility only if some design has an upside above this.
+_AF_UPSIDE_TOL = 1e-9
+
+
 class JinaScenarioError(RuntimeError):
-    """Raised when a problem can't be used with the JINA multi-scenario method — no scenario
-    model attached, or its scenario model declares no shared first-stage variables.
+    """Raised when a problem can't be used with the JINA multi-scenario method.
+
+    No scenario model attached, or its scenario model declares no shared first-stage variables.
     """
 
 
@@ -54,6 +61,8 @@ class JinaScenarioError(RuntimeError):
 
 @dataclass
 class ObjectiveMeta:
+    """Display metadata for one objective."""
+
     symbol: str
     name: str
     unit: str | None
@@ -63,6 +72,8 @@ class ObjectiveMeta:
 
 @dataclass
 class StrategicVarMeta:
+    """Display metadata for one strategic (first-stage) variable."""
+
     symbol: str
     name: str
     label: str
@@ -73,6 +84,8 @@ class StrategicVarMeta:
 
 @dataclass
 class ScalarizerDef:
+    """One scalarizer variant: balanced, or emphasizing one objective."""
+
     name: str
     emphasize: str | None  # objective symbol, or None for the "balanced" variant
     label: str
@@ -80,8 +93,10 @@ class ScalarizerDef:
 
 @dataclass
 class JinaSettings:
-    """Resolved per-problem settings (from `JinaMultiScenarioMetaData`, or generic defaults if
-    a problem hasn't configured any — every field is meaningful with no override).
+    """Resolved per-problem settings for the JINA multi-scenario method.
+
+    Taken from `JinaMultiScenarioMetaData`, or generic defaults if a problem hasn't configured any — every field is
+    meaningful with no override.
     """
 
     default_domain_thresholds: dict[str, float] | None = None
@@ -132,7 +147,7 @@ class JinaScenarioContext:
     # first access instead of at construction.
     _robust_problem_unranged: Problem = None  # type: ignore[assignment]
     _ranges: dict | None = field(default=None, repr=False, compare=False)
-    _ranges_lock: "threading.Lock" = field(default_factory=threading.Lock, repr=False, compare=False)
+    _ranges_lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 
     def _ensure_ranges(self) -> dict:
         """Run the payoff table once, on first read, and cache what it yields."""
@@ -164,22 +179,27 @@ class JinaScenarioContext:
 
     @property
     def ideal(self) -> dict[str, float]:
+        """Ideal point of the worst-case problem (computed on first use)."""
         return self._ensure_ranges()["ideal"]
 
     @property
     def nadir(self) -> dict[str, float]:
+        """Nadir point of the worst-case problem (computed on first use)."""
         return self._ensure_ranges()["nadir"]
 
     @property
     def aug_weights(self) -> dict[str, float]:
+        """Nadir-minus-ideal range of each worst-case objective, used as ASF weights."""
         return self._ensure_ranges()["aug_weights"]
 
     @property
     def global_ideal_obj(self) -> dict[str, float]:
+        """Worst-case ideal value per original objective symbol."""
         return self._ensure_ranges()["global_ideal_obj"]
 
     @property
     def global_nadir_obj(self) -> dict[str, float]:
+        """Worst-case nadir value per original objective symbol."""
         return self._ensure_ranges()["global_nadir_obj"]
 
 
@@ -208,7 +228,7 @@ def _resolve_settings(problem_db: ProblemDB) -> JinaSettings:
 
 
 _context_cache: dict[int, JinaScenarioContext] = {}
-_context_locks: "defaultdict[int, threading.Lock]" = defaultdict(threading.Lock)
+_context_locks: defaultdict[int, threading.Lock] = defaultdict(threading.Lock)
 
 
 def get_context(problem_id: int) -> JinaScenarioContext:
@@ -236,7 +256,7 @@ def invalidate_context(problem_id: int) -> None:
     _context_cache.pop(problem_id, None)
 
 
-def _build_context(problem_id: int) -> JinaScenarioContext:  # noqa: PLR0914
+def _build_context(problem_id: int) -> JinaScenarioContext:
     with Session(engine) as session:
         problem_db = session.get(ProblemDB, problem_id)
         if problem_db is None:
@@ -333,6 +353,7 @@ def _build_context(problem_id: int) -> JinaScenarioContext:  # noqa: PLR0914
 
 
 def reference_point_from_percent(ctx: JinaScenarioContext, percent: dict[str, float]) -> dict[str, float]:
+    """Turn per-objective percentages (100 = ideal, 0 = nadir) into a reference point."""
     out = {}
     for obj, pct in percent.items():
         frac = max(0.0, min(100.0, float(pct))) / 100.0
@@ -341,6 +362,7 @@ def reference_point_from_percent(ctx: JinaScenarioContext, percent: dict[str, fl
 
 
 def reference_point_from_raw(ctx: JinaScenarioContext, values: dict[str, float]) -> dict[str, float]:
+    """Check a raw reference point covers every objective and return it as floats."""
     missing = [o for o in ctx.obj_symbols if o not in values]
     if missing:
         raise ValueError(f"Missing objectives: {missing}. Must provide all of {ctx.obj_symbols}")
@@ -370,15 +392,20 @@ def _build_shifted_rp(ctx: JinaScenarioContext, g: dict[str, float], emphasize: 
 
 @dataclass
 class SolvedDesign:
+    """One solved design: scalarizer, worst-case objectives, capacities and per-scenario breakdown."""
+
     scalarizer: str
     robust_vals: dict[str, float]
     strategic_vals: dict[str, float]
     breakdown: list[dict]
 
 
-def _solve_one(ctx: JinaScenarioContext, g_robust: dict[str, float], sdef: ScalarizerDef, symbol: str) -> SolvedDesign | None:
-    """Solve one scalarizer variant against the robust problem. Runs on a worker thread —
-    Gurobi releases the GIL during optimization, so all variants can solve concurrently.
+def _solve_one(
+    ctx: JinaScenarioContext, g_robust: dict[str, float], sdef: ScalarizerDef, symbol: str
+) -> SolvedDesign | None:
+    """Solve one scalarizer variant against the robust problem.
+
+    Runs on a worker thread — Gurobi releases the GIL during optimization, so all variants can solve concurrently.
     """
     g_used = _build_shifted_rp(ctx, g_robust, sdef.emphasize)
     try:
@@ -386,7 +413,7 @@ def _solve_one(ctx: JinaScenarioContext, g_robust: dict[str, float], sdef: Scala
             ctx.robust_problem, symbol, g_used, weights_aug=ctx.aug_weights, rho=1e-3
         )
         result = GurobipySolver(scalarized, options=GUROBI_OPTIONS).solve(target)
-    except Exception:  # noqa: BLE001 - mirrors the notebook's own catch-and-skip
+    except Exception:
         return None
     if not result.success:
         return None
@@ -402,7 +429,9 @@ def _solve_one(ctx: JinaScenarioContext, g_robust: dict[str, float], sdef: Scala
             row[obj] = float(result.optimal_objectives[resolved_sym])
         breakdown.append(row)
 
-    return SolvedDesign(scalarizer=sdef.name, robust_vals=robust_vals, strategic_vals=strategic_vals, breakdown=breakdown)
+    return SolvedDesign(
+        scalarizer=sdef.name, robust_vals=robust_vals, strategic_vals=strategic_vals, breakdown=breakdown
+    )
 
 
 def run_iteration(
@@ -413,10 +442,11 @@ def run_iteration(
     solution_number_map: dict[int, int],
     max_solutions: int | None = None,
 ) -> list[dict]:
-    """Solve every scalarizer variant (concurrently), dedup by first-stage design signature into
-    `design_registry` (mutated in place, never pruned — permanent for the session), and flag
-    `repeat` when a design resurfaces in a later iteration (it cannot be excluded, since every
-    variant re-solves live each time).
+    """Solve every scalarizer variant concurrently and record each new first-stage design.
+
+    Designs are deduplicated by first-stage design signature into `design_registry` (mutated in place, never pruned
+    — permanent for the session), and `repeat` is flagged when a design resurfaces in a later iteration (it cannot
+    be excluded, since every variant re-solves live each time).
 
     `max_solutions` only trims how many distinct designs are returned/highlighted *this round* —
     every scalarizer variant still solves live regardless (needed to know which designs exist at
@@ -425,8 +455,6 @@ def run_iteration(
     trimming is needed, designs are kept in scalarizer-priority order (balanced first, then each
     objective's emphasis variant) — the same order `ctx.scalarizer_defs` itself is built in.
     """
-    from concurrent.futures import ThreadPoolExecutor
-
     with ThreadPoolExecutor(max_workers=len(ctx.scalarizer_defs)) as pool:
         futures = {
             pool.submit(_solve_one, ctx, g_robust, sdef, f"ASF_{sdef.name}_it{iteration_number}"): sdef
@@ -503,17 +531,21 @@ def run_iteration(
 
 
 def strategic_axis_max(ctx: JinaScenarioContext) -> dict[str, float | None]:
-    """Upper bound of each strategic (first-stage) variable, read from the built `Problem`
-    itself — `None` for an unbounded variable (legal for a generic problem; the frontend falls
-    back to the observed max across discovered designs in that case).
+    """Upper bound of each strategic (first-stage) variable, read from the built `Problem` itself.
+
+    `None` for an unbounded variable (legal for a generic problem; the frontend falls back to the observed max
+    across discovered designs in that case).
     """
     return {sym: ctx.strategic_meta[sym].axis_max for sym in ctx.strategic_symbols}
 
 
-def list_strategic_designs(ctx: JinaScenarioContext, design_registry: dict[int, dict], solution_number_map: dict[int, int]) -> list[dict]:
-    """One row per unique design discovered this session — strategic variable values, the
-    scalarizer that discovered it, and its worst-case robust objectives. Purely a read/reshape
-    of the already-solved `design_registry` — no new solving.
+def list_strategic_designs(
+    ctx: JinaScenarioContext, design_registry: dict[int, dict], solution_number_map: dict[int, int]
+) -> list[dict]:
+    """One row per unique design discovered this session.
+
+    Strategic variable values, the scalarizer that discovered it, and its worst-case robust objectives. Purely a
+    read/reshape of the already-solved `design_registry` — no new solving.
     """
     rows = []
     for design_id, entry in sorted(design_registry.items()):
@@ -543,9 +575,10 @@ def compute_wish_list_analysis(
     domain_thresholds: dict[str, float] | None = None,
     af_absolute_floors: dict[str, float] | None = None,
 ) -> dict:
-    """Robustness + antifragility analysis, reusing `compute_robustness_metrics`/
-    `compute_antifragility_metrics` (imported, not re-ported) from the pool-matching method —
-    they're pool-schema-agnostic. Fed from this method's own session-discovered
+    """Robustness + antifragility analysis of the designs discovered this session.
+
+    Reuses `compute_robustness_metrics` / `compute_antifragility_metrics` (imported, not re-ported) from the
+    pool-matching method — they're pool-schema-agnostic. Fed from this method's own session-discovered
     `design_registry` instead of a precomputed CSV pool.
 
     Known limitation: objectives with `maximize=True` are not yet sign-adjusted here (both
@@ -554,8 +587,12 @@ def compute_wish_list_analysis(
     would need its columns negated before calling and results un-negated after; left as a
     documented gap rather than shipped unverified.
     """
-    domain_thresholds = domain_thresholds if domain_thresholds is not None else (ctx.settings.default_domain_thresholds or {})
-    af_absolute_floors = af_absolute_floors if af_absolute_floors is not None else (ctx.settings.default_af_absolute_floors or {})
+    domain_thresholds = (
+        domain_thresholds if domain_thresholds is not None else (ctx.settings.default_domain_thresholds or {})
+    )
+    af_absolute_floors = (
+        af_absolute_floors if af_absolute_floors is not None else (ctx.settings.default_af_absolute_floors or {})
+    )
 
     wish_design_ids = sorted(set(wish_list_ids))
 
@@ -571,7 +608,6 @@ def compute_wish_list_analysis(
                     **{obj: row[obj] for obj in ctx.obj_symbols},
                 }
             )
-    import pandas as pd
 
     full_clean = pd.DataFrame(rows)
     if full_clean.empty:
@@ -601,9 +637,19 @@ def compute_wish_list_analysis(
     if ctx.settings.regret_pool_source == "district_heating_csv":
         try:
             pool_ctx = get_pool_context(ctx.problem_id)
-            csv_pool_df = load_candidate_pool(pool_ctx).pool_transfer[
-                ["source_design_scenario", "reference_id", "scalarizer", "target_operation_scenario", *ctx.obj_symbols]
-            ].copy()
+            csv_pool_df = (
+                load_candidate_pool(pool_ctx)
+                .pool_transfer[
+                    [
+                        "source_design_scenario",
+                        "reference_id",
+                        "scalarizer",
+                        "target_operation_scenario",
+                        *ctx.obj_symbols,
+                    ]
+                ]
+                .copy()
+            )
             csv_pool_df["reference_id"] = "csv_" + csv_pool_df["reference_id"].astype(str)
             regret_pool = pd.concat([full_clean, csv_pool_df], ignore_index=True)
         except (DistrictHeatingDataError, JinaPoolError):
@@ -618,9 +664,8 @@ def compute_wish_list_analysis(
         wish_robustness = compute_robustness_metrics(wish_clean, ctx.obj_symbols, thresholds=domain_thresholds)
         domain_df = wish_robustness["domain_criterion"].rename(columns={"reference_id": "design_id"})
 
-    baseline_scenario = (
-        ctx.settings.baseline_scenario
-        or next((s for s in ctx.all_scenarios if "baseline" in s.lower()), ctx.all_scenarios[0])
+    baseline_scenario = ctx.settings.baseline_scenario or next(
+        (s for s in ctx.all_scenarios if "baseline" in s.lower()), ctx.all_scenarios[0]
     )
     af_pool = compute_antifragility_metrics(
         regret_pool, ctx.obj_symbols, baseline_scenario=baseline_scenario, absolute_floors=af_absolute_floors
@@ -628,14 +673,14 @@ def compute_wish_list_analysis(
     af_all = af_pool["summary"].rename(columns={"reference_id": "design_id"})
     af_dev_all = af_pool["deviations"].rename(columns={"reference_id": "design_id"})
 
-    af_objectives = [o for o in ctx.varying_obj_symbols if (af_all[f"{o}_U"] > 1e-9).any()]
+    af_objectives = [o for o in ctx.varying_obj_symbols if (af_all[f"{o}_U"] > _AF_UPSIDE_TOL).any()]
 
     af_wish = af_all[af_all["design_id"].isin(wish_design_ids)].copy()
     for o in af_objectives:
         af_wish[f"{o}_AF_pctile"] = af_wish[f"{o}_AF"].apply(lambda v, obj=o: 100.0 * (af_all[f"{obj}_AF"] < v).mean())
     af_dev_wish = af_dev_all[af_dev_all["design_id"].isin(wish_design_ids)].copy()
 
-    def records(df: "pd.DataFrame") -> list[dict]:
+    def records(df: pd.DataFrame) -> list[dict]:
         if df.empty:
             return []
         return json.loads(df.to_json(orient="records"))
