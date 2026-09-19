@@ -288,9 +288,67 @@ def main() -> None:
 
     invalidate_context(problem_id)
     invalidate_pool_context(problem_id)
+
+    _refresh_cell_ranges(problem_id)
+
     print(f"\nDone. Select problem_id={problem_id} in the UI to use JINA multi-scenario or "
           "JINA single-scenario with the district heating problem.")
 
 
+def _refresh_cell_ranges(problem_id: int) -> None:
+    """Precompute the combined method's per-cell attainable ranges and store them.
+
+    This is the slow half of that method's first load - one payoff table per scenario - and it
+    depends only on the problem and its scenario model, not on anything a decision maker does. Run
+    here, once, it is a wait for whoever sets the problem up instead of a wait for every decision
+    maker who opens the page.
+
+    Failure is reported but not fatal: the ranges are a cache, and the method recomputes them at
+    request time whenever they are absent or incomplete. A problem that is set up but slow to open
+    beats a setup script that refuses to finish.
+    """
+    from desdeo.api.routers.district_heating_combined_data import store_cell_ranges
+
+    print("\nPrecomputing per-cell attainable ranges (one payoff table per scenario)...")
+    try:
+        count = store_cell_ranges(problem_id)
+    except Exception as e:  # noqa: BLE001
+        print(f"  WARNING: could not precompute cell ranges ({type(e).__name__}: {e}).")
+        print("  The method still works - it will compute them on first load instead.")
+        return
+    print(f"  Stored ranges for {count} cell(s). The combined method will not re-solve for them.")
+
+
+def refresh_cell_ranges_only() -> None:
+    """Recompute and store the cell ranges for every problem that already has a JINA metadata row.
+
+    For when the problem or its scenario model changed and the stored ranges no longer describe
+    it. Cheaper than re-running the whole init, and safe to run at any time: the method validates
+    what it reads and recomputes anything that does not fit.
+    """
+    from sqlmodel import Session
+
+    from desdeo.api.models.problem import JinaMultiScenarioMetaData as _Meta
+
+    with Session(engine) as session:
+        rows = session.exec(select(_Meta)).all()
+        problem_ids = sorted(
+            {row.metadata_instance.problem_id for row in rows if row.metadata_instance is not None}
+        )
+
+    if not problem_ids:
+        print("No problems have JINA multi-scenario metadata; nothing to refresh.")
+        return
+
+    for pid in problem_ids:
+        print(f"\nProblem {pid}:")
+        _refresh_cell_ranges(pid)
+
+
 if __name__ == "__main__":
-    main()
+    import sys
+
+    if "--refresh-cell-ranges" in sys.argv:
+        refresh_cell_ranges_only()
+    else:
+        main()

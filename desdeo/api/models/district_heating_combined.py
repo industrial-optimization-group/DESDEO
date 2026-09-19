@@ -47,8 +47,33 @@ class DistrictHeatingCombinedInitializeResponse(SQLModel):
     strategic_symbols: list[str] = Field(sa_column=Column(JSON))
     strategic_labels: dict[str, str] = Field(sa_column=Column(JSON))
     strategic_units: dict[str, str] = Field(sa_column=Column(JSON))
+    strategic_components: dict[str, str] = Field(
+        sa_column=Column(JSON),
+        default_factory=dict,
+        description="{symbol: short component name}, for compact table columns.",
+    )
+    strategic_axis_max: dict[str, float | None] = Field(
+        sa_column=Column(JSON),
+        default_factory=dict,
+        description=(
+            "Upper bound of each strategic variable, read from the problem, or null if it is "
+            "unbounded. For a problem that follows the district heating convention this doubles "
+            "as the capacity that already exists for that component, which is what lets a "
+            "solution's decision be reported as capacity *added* on top of it."
+        ),
+    )
     cells: list[DistrictHeatingCombinedCell] = Field(
         sa_column=Column(JSON), description="One entry per aspiration level the DM must supply."
+    )
+    scalarizer_count: int = Field(
+        default=0,
+        description=(
+            "Number of scalarizer variants (balanced + one per objective), i.e. the most distinct "
+            "designs a single round can produce and the maximum the UI should let the DM ask for."
+        ),
+    )
+    scalarizer_labels: list[str] = Field(
+        sa_column=Column(JSON), default_factory=list, description="Display labels, in priority order."
     )
 
 
@@ -62,6 +87,15 @@ class DistrictHeatingCombinedIterateRequest(SQLModel):
             "cover every cell returned by /initialize — the ASF scalarizes exactly the objectives "
             "named here, so a partial reference point would silently drop cells from the solve "
             "rather than fail."
+        ),
+    )
+    max_solutions: int | None = Field(
+        default=None,
+        description=(
+            "Cap on how many distinct designs to return this round; null means every scalarizer "
+            "variant's result. Every variant still solves regardless — this trims what is "
+            "returned, not what is solved, so nothing is lost from the design registry or wish "
+            "list. Designs are kept in scalarizer priority order, balanced first."
         ),
     )
     note: str | None = Field(default=None)
@@ -91,6 +125,15 @@ class DistrictHeatingCombinedSolution(SQLModel):
 
     design_id: int
     solution_number: int
+    matched_by: list[str] = Field(
+        sa_column=Column(JSON),
+        default_factory=list,
+        description=(
+            "Which scalarizer variants landed on this design — e.g. ['balanced', "
+            "'emphasize_obj4']. Several variants agreeing on one design is informative: it means "
+            "the emphasis did not buy a different build."
+        ),
+    )
     repeat: bool = Field(description="True if this design first appeared in an earlier iteration.")
     alpha: float
     all_reached: bool
@@ -118,7 +161,31 @@ class DistrictHeatingCombinedIterateResponse(SQLModel):
     reference_point: dict[str, float] = Field(sa_column=Column(JSON), default_factory=dict)
     note: str | None = None
     solution: DistrictHeatingCombinedSolution | None = Field(
-        default=None, sa_column=Column(JSON), description="None before the first iteration."
+        default=None,
+        sa_column=Column(JSON),
+        description=(
+            "The primary (balanced) design, or None before the first iteration. Retained alongside "
+            "`solutions` so rounds recorded before this method solved several variants — and any "
+            "client written against the single-design shape — still read correctly."
+        ),
+    )
+    solutions: list[DistrictHeatingCombinedSolution] = Field(
+        sa_column=Column(JSON),
+        default_factory=list,
+        description=(
+            "Every distinct design this round produced, balanced first, already trimmed to the "
+            "round's `max_solutions`. Empty before the first iteration."
+        ),
+    )
+    max_solutions: int | None = Field(
+        default=None, description="The cap this round used, so the UI can show what was asked for."
+    )
+    scalarizer_count: int = Field(
+        default=0,
+        description=(
+            "How many scalarizer variants this problem has — the ceiling on distinct designs per "
+            "round, and the maximum the UI should offer."
+        ),
     )
     wish_list: list[int] = Field(sa_column=Column(JSON), default_factory=list)
     scenarios: list[str] = Field(sa_column=Column(JSON), default_factory=list)
@@ -134,7 +201,17 @@ class DistrictHeatingCombinedSessionTreeEntry(SQLModel):
     iteration_number: int
     note: str | None = None
     reference_point: dict[str, float] = Field(sa_column=Column(JSON))
-    solution: DistrictHeatingCombinedSolution | None = Field(default=None, sa_column=Column(JSON))
+    solution: DistrictHeatingCombinedSolution | None = Field(
+        default=None, sa_column=Column(JSON), description="The round's primary (balanced) design."
+    )
+    solutions: list[DistrictHeatingCombinedSolution] = Field(
+        sa_column=Column(JSON),
+        default_factory=list,
+        description=(
+            "Every design the round produced. A round recorded before this method solved several "
+            "scalarizer variants yields the single design it did produce."
+        ),
+    )
 
 
 class DistrictHeatingCombinedSessionTreeResponse(SQLModel):

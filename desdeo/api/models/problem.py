@@ -424,6 +424,31 @@ class JinaMultiScenarioMetaData(SQLModel, table=True):
     strategic_var_labels: dict[str, str] | None = Field(sa_column=Column(JSON), default=None, description="{symbol: display label} override for strategic (first-stage) variables.")
     strategic_var_components: dict[str, str] | None = Field(sa_column=Column(JSON), default=None, description="{symbol: short component name}, e.g. for compact table columns.")
     strategic_var_units: dict[str, str] | None = Field(sa_column=Column(JSON), default=None, description="{symbol: unit string}, e.g. 'MW'.")
+    combined_cell_ranges: dict[str, list[float]] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description=(
+            "Precomputed attainable range per (objective, scenario) cell for the combined "
+            "multi-scenario method, as {combined_symbol: [ideal, nadir]}. Derived data, not "
+            "preference: it is exactly what a payoff table on each scenario's standalone problem "
+            "produces, cached here because that is one solve per scenario and the decision maker "
+            "would otherwise wait for it on first load. Absent, incomplete or stale entries are "
+            "recomputed at request time, so this is only ever an optimisation - never a source of "
+            "truth that can silently go wrong. Regenerate with "
+            "`python -m desdeo.api.db_init_district_heating --refresh-cell-ranges`."
+        ),
+    )
+    information_hours: dict[str, int] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description=(
+            "{scenario: first 0-based hour at which the scenario is known}. The combined "
+            "multi-scenario method forces each listed scenario's hourly decisions to equal the "
+            "baseline scenario's before that hour (normal operation until a disruption starts or "
+            "its warning arrives). Absent means no such constraints. Each hour must be no later "
+            "than the scenario's first disrupted hour."
+        ),
+    )
 
     metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="jina_multiscenario_metadata")
 

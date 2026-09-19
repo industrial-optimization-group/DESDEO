@@ -106,11 +106,15 @@ def _design_registry_from_state(state: DistrictHeatingCombinedIterationState | N
 
 
 def _solution_from_state(state: DistrictHeatingCombinedIterationState) -> DistrictHeatingCombinedSolution | None:
+    """The round's primary (balanced) design, from the single-design columns."""
     if not state.cell_results:
         return None
     return DistrictHeatingCombinedSolution(
         design_id=state.design_id,
         solution_number=state.solution_number,
+        # A round recorded before this method solved several variants was a single balanced solve,
+        # so naming that variant is accurate rather than a guess.
+        matched_by=["balanced"],
         repeat=state.repeat,
         alpha=state.alpha,
         all_reached=state.all_reached,
@@ -118,6 +122,19 @@ def _solution_from_state(state: DistrictHeatingCombinedIterationState) -> Distri
         strategic_values=state.strategic_values,
         breakdown=state.breakdown,
     )
+
+
+def _solutions_from_state(state: DistrictHeatingCombinedIterationState) -> list[DistrictHeatingCombinedSolution]:
+    """Every design a round produced.
+
+    Rounds written before this method solved several scalarizer variants have `solutions` NULL or
+    empty and only the single-design columns filled in, so those are used instead — an existing
+    session keeps reading back correctly rather than appearing to have lost its results.
+    """
+    if state.solutions:
+        return [DistrictHeatingCombinedSolution.model_validate(entry) for entry in state.solutions]
+    single = _solution_from_state(state)
+    return [single] if single is not None else []
 
 
 def _grid_fields(cctx: CombinedContext) -> dict:
@@ -155,6 +172,8 @@ def initialize(
         strategic_symbols=list(base.strategic_symbols),
         strategic_labels={sym: meta.label for sym, meta in base.strategic_meta.items()},
         strategic_units={sym: meta.unit for sym, meta in base.strategic_meta.items() if meta.unit is not None},
+        strategic_components={sym: meta.component for sym, meta in base.strategic_meta.items()},
+        strategic_axis_max={sym: base.strategic_meta[sym].axis_max for sym in base.strategic_symbols},
         cells=[
             DistrictHeatingCombinedCell(
                 symbol=c.symbol,
@@ -170,6 +189,8 @@ def initialize(
             )
             for c in cctx.cells
         ],
+        scalarizer_count=len(cctx.scalarizer_defs),
+        scalarizer_labels=[sdef.label for sdef in cctx.scalarizer_defs],
     )
 
 
@@ -199,7 +220,11 @@ def get_or_initialize(
 
     if latest_iteration_db is None:
         return DistrictHeatingCombinedIterateResponse(
-            state_id=0, iteration_number=0, wish_list=wish_list, **_grid_fields(cctx)
+            state_id=0,
+            iteration_number=0,
+            wish_list=wish_list,
+            scalarizer_count=len(cctx.scalarizer_defs),
+            **_grid_fields(cctx),
         )
 
     state = latest_iteration_db.state
@@ -209,6 +234,9 @@ def get_or_initialize(
         reference_point=state.reference_point,
         note=state.note,
         solution=_solution_from_state(state),
+        solutions=_solutions_from_state(state),
+        max_solutions=state.max_solutions,
+        scalarizer_count=len(cctx.scalarizer_defs),
         wish_list=wish_list,
         **_grid_fields(cctx),
     )
@@ -258,7 +286,7 @@ def iterate(
     iteration_number = (latest_iteration_db.state.iteration_number + 1) if latest_iteration_db else 1
 
     try:
-        result = run_combined_iteration(cctx, request.reference_point)
+        variants = run_combined_iteration(cctx, request.reference_point)
     except JinaScenarioError as e:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
     except Exception as e:
@@ -268,55 +296,92 @@ def iterate(
             detail=f"Iteration failed: {type(e).__name__}: {e}",
         ) from e
 
-    breakdown = scenario_breakdown(cctx, result.objective_values)
+    # Every scalarizer variant is a candidate design, but several can land on the same physical
+    # build - always so when the reference point sits at the cells' ideals, where the emphasis
+    # shift has no gap to close and every variant solves the identical problem. Those collapse
+    # into a single entry recording each variant that produced it, rather than showing duplicates.
+    solutions_payload: list[dict] = []
+    by_signature: dict[tuple[int, ...], dict] = {}
 
-    # Two rounds that land on the same physical build are the same design: it keeps its original
-    # id and solution number and is flagged as a repeat, rather than being counted twice in the
-    # wish list or the domain criterion.
-    signature = design_signature(cctx, result.strategic_values)
-    existing_id = next((did for did, entry in design_registry.items() if tuple(entry["signature"]) == signature), None)
-    repeat = existing_id is not None
-    if existing_id is None:
-        design_id = (max(design_registry) + 1) if design_registry else 1
-        solution_number = (max(solution_number_map.values()) + 1) if solution_number_map else 1
-        solution_number_map[design_id] = solution_number
-    else:
-        design_id = existing_id
-        solution_number = solution_number_map.get(design_id, design_id)
+    for variant in variants:
+        signature = design_signature(cctx, variant.strategic_values)
+        if signature in by_signature:
+            by_signature[signature]["matched_by"].append(variant.scalarizer)
+            continue
 
-    design_registry[design_id] = {
-        "signature": list(signature),
-        "first_iteration": design_registry.get(design_id, {}).get("first_iteration", iteration_number),
-        "strategic_vals": result.strategic_values,
-        "breakdown": breakdown,
-        "objective_values": result.objective_values,
-    }
+        breakdown = scenario_breakdown(cctx, variant.objective_values)
 
-    cell_result_dicts = [
-        {
-            "symbol": r.symbol,
-            "aspiration": r.aspiration,
-            "achieved": r.achieved,
-            "scaled": r.scaled,
-            "binds": r.binds,
+        # A design seen in an earlier round keeps its original id and solution number and is
+        # flagged as a repeat, so it is not counted twice in the wish list or domain criterion.
+        existing_id = next(
+            (did for did, entry in design_registry.items() if tuple(entry["signature"]) == signature), None
+        )
+        repeat = existing_id is not None
+        if existing_id is None:
+            design_id = (max(design_registry) + 1) if design_registry else 1
+            solution_number = (max(solution_number_map.values()) + 1) if solution_number_map else 1
+            solution_number_map[design_id] = solution_number
+        else:
+            design_id = existing_id
+            solution_number = solution_number_map.get(design_id, design_id)
+
+        design_registry[design_id] = {
+            "signature": list(signature),
+            "first_iteration": design_registry.get(design_id, {}).get("first_iteration", iteration_number),
+            "strategic_vals": variant.strategic_values,
+            "breakdown": breakdown,
+            "objective_values": variant.objective_values,
         }
-        for r in result.cell_results
-    ]
+
+        entry = {
+            "design_id": design_id,
+            "solution_number": solution_number,
+            "matched_by": [variant.scalarizer],
+            "repeat": repeat,
+            "alpha": variant.alpha,
+            "all_reached": variant.all_reached,
+            "cell_results": [
+                {
+                    "symbol": r.symbol,
+                    "aspiration": r.aspiration,
+                    "achieved": r.achieved,
+                    "scaled": r.scaled,
+                    "binds": r.binds,
+                }
+                for r in variant.cell_results
+            ],
+            "strategic_values": variant.strategic_values,
+            "breakdown": breakdown,
+        }
+        by_signature[signature] = entry
+        solutions_payload.append(entry)
+
+    # The cap trims only what is handed back. Every design above is already in `design_registry`,
+    # so a trimmed one still reaches the design explorer and can still be wish-listed - it is a
+    # display cap, not a speed optimization, since every variant solved regardless.
+    if request.max_solutions is not None and request.max_solutions > 0:
+        solutions_payload = solutions_payload[: request.max_solutions]
+
+    # The balanced variant is first, so the primary design is the one the DM's own reference point
+    # produced - the single-design columns keep meaning exactly what they meant before variants.
+    primary = solutions_payload[0]
 
     iteration_state = DistrictHeatingCombinedIterationState(
         reference_point=request.reference_point,
         note=request.note,
         iteration_number=iteration_number,
+        max_solutions=request.max_solutions,
         design_registry={str(k): {**v, "signature": list(v["signature"])} for k, v in design_registry.items()},
         solution_number_map={str(k): v for k, v in solution_number_map.items()},
-        alpha=result.alpha,
-        all_reached=result.all_reached,
-        design_id=design_id,
-        solution_number=solution_number,
-        repeat=repeat,
-        cell_results=cell_result_dicts,
-        strategic_values=result.strategic_values,
-        breakdown=breakdown,
+        alpha=primary["alpha"],
+        all_reached=primary["all_reached"],
+        design_id=primary["design_id"],
+        solution_number=primary["solution_number"],
+        repeat=primary["repeat"],
+        cell_results=primary["cell_results"],
+        strategic_values=primary["strategic_values"],
+        breakdown=primary["breakdown"],
+        solutions=solutions_payload,
     )
     state = StateDB.create(
         database_session=db_session,
@@ -334,16 +399,10 @@ def iterate(
         iteration_number=iteration_number,
         reference_point=request.reference_point,
         note=request.note,
-        solution=DistrictHeatingCombinedSolution(
-            design_id=design_id,
-            solution_number=solution_number,
-            repeat=repeat,
-            alpha=result.alpha,
-            all_reached=result.all_reached,
-            cell_results=[DistrictHeatingCombinedCellResult.model_validate(r) for r in cell_result_dicts],
-            strategic_values=result.strategic_values,
-            breakdown=breakdown,
-        ),
+        solution=DistrictHeatingCombinedSolution.model_validate(primary),
+        solutions=[DistrictHeatingCombinedSolution.model_validate(e) for e in solutions_payload],
+        max_solutions=request.max_solutions,
+        scalarizer_count=len(cctx.scalarizer_defs),
         wish_list=wish_list,
         **_grid_fields(cctx),
     )
@@ -378,6 +437,7 @@ def session_tree(
                 note=state.note,
                 reference_point=state.reference_point,
                 solution=_solution_from_state(state),
+                solutions=_solutions_from_state(state),
             )
         )
     return DistrictHeatingCombinedSessionTreeResponse(entries=entries)

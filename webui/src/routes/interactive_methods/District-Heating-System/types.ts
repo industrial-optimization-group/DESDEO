@@ -168,6 +168,8 @@ export interface AnalysisResult {
 }
 
 export const SOLUTION_COLORS = [
+	// The original eight, unchanged and in order: a design's colour comes from its position here,
+	// so reordering or inserting would repaint every design a decision maker has already seen.
 	'#08519c',
 	'#238b45',
 	'#e08214',
@@ -175,5 +177,22 @@ export const SOLUTION_COLORS = [
 	'#d73027',
 	'#1a1a1a',
 	'#0bb99c',
-	'#b930d8'
+	'#b930d8',
+	// Twelve more, appended so a ninth and tenth design no longer wrap around to the first two.
+	// Chosen by greedy maximum-minimum separation in CIELAB against everything already in the
+	// list, restricted to L* 22-72 so each one reads as a thin line on white without being so
+	// dark it reads as the black entry. Worst pair across all twenty is deltaE 26, against 30 for
+	// the original eight alone.
+	'#c49c94',
+	'#e7298a',
+	'#543005',
+	'#01665e',
+	'#66a61e',
+	'#e377c2',
+	'#8e0152',
+	'#a65628',
+	'#666666',
+	'#7f0000',
+	'#17becf',
+	'#00441b'
 ];

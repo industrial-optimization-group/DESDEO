@@ -1,5 +1,5 @@
 /**
- * Handlers for the JINA (interactive combined multi-scenario) method.
+ * Handlers for the JINA (interactive multi-scenario) method.
  *
  * Thin wrappers over the generated client that turn a non-200 into a message a decision maker can
  * act on, mirroring the multi-scenario method's handlers. This method has only two calls: fetch
@@ -23,6 +23,7 @@ import type {
 import type {
 	CombinedAnalysisResult,
 	CombinedGrid,
+	CombinedIterateBody,
 	CombinedResult,
 	CombinedSessionTreeEntry,
 	CombinedWishlistResult
@@ -78,10 +79,10 @@ export async function initializeCombined(
 	return res.data as unknown as CombinedGrid;
 }
 
-export async function runCombinedIteration(
-	body: DistrictHeatingCombinedIterateRequest
-): Promise<CombinedResult> {
-	const res = await iterateMethodDistrictHeatingCombinedIteratePost(body);
+export async function runCombinedIteration(body: CombinedIterateBody): Promise<CombinedResult> {
+	const res = await iterateMethodDistrictHeatingCombinedIteratePost(
+		body as unknown as DistrictHeatingCombinedIterateRequest
+	);
 	if (res.status !== 200) throw new Error(errorMessage(res, 'Failed to run the iteration.'));
 	return res.data as unknown as CombinedResult;
 }

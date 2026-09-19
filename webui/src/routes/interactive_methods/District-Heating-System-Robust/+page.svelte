@@ -25,7 +25,6 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Badge } from '$lib/components/ui/badge';
 	import ParallelCoordinates from '$lib/components/visualizations/parallel-coordinates/parallel-coordinates.svelte';
-	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import { create_session } from '../../methods/sessions/handler';
 	import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
@@ -94,16 +93,28 @@
 		'Unmet Heat': 'Unmet'
 	};
 
-	function objShortLabel(sym: string): string {
+	/** The objective's short name with no unit - for axes not in the objective's own unit. */
+	function objShortName(sym: string): string {
 		const metaName = objMetaBySymbol[sym]?.name;
-		return (metaName ? SHORT_AXIS_LABELS[metaName] : undefined) ?? objLabel(sym);
+		if (!metaName) return sym;
+		return SHORT_AXIS_LABELS[metaName] ?? metaName;
+	}
+
+	/** Name plus unit, for axes that carry the objective's own values. The unit is the part a
+	 *  decision maker most needs when reading a number off an axis, so it survives shortening. */
+	function objShortLabel(sym: string): string {
+		const unit = objMetaBySymbol[sym]?.unit;
+		const short = objShortName(sym);
+		return unit ? `${short} (${unit})` : short;
 	}
 
 	function regretLabel(sym: string): string {
-		return `${objLabel(sym)} regret`;
+		// Same reasoning as the regret axes: the value is a normalized 0-1 score, so the
+		// objective's unit would be wrong here.
+		return `${objMetaBySymbol[sym]?.name ?? sym} (max regret)`;
 	}
 	function domainLabel(sym: string): string {
-		return `${objLabel(sym)} met`;
+		return `${objShortName(sym)} met`;
 	}
 
 	let STRAT_KEYS = $derived.by(() => current?.meta.strategic_vars.map((v) => v.symbol) ?? []);
@@ -167,13 +178,12 @@
 	let mode: 'percent' | 'raw' | 'delta' = $state('percent');
 	let percentValues: Record<string, number> = $state({});
 	let rawValues: Record<string, number> = $state({});
-	// Third mode: how far to move each objective's aspiration *relative to the previous
-	// iteration*, in percentage points of the same 0 = nadir … 100 = ideal scale the percent mode
-	// uses. +10 means "ten points closer to the ideal than last round", -5 the reverse. A DM
-	// steering a search usually knows "a bit more of this, less of that" well before they know the
-	// number they actually want, and this is the only mode anchored on the last round rather than
-	// on the range as a whole.
-	let deltaValues: Record<string, number> = $state({});
+	// Third mode: move each objective's aspiration by a percentage *of that aspiration's own
+	// value*, relative to the previous iteration, in either direction. +10 demands 10% better than
+	// last round, -10 concedes 10% worse. A DM steering a search usually knows "a bit more of this, less of
+	// that" well before they know the number they want, and this is the only mode anchored on the
+	// last round rather than on the range as a whole.
+	let adjustPercent: Record<string, number> = $state({});
 	let note = $state('');
 	// Caps how many distinct designs are shown/highlighted this round — every scalarizer variant
 	// still solves live regardless, so this doesn't change iteration time; it only trims what's
@@ -200,31 +210,83 @@
 		return nadir + (Math.max(0, Math.min(100, pct)) / 100) * (ideal - nadir);
 	}
 
-	// Anchor for the change mode: the reference point of the most recent iteration, as a position
-	// on the range. Before the first iteration there is nothing to move relative to, so changes
-	// apply from the midpoint instead — stated in the UI rather than left to be inferred.
-	const DELTA_FALLBACK_BASE = 50;
-
-	let previousPercent = $derived.by(() => {
-		const out: Record<string, number | null> = {};
-		for (const obj of OBJ_KEYS) out[obj] = percentOfRange(obj, current?.reference_point?.[obj]);
-		return out;
-	});
-
 	let hasPreviousReferencePoint = $derived.by(
-		() => !!current && current.state_id !== 0 && OBJ_KEYS.some((obj) => previousPercent[obj] !== null)
+		() =>
+			!!current &&
+			current.state_id !== 0 &&
+			OBJ_KEYS.some((obj) => Number.isFinite(current?.reference_point?.[obj] as number))
 	);
 
-	// Anchor plus the requested change, clamped back into the range so a large step can't push an
-	// aspiration past the ideal (or below the nadir) and silently become unreachable.
-	let deltaResultPercent = $derived.by(() => {
-		const out: Record<string, number> = {};
+	/** What a percentage change is measured against: last round's aspiration, or — before any
+	 *  round exists to compare with — the middle of the objective's range. */
+	function adjustBase(obj: string): number {
+		const prev = current?.reference_point?.[obj];
+		if (prev !== undefined && prev !== null && Number.isFinite(prev)) return prev;
+		const ideal = current?.global_ideal?.[obj] ?? 0;
+		const nadir = current?.global_nadir?.[obj] ?? 0;
+		return (ideal + nadir) / 2;
+	}
+
+	/** Which way is "better" for this objective. Derived rather than assumed: these objectives are
+	 *  all minimised but their values are not all positive — a worst-case cost sits at a negative
+	 *  number whose ideal is more negative still, so "10% better" there means 10% larger in
+	 *  magnitude, while for CO2 it means 10% smaller. */
+	function towardIdeal(obj: string, base: number): number {
+		const ideal = current?.global_ideal?.[obj] ?? 0;
+		const nadir = current?.global_nadir?.[obj] ?? 0;
+		if (ideal > base) return 1;
+		if (ideal < base) return -1;
+		return nadir > ideal ? -1 : 1;
+	}
+
+	/** Move an aspiration by `percent` of its own magnitude, toward the ideal for a positive
+	 *  percent and away for a negative one, clamped to the range so a large step cannot ask for
+	 *  something past the ideal that no design could reach. */
+	function adjustedRaw(obj: string, percent: number): number {
+		const base = adjustBase(obj);
+		const cand = base + ((percent || 0) / 100) * Math.abs(base) * towardIdeal(obj, base);
+		const ideal = current?.global_ideal?.[obj] ?? 0;
+		const nadir = current?.global_nadir?.[obj] ?? 0;
+		return Math.max(Math.min(ideal, nadir), Math.min(Math.max(ideal, nadir), cand));
+	}
+
+	/** A percentage of zero is zero, so an objective whose previous aspiration was exactly 0
+	 *  cannot be moved in this mode at all. */
+	function adjustIsStuck(obj: string): boolean {
+		return Math.abs(adjustBase(obj)) < 1e-12;
+	}
+
+	/** The percentage that would land this objective on `raw` — the inverse of `adjustedRaw`, used
+	 *  when switching into this tab. Null where the base is 0 and no percentage can move it. */
+	function percentToReach(obj: string, raw: number): number | null {
+		const base = adjustBase(obj);
+		if (Math.abs(base) < 1e-12) return null;
+		return (100 * (raw - base)) / (Math.abs(base) * towardIdeal(obj, base));
+	}
+
+	/** Switch input mode, carrying the targets across rather than leaving the new tab showing
+	 *  whatever was last typed there. The three tabs are three notations for the same numbers, so
+	 *  switching should change the notation and not the request. */
+	function switchMode(next: 'percent' | 'raw' | 'delta') {
+		if (next === mode) return;
+		const effective = current ? referencePointFromInputs() : null;
+		mode = next;
+		if (!effective) return;
+
 		for (const obj of OBJ_KEYS) {
-			const base = previousPercent[obj] ?? DELTA_FALLBACK_BASE;
-			out[obj] = Math.max(0, Math.min(100, base + (deltaValues[obj] ?? 0)));
+			const raw = effective[obj];
+			if (raw === undefined || !Number.isFinite(raw)) continue;
+			if (next === 'raw') {
+				rawValues[obj] = raw;
+			} else if (next === 'percent') {
+				const pct = percentOfRange(obj, raw);
+				if (pct !== null) percentValues[obj] = pct;
+			} else {
+				const pct = percentToReach(obj, raw);
+				if (pct !== null) adjustPercent[obj] = pct;
+			}
 		}
-		return out;
-	});
+	}
 
 	function referencePointFromInputs(): Record<string, number> {
 		if (mode === 'raw') {
@@ -233,7 +295,7 @@
 		if (!current) return { ...percentValues };
 		const out: Record<string, number> = {};
 		if (mode === 'delta') {
-			for (const obj of OBJ_KEYS) out[obj] = rawFromPercent(obj, deltaResultPercent[obj]);
+			for (const obj of OBJ_KEYS) out[obj] = adjustedRaw(obj, adjustPercent[obj] ?? 0);
 			return out;
 		}
 		for (const obj of OBJ_KEYS) {
@@ -285,7 +347,7 @@
 			for (const obj of objSymbols) {
 				if (percentValues[obj] === undefined) percentValues[obj] = 50;
 				if (rawValues[obj] === undefined) rawValues[obj] = 0;
-				if (deltaValues[obj] === undefined) deltaValues[obj] = 0;
+				if (adjustPercent[obj] === undefined) adjustPercent[obj] = 0;
 			}
 			if (!domainThresholdsSeeded) {
 				domainThresholds = { ...current.meta.default_domain_thresholds };
@@ -325,7 +387,7 @@
 			// A change is stated relative to the round it was entered in, so once it has been
 			// applied it must go back to zero — leaving it would silently re-apply the same step
 			// against the new anchor on the next iterate.
-			for (const obj of OBJ_KEYS) deltaValues[obj] = 0;
+			for (const obj of OBJ_KEYS) adjustPercent[obj] = 0;
 			await loadSessionTree();
 			await loadStrategicDesigns();
 		} catch (e) {
@@ -365,7 +427,24 @@
 
 	// Which matched solution is currently focused, shared by the trade-off chart and the
 	// per-scenario panels below (see the "Per-scenario small multiples" block). null = none.
-	let selectedSolutionIdx: number | null = $state(null);
+	// Several solutions can be focused at once — comparing two or three against each other is the
+	// point of the plot, and a single selection forced them to be viewed one by one. Empty means
+	// "no focus", which draws every solution at full colour.
+	let selectedSolutionIdxs: number[] = $state([]);
+
+	function isSolutionSelected(solIdx: number): boolean {
+		return selectedSolutionIdxs.includes(solIdx);
+	}
+
+	function isSolutionHighlighted(solIdx: number): boolean {
+		return selectedSolutionIdxs.length === 0 || selectedSolutionIdxs.includes(solIdx);
+	}
+
+	/** The most recently clicked solution. Cards that can only describe one design — the detail
+	 *  panel and the Strategic Design Explorer — follow this rather than guessing among several. */
+	let primarySelectedIdx = $derived(
+		selectedSolutionIdxs.length > 0 ? selectedSolutionIdxs[selectedSolutionIdxs.length - 1] : null
+	);
 	let scenarioPanelLayout: 'grid' | 'row' = $state('grid');
 
 	// Color used for every line that isn't the focused solution, once one is focused.
@@ -405,21 +484,19 @@
 
 	let chartColorByIndex = $derived.by(() => {
 		const map: Record<string, string> = {};
-		const sel = selectedSolutionIdx;
 		chartRowSolutionIdx.forEach((solIdx, row) => {
-			map[String(row)] = sel === null || sel === solIdx ? solutionColor(solIdx) : MUTED_LINE_COLOR;
+			map[String(row)] = isSolutionHighlighted(solIdx) ? solutionColor(solIdx) : MUTED_LINE_COLOR;
 		});
 		return map;
 	});
 
-	// Every row of the selected solution, so all of its scenario lines are drawn thick, opaque and
-	// on top at once (the component's multi-selection mode) rather than just the one clicked.
+	// Every row of every focused solution, so all of their scenario lines are drawn thick, opaque
+	// and on top at once. An array — even an empty one — is what keeps the component in
+	// multi-selection mode; returning null would hand selection back to its internal single-select.
 	let chartSelectedRows = $derived.by(() => {
-		const sel = selectedSolutionIdx;
-		if (sel === null) return null;
 		const rows: number[] = [];
 		chartRowSolutionIdx.forEach((solIdx, row) => {
-			if (solIdx === sel) rows.push(row);
+			if (isSolutionSelected(solIdx)) rows.push(row);
 		});
 		return rows;
 	});
@@ -513,12 +590,18 @@
 	$effect(() => {
 		if (viewedIterationIndex !== lastSelectionIteration) {
 			lastSelectionIteration = viewedIterationIndex;
-			selectedSolutionIdx = null;
+			selectedSolutionIdxs = [];
 		}
 	});
 
 	function toggleSolutionSelection(solIdx: number | null) {
-		selectedSolutionIdx = solIdx === null || selectedSolutionIdx === solIdx ? null : solIdx;
+		if (solIdx === null) {
+			selectedSolutionIdxs = [];
+			return;
+		}
+		selectedSolutionIdxs = selectedSolutionIdxs.includes(solIdx)
+			? selectedSolutionIdxs.filter((i) => i !== solIdx)
+			: [...selectedSolutionIdxs, solIdx];
 	}
 
 	// Same axes as the trade-off chart minus its Scenario axis (each panel *is* one scenario),
@@ -556,20 +639,28 @@
 		});
 	});
 
-	function panelColorByIndex(solIdxByRow: number[], sel: number | null): Record<string, string> {
+	function panelColorByIndex(solIdxByRow: number[]): Record<string, string> {
 		const map: Record<string, string> = {};
 		solIdxByRow.forEach((solIdx, row) => {
-			map[String(row)] = sel === null || sel === solIdx ? solutionColor(solIdx) : MUTED_LINE_COLOR;
+			map[String(row)] = isSolutionHighlighted(solIdx) ? solutionColor(solIdx) : MUTED_LINE_COLOR;
 		});
 		return map;
 	}
 
-	// Multi-selection mode (an array, even of one) rather than `selectedIndex`, so the panel never
-	// mutates its own selection prop and every panel stays driven purely by `selectedSolutionIdx`.
-	function panelSelectedRows(solIdxByRow: number[], sel: number | null): number[] | null {
-		if (sel === null) return null;
-		const row = solIdxByRow.indexOf(sel);
-		return row >= 0 ? [row] : [];
+	// Multi-selection mode (an array, even when empty) rather than `selectedIndex`, so a panel
+	// never mutates its own selection prop and every panel stays driven by the page's selection.
+	function panelSelectedRows(solIdxByRow: number[]): number[] {
+		const rows: number[] = [];
+		solIdxByRow.forEach((solIdx, row) => {
+			if (isSolutionSelected(solIdx)) rows.push(row);
+		});
+		return rows;
+	}
+
+	function toggleSolutionByPanelRow(solIdxByRow: number[], row: number | null) {
+		if (row === null) return;
+		const solIdx = solIdxByRow[row];
+		if (solIdx !== undefined) toggleSolutionSelection(solIdx);
 	}
 
 	// The tooltip is rendered as HTML by the chart component, so anything interpolated into a label
@@ -606,6 +697,17 @@
 	// (`compactTickLabels`): full thousands-separated values do not fit between two axes here, so
 	// they are drawn as "-32.1M" / "7.9k" at a smaller size with a white halo. The legend under
 	// the header still carries each axis's unit and full range for all eight panels at once.
+	// The chart defaults minus the per-axis colour squares: lines here are coloured by solution,
+	// so a colour beside each objective name implies a relationship that does not exist.
+	const CHART_OPTIONS = {
+		showAxisLabels: true,
+		highlightOnHover: true,
+		strokeWidth: 2,
+		opacity: 0.6,
+		enableBrushing: true,
+		showAxisColorSquares: false
+	};
+
 	const PANEL_OPTIONS = {
 		showAxisLabels: true,
 		highlightOnHover: true,
@@ -615,20 +717,50 @@
 	};
 
 	let panelAxisLegend = $derived(
-		OBJ_KEYS.map((obj, i) => ({
+		OBJ_KEYS.map((obj) => ({
 			symbol: obj,
 			label: objLabel(obj),
-			color: COLOR_PALETTE[i % COLOR_PALETTE.length],
 			range: chartAxisRanges[obj] ?? [0, 1]
 		}))
 	);
 
 	let selectedSolution = $derived.by(() =>
-		selectedSolutionIdx === null ? null : (viewedEntry?.solutions?.[selectedSolutionIdx] ?? null)
+		primarySelectedIdx === null ? null : (viewedEntry?.solutions?.[primarySelectedIdx] ?? null)
 	);
 
+	/** design_id -> solution_number, gathered across every round in the session.
+	 *
+	 *  A design's solution number is assigned once, when it is first discovered, and is never
+	 *  reused — so it is the only identifier that means the same thing in every round. Colouring
+	 *  by it is what keeps a design one colour everywhere: the trade-off plot, the per-scenario
+	 *  panels, max regret, the domain criterion and the wish list.
+	 */
+	let solutionNumberByDesign = $derived.by(() => {
+		const map: Record<number, number> = {};
+		for (const entry of iterateEntries) {
+			for (const sol of entry.solutions ?? []) {
+				if (map[sol.design_id] === undefined) map[sol.design_id] = sol.solution_number;
+			}
+		}
+		return map;
+	});
+
+	/** The permanent colour of a design. Falls back to the design id when the session tree has not
+	 *  arrived yet, which is still stable for that design — just possibly a different hue than
+	 *  once the numbers are known. */
+	function colorForDesign(designId: number): string {
+		const n = solutionNumberByDesign[designId] ?? designId;
+		return SOLUTION_COLORS[Math.max(0, n - 1) % SOLUTION_COLORS.length];
+	}
+
+	/** Colour for the solution at `index` in the round being viewed.
+	 *
+	 *  Deliberately not `SOLUTION_COLORS[index]`: a design's position within a round changes from
+	 *  round to round, so indexing by it repainted designs as the decision maker iterated.
+	 */
 	function solutionColor(index: number): string {
-		return SOLUTION_COLORS[index % SOLUTION_COLORS.length];
+		const sol = viewedEntry?.solutions?.[index];
+		return sol ? colorForDesign(sol.design_id) : SOLUTION_COLORS[index % SOLUTION_COLORS.length];
 	}
 
 	function fmt(v: number): string {
@@ -660,7 +792,7 @@
 	// a manual pick can never feed back in and undo itself.
 	let lastSyncedFocus: number | null | undefined = undefined;
 	$effect(() => {
-		const focused = selectedSolutionIdx;
+		const focused = primarySelectedIdx;
 		const opts = strategicDesignOptions;
 		if (focused !== lastSyncedFocus) {
 			lastSyncedFocus = focused;
@@ -791,9 +923,8 @@
 	let domainThresholds: Record<string, number> = $state({});
 	let domainThresholdsSeeded = false;
 
-	function designColor(designId: number, ids: number[]): string {
-		const idx = ids.indexOf(designId);
-		return SOLUTION_COLORS[idx % SOLUTION_COLORS.length];
+	function designColor(designId: number): string {
+		return colorForDesign(designId);
 	}
 
 	async function handleAnalyze() {
@@ -833,7 +964,10 @@
 	let regretDimensions = $derived(
 		OBJ_KEYS.map((obj) => ({
 			symbol: obj,
-			name: `${objShortLabel(obj)} regret`,
+			// Normalized 0-1 (0 = best achiever in that scenario/objective, 1 = worst), so this
+			// axis carries no unit of its own - appending the objective's would claim euros or
+			// tonnes for a dimensionless score.
+			name: `${objShortName(obj)} (max regret)`,
 			min: 0,
 			max: 1,
 			direction: 'min' as const
@@ -842,7 +976,7 @@
 	let regretColorByIndex = $derived.by(() => {
 		const ids = regretIds;
 		const map: Record<string, string> = {};
-		ids.forEach((id, i) => (map[String(i)] = designColor(id, ids)));
+		ids.forEach((id, i) => (map[String(i)] = designColor(id)));
 		return map;
 	});
 
@@ -863,7 +997,11 @@
 	let domainDimensions = $derived(
 		OBJ_KEYS.map((obj) => ({
 			symbol: obj,
-			name: `${objShortLabel(obj)} met`,
+			// A count of scenarios, not a quantity of the objective - so the objective's own unit
+			// would be actively wrong here.
+			// No unit suffix: the card's own description already states every axis counts scenarios
+			// out of 8, and repeating it on four axes only crowded them.
+			name: `${objShortName(obj)} met`,
 			min: 0,
 			max: scenarioCount,
 			direction: 'max' as const
@@ -872,7 +1010,7 @@
 	let domainColorByIndex = $derived.by(() => {
 		const ids = domainIds;
 		const map: Record<string, string> = {};
-		ids.forEach((id, i) => (map[String(i)] = designColor(id, ids)));
+		ids.forEach((id, i) => (map[String(i)] = designColor(id)));
 		return map;
 	});
 
@@ -947,8 +1085,9 @@
 	let comboDesignIds = $derived.by(() => combinedScenario?.candidate_ids ?? []);
 
 	function comboDesignColor(designId: number): string {
-		const idx = comboDesignIds.indexOf(designId);
-		return SOLUTION_COLORS[idx % SOLUTION_COLORS.length];
+		// Same permanent colour the design carries everywhere else, so a candidate in the stress
+		// test is recognisable as the design the DM already knows from the trade-off plot.
+		return colorForDesign(designId);
 	}
 
 	function comboValue(designId: number, comboName: string, obj: string): number | null {
@@ -1349,11 +1488,11 @@
 					</Card.Description>
 				</Card.Header>
 				<Card.Content>
-					<Tabs.Root value={mode} onValueChange={(v) => (mode = v as 'percent' | 'raw' | 'delta')}>
+					<Tabs.Root value={mode} onValueChange={(v) => switchMode(v as 'percent' | 'raw' | 'delta')}>
 						<Tabs.List>
 							<Tabs.Trigger value="percent">Percent of range</Tabs.Trigger>
 							<Tabs.Trigger value="raw">Raw values</Tabs.Trigger>
-							<Tabs.Trigger value="delta">Change from previous</Tabs.Trigger>
+							<Tabs.Trigger value="delta">% change from previous</Tabs.Trigger>
 						</Tabs.List>
 
 						<Tabs.Content value="percent" class="mt-4">
@@ -1402,31 +1541,38 @@
 						<Tabs.Content value="delta" class="mt-4">
 							<p class="text-muted-foreground mb-3 text-xs">
 								{#if hasPreviousReferencePoint}
-									Enter how far to move each aspiration compared with the previous iteration, in
-									percentage points of the 0 = nadir … 100 = ideal range. +10 asks for ten points
-									closer to the ideal, -10 concedes ten. Resets to 0 after each iteration.
+									Move each aspiration off the previous iteration's by a percentage <strong
+										>of that value itself</strong
+									>, in either direction. +10 demands 10% better than last round; −10 concedes 10%
+									worse. Better means toward that objective's ideal, so a cost of −25,000,000 goes
+									to −27,500,000 at +10% and −22,500,000 at −10%, while CO₂ of 1,000 goes to 900
+									and 1,100. Clamped to the range either way. Resets to 0 after each iteration.
 								{:else}
-									No previous iteration to move from yet, so changes apply from the midpoint of
-									the range (50). Once you have iterated once, this anchors on the reference
-									point you actually used.
+									No previous iteration to compare against yet, so a percentage applies to the
+									midpoint of each objective's range. Once you have iterated once, this anchors on the
+									reference point you actually used.
 								{/if}
 							</p>
 							<div class="grid grid-cols-2 gap-4 md:grid-cols-4">
 								{#each OBJ_KEYS as obj}
-									{@const base = previousPercent[obj] ?? DELTA_FALLBACK_BASE}
-									{@const result = deltaResultPercent[obj]}
+									{@const stuck = adjustIsStuck(obj)}
 									<div>
 										<Label for={`delta-${obj}`}>{objLabel(obj)} (worst case)</Label>
 										<Input
 											id={`delta-${obj}`}
 											type="number"
 											step="1"
-											bind:value={deltaValues[obj]}
+											disabled={stuck}
+											bind:value={adjustPercent[obj]}
 										/>
 										<p class="text-muted-foreground mt-1 text-xs">
-											{base.toFixed(0)}% → {result.toFixed(0)}% of range ({fmt(
-												rawFromPercent(obj, result)
-											)})
+											{#if stuck}
+												was 0 — a percentage of 0 cannot move it
+											{:else}
+												was {fmt(adjustBase(obj))} → {fmt(
+													adjustedRaw(obj, adjustPercent[obj] ?? 0)
+												)}
+											{/if}
 										</p>
 									</div>
 								{/each}
@@ -1467,6 +1613,228 @@
 		{/if}
 
 		{#if current && viewedEntry?.solutions && viewedEntry.solutions.length > 0}
+			<div class="mb-4 flex items-center gap-2 rounded-md border px-3 py-2">
+				<Button size="sm" variant="outline" disabled={viewedIterationIndex <= 0} onclick={goToPreviousIteration}>
+					◀ Previous
+				</Button>
+				<span class="text-sm">
+					Iteration {viewedIterationIndex + 1} of {iterateEntries.length}
+					{#if viewedEntry?.note}
+						— "{viewedEntry.note}"
+					{/if}
+				</span>
+				<Button
+					size="sm"
+					variant="outline"
+					disabled={viewedIterationIndex >= iterateEntries.length - 1}
+					onclick={goToNextIteration}
+				>
+					Next ▶
+				</Button>
+			</div>
+			<Card.Root>
+				<Card.Header>
+					<Card.Title>Trade-off view</Card.Title>
+					<Card.Description>
+						Each line is one (solution, scenario) pair — up to {scenarioCount} lines per matched
+						design, showing its full worst-case performance envelope across all scenarios. Lines
+						sharing a color belong to the same solution. Drag on the Scenario axis (right) to
+						narrow the view to a single scenario and see how each candidate performs there.
+						Click a line to focus that solution here and in the per-scenario panels below.
+					</Card.Description>
+				</Card.Header>
+				<Card.Content class="space-y-4">
+					<!-- Same legend the per-scenario card carries, and the same selection behind it:
+					     the plot colours lines by solution but nothing on this card said which
+					     solution owned which colour, so the swatches had to be matched by eye
+					     against a card further down the page. -->
+					<div class="flex flex-wrap items-center gap-2">
+						{#each viewedEntry.solutions as sol, i (sol.design_id)}
+							<button
+								type="button"
+								class="hover:bg-accent flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs"
+								class:opacity-40={selectedSolutionIdxs.length > 0 && !isSolutionSelected(i)}
+								class:border-foreground={isSolutionSelected(i)}
+								onclick={() => toggleSolutionSelection(i)}
+							>
+								<span
+									class="inline-block h-3 w-3 rounded-full"
+									style={`background-color:${solutionColor(i)}`}
+								></span>
+								Solution {sol.solution_number}
+							</button>
+						{/each}
+						{#if selectedSolutionIdxs.length > 0}
+							<Button size="sm" variant="ghost" onclick={() => (selectedSolutionIdxs = [])}>
+								Clear ({selectedSolutionIdxs.length})
+							</Button>
+						{/if}
+					</div>
+					<div style="height: 420px;">
+						<ParallelCoordinates
+							data={chartRows}
+							dimensions={chartDimensions}
+							options={CHART_OPTIONS}
+							referenceData={chartReferenceData}
+							colorByIndex={chartColorByIndex}
+							lineLabels={chartLineLabels}
+							multipleSelectedIndexes={chartSelectedRows}
+							onLineSelect={(row) =>
+								toggleSolutionSelection(row === null ? null : (chartRowSolutionIdx[row] ?? null))}
+						/>
+					</div>
+				</Card.Content>
+			</Card.Root>
+
+			<Card.Root>
+				<Card.Header>
+					<Card.Title>Per-scenario view</Card.Title>
+					<Card.Description>
+						The same matched solutions, split into one panel per scenario — each panel shows how
+						every candidate performs in that scenario alone. All panels share the axis ranges of
+						the trade-off view above, so a line's height means the same thing in each of them.
+						The dashed line is this iteration's reference point, drawn on every panel at the same
+						height as in the trade-off view, so you can read each scenario's outcome against
+						what you asked for — bearing in mind you asked for it as a <em>worst case</em> across
+						scenarios, which most individual scenarios should beat.
+						<strong>Hover any line to read its exact values.</strong> Click a line, or a solution
+						below, to follow one design across all {scenarioOrder.length} scenarios at once.
+					</Card.Description>
+				</Card.Header>
+				<Card.Content class="space-y-4">
+					<div class="flex flex-wrap items-center gap-2">
+						{#each viewedEntry.solutions as sol, i (sol.design_id)}
+							<button
+								type="button"
+								class="hover:bg-accent flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs"
+								class:opacity-40={selectedSolutionIdxs.length > 0 && !isSolutionSelected(i)}
+								class:border-foreground={isSolutionSelected(i)}
+								onclick={() => toggleSolutionSelection(i)}
+							>
+								<span
+									class="inline-block h-3 w-3 rounded-full"
+									style={`background-color:${solutionColor(i)}`}
+								></span>
+								Solution {sol.solution_number}
+							</button>
+						{/each}
+						{#if selectedSolutionIdxs.length > 0}
+							<Button size="sm" variant="ghost" onclick={() => (selectedSolutionIdxs = [])}>
+								Clear ({selectedSolutionIdxs.length})
+							</Button>
+						{/if}
+						<div class="ml-auto flex items-center gap-1">
+							<Button
+								size="sm"
+								variant={scenarioPanelLayout === 'grid' ? 'default' : 'outline'}
+								onclick={() => (scenarioPanelLayout = 'grid')}
+							>
+								Grid
+							</Button>
+							<Button
+								size="sm"
+								variant={scenarioPanelLayout === 'row' ? 'default' : 'outline'}
+								onclick={() => (scenarioPanelLayout = 'row')}
+							>
+								One row
+							</Button>
+						</div>
+					</div>
+
+					<!-- Shared axis key: the panels themselves are too narrow to carry axis names and
+					     tick numbers, and every panel uses these same ranges. No colour swatch: lines
+					     are coloured by solution, so a colour against an objective name suggested a
+					     relationship that does not exist. Axes are identified by order and name. -->
+					<div class="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+						{#each panelAxisLegend as ax, i (ax.symbol)}
+							<span class="flex items-center gap-1.5">
+								<span class="font-medium">{i + 1}. {ax.label}</span>
+								<span class="text-muted-foreground">{fmt(ax.range[0])} – {fmt(ax.range[1])}</span>
+							</span>
+						{/each}
+					</div>
+
+					<div
+						class={scenarioPanelLayout === 'grid'
+							? 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4'
+							: 'flex gap-3 overflow-x-auto pb-2'}
+					>
+						{#each scenarioPanels as panel (panel.scenario)}
+							<div
+								class="rounded-md border p-2 {scenarioPanelLayout === 'row'
+									? 'w-72 shrink-0'
+									: ''}"
+							>
+								<p class="mb-1 truncate text-xs font-medium" title={panel.scenario}>
+									{panel.number}. {panel.scenario}
+								</p>
+								{#if panel.rows.length > 0}
+									<div style="height: 220px;">
+										<ParallelCoordinates
+											data={panel.rows}
+											dimensions={panelDimensions}
+											options={PANEL_OPTIONS}
+											showTickLabels={true}
+											compactTickLabels={true}
+											verticalAxisLabels={true}
+											referenceData={chartReferenceData}
+											colorByIndex={panelColorByIndex(panel.solIdxByRow)}
+											multipleSelectedIndexes={panelSelectedRows(panel.solIdxByRow)}
+											lineLabels={panelLineLabels(panel)}
+											onLineSelect={(row) =>
+												toggleSolutionSelection(
+													row === null ? null : (panel.solIdxByRow[row] ?? null)
+												)}
+										/>
+									</div>
+								{:else}
+									<p class="text-muted-foreground py-16 text-center text-xs">
+										No result in this scenario
+									</p>
+								{/if}
+							</div>
+						{/each}
+					</div>
+
+					{#if selectedSolution}
+						<div class="border-t pt-4">
+							<p class="mb-2 text-sm font-medium">
+								<span
+									class="mr-1 inline-block h-3 w-3 rounded-full align-middle"
+									style={`background-color:${solutionColor(primarySelectedIdx ?? 0)}`}
+								></span>
+								Solution {selectedSolution.solution_number} (design {selectedSolution.design_id})
+								scenario by scenario
+							</p>
+							<div class="overflow-x-auto">
+								<Table.Root>
+									<Table.Header>
+										<Table.Row>
+											<Table.Head>Scenario</Table.Head>
+											{#each OBJ_KEYS as obj}
+												<Table.Head>{objLabel(obj)}</Table.Head>
+											{/each}
+										</Table.Row>
+									</Table.Header>
+									<Table.Body>
+										{#each scenarioPanels as panel (panel.scenario)}
+											{@const row = panel.solIdxByRow.indexOf(primarySelectedIdx ?? -1)}
+											<Table.Row>
+												<Table.Cell>{panel.number}. {panel.scenario}</Table.Cell>
+												{#each OBJ_KEYS as obj}
+													<Table.Cell>
+														{row >= 0 ? fmt(panel.rows[row][obj]) : '—'}
+													</Table.Cell>
+												{/each}
+											</Table.Row>
+										{/each}
+									</Table.Body>
+								</Table.Root>
+							</div>
+						</div>
+					{/if}
+				</Card.Content>
+			</Card.Root>
 			<Card.Root>
 				<Card.Header>
 					<Card.Title>Matched solutions</Card.Title>
@@ -1476,25 +1844,6 @@
 					</Card.Description>
 				</Card.Header>
 				<Card.Content>
-					<div class="mb-4 flex items-center gap-2">
-						<Button size="sm" variant="outline" disabled={viewedIterationIndex <= 0} onclick={goToPreviousIteration}>
-							◀ Previous
-						</Button>
-						<span class="text-sm">
-							Iteration {viewedIterationIndex + 1} of {iterateEntries.length}
-							{#if viewedEntry?.note}
-								— "{viewedEntry.note}"
-							{/if}
-						</span>
-						<Button
-							size="sm"
-							variant="outline"
-							disabled={viewedIterationIndex >= iterateEntries.length - 1}
-							onclick={goToNextIteration}
-						>
-							Next ▶
-						</Button>
-					</div>
 					<div class="overflow-x-auto">
 					<Table.Root>
 						<Table.Header>
@@ -1514,7 +1863,7 @@
 										<button
 											type="button"
 											class="hover:underline"
-											class:font-semibold={selectedSolutionIdx === i}
+											class:font-semibold={isSolutionSelected(i)}
 											title="Focus this solution in the charts below"
 											onclick={() => toggleSolutionSelection(i)}
 										>
@@ -1560,187 +1909,6 @@
 				</Card.Content>
 			</Card.Root>
 
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Trade-off view</Card.Title>
-					<Card.Description>
-						Each line is one (solution, scenario) pair — up to {scenarioCount} lines per matched
-						design, showing its full worst-case performance envelope across all scenarios. Lines
-						sharing a color belong to the same solution. Drag on the Scenario axis (right) to
-						narrow the view to a single scenario and see how each candidate performs there.
-						Click a line to focus that solution here and in the per-scenario panels below.
-					</Card.Description>
-				</Card.Header>
-				<Card.Content>
-					<div style="height: 420px;">
-						<ParallelCoordinates
-							data={chartRows}
-							dimensions={chartDimensions}
-							referenceData={chartReferenceData}
-							colorByIndex={chartColorByIndex}
-							lineLabels={chartLineLabels}
-							multipleSelectedIndexes={chartSelectedRows}
-							onLineSelect={(row) =>
-								toggleSolutionSelection(row === null ? null : (chartRowSolutionIdx[row] ?? null))}
-						/>
-					</div>
-				</Card.Content>
-			</Card.Root>
-
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Per-scenario view</Card.Title>
-					<Card.Description>
-						The same matched solutions, split into one panel per scenario — each panel shows how
-						every candidate performs in that scenario alone. All panels share the axis ranges of
-						the trade-off view above, so a line's height means the same thing in each of them.
-						The dashed line is this iteration's reference point, drawn on every panel at the same
-						height as in the trade-off view, so you can read each scenario's outcome against
-						what you asked for — bearing in mind you asked for it as a <em>worst case</em> across
-						scenarios, which most individual scenarios should beat.
-						<strong>Hover any line to read its exact values.</strong> Click a line, or a solution
-						below, to follow one design across all {scenarioOrder.length} scenarios at once.
-					</Card.Description>
-				</Card.Header>
-				<Card.Content class="space-y-4">
-					<div class="flex flex-wrap items-center gap-2">
-						{#each viewedEntry.solutions as sol, i (sol.design_id)}
-							<button
-								type="button"
-								class="hover:bg-accent flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs"
-								class:opacity-40={selectedSolutionIdx !== null && selectedSolutionIdx !== i}
-								class:border-foreground={selectedSolutionIdx === i}
-								onclick={() => toggleSolutionSelection(i)}
-							>
-								<span
-									class="inline-block h-3 w-3 rounded-full"
-									style={`background-color:${solutionColor(i)}`}
-								></span>
-								Solution {sol.solution_number}
-							</button>
-						{/each}
-						{#if selectedSolutionIdx !== null}
-							<Button size="sm" variant="ghost" onclick={() => (selectedSolutionIdx = null)}>
-								Clear
-							</Button>
-						{/if}
-						<div class="ml-auto flex items-center gap-1">
-							<Button
-								size="sm"
-								variant={scenarioPanelLayout === 'grid' ? 'default' : 'outline'}
-								onclick={() => (scenarioPanelLayout = 'grid')}
-							>
-								Grid
-							</Button>
-							<Button
-								size="sm"
-								variant={scenarioPanelLayout === 'row' ? 'default' : 'outline'}
-								onclick={() => (scenarioPanelLayout = 'row')}
-							>
-								One row
-							</Button>
-						</div>
-					</div>
-
-					<!-- Shared axis key: the panels themselves are too narrow to carry axis names and
-					     tick numbers, and every panel uses these same ranges. -->
-					<div class="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-						{#each panelAxisLegend as ax (ax.symbol)}
-							<span class="flex items-center gap-1.5">
-								<span
-									class="inline-block h-3 w-3 rounded-sm border border-neutral-700"
-									style={`background-color:${ax.color}`}
-								></span>
-								<span class="font-medium">{ax.label}</span>
-								<span class="text-muted-foreground">{fmt(ax.range[0])} – {fmt(ax.range[1])}</span>
-							</span>
-						{/each}
-					</div>
-
-					<div
-						class={scenarioPanelLayout === 'grid'
-							? 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4'
-							: 'flex gap-3 overflow-x-auto pb-2'}
-					>
-						{#each scenarioPanels as panel (panel.scenario)}
-							<div
-								class="rounded-md border p-2 {scenarioPanelLayout === 'row'
-									? 'w-72 shrink-0'
-									: ''}"
-							>
-								<p class="mb-1 truncate text-xs font-medium" title={panel.scenario}>
-									{panel.number}. {panel.scenario}
-								</p>
-								{#if panel.rows.length > 0}
-									<div style="height: 220px;">
-										<ParallelCoordinates
-											data={panel.rows}
-											dimensions={panelDimensions}
-											options={PANEL_OPTIONS}
-											showTickLabels={true}
-											compactTickLabels={true}
-											verticalAxisLabels={true}
-											referenceData={chartReferenceData}
-											colorByIndex={panelColorByIndex(panel.solIdxByRow, selectedSolutionIdx)}
-											multipleSelectedIndexes={panelSelectedRows(
-												panel.solIdxByRow,
-												selectedSolutionIdx
-											)}
-											lineLabels={panelLineLabels(panel)}
-											onLineSelect={(row) =>
-												toggleSolutionSelection(
-													row === null ? null : (panel.solIdxByRow[row] ?? null)
-												)}
-										/>
-									</div>
-								{:else}
-									<p class="text-muted-foreground py-16 text-center text-xs">
-										No result in this scenario
-									</p>
-								{/if}
-							</div>
-						{/each}
-					</div>
-
-					{#if selectedSolution}
-						<div class="border-t pt-4">
-							<p class="mb-2 text-sm font-medium">
-								<span
-									class="mr-1 inline-block h-3 w-3 rounded-full align-middle"
-									style={`background-color:${solutionColor(selectedSolutionIdx ?? 0)}`}
-								></span>
-								Solution {selectedSolution.solution_number} (design {selectedSolution.design_id})
-								scenario by scenario
-							</p>
-							<div class="overflow-x-auto">
-								<Table.Root>
-									<Table.Header>
-										<Table.Row>
-											<Table.Head>Scenario</Table.Head>
-											{#each OBJ_KEYS as obj}
-												<Table.Head>{objLabel(obj)}</Table.Head>
-											{/each}
-										</Table.Row>
-									</Table.Header>
-									<Table.Body>
-										{#each scenarioPanels as panel (panel.scenario)}
-											{@const row = panel.solIdxByRow.indexOf(selectedSolutionIdx ?? -1)}
-											<Table.Row>
-												<Table.Cell>{panel.number}. {panel.scenario}</Table.Cell>
-												{#each OBJ_KEYS as obj}
-													<Table.Cell>
-														{row >= 0 ? fmt(panel.rows[row][obj]) : '—'}
-													</Table.Cell>
-												{/each}
-											</Table.Row>
-										{/each}
-									</Table.Body>
-								</Table.Root>
-							</div>
-						</div>
-					{/if}
-				</Card.Content>
-			</Card.Root>
 		{/if}
 
 		<Card.Root>
@@ -1817,7 +1985,7 @@
 						<Table.Root>
 							<Table.Header>
 								<Table.Row>
-									<Table.Head>Design</Table.Head>
+									<Table.Head>Solution</Table.Head>
 									{#each OBJ_KEYS as obj}
 										<Table.Head>{regretLabel(obj)}</Table.Head>
 									{/each}
@@ -1827,12 +1995,17 @@
 							<Table.Body>
 								{#each analysis.max_regret as row (row.design_id)}
 									<Table.Row>
+										{@const solNumber = solutionNumberByDesign[row.design_id]}
 										<Table.Cell>
 											<span
-												class="inline-block h-3 w-3 rounded-full align-middle"
-												style={`background-color:${designColor(row.design_id, regretIds)}`}
+												class="mr-1.5 inline-block h-3 w-3 rounded-full align-middle"
+												style={`background-color:${designColor(row.design_id)}`}
 											></span>
-											Design {row.design_id}
+											{#if solNumber !== undefined}
+												Solution {solNumber}
+											{:else}
+												Design {row.design_id}
+											{/if}
 										</Table.Cell>
 										{#each OBJ_KEYS as obj}
 											<Table.Cell>{Number(row[obj]).toFixed(3)}</Table.Cell>
@@ -1847,6 +2020,7 @@
 						<ParallelCoordinates
 							data={regretChartRows}
 							dimensions={regretDimensions}
+							options={CHART_OPTIONS}
 							colorByIndex={regretColorByIndex}
 						/>
 					</div>
@@ -1866,7 +2040,7 @@
 						<Table.Root>
 							<Table.Header>
 								<Table.Row>
-									<Table.Head>Design</Table.Head>
+									<Table.Head>Solution</Table.Head>
 									{#each OBJ_KEYS as obj}
 										<Table.Head>{domainLabel(obj)}</Table.Head>
 									{/each}
@@ -1876,12 +2050,17 @@
 							<Table.Body>
 								{#each analysis.domain_criterion as row (row.design_id)}
 									<Table.Row>
+										{@const solNumber = solutionNumberByDesign[row.design_id]}
 										<Table.Cell>
 											<span
-												class="inline-block h-3 w-3 rounded-full align-middle"
-												style={`background-color:${designColor(row.design_id, domainIds)}`}
+												class="mr-1.5 inline-block h-3 w-3 rounded-full align-middle"
+												style={`background-color:${designColor(row.design_id)}`}
 											></span>
-											Design {row.design_id}
+											{#if solNumber !== undefined}
+												Solution {solNumber}
+											{:else}
+												Design {row.design_id}
+											{/if}
 										</Table.Cell>
 										{#each OBJ_KEYS as obj}
 											<Table.Cell>{row[obj]} / {scenarioCount}</Table.Cell>
@@ -1896,6 +2075,7 @@
 						<ParallelCoordinates
 							data={domainChartRows}
 							dimensions={domainDimensions}
+							options={CHART_OPTIONS}
 							colorByIndex={domainColorByIndex}
 						/>
 					</div>
@@ -2084,6 +2264,7 @@
 								<ParallelCoordinates
 									data={comboChartRows}
 									dimensions={comboChartDimensions}
+									options={CHART_OPTIONS}
 									colorByIndex={comboColorByIndex}
 									lineLabels={comboChartLineLabels}
 								/>
@@ -2285,6 +2466,7 @@
 											<ParallelCoordinates
 												data={tripletChartRows}
 												dimensions={tripletDimensions}
+												options={CHART_OPTIONS}
 												colorByIndex={tripletColorByIndex}
 												lineLabels={tripletLineLabels}
 											/>
@@ -2341,7 +2523,7 @@
 											<button
 												type="button"
 												class="hover:underline"
-												class:font-semibold={selectedSolutionIdx === i}
+												class:font-semibold={isSolutionSelected(i)}
 												title="Focus this solution in the charts above"
 												onclick={() => toggleSolutionSelection(i)}
 											>
@@ -2475,6 +2657,7 @@
 						<ParallelCoordinates
 							data={strategicChartRows}
 							dimensions={strategicChartDimensions}
+							options={CHART_OPTIONS}
 							colorByIndex={strategicColorByIndex}
 						/>
 					</div>

@@ -129,7 +129,7 @@
 			preferencesType: ['reference point']
 		},
 		{
-			name: 'JINA (interactive combined multi-scenario)',
+			name: 'JINA (interactive multi-scenario)',
 			path: '/interactive_methods/District-Heating-Combined',
 			description: 'Same problems as the two-stage robustness method, but with no worst-case aggregation: one aspiration level per (objective, scenario) cell, so a target can differ between scenarios.',
 			preferencesType: ['reference point']

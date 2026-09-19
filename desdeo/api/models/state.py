@@ -237,6 +237,19 @@ class DistrictHeatingCombinedIterationState(SQLModel, table=True):
         default_factory=list,
         description="Per-scenario objective rows for this round's design, in base objective symbols.",
     )
+    max_solutions: int | None = Field(
+        default=None, description="Cap the DM asked for on how many designs to show this round; null means all."
+    )
+    solutions: list[dict] = Field(
+        sa_column=Column(JSON),
+        default_factory=list,
+        description=(
+            "Every distinct design this round produced, one per entry, in scalarizer priority "
+            "order (balanced first). Each entry mirrors the single-design columns above plus "
+            "`matched_by` (which scalarizer variants landed on it). Empty on rows written before "
+            "this method solved more than one variant — read the single-design columns instead."
+        ),
+    )
 
 
 class DistrictHeatingCombinedWishlistState(SQLModel, table=True):

@@ -31,6 +31,7 @@ from sqlmodel import Session, SQLModel, select
 # Import the engine after DATABASE_URL is in the environment so the config
 # module picks it up correctly.
 from desdeo.api.db import engine
+from desdeo.api.db_migrations import add_missing_columns
 from desdeo.api.models import User, UserRole
 from desdeo.api.routers.user_authentication import get_password_hash
 
@@ -38,6 +39,10 @@ from desdeo.api.routers.user_authentication import get_password_hash
 def create_tables() -> None:
     print("[db-init] Creating database tables (create_all is a no-op for existing tables)...")
     SQLModel.metadata.create_all(engine)
+    # create_all never alters a table that already exists, so columns added to a model after its
+    # table was created have to be filled in separately.
+    for name in add_missing_columns(engine):
+        print(f"[db-init] Added missing column {name}.")
     print("[db-init] Tables ready.")
 
 

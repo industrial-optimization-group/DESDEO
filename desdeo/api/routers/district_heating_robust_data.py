@@ -104,7 +104,6 @@ class JinaScenarioContext:
     problem_id: int
     scenario_model_id: int
     problem: Problem
-    robust_problem: Problem
     combined_problem: Problem
     """The un-aggregated combined problem: one objective per (base objective, leaf scenario)
     pair, plus one for each objective that is shared across scenarios. `robust_problem` is this
@@ -113,9 +112,6 @@ class JinaScenarioContext:
     instead of their worst case, and rebuilding it costs a full scenario-model expansion."""
     robust_symbol_map: dict[str, str]
     per_leaf_obj: dict[str, dict[str, str]]
-    ideal: dict[str, float]
-    nadir: dict[str, float]
-    aug_weights: dict[str, float]
     all_scenarios: list[str]
     obj_symbols: list[str]
     obj_meta: dict[str, ObjectiveMeta]
@@ -124,9 +120,67 @@ class JinaScenarioContext:
     strategic_symbols: list[str]
     strategic_meta: dict[str, StrategicVarMeta]
     scalarizer_defs: list[ScalarizerDef]
-    global_ideal_obj: dict[str, float]
-    global_nadir_obj: dict[str, float]
     settings: JinaSettings
+
+    # --- lazily computed ------------------------------------------------------------------------
+    # Everything below is derived from one payoff table over `_robust_problem_unranged`, which is
+    # the single most expensive thing this module does - tens of seconds on the district heating
+    # problem. The combined multi-scenario method reuses this context purely for the structural
+    # fields above and never touches any of these, so computing them eagerly made every one of its
+    # cold starts wait for a solve whose result it then discarded. Deferring costs the robust
+    # method nothing: it reads them immediately, so it pays exactly what it paid before, just at
+    # first access instead of at construction.
+    _robust_problem_unranged: Problem = None  # type: ignore[assignment]
+    _ranges: dict | None = field(default=None, repr=False, compare=False)
+    _ranges_lock: "threading.Lock" = field(default_factory=threading.Lock, repr=False, compare=False)
+
+    def _ensure_ranges(self) -> dict:
+        """Run the payoff table once, on first read, and cache what it yields."""
+        if self._ranges is not None:
+            return self._ranges
+        with self._ranges_lock:
+            if self._ranges is not None:  # filled while we waited on the lock
+                return self._ranges
+
+            def solver_factory(p: Problem):
+                return GurobipySolver(p, options=GUROBI_OPTIONS)
+
+            ideal, nadir = payoff_table_method(self._robust_problem_unranged, solver_factory)
+            robust_syms = list(self.robust_symbol_map.values())
+            self._ranges = {
+                "ideal": ideal,
+                "nadir": nadir,
+                "aug_weights": {sym: nadir[sym] - ideal[sym] for sym in robust_syms},
+                "global_ideal_obj": {o: float(ideal[self.robust_symbol_map[o]]) for o in self.obj_symbols},
+                "global_nadir_obj": {o: float(nadir[self.robust_symbol_map[o]]) for o in self.obj_symbols},
+                "robust_problem": self._robust_problem_unranged.update_ideal_and_nadir(ideal, nadir),
+            }
+            return self._ranges
+
+    @property
+    def robust_problem(self) -> Problem:
+        """The worst-case problem with its ideal/nadir attached."""
+        return self._ensure_ranges()["robust_problem"]
+
+    @property
+    def ideal(self) -> dict[str, float]:
+        return self._ensure_ranges()["ideal"]
+
+    @property
+    def nadir(self) -> dict[str, float]:
+        return self._ensure_ranges()["nadir"]
+
+    @property
+    def aug_weights(self) -> dict[str, float]:
+        return self._ensure_ranges()["aug_weights"]
+
+    @property
+    def global_ideal_obj(self) -> dict[str, float]:
+        return self._ensure_ranges()["global_ideal_obj"]
+
+    @property
+    def global_nadir_obj(self) -> dict[str, float]:
+        return self._ensure_ranges()["global_nadir_obj"]
 
 
 def _resolve_settings(problem_db: ProblemDB) -> JinaSettings:
@@ -218,17 +272,8 @@ def _build_context(problem_id: int) -> JinaScenarioContext:  # noqa: PLR0914
             scenario_model, obj_symbols, combined=combined, symbol_maps=symbol_maps
         )
 
-        def solver_factory(p):
-            return GurobipySolver(p, options=GUROBI_OPTIONS)
-
-        ideal, nadir = payoff_table_method(robust_problem, solver_factory)
-        robust_problem = robust_problem.update_ideal_and_nadir(ideal, nadir)
-
-        robust_syms = list(robust_symbol_map.values())
-        aug_weights = {sym: nadir[sym] - ideal[sym] for sym in robust_syms}
-        global_ideal_obj = {obj: float(ideal[robust_symbol_map[obj]]) for obj in obj_symbols}
-        global_nadir_obj = {obj: float(nadir[robust_symbol_map[obj]]) for obj in obj_symbols}
-
+        # No payoff table here: see `JinaScenarioContext._ensure_ranges`. Building the worst-case
+        # problem itself is symbolic and cheap; solving it is not.
         all_scenarios = sorted(scenario_model.leaf_scenarios)
 
         per_leaf_obj: dict[str, dict[str, str]] = symbol_maps.get("objectives", {})
@@ -266,13 +311,9 @@ def _build_context(problem_id: int) -> JinaScenarioContext:  # noqa: PLR0914
             problem_id=problem_id,
             scenario_model_id=sm_db.id,
             problem=problem,
-            robust_problem=robust_problem,
             combined_problem=combined,
             robust_symbol_map=robust_symbol_map,
             per_leaf_obj=per_leaf_obj,
-            ideal=ideal,
-            nadir=nadir,
-            aug_weights=aug_weights,
             all_scenarios=all_scenarios,
             obj_symbols=obj_symbols,
             obj_meta=obj_meta,
@@ -281,9 +322,8 @@ def _build_context(problem_id: int) -> JinaScenarioContext:  # noqa: PLR0914
             strategic_symbols=strategic_symbols,
             strategic_meta=strategic_meta,
             scalarizer_defs=scalarizer_defs,
-            global_ideal_obj=global_ideal_obj,
-            global_nadir_obj=global_nadir_obj,
             settings=settings,
+            _robust_problem_unranged=robust_problem,
         )
 
 

@@ -38,7 +38,18 @@ export interface CombinedGrid {
 	strategic_symbols: string[];
 	strategic_labels: { [key: string]: string };
 	strategic_units: { [key: string]: string };
+	/** {symbol: short component name}, for compact table columns. */
+	strategic_components: { [key: string]: string };
+	/** Upper bound per strategic variable, null when unbounded. For a problem following the
+	 *  district heating convention this is also the capacity that already exists, which is what
+	 *  lets a design's decision be read as capacity added on top. */
+	strategic_axis_max: { [key: string]: number | null };
 	cells: CombinedCell[];
+	/** How many scalarizer variants this problem has — the most distinct designs one round can
+	 *  produce, and the maximum the DM should be able to ask for. */
+	scalarizer_count: number;
+	/** Display labels, in priority order (balanced first). */
+	scalarizer_labels: string[];
 }
 
 export interface CombinedCellResult {
@@ -56,6 +67,9 @@ export interface CombinedCellResult {
 export interface CombinedSolution {
 	design_id: number;
 	solution_number: number;
+	/** Which scalarizer variants landed on this design, e.g. ['balanced', 'emphasize_obj4'].
+	 *  More than one means the emphasis did not buy a different build. */
+	matched_by: string[];
 	repeat: boolean;
 	alpha: number;
 	all_reached: boolean;
@@ -73,7 +87,13 @@ export interface CombinedResult {
 	iteration_number: number;
 	reference_point: { [key: string]: number };
 	note?: string | null;
+	/** The primary (balanced) design — the one the DM's own reference point produced. */
 	solution?: CombinedSolution | null;
+	/** Every design this round produced, balanced first, already trimmed to `max_solutions`. */
+	solutions: CombinedSolution[];
+	/** The cap the round used; null means every variant's design was returned. */
+	max_solutions?: number | null;
+	scalarizer_count: number;
 	wish_list: number[];
 	scenarios: string[];
 	objectives: string[];
@@ -87,6 +107,7 @@ export interface CombinedSessionTreeEntry {
 	note?: string | null;
 	reference_point: { [key: string]: number };
 	solution?: CombinedSolution | null;
+	solutions: CombinedSolution[];
 }
 
 export interface CombinedWishlistResult {
@@ -110,9 +131,25 @@ export interface CombinedAnalysisResult {
 	scenario_count: number;
 }
 
+/* The iterate request body is declared here rather than imported from
+ * `$lib/gen/endpoints/DESDEOFastAPI`: the generated client is only as current as the last
+ * `npm run generate:client` against a live backend, and it predates `max_solutions`. Same
+ * reasoning as the response interfaces above. */
+export interface CombinedIterateBody {
+	problem_id: number;
+	session_id?: number | null;
+	reference_point: { [key: string]: number };
+	/** Cap on designs returned this round. Every variant still solves; this trims what is shown,
+	 *  so nothing is lost from the design list or wish list. */
+	max_solutions?: number | null;
+	note?: string | null;
+}
+
 /** Distinct colors per solution, matching the multi-scenario method's palette so a DM moving
  *  between the two methods reads the same colors the same way. */
 export const SOLUTION_COLORS = [
+	// The original eight, unchanged and in order: a design's colour comes from its position here,
+	// so reordering or inserting would repaint every design a decision maker has already seen.
 	'#08519c',
 	'#238b45',
 	'#e08214',
@@ -120,5 +157,22 @@ export const SOLUTION_COLORS = [
 	'#d73027',
 	'#1a1a1a',
 	'#0bb99c',
-	'#b930d8'
+	'#b930d8',
+	// Twelve more, appended so a ninth and tenth design no longer wrap around to the first two.
+	// Chosen by greedy maximum-minimum separation in CIELAB against everything already in the
+	// list, restricted to L* 22-72 so each one reads as a thin line on white without being so
+	// dark it reads as the black entry. Worst pair across all twenty is deltaE 26, against 30 for
+	// the original eight alone.
+	'#c49c94',
+	'#e7298a',
+	'#543005',
+	'#01665e',
+	'#66a61e',
+	'#e377c2',
+	'#8e0152',
+	'#a65628',
+	'#666666',
+	'#7f0000',
+	'#17becf',
+	'#00441b'
 ];

@@ -21,6 +21,8 @@ combined problem) and adds only what is specific to per-cell scalarization.
 from __future__ import annotations
 
 import json
+import logging
+import math
 import threading
 from dataclasses import dataclass
 
@@ -28,12 +30,15 @@ from desdeo.api.routers.district_heating_robust_data import (
     GUROBI_OPTIONS,
     JinaScenarioContext,
     JinaScenarioError,
+    ScalarizerDef,
     get_context,
 )
 from desdeo.problem.schema import Problem
 from desdeo.tools import GurobipySolver, payoff_table_method
 from desdeo.tools.partial_scalarization import add_asf_partial_diff
 from desdeo.tools.scenarios import build_scenario_problem
+
+logger = logging.getLogger(__name__)
 
 # Matches the notebook. Larger than the multi-scenario method's 1e-3: with 25 competing cells the
 # augmentation term is what breaks ties between solutions that share the same max-term value, and
@@ -78,6 +83,12 @@ class CombinedContext:
     combined_problem: Problem
     cells: list[CombinedCell]
     cells_by_symbol: dict[str, CombinedCell]
+    scalarizer_defs: list[ScalarizerDef]
+    """One ASF solve per entry: a balanced variant using the decision maker's reference point
+    as given, plus one per base objective that asks for more on that objective. Same variants the
+    multi-scenario method offers, and the same `emphasis_factor` behind them — the difference is
+    only that an emphasis here shifts all of that objective's *cells*, since the reference point
+    is per (objective, scenario) rather than per objective."""
 
     @property
     def symbols(self) -> list[str]:
@@ -119,26 +130,21 @@ def _build_combined_context(problem_id: int) -> CombinedContext:
     # the honest upper bound on what an aspiration level there could ever buy. A shared objective
     # gets the envelope (best ideal, worst nadir) across the scenarios, since the same symbol is
     # written once per scenario.
-    def solver_factory(p: Problem):
-        return GurobipySolver(p, options=GUROBI_OPTIONS)
-
     scenario_model = base_scenario_model(base)
 
-    ideal: dict[str, float] = {}
-    nadir: dict[str, float] = {}
-    for leaf in base.all_scenarios:
-        try:
-            scenario_problem = build_scenario_problem(scenario_model, leaf)
-            ideal_s, nadir_s = payoff_table_method(scenario_problem, solver_factory)
-        except Exception as e:  # noqa: BLE001
-            raise JinaScenarioError(
-                f"Could not compute the payoff table for scenario {leaf!r}: {type(e).__name__}: {e}"
-            ) from e
-        for obj in base.obj_symbols:
-            symbol = base.per_leaf_obj.get(obj, {}).get(leaf, obj)
-            lo, hi = float(ideal_s[obj]), float(nadir_s[obj])
-            ideal[symbol] = min(lo, ideal.get(symbol, lo))
-            nadir[symbol] = max(hi, nadir.get(symbol, hi))
+    # Normal operation until a scenario is known. Only problems with information hours get these
+    # constraints; for every other problem the combined problem is used exactly as before. They do
+    # not change the per-cell ranges, which come from each scenario's standalone problem.
+    information_hours = load_information_hours(problem_id)
+    if information_hours:
+        combined = add_information_constraints(base, scenario_model, combined, information_hours)
+
+    stored = load_stored_cell_ranges(problem_id, base)
+    if stored is not None:
+        ideal, nadir = stored
+        logger.info("Using precomputed cell ranges for problem %s; skipping the payoff tables.", problem_id)
+    else:
+        ideal, nadir = compute_cell_ranges(base, scenario_model)
 
     combined_symbols = [o.symbol for o in combined.objectives]
     shared_set = set(base.shared_obj_symbols)
@@ -183,13 +189,245 @@ def _build_combined_context(problem_id: int) -> CombinedContext:
             "cells — nothing for the decision maker to set aspiration levels on."
         )
 
+    # Balanced first, then one emphasis variant per objective that actually has cells. The order
+    # is the priority order used when trimming to `max_solutions`, so the DM's own reference point
+    # is never the result that gets dropped.
+    cell_obj_symbols = [o for o in base.obj_symbols if any(c.obj_symbol == o for c in cells)]
+    scalarizer_defs = [ScalarizerDef(name="balanced", emphasize=None, label="Balanced")]
+    scalarizer_defs += [
+        ScalarizerDef(name=f"emphasize_{o}", emphasize=o, label=f"Emphasize {base.obj_meta[o].label}")
+        for o in cell_obj_symbols
+    ]
+
     return CombinedContext(
         problem_id=problem_id,
         base=base,
         combined_problem=combined,
         cells=cells,
         cells_by_symbol={c.symbol: c for c in cells},
+        scalarizer_defs=scalarizer_defs,
     )
+
+
+def required_cell_symbols(base: JinaScenarioContext) -> list[str]:
+    """Every combined-problem symbol the per-cell ranges have to cover.
+
+    A shared objective resolves to the same symbol in every scenario, so it appears once.
+    """
+    out: list[str] = []
+    for obj in base.obj_symbols:
+        for leaf in base.all_scenarios:
+            symbol = base.per_leaf_obj.get(obj, {}).get(leaf, obj)
+            if symbol not in out:
+                out.append(symbol)
+    return out
+
+
+def compute_cell_ranges(
+    base: JinaScenarioContext, scenario_model: "object"
+) -> tuple[dict[str, float], dict[str, float]]:
+    """Run one payoff table per scenario to get every cell's attainable range.
+
+    A cell's ideal is what that objective could reach if the investment were tailored to that
+    scenario *alone* - optimistic, and deliberately so: it is the honest upper bound on what an
+    aspiration level there could ever buy. A shared objective gets the envelope (best ideal, worst
+    nadir) across the scenarios, since the same symbol is written once per scenario.
+
+    This is the slow part of a first load, which is why `store_cell_ranges` exists to do it ahead
+    of time.
+    """
+
+    def solver_factory(p: Problem):
+        return GurobipySolver(p, options=GUROBI_OPTIONS)
+
+    ideal: dict[str, float] = {}
+    nadir: dict[str, float] = {}
+    for leaf in base.all_scenarios:
+        try:
+            scenario_problem = build_scenario_problem(scenario_model, leaf)
+            ideal_s, nadir_s = payoff_table_method(scenario_problem, solver_factory)
+        except Exception as e:  # noqa: BLE001
+            raise JinaScenarioError(
+                f"Could not compute the payoff table for scenario {leaf!r}: {type(e).__name__}: {e}"
+            ) from e
+        for obj in base.obj_symbols:
+            symbol = base.per_leaf_obj.get(obj, {}).get(leaf, obj)
+            lo, hi = float(ideal_s[obj]), float(nadir_s[obj])
+            ideal[symbol] = min(lo, ideal.get(symbol, lo))
+            nadir[symbol] = max(hi, nadir.get(symbol, hi))
+    return ideal, nadir
+
+
+def _jina_metadata_row(session, problem_id: int):
+    """The problem's `JinaMultiScenarioMetaData` row, or None if it has none."""
+    from desdeo.api.models.problem import ProblemDB
+
+    problem_db = session.get(ProblemDB, problem_id)
+    if problem_db is None or problem_db.problem_metadata is None:
+        return None
+    rows = problem_db.problem_metadata.jina_multiscenario_metadata or []
+    return rows[0] if rows else None
+
+
+def load_stored_cell_ranges(
+    problem_id: int, base: JinaScenarioContext
+) -> tuple[dict[str, float], dict[str, float]] | None:
+    """Precomputed ranges for this problem, or None to compute them live.
+
+    Deliberately strict: anything short of a complete, numerically sane set for exactly the cells
+    this problem has now returns None and the ranges are recomputed. The stored values are only an
+    optimisation, so a stale or partial cache must cost time, never correctness - a wrong range
+    would silently mis-scale every aspiration level in the ASF.
+    """
+    from sqlmodel import Session
+
+    from desdeo.api.db import engine
+
+    try:
+        with Session(engine) as session:
+            row = _jina_metadata_row(session, problem_id)
+            stored = dict(row.combined_cell_ranges or {}) if row is not None else {}
+    except Exception:  # noqa: BLE001 - a cache read must never be able to break the method
+        logger.exception("Could not read stored cell ranges for problem %s; recomputing.", problem_id)
+        return None
+
+    if not stored:
+        return None
+
+    needed = required_cell_symbols(base)
+    missing = [sym for sym in needed if sym not in stored]
+    if missing:
+        logger.info(
+            "Stored cell ranges for problem %s cover %d of %d cells (missing e.g. %s); recomputing.",
+            problem_id,
+            len(needed) - len(missing),
+            len(needed),
+            missing[:3],
+        )
+        return None
+
+    ideal: dict[str, float] = {}
+    nadir: dict[str, float] = {}
+    for sym in needed:
+        pair = stored[sym]
+        try:
+            lo, hi = float(pair[0]), float(pair[1])
+        except (TypeError, ValueError, IndexError):
+            logger.warning("Stored range for %s on problem %s is malformed; recomputing.", sym, problem_id)
+            return None
+        if not (math.isfinite(lo) and math.isfinite(hi)):
+            logger.warning("Stored range for %s on problem %s is not finite; recomputing.", sym, problem_id)
+            return None
+        ideal[sym] = lo
+        nadir[sym] = hi
+    return ideal, nadir
+
+
+def store_cell_ranges(problem_id: int) -> int:
+    """Compute every cell's range for a problem and save it on its metadata row.
+
+    Returns how many cells were stored. Raises `JinaScenarioError` if the problem has no
+    `JinaMultiScenarioMetaData` row to attach them to - that row is where the method's other
+    per-problem settings live, so a problem without one is not set up for this method at all.
+    """
+    from sqlmodel import Session
+
+    from desdeo.api.db import engine
+
+    base = get_context(problem_id)
+    scenario_model = base_scenario_model(base)
+    ideal, nadir = compute_cell_ranges(base, scenario_model)
+
+    payload = {sym: [ideal[sym], nadir[sym]] for sym in required_cell_symbols(base) if sym in ideal}
+
+    with Session(engine) as session:
+        row = _jina_metadata_row(session, problem_id)
+        if row is None:
+            raise JinaScenarioError(
+                f"Problem {problem_id} has no JinaMultiScenarioMetaData row to store cell ranges on."
+            )
+        row.combined_cell_ranges = payload
+        session.add(row)
+        session.commit()
+
+    invalidate_combined_context(problem_id)
+    return len(payload)
+
+
+def load_information_hours(problem_id: int) -> dict[str, int] | None:
+    """The problem's `JinaMultiScenarioMetaData.information_hours`, or None when it has none.
+
+    None - every problem registered without it - leaves the operation anticipative, as before.
+    """
+    from sqlmodel import Session
+
+    from desdeo.api.db import engine
+
+    with Session(engine) as session:
+        row = _jina_metadata_row(session, problem_id)
+        hours = getattr(row, "information_hours", None) if row is not None else None
+    return {str(name): int(hour) for name, hour in hours.items()} if hours else None
+
+
+def add_information_constraints(
+    base: JinaScenarioContext, scenario_model: "object", combined: Problem, information_hours: dict[str, int]
+) -> Problem:
+    """Non-anticipativity: before its information hour, a scenario operates exactly like the baseline.
+
+    For every scenario in `information_hours` and every scenario-specific hourly variable x:
+    `x_scenario[t] == x_baseline[t]` for every hour t before the information hour. The operator sees
+    an hour's data before deciding it, so decisions may differ from the information hour on. An
+    information hour is never later than the scenario's first disrupted hour, so linking each
+    scenario to the baseline also ties together any two scenarios that are both still unknown.
+
+    The baseline is the problem's `baseline_scenario` setting, else the first scenario whose name
+    contains "baseline". Only this method adds these constraints; the two-stage robustness method
+    keeps using the context's combined problem as it is.
+    """
+    from desdeo.problem import Constraint, ConstraintTypeEnum
+    from desdeo.tools.scenarios import build_combined_scenario_problem
+
+    leaves = list(base.all_scenarios)
+    baseline = base.settings.baseline_scenario or next((s for s in leaves if "baseline" in s.lower()), leaves[0])
+    unknown = sorted(set(information_hours) - set(leaves))
+    if unknown or baseline not in leaves:
+        raise JinaScenarioError(
+            f"information_hours names unknown scenario(s) {unknown}, or baseline {baseline!r} is not a scenario."
+        )
+
+    # Rebuilt only for its variable map, which the context does not keep; the problem itself is
+    # the context's combined problem.
+    _, symbol_maps = build_combined_scenario_problem(scenario_model)
+    shapes = {v.symbol: getattr(v, "shape", None) for v in base.problem.variables}
+    combined_vars = {v.symbol for v in combined.variables}
+
+    constraints = []
+    for scenario, hour in sorted(information_hours.items()):
+        if scenario == baseline:
+            continue
+        for symbol, per_leaf in sorted(symbol_maps["variables"].items()):
+            if len(set(per_leaf.values())) == 1:
+                continue  # shared first-stage variable
+            shape = shapes.get(symbol)
+            if not shape:
+                continue  # a scenario-specific scalar has no hours to align
+            shared = min(int(hour), int(shape[0]))
+            if shared <= 0:
+                continue
+            a, b = per_leaf[scenario], per_leaf[baseline]
+            if a not in combined_vars or b not in combined_vars:
+                raise JinaScenarioError(f"Variable {a!r} or {b!r} is not in the combined problem.")
+            index = ["Tuple", 1, shared]  # 1-based, inclusive
+            constraints.append(
+                Constraint(
+                    name=f"normal operation {symbol}: {scenario} = {baseline} for hours 1..{shared}",
+                    symbol=f"NA_{scenario}__{baseline}__{symbol}",
+                    func=["Subtract", ["Extract", a, index], ["Extract", b, index]],
+                    cons_type=ConstraintTypeEnum.EQ,
+                    is_linear=True,
+                )
+            )
+    return combined.add_constraints(constraints) if constraints else combined
 
 
 def base_scenario_model(base: JinaScenarioContext):
@@ -226,6 +464,8 @@ class CombinedCellResult:
 
 @dataclass
 class CombinedIterationResult:
+    scalarizer: str
+    """Which variant produced this — `balanced`, or `emphasize_<objective>`."""
     alpha: float
     all_reached: bool
     cell_results: list[CombinedCellResult]
@@ -233,32 +473,91 @@ class CombinedIterationResult:
     objective_values: dict[str, float]
 
 
+def build_shifted_reference_point(
+    cctx: CombinedContext, g: dict[str, float], emphasize: str | None
+) -> dict[str, float]:
+    """Ask for more on one objective, using the same generic-ASF shift the other JINA methods use:
+    `g_i' = ideal_i + (g_i - ideal_i) / emphasis_factor`.
+
+    The difference from the multi-scenario method is only in what "one objective" means here. That
+    method's reference point has a single level per objective, so a shift touches one number; this
+    one's is per (objective, scenario) cell, so emphasising an objective shifts *every* cell of it,
+    each toward its own per-scenario ideal. Emphasising a single cell instead would give one
+    variant per cell — 25 solves for a decision the DM expressed per objective.
+
+    The balanced variant returns the reference point untouched, so it reproduces exactly what a
+    single-solve iteration would have produced.
+    """
+    if emphasize is None:
+        return dict(g)
+
+    factor = cctx.base.settings.emphasis_factor or 1.0
+    shifted = dict(g)
+    for cell in cctx.cells:
+        if cell.obj_symbol != emphasize or cell.symbol not in shifted:
+            continue
+        shifted[cell.symbol] = cell.ideal + (shifted[cell.symbol] - cell.ideal) / factor
+    return shifted
+
+
 def run_combined_iteration(
     cctx: CombinedContext, reference_point: dict[str, float]
-) -> CombinedIterationResult:
-    """One ASF solve against per-cell aspiration levels.
+) -> list[CombinedIterationResult]:
+    """Solve every scalarizer variant against the decision maker's per-cell aspiration levels.
+
+    Each variant is the *same* scalarization of the *same* combined problem — `add_asf_partial_diff`
+    with the same per-cell weights and rho. Only the reference point differs, so nothing about how
+    this method optimizes changes by adding variants; there are simply more starting points, and
+    the balanced one still reproduces the single-solve result exactly.
+
+    Variants solve concurrently: Gurobi releases the GIL during optimization, so the wall-clock
+    cost of five solves is far below five times one. A variant that fails or comes back
+    non-optimal is skipped rather than failing the round — with the reference point shifted toward
+    an ideal, an emphasis variant can legitimately be harder than the balanced one. If *every*
+    variant fails, that is a real error and is raised.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    g = {sym: float(reference_point[sym]) for sym in cctx.symbols}
+
+    with ThreadPoolExecutor(max_workers=len(cctx.scalarizer_defs)) as pool:
+        futures = {pool.submit(_solve_variant, cctx, g, sdef): sdef for sdef in cctx.scalarizer_defs}
+        solved = {futures[fut].name: fut.result() for fut in futures}
+
+    # Kept in `scalarizer_defs` order — balanced first — which is the priority order the caller
+    # trims in when the decision maker asks for fewer solutions.
+    results = [solved[sdef.name] for sdef in cctx.scalarizer_defs if solved[sdef.name] is not None]
+    if not results:
+        raise JinaScenarioError(
+            "No scalarizer variant reached optimality for these aspiration levels. Levels far "
+            "below a cell's ideal can make the scalarized problem hard or infeasible."
+        )
+    return results
+
+
+def _solve_variant(
+    cctx: CombinedContext, g_base: dict[str, float], sdef: ScalarizerDef
+) -> CombinedIterationResult | None:
+    """One ASF solve for one variant. Runs on a worker thread; returns None if it does not solve.
 
     Returns what each cell asked for, what it got, and which cells bind — the binding set is the
     actionable part of the answer, since those are the only aspirations whose relaxation would
-    free anything up.
+    free anything up. Note the aspirations reported are the *shifted* ones this variant actually
+    solved against, not the DM's originals, so `scaled` and `binds` stay internally consistent.
     """
     weights = cctx.weights
-    g = {sym: float(reference_point[sym]) for sym in cctx.symbols}
+    g = build_shifted_reference_point(cctx, g_base, sdef.emphasize)
 
     try:
         asf_problem, target = add_asf_partial_diff(
-            cctx.combined_problem, "ASF", g, weights=weights, weights_aug=weights, rho=ASF_RHO
+            cctx.combined_problem, f"ASF_{sdef.name}", g, weights=weights, weights_aug=weights, rho=ASF_RHO
         )
         result = GurobipySolver(asf_problem, options=GUROBI_OPTIONS).solve(target)
-    except Exception as e:  # noqa: BLE001
-        raise JinaScenarioError(f"ASF solve failed: {type(e).__name__}: {e}") from e
+    except Exception:  # noqa: BLE001 - one variant failing must not sink the whole round
+        return None
 
     if not result.success:
-        raise JinaScenarioError(
-            "The solver did not reach optimality for these aspiration levels "
-            f"({result.message}). Aspiration levels far below a cell's ideal can make the "
-            "scalarized problem hard or infeasible."
-        )
+        return None
 
     alpha = float(result.optimal_variables["_alpha"])
     objective_values = {sym: float(result.optimal_objectives[sym]) for sym in cctx.symbols}
@@ -286,6 +585,7 @@ def run_combined_iteration(
     }
 
     return CombinedIterationResult(
+        scalarizer=sdef.name,
         alpha=alpha,
         # alpha <= 0 means the max term never had to exceed zero: every cell reached at least the
         # level it asked for.

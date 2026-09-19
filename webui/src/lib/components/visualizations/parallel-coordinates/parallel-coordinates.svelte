@@ -107,6 +107,11 @@
 		strokeWidth: number; // Thickness of data lines
 		opacity: number; // Opacity of non-selected lines
 		enableBrushing: boolean; // Whether to enable axis brushing for filtering
+		// Whether to draw the small coloured square beside each axis name. Those squares identify
+		// the axis, not the lines — where lines are coloured by solution rather than by dimension
+		// they invite exactly the wrong reading, so a caller can turn them off. Defaults on, so
+		// every existing chart keeps the look it had.
+		showAxisColorSquares?: boolean;
 	} = {
 		showAxisLabels: true,
 		highlightOnHover: true,
@@ -843,8 +848,13 @@
 		// domain's magnitude exceeds what that margin was sized for.
 		const leftMargin = estimateLeftAxisMargin();
 
-		// Define margins around the chart area
-		const margin = { top: 20, right: 40, bottom: 20, left: leftMargin };
+		// Define margins around the chart area. The filter status line below the plot is drawn at
+		// `innerHeight + 25`, which falls outside a 20px bottom margin and was clipped away
+		// entirely whenever a brush filter was active — at any container height, since that
+		// position scales with the chart rather than sitting at a fixed offset from its edge. The
+		// extra room is only taken when there is something to show there.
+		const bottomMargin = Object.keys(brushFilters).length > 0 ? 34 : 20;
+		const margin = { top: 20, right: 40, bottom: bottomMargin, left: leftMargin };
 		const innerWidth = width - margin.left - margin.right; // Available width for chart
 		const innerHeight = height - margin.top - margin.bottom; // Available height for chart
 
@@ -899,7 +909,11 @@
 				axisGen.tickValues(tickValues).tickFormat((v) => {
 					const idx = Math.round(v as number) - 1;
 					const label = categories[idx] ?? String(v);
-					const truncated = label.length > 18 ? `${label.slice(0, 17)}…` : label;
+					// 24 rather than 18: the scenario names in use run to 20 characters
+					// ("demand_spike_january"), so the old limit clipped the very part that
+					// distinguished them. Only the two district-heating methods use a categorical
+					// axis, and both put it last, where the extra width has room.
+					const truncated = label.length > 24 ? `${label.slice(0, 23)}…` : label;
 					return `${idx + 1}. ${truncated}`;
 				});
 			} else if (compactTickLabels) {
@@ -967,25 +981,30 @@
 					.style('pointer-events', 'none')
 					.text(dim.name);
 			} else if (options.showAxisLabels) {
-				// Colored square for visual identification of each axis
-				svgElement
-					.append('rect')
-					.attr('class', 'axis-color-square')
-					.attr('x', x - 20) // Position to the left of the axis
-					.attr('y', -18) // Position above the chart area
-					.attr('width', 10)
-					.attr('height', 10)
-					.attr('fill', axisColor) // Use dimension's assigned color
-					.attr('stroke', '#333') // Dark border
-					.attr('stroke-width', 1)
-					.attr('rx', 2) // Rounded corners
-					.attr('ry', 2);
+				const showSquare = options.showAxisColorSquares !== false;
 
-				// Axis name with direction indicator
+				if (showSquare) {
+					// Colored square for visual identification of each axis
+					svgElement
+						.append('rect')
+						.attr('class', 'axis-color-square')
+						.attr('x', x - 20) // Position to the left of the axis
+						.attr('y', -18) // Position above the chart area
+						.attr('width', 10)
+						.attr('height', 10)
+						.attr('fill', axisColor) // Use dimension's assigned color
+						.attr('stroke', '#333') // Dark border
+						.attr('stroke-width', 1)
+						.attr('rx', 2) // Rounded corners
+						.attr('ry', 2);
+				}
+
+				// Axis name with direction indicator. Without the square the name starts where the
+				// square would have been, so the labels stay aligned to their own axis.
 				svgElement
 					.append('text')
 					.attr('class', 'axis-label')
-					.attr('x', x - 5) // Position to the right of the colored square
+					.attr('x', showSquare ? x - 5 : x - 20)
 					.attr('y', -8) // Position just above the chart area
 					.attr('text-anchor', 'start') // Left-align text
 					.style('font-size', '12px')
