@@ -4,10 +4,19 @@ import numpy.testing as npt
 import pytest
 
 from desdeo.problem import (
+    Constraint,
+    ConstraintTypeEnum,
     FormatEnum,
     MathParser,
+    Objective,
+    ObjectiveTypeEnum,
+    Problem,
+    ScalarizationFunction,
     SympyEvaluator,
+    Variable,
+    VariableTypeEnum,
 )
+from desdeo.problem.sympy_evaluator import SympyEvaluatorError
 from desdeo.problem.testproblems import binh_and_korn, river_pollution_problem, zdt1
 from desdeo.tools import add_asf_diff, add_weighted_sums
 
@@ -143,3 +152,100 @@ def test_evaluate():
 
     npt.assert_almost_equal(res["g_1"], -8.51)
     npt.assert_almost_equal(res["g_2"], -60.99)
+
+
+def _objective(symbol: str, func: list) -> Objective:
+    return Objective(
+        name=symbol,
+        symbol=symbol,
+        func=func,
+        maximize=False,
+        objective_type=ObjectiveTypeEnum.analytical,
+        is_linear=True,
+        is_convex=True,
+        is_twice_differentiable=True,
+    )
+
+
+def _problem(**kwargs) -> Problem:
+    kwargs.setdefault("objectives", [_objective("f_1", ["Add", "x", 1])])
+    return Problem(
+        name="Chained elements",
+        description="Elements defined in terms of earlier elements of the same kind.",
+        variables=[
+            Variable(
+                name="x",
+                symbol="x",
+                variable_type=VariableTypeEnum.real,
+                lowerbound=0.0,
+                upperbound=10.0,
+                initial_value=1.0,
+            )
+        ],
+        **kwargs,
+    )
+
+
+@pytest.mark.sympy
+def test_objective_may_reference_earlier_objective():
+    """An objective can be defined in terms of an objective declared before it.
+
+    Expressions of the same kind used not to be substituted into each other at all, so
+    the reference survived into ``sympy.lambdify``, which closed over it and returned an
+    unevaluated expression (``2*f_1``) in place of a number.
+    """
+    problem = _problem(objectives=[_objective("f_1", ["Add", "x", 1]), _objective("f_2", ["Multiply", 2, "f_1"])])
+
+    values = SympyEvaluator(problem).evaluate({"x": 3.0})
+
+    npt.assert_allclose(values["f_1"], 4.0)
+    npt.assert_allclose(values["f_2"], 8.0)
+
+
+@pytest.mark.sympy
+def test_scalarization_may_reference_earlier_scalarization():
+    """A scalarization function can be defined in terms of one declared before it."""
+    problem = _problem(
+        scalarization_funcs=[
+            ScalarizationFunction(name="s_1", symbol="s_1", func=["Add", "x", 1]),
+            ScalarizationFunction(name="s_2", symbol="s_2", func=["Multiply", 2, "s_1"]),
+        ]
+    )
+
+    values = SympyEvaluator(problem).evaluate({"x": 3.0})
+
+    npt.assert_allclose(values["s_1"], 4.0)
+    npt.assert_allclose(values["s_2"], 8.0)
+
+
+@pytest.mark.sympy
+def test_unresolvable_reference_raises():
+    """A reference that cannot be resolved is an error, not a symbolic result.
+
+    Only backward references resolve, so an objective defined in terms of one declared
+    after it has nothing to substitute.
+    """
+    problem = _problem(objectives=[_objective("f_1", ["Multiply", 2, "f_2"]), _objective("f_2", ["Add", "x", 1])])
+
+    with pytest.raises(SympyEvaluatorError, match="f_2"):
+        SympyEvaluator(problem)
+
+
+@pytest.mark.sympy
+def test_constraint_may_reference_scalarization():
+    """Constraints are resolved last, so a constraint may reference a scalarization function.
+
+    The scenario tools generate exactly this: aggregating a scalarization function with
+    ``add_worst_case_robust`` bounds each per-leaf scalarization in a constraint.  The
+    sympy evaluator used to resolve constraints before scalarization functions, leaving
+    the reference unsubstituted.
+    """
+    problem = _problem(
+        scalarization_funcs=[ScalarizationFunction(name="s_1", symbol="s_1", func=["Add", "x", 1])],
+        constraints=[Constraint(name="c_1", symbol="c_1", func=["Add", "s_1", -10], cons_type=ConstraintTypeEnum.LTE)],
+    )
+
+    values = SympyEvaluator(problem).evaluate({"x": 3.0})
+
+    npt.assert_allclose(values["s_1"], 4.0)
+    npt.assert_allclose(values["c_1"], -6.0)

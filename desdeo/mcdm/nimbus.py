@@ -120,10 +120,10 @@ def solve_intermediate_solutions(
         add_asf = add_asf_diff if problem.is_twice_differentiable else add_asf_nondiff
         asf_problem, target = add_asf(problem, "target", rp, **(scalarization_options or {}))
 
-        solver = init_solver(asf_problem, _solver_options)
+        solver_instance = init_solver(asf_problem, _solver_options)
 
         # solve and store results
-        result: SolverResults = solver.solve(target)
+        result: SolverResults = solver_instance.solve(target)
 
         intermediate_solutions.append(result)
 
