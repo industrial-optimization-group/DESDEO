@@ -5,6 +5,7 @@ import time
 
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlmodel import select
 
 from desdeo.api.models import (
     CreateSessionRequest,
@@ -52,10 +53,12 @@ from desdeo.api.models import (
     ProblemSelectSolverRequest,
     ReferencePoint,
     RPMSolveRequest,
+    RPMState,
     ScenarioModelDB,
     SolutionDescriptionMetaData,
     SolutionInfo,
     SolverSelectionMetadata,
+    StateDB,
     User,
     UserPublic,
 )
@@ -437,17 +440,41 @@ def test_delete_session_not_found(client: TestClient, session_and_user: dict):
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
-def test_rpm_solve(client: TestClient):
-    """Test that using the reference point method works as expected."""
+def test_rpm_solve(client: TestClient, session_and_user: dict):
+    """Test that using the reference point method works as expected and that its states are persisted."""
+    session = session_and_user["session"]
     access_token = login(client)
 
-    request = RPMSolveRequest(
-        problem_id=1, preference=ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.3, "f_3": 0.4})
-    )
-
-    response = post_json(client, "/method/rpm/solve", request.model_dump(), access_token)
-
+    response = post_json(client, "/session/new", CreateSessionRequest(info="RPM session").model_dump(), access_token)
     assert response.status_code == status.HTTP_200_OK
+    session_id = response.json()["id"]
+
+    def solve_and_check(preference: ReferencePoint, expected_parent_id: int | None) -> StateDB:
+        request = RPMSolveRequest(problem_id=1, session_id=session_id, preference=preference)
+        response = post_json(client, "/method/rpm/solve", request.model_dump(), access_token)
+        assert response.status_code == status.HTTP_200_OK
+
+        state_db = session.exec(select(StateDB).order_by(StateDB.id.desc())).first()
+
+        assert state_db is not None
+        assert state_db.state_id is not None
+        assert state_db.session_id == session_id
+        assert state_db.parent_id == expected_parent_id
+        assert state_db.base_state.date_time is not None
+
+        rpm_state = state_db.state
+        assert isinstance(rpm_state, RPMState)
+        assert rpm_state.preferences == preference
+
+        returned = response.json()["solver_results"]
+        assert len(rpm_state.solver_results) == len(returned)
+        for stored, sent in zip(rpm_state.solver_results, returned, strict=True):
+            assert stored.optimal_objectives == sent["optimal_objectives"]
+
+        return state_db
+
+    first = solve_and_check(ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.3, "f_3": 0.4}), None)
+    solve_and_check(ReferencePoint(aspiration_levels={"f_1": 0.2, "f_2": 0.6, "f_3": 0.4}), first.id)
 
 
 def test_nimbus_solve(client: TestClient):
