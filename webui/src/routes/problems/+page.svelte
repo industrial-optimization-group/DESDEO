@@ -87,12 +87,20 @@
 	// 'me' = current user, 'all' = everyone, '<id>' = specific user id
 	let selectedFilter = $state('me');
 
+	// For a non-analyst/admin user, the backend's /problem/all_info already scopes the list to
+	// exactly what they're allowed to see (their own problems + anything shared with them via a
+	// group) — there's no "everyone's problems" superset to filter down from, so applying the
+	// "me" (owned-only) filter here would incorrectly hide problems shared with them via a group.
+	// The owner filter dropdown itself is only ever shown to analysts/admins (see isAnalystOrAdmin
+	// below), who *do* see every user's problems and need it to narrow the list.
 	const filteredProblemList = $derived(
-		selectedFilter === 'all'
+		!isAnalystOrAdmin
 			? problemList
-			: selectedFilter === 'me'
-				? problemList.filter((p: ProblemInfo) => p.user_id === $auth.user?.id)
-				: problemList.filter((p: ProblemInfo) => p.user_id === Number(selectedFilter))
+			: selectedFilter === 'all'
+				? problemList
+				: selectedFilter === 'me'
+					? problemList.filter((p: ProblemInfo) => p.user_id === $auth.user?.id)
+					: problemList.filter((p: ProblemInfo) => p.user_id === Number(selectedFilter))
 	);
 	let selectedProblem = $state<ProblemInfo | undefined>(undefined);
 	let expandedObjectives = $state(new Set<number>());

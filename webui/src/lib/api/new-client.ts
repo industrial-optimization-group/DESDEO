@@ -26,8 +26,10 @@ const getUrl = (contextUrl: string): string => {
   const pathname = url.pathname;
   const search = url.search;
 
-  // Server-side (Node.js): call API directly. Falls back to localhost if
-  // API_BASE_URL is not in process.env (Vite dev doesn't populate it automatically).
+  // Server-side (Node.js): call API directly. API_BASE_URL comes from .env, loaded into
+  // process.env at server startup by vite.config.ts — see the comment there for why that's
+  // necessary (this file is shared with client-side bundles, so it can't import SvelteKit's
+  // $env/dynamic/private directly without breaking the client build).
   if (typeof window === 'undefined') {
     const base = process.env.API_BASE_URL ?? 'http://localhost:8000';
     return new URL(`${base}${pathname}${search}`).toString();
