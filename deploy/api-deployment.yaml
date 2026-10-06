@@ -81,7 +81,7 @@ spec:
             # CORS: allow requests from the webui Route.
             # Update this if the webui hostname changes.
             - name: CORS_ORIGINS
-              value: '["https://gialmisi-desdeo-webui.rahtiapp.fi"]'
+              value: '["https://master-desdeo-webui.rahtiapp.fi"]'
             # COOKIE_DOMAIN is intentionally not set.
             # With the SvelteKit proxy architecture, cookies are owned by the
             # webui host and forwarded server-side. Setting a shared domain here
@@ -133,7 +133,7 @@ metadata:
   labels:
     app: desdeo-api
 spec:
-  host: gialmisi-desdeo-api.rahtiapp.fi
+  host: master-desdeo-api.rahtiapp.fi
   to:
     kind: Service
     name: desdeo-api
