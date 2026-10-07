@@ -32,6 +32,46 @@ suite, pre-commit hooks, docstring conventions, and building the documentation.
    Run `just --list` to see all available recipes.
 6. Push your branch and open a pull request against `master`.
 
+## Documentation generation
+
+The documentation contains generated artifacts describing the web API and the
+database schema. If your changes modify the FastAPI routes or the database
+models, regenerate these files before opening a pull request.
+
+Generate the OpenAPI specification:
+
+```bash
+just docs-openapi
+```
+
+This writes:
+
+```text
+docs/web_api/openapi.json
+```
+
+Generate the database entity-relationship (ER) diagram:
+
+```bash
+just docs-erd
+```
+
+This writes:
+
+```text
+docs/web_api/schema.svg
+```
+
+Generate both documentation artifacts:
+
+```bash
+just docs-gen
+```
+
+The generated files (docs/web_api/openapi.json and
+docs/web_api/schema.svg) should be committed whenever the API routes
+or database schema change.
+
 ## Reporting issues and getting help
 
 - **Found a bug?** Open a [bug report](https://github.com/industrial-optimization-group/DESDEO/issues/new/choose).
