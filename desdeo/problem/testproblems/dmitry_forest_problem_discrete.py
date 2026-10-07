@@ -40,6 +40,12 @@ def dmitry_forest_problem_disc() -> Problem:
         separator=",",  # decimal_comma=True
     )
 
+    # Remove duplicate rows to ensure unique objective values for each index
+    # The obj values are in 100s, 1000s or 10000s, so just removing the floating point part doesn't change the
+    # objective values significantly (they'd look very similar in visualization anyway).
+    # After that, we can simply remove duplicates and cast back to float for DESDEO calculations.
+    data = data.cast(pl.Int32).unique().cast(pl.Float64)
+
     variables = [
         Variable(
             name=var_name,
