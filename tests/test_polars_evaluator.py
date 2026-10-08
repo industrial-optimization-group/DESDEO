@@ -5,17 +5,22 @@ import polars as pl
 import pytest
 
 from desdeo.problem import (
+    Constraint,
+    ConstraintTypeEnum,
+    ExtraFunction,
     Objective,
     ObjectiveTypeEnum,
     PolarsEvaluator,
     Problem,
+    ScalarizationFunction,
     TensorVariable,
     Variable,
     VariableTypeEnum,
 )
-from desdeo.problem.evaluator import find_closest_points
+from desdeo.problem.evaluator import PolarsEvaluatorModesEnum, find_closest_points
 from desdeo.problem.testproblems import (
     river_pollution_problem,
+    river_pollution_problem_discrete,
     simple_knapsack_vectors,
     simple_test_problem,
 )
@@ -245,3 +250,147 @@ def test_evaluate_w_flattened():
     # check correct objective function values
     npt.assert_allclose(res_flat["f_1"].to_numpy(), [-1.6, -1.1])
     npt.assert_allclose(res_flat["f_2"].to_numpy(), [-16, -3.8])
+
+
+# ---------------------------------------------------------------------------
+# Referencing an element of the same kind
+# ---------------------------------------------------------------------------
+
+
+def _one_variable_problem(**kwargs) -> Problem:
+    """A one-variable problem extended with whatever elements a test needs."""
+    kwargs.setdefault(
+        "objectives",
+        [
+            Objective(
+                name="f_1",
+                symbol="f_1",
+                func=["Add", "x", 1],
+                maximize=False,
+                objective_type=ObjectiveTypeEnum.analytical,
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            )
+        ],
+    )
+    return Problem(
+        name="Chained elements",
+        description="Elements defined in terms of earlier elements of the same kind.",
+        variables=[
+            Variable(
+                name="x",
+                symbol="x",
+                variable_type=VariableTypeEnum.real,
+                lowerbound=0.0,
+                upperbound=10.0,
+                initial_value=1.0,
+            )
+        ],
+        **kwargs,
+    )
+
+
+@pytest.mark.polars
+def test_scalarization_may_reference_earlier_scalarization():
+    """A scalarization function can be defined in terms of one declared before it.
+
+    Scalarization functions used to be evaluated in a single ``select``, so none of
+    them could see any other.  Objectives, extra functions and constraints were
+    already evaluated one at a time.
+    """
+    problem = _one_variable_problem(
+        scalarization_funcs=[
+            ScalarizationFunction(name="s_1", symbol="s_1", func=["Add", "x", 1]),
+            ScalarizationFunction(name="s_2", symbol="s_2", func=["Multiply", 2, "s_1"]),
+        ]
+    )
+
+    result = PolarsEvaluator(problem).evaluate({"x": [3.0]})
+
+    npt.assert_allclose(result["s_1"].to_list(), [4.0])
+    npt.assert_allclose(result["s_2"].to_list(), [8.0])
+
+
+@pytest.mark.polars
+@pytest.mark.parametrize(
+    ("kind", "elements"),
+    [
+        (
+            "extra_funcs",
+            [
+                ExtraFunction(name="e_1", symbol="e_1", func=["Add", "x", 1]),
+                ExtraFunction(name="e_2", symbol="e_2", func=["Multiply", 2, "e_1"]),
+            ],
+        ),
+        (
+            "constraints",
+            [
+                Constraint(name="c_1", symbol="c_1", func=["Add", "x", -5], cons_type=ConstraintTypeEnum.LTE),
+                Constraint(name="c_2", symbol="c_2", func=["Multiply", 2, "c_1"], cons_type=ConstraintTypeEnum.LTE),
+            ],
+        ),
+    ],
+)
+def test_element_may_reference_earlier_element_of_same_kind(kind, elements):
+    """Extra functions and constraints can each reference one declared before them."""
+    result = PolarsEvaluator(_one_variable_problem(**{kind: elements})).evaluate({"x": [3.0]})
+
+    first, second = (e.symbol for e in elements)
+    npt.assert_allclose(result[second].to_list(), [2 * v for v in result[first].to_list()])
+
+
+@pytest.mark.polars
+def test_forward_reference_still_fails():
+    """An element referencing one declared *after* it is still an error.
+
+    Elements are evaluated in declaration order, so only backward references resolve.
+    """
+    problem = _one_variable_problem(
+        scalarization_funcs=[
+            ScalarizationFunction(name="s_1", symbol="s_1", func=["Multiply", 2, "s_2"]),
+            ScalarizationFunction(name="s_2", symbol="s_2", func=["Add", "x", 1]),
+        ]
+    )
+
+    with pytest.raises(pl.exceptions.ColumnNotFoundError, match="s_2"):
+        PolarsEvaluator(problem).evaluate({"x": [3.0]})
+
+
+@pytest.mark.polars
+def test_discrete_mode_scalarization_may_reference_earlier_scalarization():
+    """Extra functions, scalarizations and constraints on the data-based path.
+
+    ``_from_discrete_data`` evaluated extra functions, scalarization functions and
+    constraints in a single ``select`` each.  Objectives here come from the discrete
+    representation and have no ``func`` at all, so their values can only be reached
+    by symbol.
+    """
+    base = river_pollution_problem_discrete(five_objective_variant=False)
+    objective_symbol = base.objectives[0].symbol
+    assert base.objectives[0].func is None, "expected a data-based objective with no expression"
+
+    problem = base.model_copy(
+        update={
+            "extra_funcs": [
+                ExtraFunction(name="e_1", symbol="e_1", func=["Add", objective_symbol, 1]),
+                ExtraFunction(name="e_2", symbol="e_2", func=["Multiply", 2, "e_1"]),
+            ],
+            "scalarization_funcs": [
+                ScalarizationFunction(name="s_1", symbol="s_1", func=["Add", objective_symbol, 1]),
+                ScalarizationFunction(name="s_2", symbol="s_2", func=["Multiply", 2, "s_1"]),
+            ],
+            "constraints": [
+                Constraint(
+                    name="c_1", symbol="c_1", func=["Add", objective_symbol, -5], cons_type=ConstraintTypeEnum.LTE
+                ),
+                Constraint(name="c_2", symbol="c_2", func=["Multiply", 2, "c_1"], cons_type=ConstraintTypeEnum.LTE),
+            ],
+        }
+    )
+
+    result = PolarsEvaluator(problem, evaluator_mode=PolarsEvaluatorModesEnum.discrete).evaluate()
+
+    # All three kinds are evaluated in a single pass each on this path.
+    for first, second in (("e_1", "e_2"), ("s_1", "s_2"), ("c_1", "c_2")):
+        npt.assert_allclose(result[second].to_list(), [2 * v for v in result[first].to_list()])

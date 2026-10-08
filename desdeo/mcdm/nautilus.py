@@ -21,7 +21,7 @@ from desdeo.problem import (
     get_ideal_dict,
     get_nadir_dict,
 )
-from desdeo.tools.generics import BaseSolver, SolverResults
+from desdeo.tools.generics import BaseSolver, SolverOptions, SolverResults
 from desdeo.tools.scalarization import (  # create_asf, should be add_asf_nondiff probably
     add_asf_generic_diff,
     add_asf_generic_nondiff,
@@ -61,6 +61,7 @@ def solve_reachable_solution(
     # improvement_direction: dict[str, float],
     previous_nav_point: dict[str, float],
     solver: BaseSolver | None = None,
+    solver_options: SolverOptions | None = None,
 ) -> SolverResults:
     """Calculates the reachable solution on the Pareto optimal front.
 
@@ -79,12 +80,16 @@ def solve_reachable_solution(
             is always better than the previous navigation point.
         solver (BaseSolver | None, optional): solver to solve the problem.
             If None, then a solver is utilized bases on the problem's properties. Defaults to None.
+        solver_options (SolverOptions | None, optional): optional options passed
+            to the `solver`. Ignored if `solver` is `None`.
+            Defaults to None.
 
     Returns:
         SolverResults: the results of the projection.
     """
     # check solver
     init_solver = guess_best_solver(problem) if solver is None else solver
+    _solver_options = None if solver_options is None or solver is None else solver_options
 
     # need to convert the preferences to preferential factors?
 
@@ -125,14 +130,16 @@ def solve_reachable_solution(
     )
 
     # solve the problem
-    solver = init_solver(problem_w_asf)
-    return solver.solve(target)
+    solver_instance = init_solver(problem_w_asf, _solver_options)
+    return solver_instance.solve(target)
 
 
 # NAUTILUS initializer and steppers
 
 
-def nautilus_init(problem: Problem, solver: BaseSolver | None = None) -> NAUTILUS_Response:
+def nautilus_init(
+    problem: Problem, solver: BaseSolver | None = None, solver_options: SolverOptions | None = None
+) -> NAUTILUS_Response:
     """Initializes the NAUTILUS method.
 
     Creates the initial response of the method, which sets the navigation point to the nadir point
@@ -141,12 +148,17 @@ def nautilus_init(problem: Problem, solver: BaseSolver | None = None) -> NAUTILU
     Args:
         problem (Problem): The problem to be solved.
         solver (BaseSolver | None, optional): The solver to use. Defaults to None.
+        solver_options (SolverOptions | None, optional): optional options passed
+            to the `solver`. Ignored if `solver` is `None`.
+            Defaults to None.
 
     Returns:
         NAUTILUS_Response: The initial response of the method.
     """
     nav_point = get_nadir_dict(problem)
-    lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point, solver=solver)
+    lower_bounds, upper_bounds = solve_reachable_bounds(
+        problem, nav_point, solver=solver, solver_options=solver_options
+    )
     return NAUTILUS_Response(
         distance_to_front=0,
         navigation_point=nav_point,
@@ -163,6 +175,7 @@ def nautilus_step(
     step_number: int,
     nav_point: dict,
     solver: BaseSolver | None = None,
+    solver_options: SolverOptions | None = None,
     points: dict[str, float] | None = None,
     ranks: dict[str, int] | None = None,
 ) -> NAUTILUS_Response:
@@ -174,6 +187,9 @@ def nautilus_step(
         step_number (int): The current step number. Just used for the response.
         nav_point (dict): The current navigation point.
         solver (BaseSolver | None, optional): The solver to use. Defaults to None.
+        solver_options (SolverOptions | None, optional): optional options passed
+            to the `solver`. Ignored if `solver` is `None`.
+            Defaults to None.
         points (dict[str, float] | None, optional): The points of the objectives. Defaults to None.
         ranks (dict[str, int] | None, optional): The ranks of the objectives. Defaults to None.
 
@@ -197,7 +213,7 @@ def nautilus_step(
 
     # calculate reachable solution (direction).
     # This is inefficient as it is recalculated even if preferences do not change.
-    opt_result = solve_reachable_solution(problem, weights, nav_point, solver)
+    opt_result = solve_reachable_solution(problem, weights, nav_point, solver, solver_options=solver_options)
 
     if not opt_result.success:
         warn(message="The solver did not converge.", stacklevel=2)
@@ -208,7 +224,9 @@ def nautilus_step(
     new_nav_point = calculate_navigation_point(problem, nav_point, reachable_point, steps_remaining)
 
     # update_bounds
-    lower_bounds, upper_bounds = solve_reachable_bounds(problem, new_nav_point, solver)
+    lower_bounds, upper_bounds = solve_reachable_bounds(
+        problem, new_nav_point, solver, solver_options=solver_options
+    )
 
     distance = calculate_distance_to_front(problem, new_nav_point, reachable_point)
 
@@ -228,8 +246,18 @@ def __nautilus_all_steps(
     preference: dict,
     previous_responses: list[NAUTILUS_Response],
     solver: BaseSolver | None = None,
+    solver_options: SolverOptions | None = None,
 ) -> list[NAUTILUS_Response]:
     """Performs all steps of the NAUTILUS method.
+
+    Warning:
+        Unused and broken; `steps_remaining > 1` raises TypeError. Commit e84cc462 (2024-04-08)
+        removed `reachable_solution` from `nautilus_step` and left this caller behind, so the
+        `else` branch below passes an argument that no longer exists -- and even if it did,
+        `nautilus_step` now always recomputes the reachable solution, which is the opposite of
+        what this function documents. `reachable_solution = dict` is also a typo for `{}`, and
+        `preference` is only ever forwarded as `points`, never as `ranks`. Use `nautili_step`
+        in `desdeo.mcdm.nautili` as the model if this is ever revived.
 
     NAUTILUS needs to be initialized before calling this function. Once initialized, this function performs all
     steps of the method. However, this method need not start from the beginning. The method conducts "steps_remaining"
@@ -245,6 +273,9 @@ def __nautilus_all_steps(
         previous_responses (list[NAUTILUS_Response]): The previous responses of the method.
         solver (BaseSolver | None, optional): The solver to use. Defaults to None, in which case the
             algorithm will guess the best solver for the problem.
+        solver_options (SolverOptions | None, optional): optional options passed
+            to the `solver`. Ignored if `solver` is `None`.
+            Defaults to None.
 
     Returns:
         list[NAUTILUS_Response]: The new responses of the method after all steps. Note, as only new responses are
@@ -265,9 +296,11 @@ def __nautilus_all_steps(
                 nav_point=nav_point,
                 points=preference,
                 solver=solver,
+                solver_options=solver_options,
             )
             first_iteration = False
         else:
+            # BROKEN: `nautilus_step` takes no `reachable_solution`. See the docstring.
             response = nautilus_step(
                 problem,
                 steps_remaining=steps_remaining,
@@ -275,6 +308,7 @@ def __nautilus_all_steps(
                 nav_point=nav_point,
                 reachable_solution=reachable_solution,
                 solver=solver,
+                solver_options=solver_options,
             )
         response.preference = preference
         responses.append(response)

@@ -86,8 +86,11 @@ class ScenarioModel(BaseModel):
         if isinstance(v, list):
             return {"ROOT": v, **{name: [] for name in v}}
         if isinstance(v, dict):
-            all_children = {child for children in v.values() for child in children}
-            missing_leaves = all_children - set(v)
+            # Keep the order the children are declared in: the tree's key order decides
+            # the order of the leaf scenarios, and that in turn orders the elements of a
+            # combined scenario problem.
+            all_children = dict.fromkeys(child for children in v.values() for child in children)
+            missing_leaves = [name for name in all_children if name not in v]
             if missing_leaves:
                 return {**v, **{name: [] for name in missing_leaves}}
         return v
