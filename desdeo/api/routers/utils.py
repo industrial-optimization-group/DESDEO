@@ -516,7 +516,8 @@ def fetch_interactive_session(
         If this is `None`, then the interactive session returned will be `None` as well.
 
     Raises:
-        HTTPException: when an explicit interactive session is requested, but it is not found.
+        HTTPException: when an explicit interactive session is requested, but it is not found, or it
+            does not belong to the user and the user is not an analyst or admin.
 
     Returns:
         InteractiveSessionDB | None: an interactive session DB model, or nothing.
@@ -525,16 +526,8 @@ def fetch_interactive_session(
     actual_session_id = session_id or (getattr(request, "session_id", None) if request else None)
 
     if actual_session_id is not None:
-        # specific interactive session id is given, try using that
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == actual_session_id)
-        interactive_session = session.exec(statement).first()
-
-        if interactive_session is None:
-            # Raise if explicitly requested interactive session cannot be found
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Could not find interactive session with id={actual_session_id}.",
-            )
+        # specific interactive session id is given, try using that, if the user may access it
+        interactive_session = fetch_interactive_session_with_role_check(user, actual_session_id, session)
     else:
         if user.active_session_id is None:
             return None
@@ -599,7 +592,9 @@ def fetch_parent_state(
 
     Raises:
     HTTPException: when `request.parent_state_id` is not `None` and a `StateDB` with this id cannot
-        be found in the given database session.
+        be found in the given database session, or the user may not access it. A user may access a
+        state in an interactive session of their own or, for a state outside any interactive
+        session, a state of a problem they may access. Analysts and admins may access any state.
 
     Returns:
         StateDB | None: if `request.parent_state_id` is given, returns the corresponding `StateDB`.
@@ -616,14 +611,27 @@ def fetch_parent_state(
     parent_state = session.exec(statement).first()
 
     # this error is raised because if a parent_state_id is given, it is assumed that the
-    # user wished to use that state explicitly as the parent.
-    if parent_state is None:
+    # user wished to use that state explicitly as the parent. A state the user may not access
+    # is treated as not found, so that its existence is not revealed.
+    if parent_state is None or not _may_access_state(user, parent_state, session):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Could not find state with id={request.parent_state_id}",
         )
 
     return parent_state
+
+
+def _may_access_state(user: User, state: StateDB, session: Session) -> bool:
+    """Whether a user may access a state: through its interactive session, or its problem if it has no session."""
+    if user.role in (UserRole.analyst, UserRole.admin):
+        return True
+
+    if state.session_id is not None:
+        interactive_session = session.get(InteractiveSessionDB, state.session_id)
+        return interactive_session is not None and interactive_session.user_id == user.id
+
+    return state.problem_id is not None and fetch_problem_with_role_check(user, state.problem_id, session) is not None
 
 
 def iter_states_of_kinds(
