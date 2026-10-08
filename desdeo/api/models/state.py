@@ -117,6 +117,149 @@ class RPMState(SQLModel, table=True):
     solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
 
 
+class DistrictHeatingIterationState(SQLModel, table=True):
+    """District Heating System: one round of scenario-robust reference-point matching.
+
+    Reads a pre-computed candidate pool (see `desdeo.api.routers.district_heating_system_data`);
+    never solves a `Problem`. `already_shown_ids`/`solution_number_map` are carried forward from
+    iteration to iteration (mirroring the module-level state in `the_DM_session.ipynb`) so a design
+    is never re-matched once shown.
+    """
+
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
+
+    # inputs
+    reference_point: dict[str, float] = Field(sa_column=Column(JSON))
+    max_solutions: int | None = None
+    note: str | None = None
+
+    # running bookkeeping carried forward from the previous iteration state
+    already_shown_ids: list[int] = Field(sa_column=Column(JSON), default_factory=list)
+    solution_number_map: dict[str, int] = Field(
+        sa_column=Column(JSON), default_factory=dict, description="design_id (as str) -> solution number"
+    )
+
+    # results: one dict per matched design (design_id, solution_number, matched_by,
+    # n_scenarios, rows, worst_case, best_case) — see DistrictHeatingMatchedSolution.
+    solutions: list[dict] = Field(sa_column=Column(JSON), default_factory=list)
+
+
+class DistrictHeatingWishlistState(SQLModel, table=True):
+    """District Heating System: a wish-list add/remove action."""
+
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
+
+    wish_list: list[int] = Field(sa_column=Column(JSON), default_factory=list)
+
+
+class DistrictHeatingRobustIterationState(SQLModel, table=True):
+    """District Heating System — Robust: one round of live robust-solve matching.
+
+    Unlike `DistrictHeatingIterationState`, this builds and solves a real `Problem` on every
+    iteration (see `desdeo.api.routers.district_heating_robust_data`) — designs can never be
+    excluded once shown (only flagged as a repeat), since every scalarizer variant re-solves
+    live each time. `design_registry`/`solution_number_map` are carried forward from iteration
+    to iteration (mirroring the module-level state in `multi_scenario_DM_session.ipynb`).
+    """
+
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
+
+    # inputs
+    reference_point: dict[str, float] = Field(sa_column=Column(JSON))
+    note: str | None = None
+    iteration_number: int = 1
+
+    # running bookkeeping carried forward from the previous iteration state. Each design_registry
+    # entry: {"signature": list[int], "first_iteration": int, "robust_vals": dict, "strategic_vals":
+    # dict, "breakdown": list[dict]} — "signature" round-trips through JSON as a list, not a tuple;
+    # convert back to tuple before comparing against a freshly computed signature.
+    design_registry: dict[str, dict] = Field(
+        sa_column=Column(JSON), default_factory=dict, description="design_id (as str) -> registry entry"
+    )
+    solution_number_map: dict[str, int] = Field(
+        sa_column=Column(JSON), default_factory=dict, description="design_id (as str) -> solution number"
+    )
+
+    # results: one dict per matched design this round — see DistrictHeatingRobustMatchedSolution.
+    solutions: list[dict] = Field(sa_column=Column(JSON), default_factory=list)
+
+
+class DistrictHeatingRobustWishlistState(SQLModel, table=True):
+    """District Heating System — Robust: a wish-list add/remove action."""
+
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
+
+    wish_list: list[int] = Field(sa_column=Column(JSON), default_factory=list)
+
+
+class DistrictHeatingCombinedIterationState(SQLModel, table=True):
+    """District Heating System — Combined multi-scenario: one ASF solve over per-cell aspirations.
+
+    Separate from `DistrictHeatingRobustIterationState` because the preference itself lives in a
+    different key space: this method's `reference_point` is keyed by combined-problem symbol (one
+    per (objective, scenario) cell), not by base objective symbol. Storing both in one table would
+    make that key space ambiguous to anything reading the state back.
+
+    One solve per iteration means one design per iteration, so there is no scalarizer-variant
+    matching to record — but a design can still resurface in a later round, so
+    `design_registry`/`solution_number_map` are carried forward the same way, keyed by the
+    first-stage design's signature.
+    """
+
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
+
+    # inputs
+    reference_point: dict[str, float] = Field(sa_column=Column(JSON))
+    note: str | None = None
+    iteration_number: int = 1
+
+    # running bookkeeping carried forward from the previous iteration state. Each entry:
+    # {"signature": list[int], "first_iteration": int, "strategic_vals": dict, "breakdown":
+    # list[dict], "objective_values": dict} — "signature" round-trips through JSON as a list, not a
+    # tuple; convert back before comparing against a freshly computed signature.
+    design_registry: dict[str, dict] = Field(
+        sa_column=Column(JSON), default_factory=dict, description="design_id (as str) -> registry entry"
+    )
+    solution_number_map: dict[str, int] = Field(
+        sa_column=Column(JSON), default_factory=dict, description="design_id (as str) -> solution number"
+    )
+
+    # results of this round
+    alpha: float = 0.0
+    all_reached: bool = False
+    design_id: int = 0
+    solution_number: int = 0
+    repeat: bool = False
+    cell_results: list[dict] = Field(sa_column=Column(JSON), default_factory=list)
+    strategic_values: dict[str, float] = Field(sa_column=Column(JSON), default_factory=dict)
+    breakdown: list[dict] = Field(
+        sa_column=Column(JSON),
+        default_factory=list,
+        description="Per-scenario objective rows for this round's design, in base objective symbols.",
+    )
+    max_solutions: int | None = Field(
+        default=None, description="Cap the DM asked for on how many designs to show this round; null means all."
+    )
+    solutions: list[dict] = Field(
+        sa_column=Column(JSON),
+        default_factory=list,
+        description=(
+            "Every distinct design this round produced, one per entry, in scalarizer priority "
+            "order (balanced first). Each entry mirrors the single-design columns above plus "
+            "`matched_by` (which scalarizer variants landed on it). Empty on rows written before "
+            "this method solved more than one variant — read the single-design columns instead."
+        ),
+    )
+
+
+class DistrictHeatingCombinedWishlistState(SQLModel, table=True):
+    """District Heating System — Combined multi-scenario: a wish-list add/remove action."""
+
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
+
+    wish_list: list[int] = Field(sa_column=Column(JSON), default_factory=list)
+
+
 class NIMBUSClassificationState(ResultInterface, SQLModel, table=True):
     """NIMBUS: classification / solve candidates."""
 

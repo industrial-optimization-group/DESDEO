@@ -380,6 +380,179 @@ class SolutionDescriptionMetaData(SQLModel, table=True):
     metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="solution_description_metadata")
 
 
+class JinaMultiScenarioMetaData(SQLModel, table=True):
+    """Problem metadata for the JINA multi-scenario robust interactive method.
+
+    All fields are optional with generic fallbacks resolved at request time (see
+    `desdeo.api.routers.district_heating_robust_data`) — a problem needs none of these set to
+    work with the method; they exist to let a problem author override the generic defaults
+    (display labels/units, dedup tolerance, default thresholds) the way the district heating
+    problem's own values were hand-picked before this table existed.
+    """
+
+    id: int | None = Field(primary_key=True, default=None)
+    metadata_id: int | None = Field(foreign_key="problemmetadatadb.id", default=None)
+
+    metadata_type: str = "jina_multiscenario_metadata"
+
+    default_domain_thresholds: dict[str, float] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description="{objective_symbol: threshold}, pre-fills the DM-editable domain-criterion inputs.",
+    )
+    default_af_absolute_floors: dict[str, float] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description="{objective_symbol: floor}, pre-fills the antifragility-floor inputs.",
+    )
+    design_tolerance: float = Field(
+        default=1.0,
+        description="Absolute dedup tolerance for strategic-design signatures, in each strategic variable's own units.",
+    )
+    emphasis_factor: float = Field(
+        default=3.0, description="Generic-ASF shift factor for the per-objective emphasis scalarizer variants."
+    )
+    baseline_scenario: str | None = Field(
+        default=None,
+        description=(
+            "Scenario name treated as the undisrupted baseline; falls back to a name-based heuristic, then the "
+            "first scenario."
+        ),
+    )
+    compound_scenario_hook: str | None = Field(
+        default=None,
+        description=(
+            "'module.path:function' resolving to a compound-disruption scenario builder; absent means the "
+            "compound-disruption stress test is unavailable for this problem."
+        ),
+    )
+    compound_reference_hook: str | None = Field(
+        default=None,
+        description=(
+            "'module.path:function' resolving to a builder for the baseline + single-disruption "
+            "reference scenarios compound_scenario_hook's combos pair from; absent means "
+            "super-additivity can't be computed (the compound-disruption stress test still works "
+            "without it, just without that extra heatmap)."
+        ),
+    )
+    regret_pool_source: str | None = Field(
+        default=None,
+        description=(
+            "Identifier for an optional precomputed pool to blend into regret/antifragility normalization, "
+            "resolved by the analysis code; absent means session-discovered designs only."
+        ),
+    )
+    strategic_var_labels: dict[str, str] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description="{symbol: display label} override for strategic (first-stage) variables.",
+    )
+    strategic_var_components: dict[str, str] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description="{symbol: short component name}, e.g. for compact table columns.",
+    )
+    strategic_var_units: dict[str, str] | None = Field(
+        sa_column=Column(JSON), default=None, description="{symbol: unit string}, e.g. 'MW'."
+    )
+    combined_cell_ranges: dict[str, list[float]] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description=(
+            "Precomputed attainable range per (objective, scenario) cell for the combined "
+            "multi-scenario method, as {combined_symbol: [ideal, nadir]}. Derived data, not "
+            "preference: it is exactly what a payoff table on each scenario's standalone problem "
+            "produces, cached here because that is one solve per scenario and the decision maker "
+            "would otherwise wait for it on first load. Absent, incomplete or stale entries are "
+            "recomputed at request time, so this is only ever an optimisation - never a source of "
+            "truth that can silently go wrong. Regenerate with "
+            "`python -m desdeo.api.db_init_district_heating --refresh-cell-ranges`."
+        ),
+    )
+    information_hours: dict[str, int] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description=(
+            "{scenario: first 0-based hour at which the scenario is known}. The combined "
+            "multi-scenario method forces each listed scenario's hourly decisions to equal the "
+            "baseline scenario's before that hour (normal operation until a disruption starts or "
+            "its warning arrives). Absent means no such constraints. Each hour must be no later "
+            "than the scenario's first disrupted hour."
+        ),
+    )
+
+    metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="jina_multiscenario_metadata")
+
+
+class JinaPoolMetaData(SQLModel, table=True):
+    """Problem metadata for the JINA single-scenario pool-matching interactive method.
+
+    Unlike `JinaMultiScenarioMetaData`, this table's `data_dir` and `strategic_var_symbols` are
+    *required* — this method never builds a live `Problem`/`ScenarioModel`, so there's no other
+    source to derive the pool location or which variables are "strategic" from. A problem with no
+    row here (or no `data_dir`/`strategic_var_symbols` set) simply can't be used with this method.
+    """
+
+    id: int | None = Field(primary_key=True, default=None)
+    metadata_id: int | None = Field(foreign_key="problemmetadatadb.id", default=None)
+
+    metadata_type: str = "jina_pool_metadata"
+
+    data_dir: str = Field(
+        description=(
+            "Folder containing summary.csv and pairwise_transfer_matrix_long.csv for this problem's pre-computed "
+            "candidate pool."
+        )
+    )
+    strategic_var_symbols: list[str] = Field(
+        sa_column=Column(JSON),
+        description=(
+            "Which variable symbols are the 'strategic' (first-stage) capacity variables, matching columns in the "
+            "pool CSVs."
+        ),
+    )
+    obj_emphasis_symbols: list[str] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description=(
+            "Objective symbols that get a dedicated generic-ASF emphasis scalarizer variant; absent means all "
+            "objectives."
+        ),
+    )
+    strategic_var_labels: dict[str, str] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description="{symbol: display label} override for strategic (first-stage) variables.",
+    )
+    strategic_var_components: dict[str, str] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description="{symbol: short component name}, e.g. for compact table columns.",
+    )
+    strategic_var_units: dict[str, str] | None = Field(
+        sa_column=Column(JSON), default=None, description="{symbol: unit string}, e.g. 'MW'."
+    )
+    default_domain_thresholds: dict[str, float] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description="{objective_symbol: threshold}, pre-fills the DM-editable domain-criterion inputs.",
+    )
+    default_af_absolute_floors: dict[str, float] | None = Field(
+        sa_column=Column(JSON),
+        default=None,
+        description="{objective_symbol: floor}, pre-fills the antifragility-floor inputs.",
+    )
+    lambda_objective: str | None = Field(
+        default=None,
+        description=(
+            "Objective symbol used by the loss-aversion (λ) re-ranking card; absent means the first af_objectives "
+            "entry, or the card is hidden if none exist."
+        ),
+    )
+
+    metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="jina_pool_metadata")
+
+
 class ProblemMetaDataDB(SQLModel, table=True):
     """Store Problem MetaData to DB with this class."""
 
@@ -399,6 +572,10 @@ class ProblemMetaDataDB(SQLModel, table=True):
     solution_description_metadata: list[SolutionDescriptionMetaData] = Relationship(
         back_populates="metadata_instance", cascade_delete=True
     )
+    jina_multiscenario_metadata: list[JinaMultiScenarioMetaData] = Relationship(
+        back_populates="metadata_instance", cascade_delete=True
+    )
+    jina_pool_metadata: list[JinaPoolMetaData] = Relationship(back_populates="metadata_instance", cascade_delete=True)
     problem: ProblemDB = Relationship(back_populates="problem_metadata")
 
     @property
@@ -410,6 +587,8 @@ class ProblemMetaDataDB(SQLModel, table=True):
         | SolverSelectionMetadata
         | SiteSelectionMetaData
         | SolutionDescriptionMetaData
+        | JinaMultiScenarioMetaData
+        | JinaPoolMetaData
     ]:
         """Return all metadata in one list."""
         return (
@@ -418,6 +597,8 @@ class ProblemMetaDataDB(SQLModel, table=True):
             + (self.solver_selection_metadata or [])
             + (self.site_selection_metadata or [])
             + (self.solution_description_metadata or [])
+            + (self.jina_multiscenario_metadata or [])
+            + (self.jina_pool_metadata or [])
         )
 
 
@@ -430,6 +611,8 @@ class ProblemMetaDataPublic(SQLModel):
     representative_nd_metadata: list[RepresentativeNonDominatedSolutions] | None
     site_selection_metadata: list[SiteSelectionMetaData] | None
     solution_description_metadata: list[SolutionDescriptionMetaData] | None
+    jina_multiscenario_metadata: list[JinaMultiScenarioMetaData] | None
+    jina_pool_metadata: list[JinaPoolMetaData] | None
 
 
 class ProblemMetaDataGetRequest(SQLModel):

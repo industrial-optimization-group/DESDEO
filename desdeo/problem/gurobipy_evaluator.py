@@ -248,8 +248,24 @@ class GurobipyEvaluator:
             dict: dict containing the objective functions.
         """
         objective_functions: dict[str, gp.Var | gp.MVar | gp.LinExpr | gp.QuadExpr | gp.MLinExpr | gp.MQuadExpr] = {}
+
+        def lookup(name: str):
+            """Resolve `name` as usual, falling back to the objectives parsed so far.
+
+            The fallback lets an objective reference an earlier one, e.g. the weighted or expected value
+            aggregates built from the per-scenario objectives of a combined scenario problem. It is tried
+            last, so a name that resolves to a variable, scalarization, extra function or constant keeps
+            resolving to it, exactly as before.
+            """
+            try:
+                return self.get_expression_by_name(name)
+            except GurobipyEvaluatorError:
+                if name in objective_functions:
+                    return objective_functions[name]
+                raise
+
         for obj in problem.objectives:
-            gp_expr = self.parse(obj.func, callback=self.get_expression_by_name)
+            gp_expr = self.parse(obj.func, callback=lookup)
             if isinstance(gp_expr, int | float):
                 warnings.warn(
                     "One or more of the problem objectives seems to be a constant.",

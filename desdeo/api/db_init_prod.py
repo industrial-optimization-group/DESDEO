@@ -22,6 +22,8 @@ Optional
 --------
 DESDEO_ADMIN_GROUP    Group name for the seeded user (default: "admin").
 """
+# Command-line script: progress is printed on purpose.
+# ruff: noqa: T201
 
 import os
 import sys
@@ -31,17 +33,24 @@ from sqlmodel import Session, SQLModel, select
 # Import the engine after DATABASE_URL is in the environment so the config
 # module picks it up correctly.
 from desdeo.api.db import engine
+from desdeo.api.db_migrations import add_missing_columns
 from desdeo.api.models import User, UserRole
 from desdeo.api.routers.user_authentication import get_password_hash
 
 
 def create_tables() -> None:
+    """Create any missing tables, then add columns that were added to models after their tables existed."""
     print("[db-init] Creating database tables (create_all is a no-op for existing tables)...")
     SQLModel.metadata.create_all(engine)
+    # create_all never alters a table that already exists, so columns added to a model after its
+    # table was created have to be filled in separately.
+    for name in add_missing_columns(engine):
+        print(f"[db-init] Added missing column {name}.")
     print("[db-init] Tables ready.")
 
 
 def seed_admin_user() -> None:
+    """Create the analyst user from the DESDEO_ADMIN_* environment variables, unless it already exists."""
     username = os.environ.get("DESDEO_ADMIN_USERNAME")
     password = os.environ.get("DESDEO_ADMIN_PASSWORD")
     group = os.environ.get("DESDEO_ADMIN_GROUP", "admin")
@@ -69,6 +78,7 @@ def seed_admin_user() -> None:
 
 
 def main() -> None:
+    """Initialise the production database from DATABASE_URL: create tables, then seed the admin user."""
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         print("[db-init] ERROR: DATABASE_URL is not set.", file=sys.stderr)
