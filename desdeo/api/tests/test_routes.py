@@ -477,6 +477,25 @@ def test_rpm_solve(client: TestClient, session_and_user: dict):
     solve_and_check(ReferencePoint(aspiration_levels={"f_1": 0.2, "f_2": 0.6, "f_3": 0.4}), first.id)
 
 
+def test_rpm_solve_single_solution(client: TestClient, session_and_user: dict):
+    """Test that the reference point method can return and store a single solution per reference point."""
+    session = session_and_user["session"]
+    access_token = login(client)
+
+    request = RPMSolveRequest(
+        problem_id=1,
+        preference=ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.3, "f_3": 0.4}),
+        include_perturbed=False,
+    )
+    response = post_json(client, "/method/rpm/solve", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.json()["solver_results"]) == 1
+
+    state_db = session.exec(select(StateDB).order_by(StateDB.id.desc())).first()
+    assert isinstance(state_db.state, RPMState)
+    assert len(state_db.state.solver_results) == 1
+
+
 def test_nimbus_solve(client: TestClient):
     """Test that using the NIMBUS method works as expected."""
     access_token = login(client)

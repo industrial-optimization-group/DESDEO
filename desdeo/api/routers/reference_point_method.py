@@ -58,6 +58,7 @@ def solve_solutions(
         request.scalarization_options,
         solver,
         request.solver_options,
+        include_perturbed=request.include_perturbed,
     )
 
     # create DB preference

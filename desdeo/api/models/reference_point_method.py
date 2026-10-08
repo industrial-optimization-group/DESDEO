@@ -16,3 +16,10 @@ class RPMSolveRequest(SQLModel):
     solver: str | None = Field(default=None)
     solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     preference: ReferencePoint = Field(Column(JSON))
+    include_perturbed: bool = Field(
+        default=True,
+        description=(
+            "Whether to also return the k solutions found with perturbed reference points."
+            " If false, a single solution is returned."
+        ),
+    )
