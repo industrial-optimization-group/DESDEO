@@ -55,7 +55,7 @@ To begin, use `git` (or download the source of DESDEO [here](https://github.com/
 you can get DESDEO's latest source code with the command (open a terminal or powershell):
 
 ```bash
-git clone git@github.com:industrial-optimization-group/DESDEO.git
+git clone https://github.com/industrial-optimization-group/DESDEO
 ```
 
 ### Setting up a virtual environment
