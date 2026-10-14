@@ -14,6 +14,8 @@ from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
 from desdeo.api.models import (
+    DistrictHeatingIterateRequest,
+    DistrictHeatingWishlistUpdateRequest,
     ENautilusStepRequest,
     Group,
     InteractiveSessionDB,
@@ -427,6 +429,8 @@ RequestType = (
     | CreateSessionRequest
     | NautilusNavigatorInitRequest
     | NautilusNavigatorNavigateRequest
+    | DistrictHeatingIterateRequest
+    | DistrictHeatingWishlistUpdateRequest
 )
 
 

@@ -35,6 +35,8 @@
 	 *     enableBrushing: boolean; // Whether to enable axis brushing for filtering
 	 *   }
 	 * - lineLabels: { [key: string]: string } - Map of data indexes to custom labels displayed in tooltips
+	 * - showTickLabels: boolean — When false, axis tick text is hidden (for small multiples)
+	 * - verticalAxisLabels: boolean — Draw axis names rotated along each axis (for small multiples)
 	 * - selectedIndex: number | null — Index of selected line in single selection mode
 	 * - multipleSelectedIndexes: number[] | null — Indexes of selected lines in multi-selection mode
 	 * - brushFilters: { [dimension: string]: [number, number] } — Brush filter ranges for each dimension
@@ -89,6 +91,10 @@
 		min?: number;
 		max?: number;
 		direction?: 'max' | 'min';
+		// When set, the axis is treated as ordinal: values 1..categories.length map to these
+		// labels (e.g. scenario names) instead of showing raw numeric ticks. Brushing/filtering
+		// still works exactly as on a numeric axis, since the underlying scale is still linear.
+		categories?: string[];
 	}[] = [];
 
 	// Optional reference data for enhanced visualization
@@ -101,6 +107,11 @@
 		strokeWidth: number; // Thickness of data lines
 		opacity: number; // Opacity of non-selected lines
 		enableBrushing: boolean; // Whether to enable axis brushing for filtering
+		// Whether to draw the small coloured square beside each axis name. Those squares identify
+		// the axis, not the lines — where lines are coloured by solution rather than by dimension
+		// they invite exactly the wrong reading, so a caller can turn them off. Defaults on, so
+		// every existing chart keeps the look it had.
+		showAxisColorSquares?: boolean;
 	} = {
 		showAxisLabels: true,
 		highlightOnHover: true,
@@ -110,6 +121,56 @@
 	};
 	// optional map of labels for each data index for tooltip display on hover
 	export let lineLabels: { [key: string]: string } = {}; // Map of data index to label
+	// optional map of a fixed stroke color per data index, e.g. to give every row belonging
+	// to the same underlying solution (across several rows, such as one per scenario) a
+	// consistent color distinct from other solutions. Falls back to the normal
+	// selected/not-selected coloring when a given index has no entry.
+	export let colorByIndex: { [key: string]: string } | undefined = undefined;
+
+	// When false, the numeric tick *text* on every axis is suppressed (the tick marks stay). Meant
+	// for small-multiple grids where every panel is drawn on one shared set of scales, so repeating
+	// the same numbers on each panel would eat most of a narrow panel's width for no information.
+	export let showTickLabels: boolean = true;
+
+	// Render numeric tick text in a compact SI-style form ("-32.1M", "7.9k", "158") at a smaller
+	// font, with a white halo so it stays readable where it crosses the previous axis's lines.
+	// Full thousands-separated numbers are wider than the gap between two axes in a small-multiple
+	// panel, so they overlap into an unreadable smear; these fit. Also shifts a vertical axis name
+	// (`verticalAxisLabels`) left past the tick text so the two don't sit on top of each other.
+	export let compactTickLabels: boolean = false;
+
+	const COMPACT_TICK_FONT_PX = 8;
+	const COMPACT_TICK_CHAR_PX = 5.2; // ~average glyph width at COMPACT_TICK_FONT_PX
+	const COMPACT_TICK_PAD_PX = 9; // d3's tick mark length + text padding
+
+	/** "-32.1M", "7.9k", "158", "0" — a few characters whatever the magnitude. */
+	function compactTick(v: number): string {
+		if (!Number.isFinite(v)) return '';
+		if (v === 0) return '0';
+		const av = Math.abs(v);
+		const [divisor, suffix] =
+			av >= 1e9 ? [1e9, 'B'] : av >= 1e6 ? [1e6, 'M'] : av >= 1e3 ? [1e3, 'k'] : [1, ''];
+		const scaled = v / divisor;
+		const scaledAbs = Math.abs(scaled);
+		const digits = scaledAbs >= 100 ? 0 : scaledAbs >= 10 ? 1 : suffix ? 1 : 2;
+		// Number() drops a trailing ".0" so "2.0M" reads as "2M".
+		return `${Number(scaled.toFixed(digits))}${suffix}`;
+	}
+
+	/** Width the compact tick text needs to the left of an axis line, for the widest label drawn. */
+	function compactTickGutter(domains: [number, number][]): number {
+		let widest = 1;
+		for (const [lo, hi] of domains) {
+			widest = Math.max(widest, compactTick(lo).length, compactTick(hi).length);
+		}
+		return Math.ceil(widest * COMPACT_TICK_CHAR_PX + COMPACT_TICK_PAD_PX);
+	}
+
+	// Draw each axis's name running up the axis itself (rotated) instead of horizontally above it.
+	// A horizontal name is wider than the gap between two axes in a small-multiple panel, so the
+	// names of neighbouring axes overlap into an unreadable smear; rotated, each one occupies its
+	// own axis's column. Requires options.showAxisLabels. Default keeps the horizontal layout.
+	export let verticalAxisLabels: boolean = false;
 	// Index of currently selected line (null = no selection)
 	export let selectedIndex: number | null = null;
 	// indexes for the case where multiple lines can be selected
@@ -283,6 +344,9 @@
 			.attr('stroke', (d, i) => {
 				const passes = passesFilters(d);
 				if (!passes) return '#93c5fd'; // Hidden lines are lighter color, tailwind sky 700
+
+				const fixedColor = colorByIndex?.[i];
+				if (fixedColor) return fixedColor;
 
 				if (isSelected(i)) return '#3b82f6'; // Selected line uses primary color, tailwind blue 500
 				return '#93c5fd'; // Non-selected lines are lighter color
@@ -725,14 +789,72 @@
 	}
 
 	/**
+	 * Estimates how much left margin the leftmost axis's tick labels need, so long labels
+	 * (especially negative ones, which are one character wider than their positive equivalent)
+	 * don't get clipped by the SVG's edge. Only the first dimension matters here — every other
+	 * axis's tick text grows leftward into the gap between it and the previous axis, which
+	 * `innerWidth`/point-scale padding already accounts for.
+	 */
+	function estimateLeftAxisMargin(): number {
+		const DEFAULT_LEFT_MARGIN = 40;
+		// A name rotated up the left of each axis needs its own strip of room, and the leftmost
+		// axis has only the chart margin to put it in.
+		const verticalLabelMargin = options.showAxisLabels && verticalAxisLabels ? 26 : 0;
+		// With no tick text there is nothing else left of the axis line that needs reserving for.
+		if (!showTickLabels) return Math.max(12, verticalLabelMargin);
+		const first = dimensions[0];
+		if (!first) return DEFAULT_LEFT_MARGIN;
+
+		// Compact labels are a few characters wide whatever the magnitude, so they get their own
+		// (much smaller) estimate. `verticalLabelMargin` is deliberately not added: in compact mode
+		// the rotated axis name moves to the right of its axis line, leaving this strip to the
+		// tick text alone.
+		if (compactTickLabels) {
+			const bounds: [number, number][] =
+				first.min !== undefined && first.max !== undefined ? [[first.min, first.max]] : [];
+			return compactTickGutter(bounds);
+		}
+
+		let domainMin: number;
+		let domainMax: number;
+		if (first.min !== undefined && first.max !== undefined) {
+			domainMin = first.min;
+			domainMax = first.max;
+		} else {
+			const values = data.map((d) => d[first.symbol]).filter((v) => v !== undefined && v !== null);
+			const extent = d3.extent(values) as [number, number];
+			[domainMin, domainMax] = extent ?? [0, 1];
+		}
+
+		const widestLabelLength = Math.max(
+			Math.round(domainMin).toLocaleString('en-US').length,
+			Math.round(domainMax).toLocaleString('en-US').length
+		);
+		// ~6.5px/char at the default ~10px tick font, plus the tick mark + text padding d3 adds.
+		const estimated = widestLabelLength * 6.5 + 15;
+		return Math.max(DEFAULT_LEFT_MARGIN, Math.ceil(estimated), verticalLabelMargin);
+	}
+
+	/**
 	 * Main function that draws the entire parallel coordinates plot
 	 * Orchestrates all the drawing functions and handles the overall layout
 	 */
 	function drawChart(): void {
 		if (!data.length || !dimensions.length) return; // Skip if no data to display
 
-		// Define margins around the chart area
-		const margin = { top: 20, right: 40, bottom: 20, left: 40 };
+		// Left margin must fit the leftmost axis's own tick labels — d3.axisLeft right-anchors
+		// tick text and grows it leftward, so a fixed margin sized for positive numbers silently
+		// clips the leading "-" off negative values (digits stay visible, sign doesn't) once a
+		// domain's magnitude exceeds what that margin was sized for.
+		const leftMargin = estimateLeftAxisMargin();
+
+		// Define margins around the chart area. The filter status line below the plot is drawn at
+		// `innerHeight + 25`, which falls outside a 20px bottom margin and was clipped away
+		// entirely whenever a brush filter was active — at any container height, since that
+		// position scales with the chart rather than sitting at a fixed offset from its edge. The
+		// extra room is only taken when there is something to show there.
+		const bottomMargin = Object.keys(brushFilters).length > 0 ? 34 : 20;
+		const margin = { top: 20, right: 40, bottom: bottomMargin, left: leftMargin };
 		const innerWidth = width - margin.left - margin.right; // Available width for chart
 		const innerHeight = height - margin.top - margin.bottom; // Available height for chart
 
@@ -779,33 +901,110 @@
 			const axisColor = axisColorScale(dim.symbol); // Get color for this dimension
 
 			// Draw axis line with tick marks and labels
-			svgElement
+			const axisGen = d3.axisLeft(newScales[dim.symbol]);
+			if (dim.categories && dim.categories.length > 0) {
+				// Ordinal axis: one tick per category, labeled "1. name" instead of a raw number.
+				const categories = dim.categories;
+				const tickValues = categories.map((_, idx) => idx + 1);
+				axisGen.tickValues(tickValues).tickFormat((v) => {
+					const idx = Math.round(v as number) - 1;
+					const label = categories[idx] ?? String(v);
+					// 24 rather than 18: the scenario names in use run to 20 characters
+					// ("demand_spike_january"), so the old limit clipped the very part that
+					// distinguished them. Only the two district-heating methods use a categorical
+					// axis, and both put it last, where the extra width has room.
+					const truncated = label.length > 24 ? `${label.slice(0, 23)}…` : label;
+					return `${idx + 1}. ${truncated}`;
+				});
+			} else if (compactTickLabels) {
+				// Fewer ticks as well as shorter ones: a panel is only a couple of hundred pixels
+				// tall, so five labels on it sit almost on top of each other.
+				axisGen.ticks(4).tickFormat((v) => compactTick(v as number));
+			} else {
+				axisGen.ticks(5); // Left-aligned axis with 5 ticks
+			}
+			const axisGroup = svgElement
 				.append('g')
 				.attr('class', `axis axis-${dim.symbol}`)
 				.attr('transform', `translate(${x}, 0)`) // Position at correct x coordinate
-				.call(d3.axisLeft(newScales[dim.symbol]).ticks(5)); // Left-aligned axis with 5 ticks
+				.call(axisGen);
+
+			if (!showTickLabels) {
+				axisGroup.selectAll('.tick text').remove();
+			} else if (compactTickLabels) {
+				// Same halo trick as the vertical axis name: at panel width the tick text has to
+				// reach into the gap where the previous axis's lines run, and without the white
+				// outline it disappears into them.
+				axisGroup
+					.selectAll('.tick text')
+					.style('font-size', `${COMPACT_TICK_FONT_PX}px`)
+					.style('fill', '#333')
+					.style('stroke', '#fff')
+					.style('stroke-width', '2.5px')
+					.style('paint-order', 'stroke');
+			}
+
+			// Full (untruncated) category name on hover, since long scenario names get truncated
+			// in the tick label itself to avoid overlapping the previous axis's lines.
+			if (dim.categories && dim.categories.length > 0) {
+				const categories = dim.categories;
+				axisGroup
+					.selectAll('.tick')
+					.append('title')
+					.text((v) => categories[Math.round(v as number) - 1] ?? '');
+			}
 
 			// Draw axis labels and colored identification squares
-			if (options.showAxisLabels) {
-				// Colored square for visual identification of each axis
+			if (options.showAxisLabels && verticalAxisLabels) {
+				// Runs bottom-to-top alongside the axis, centred on it. The white halo (a stroke
+				// painted under the fill) keeps it readable where it crosses the data lines of the
+				// axis to its left — at panel width there is no empty gutter to place it in.
 				svgElement
-					.append('rect')
-					.attr('class', 'axis-color-square')
-					.attr('x', x - 20) // Position to the left of the axis
-					.attr('y', -18) // Position above the chart area
-					.attr('width', 10)
-					.attr('height', 10)
-					.attr('fill', axisColor) // Use dimension's assigned color
-					.attr('stroke', '#333') // Dark border
-					.attr('stroke-width', 1)
-					.attr('rx', 2) // Rounded corners
-					.attr('ry', 2);
+					.append('text')
+					.attr('class', 'axis-label axis-label-vertical')
+					// Normally the name sits in the empty strip left of the axis. With compact ticks
+					// that strip is the tick text's, and it is as wide as the whole gap to the
+					// previous axis — so shifting the name past it would land it on that axis. The
+					// right-hand side is free instead (d3.axisLeft puts ticks on the left), and the
+					// halo below keeps the name readable over the lines that run through there.
+					.attr(
+						'transform',
+						`translate(${x + (showTickLabels && compactTickLabels ? 11 : -12)}, ${innerHeight / 2}) rotate(-90)`
+					)
+					.attr('text-anchor', 'middle')
+					.style('font-size', '10px')
+					.style('font-weight', '600')
+					.style('fill', '#333')
+					.style('stroke', '#fff')
+					.style('stroke-width', '3px')
+					.style('paint-order', 'stroke')
+					.style('pointer-events', 'none')
+					.text(dim.name);
+			} else if (options.showAxisLabels) {
+				const showSquare = options.showAxisColorSquares !== false;
 
-				// Axis name with direction indicator
+				if (showSquare) {
+					// Colored square for visual identification of each axis
+					svgElement
+						.append('rect')
+						.attr('class', 'axis-color-square')
+						.attr('x', x - 20) // Position to the left of the axis
+						.attr('y', -18) // Position above the chart area
+						.attr('width', 10)
+						.attr('height', 10)
+						.attr('fill', axisColor) // Use dimension's assigned color
+						.attr('stroke', '#333') // Dark border
+						.attr('stroke-width', 1)
+						.attr('rx', 2) // Rounded corners
+						.attr('ry', 2);
+				}
+
+				// Axis name with direction indicator. Without the square the name starts where the
+				// square would have been, so the labels stay aligned to their own axis.
 				svgElement
 					.append('text')
 					.attr('class', 'axis-label')
-					.attr('x', x - 5) // Position to the right of the colored square
+					.attr('x', showSquare ? x - 5 : x - 20)
 					.attr('y', -8) // Position just above the chart area
 					.attr('text-anchor', 'start') // Left-align text
 					.style('font-size', '12px')
@@ -975,6 +1174,10 @@
 		selectedIndex,
 		multipleSelectedIndexes,
 		brushFilters,
+		colorByIndex,
+		showTickLabels,
+		compactTickLabels,
+		verticalAxisLabels,
 		width,
 		height,
 		drawChart();
