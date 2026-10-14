@@ -119,7 +119,6 @@ class ReferenceVectorOptions(BaseModel):
     Only used if no preference is provided."""
     creation_type: Literal["simplex", "s_energy"] = Field(default="simplex")
     """The method for creating reference vectors. Defaults to "simplex".
-    Currently only "simplex" is implemented. Future versions will include "s_energy".
 
     If set to "simplex", the reference vectors are created using the simplex lattice design method.
     This method is generates distributions with specific numbers of reference vectors.
