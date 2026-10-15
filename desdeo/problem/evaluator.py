@@ -458,6 +458,10 @@ class PolarsEvaluator:
         if isinstance(xs, dict):
             xs = pl.DataFrame(xs)
 
+        if not any(isinstance(var, TensorVariable) for var in self.problem.variables):
+            # Nothing to rebuild: select the variables in one operation rather than one per variable.
+            return self.evaluate(xs.select([var.symbol for var in self.problem.variables]))
+
         unflattened_xs = pl.DataFrame()
 
         # iterate over the variables of the problem
