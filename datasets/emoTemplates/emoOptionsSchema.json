@@ -373,6 +373,16 @@
                     "minimum": 0.0,
                     "title": "Xover Probability",
                     "type": "number"
+                },
+                "base_vector": {
+                    "default": "random",
+                    "description": "The vector the scaled difference is added to.",
+                    "enum": [
+                        "random",
+                        "target"
+                    ],
+                    "title": "Base Vector",
+                    "type": "string"
                 }
             },
             "title": "DifferentialEvolutionCrossoverOptions",
@@ -537,6 +547,83 @@
                 }
             },
             "title": "LocalCrossoverOptions",
+            "type": "object"
+        },
+        "MOEADSelectorOptions": {
+            "description": "Options for the MOEA/D selector.\n\nOnly `TemplateMOEADOptions` takes this selector, since its replacement works one offspring at a\ntime inside the MOEA/D loop. It is therefore not a member of `SelectorOptions`.",
+            "properties": {
+                "name": {
+                    "const": "MOEADSelector",
+                    "default": "MOEADSelector",
+                    "description": "The name of the selection operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "reference_vector_options": {
+                    "$ref": "#/$defs/ReferenceVectorOptions",
+                    "default": {
+                        "adaptation_frequency": 0,
+                        "creation_type": "simplex",
+                        "vector_type": "planar",
+                        "lattice_resolution": null,
+                        "number_of_vectors": 200,
+                        "adaptation_distance": 0.2,
+                        "reference_point": null,
+                        "preferred_solutions": null,
+                        "non_preferred_solutions": null,
+                        "preferred_ranges": null
+                    },
+                    "description": "Options for the weight vectors."
+                },
+                "neighbourhood_size": {
+                    "default": 20,
+                    "description": "The neighbourhood size T.",
+                    "minimum": 2,
+                    "title": "Neighbourhood Size",
+                    "type": "integer"
+                },
+                "neighbourhood_probability": {
+                    "default": 1.0,
+                    "description": "The probability delta of mating within the neighbourhood.",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "title": "Neighbourhood Probability",
+                    "type": "number"
+                },
+                "max_replacements": {
+                    "anyOf": [
+                        {
+                            "minimum": 1,
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The maximum number n_r of solutions one offspring may replace.",
+                    "title": "Max Replacements"
+                },
+                "aggregation": {
+                    "default": "tchebycheff",
+                    "description": "The aggregation function of the subproblems.",
+                    "enum": [
+                        "tchebycheff",
+                        "pbi",
+                        "weighted_sum"
+                    ],
+                    "title": "Aggregation",
+                    "type": "string"
+                },
+                "pbi_penalty": {
+                    "default": 5.0,
+                    "description": "The penalty theta of the PBI function.",
+                    "exclusiveMinimum": 0.0,
+                    "title": "Pbi Penalty",
+                    "type": "number"
+                }
+            },
+            "title": "MOEADSelectorOptions",
             "type": "object"
         },
         "MPTMutationOptions": {
@@ -1166,7 +1253,7 @@
                 },
                 "creation_type": {
                     "default": "simplex",
-                    "description": "The method for creating reference vectors. Defaults to \"simplex\".\nCurrently only \"simplex\" is implemented. Future versions will include \"s_energy\".\n\nIf set to \"simplex\", the reference vectors are created using the simplex lattice design method.\nThis method is generates distributions with specific numbers of reference vectors.\nCheck: https://www.itl.nist.gov/div898/handbook/pri/section5/pri542.htm for more information.\nIf set to \"s_energy\", the reference vectors are created using the Riesz s-energy criterion. This method is used to\ndistribute an arbitrary number of reference vectors in the objective space while minimizing the s-energy.\nCurrently not implemented.",
+                    "description": "The method for creating reference vectors. Defaults to \"simplex\".\n\nIf set to \"simplex\", the reference vectors are created using the simplex lattice design method.\nThis method is generates distributions with specific numbers of reference vectors.\nCheck: https://www.itl.nist.gov/div898/handbook/pri/section5/pri542.htm for more information.\nIf set to \"s_energy\", the reference vectors are created using the Riesz s-energy criterion. This method is used to\ndistribute an arbitrary number of reference vectors in the objective space while minimizing the s-energy.",
                     "enum": [
                         "simplex",
                         "s_energy"
@@ -2059,6 +2146,184 @@
             "title": "Template3Options",
             "type": "object"
         },
+        "TemplateMOEADOptions": {
+            "description": "Options for the MOEA/D template.\n\nThe MOEA/D template makes and evaluates one offspring per subproblem, replacing solutions as it\ngoes. See [template_moead][desdeo.emo.methods.templates.template_moead] for details.\n\nThe population size is the number of weight vectors, which the selector's reference vector options\ndecide. A generator with an `n_points` field is built with that many points, whatever its own\n`n_points` says; the simplex lattice, for instance, turns 100 requested vectors into 91 at three\nobjectives. Any other generator must supply one solution per weight vector.",
+            "properties": {
+                "crossover": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/SimulatedBinaryCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SinglePointBinaryCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/UniformCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/UniformIntegerCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/UniformMixedIntegerCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/BlendAlphaCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SingleArithmeticCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/LocalCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/BoundedExponentialCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/DifferentialEvolutionCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ParentCentricCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/CompositeCrossoverOptions"
+                        }
+                    ],
+                    "description": "The crossover operator options.",
+                    "title": "Crossover"
+                },
+                "mutation": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/BoundedPolynomialMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/BinaryFlipMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/IntegerRandomMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MixedIntegerRandomMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MPTMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/NonUniformMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SelfAdaptiveGaussianMutationOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/PowerMutationOptions"
+                        }
+                    ],
+                    "description": "The mutation operator options.",
+                    "title": "Mutation"
+                },
+                "selection": {
+                    "$ref": "#/$defs/MOEADSelectorOptions",
+                    "description": "The MOEA/D selector options."
+                },
+                "termination": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/MaxGenerationsTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MaxEvaluationsTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/MaxTimeTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ExternalCheckTerminatorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/CompositeTerminatorOptions"
+                        }
+                    ],
+                    "description": "The termination operator options.",
+                    "title": "Termination"
+                },
+                "generator": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/LHSGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomBinaryGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomIntegerGeneratorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/RandomMixedIntegerGeneratorOptions"
+                        }
+                    ],
+                    "description": "The population generator options.",
+                    "title": "Generator"
+                },
+                "repair": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/ClipRepairOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/NoRepairOptions"
+                        }
+                    ],
+                    "default": {
+                        "name": "NoRepair"
+                    },
+                    "description": "The repair operator options.",
+                    "title": "Repair"
+                },
+                "use_archive": {
+                    "default": true,
+                    "description": "Whether to use an archive.",
+                    "title": "Use Archive",
+                    "type": "boolean"
+                },
+                "seed": {
+                    "default": 0,
+                    "description": "The seed for random number generation.",
+                    "title": "Seed",
+                    "type": "integer"
+                },
+                "verbosity": {
+                    "default": 2,
+                    "description": "The verbosity level of the operators.",
+                    "title": "Verbosity",
+                    "type": "integer"
+                },
+                "algorithm_name": {
+                    "description": "The unique name of the algorithm.",
+                    "title": "Algorithm Name",
+                    "type": "string"
+                },
+                "name": {
+                    "const": "TemplateMOEAD",
+                    "default": "TemplateMOEAD",
+                    "description": "The name of the template.",
+                    "title": "Name",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "crossover",
+                "mutation",
+                "selection",
+                "termination",
+                "generator",
+                "algorithm_name"
+            ],
+            "title": "TemplateMOEADOptions",
+            "type": "object"
+        },
         "TemplateXLEMOOOptions": {
             "description": "Options for the XLEMOO template.\n\nThe XLEMOO template alternates between Darwinian (standard EA) and Learning\n(rule extraction + instantiation) modes. See\n[template_xlemoo][desdeo.emo.methods.templates.template_xlemoo] for details.",
             "properties": {
@@ -2423,6 +2688,9 @@
                 },
                 {
                     "$ref": "#/$defs/Template3Options"
+                },
+                {
+                    "$ref": "#/$defs/TemplateMOEADOptions"
                 }
             ],
             "description": "The template options for the EMO algorithm.",

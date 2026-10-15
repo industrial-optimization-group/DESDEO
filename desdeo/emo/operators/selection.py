@@ -2196,3 +2196,355 @@ class SMSEMOASelector(BaseSelector):
             ),
             message,
         ]
+
+
+def moead_scalarize(
+    targets: np.ndarray,
+    weights: np.ndarray,
+    ideal: np.ndarray,
+    method: Literal["tchebycheff", "pbi", "weighted_sum"],
+    pbi_penalty: float = 5.0,
+) -> np.ndarray:
+    """Evaluate MOEA/D's aggregation functions, one weight vector per row of `targets`.
+
+    All three are written for minimization, as in footnotes 3 and 6 of Zhang and Li (2007).
+
+    - "tchebycheff": `max_k w_k |f_k - z_k|` (Eq. 3).
+    - "pbi": `d1 + theta * d2` (Eq. 5), where `d1` is the length of the projection of `f - z` onto
+      the weight vector and `d2` is the distance from `f` to the line through `z` along that vector.
+      Eq. 5 writes the foot of the perpendicular as `z + d1 * w`, which is the projection only for a
+      unit `w`. The weights here sum to one, so the geometric form shown in the paper's Fig. 2 is
+      used, as PlatEMO and pymoo do.
+    - "weighted_sum": `sum_k w_k f_k` (Eq. 2). The ideal point is not used.
+
+    Args:
+        targets (np.ndarray): objective vectors (minimized), shape `(n, m)`.
+        weights (np.ndarray): the weight vector for each row, shape `(n, m)`.
+        ideal (np.ndarray): the reference point `z`, shape `(m,)`.
+        method (str): the aggregation function.
+        pbi_penalty (float): the penalty `theta` of the PBI function.
+
+    Returns:
+        np.ndarray: the aggregation value of each row, lower is better.
+    """
+    if method == "tchebycheff":
+        return np.max(weights * np.abs(targets - ideal), axis=1)
+    if method == "weighted_sum":
+        return np.sum(weights * targets, axis=1)
+    if method == "pbi":
+        translated = targets - ideal
+        norm = np.linalg.norm(weights, axis=1)
+        norm[norm == 0] = np.finfo(float).eps
+        unit = weights / norm[:, None]
+        d1 = np.abs(np.sum(translated * unit, axis=1))
+        d2 = np.linalg.norm(translated - d1[:, None] * unit, axis=1)
+        return d1 + pbi_penalty * d2
+    raise ValueError(f"Unknown MOEA/D aggregation function: {method}")
+
+
+class MOEADSelector(BaseDecompositionSelector):
+    """The neighbourhood replacement of MOEA/D and MOEA/D-DE.
+
+    MOEA/D keeps one solution per weight vector (subproblem). Each offspring is produced for one
+    subproblem `i` from parents in its mating pool, and then replaces the current solution of every
+    subproblem `j` in that pool whose aggregation value it matches or improves,
+    `g(y | w_j, z) <= g(x_j | w_j, z)`. The pool is the neighbourhood `B(i)`, the `T` subproblems with
+    the closest weight vectors, with probability `delta`, and the whole population otherwise. MOEA/D-DE
+    visits the pool in random order and stops after `n_r` replacements, so that one good offspring
+    cannot take over a whole neighbourhood. The original MOEA/D is `delta = 1` with no cap.
+
+    Unlike the other selectors this one is driven one offspring at a time by
+    [template_moead][desdeo.emo.methods.templates.template_moead]: the template asks for the mating
+    pool of subproblem `i` with `mating_pool(i)`, evaluates one offspring, and passes it to `do`, which
+    updates the pool `mating_pool` returned. The first call to `do`, with no offspring, takes the
+    initial population, one solution per subproblem in order, and sets the ideal point from it. The
+    selector publishes its state when the template calls `notify`, once per generation, rather than on
+    every replacement.
+
+    Neither paper handles constraints. On a constrained problem the replacement compares total
+    constraint violation first, so a solution with a smaller violation always replaces one with a
+    larger violation, and the aggregation value decides only between equal violations, which for an
+    unconstrained problem is every comparison. This is DESDEO's addition.
+
+    A preference (reference point, preferred or non-preferred solutions, preferred ranges) adapts the
+    weight vectors as in the other decomposition selectors (Hakanen et al. 2016). Those adaptations
+    treat a vector as a direction in objective space. PBI reads it that way, but a Tchebycheff
+    subproblem's optimum lies along `1 / w`, so with a preference the Tchebycheff weights are the
+    WS-transformation (Qi et al. 2014) of the adapted vectors. The weighted sum has no direction to
+    adapt and rejects preferences.
+
+    References:
+        Zhang, Q., & Li, H. (2007). MOEA/D: A multiobjective evolutionary algorithm based on
+            decomposition. IEEE Transactions on Evolutionary Computation, 11(6), 712-731.
+            https://doi.org/10.1109/TEVC.2007.892759
+
+        Li, H., & Zhang, Q. (2009). Multiobjective optimization problems with complicated Pareto
+            sets, MOEA/D and NSGA-II. IEEE Transactions on Evolutionary Computation, 13(2), 284-302.
+            https://doi.org/10.1109/TEVC.2008.925798
+
+        Qi, Y., Ma, X., Liu, F., Jiao, L., Sun, J., & Wu, J. (2014). MOEA/D with adaptive weight
+            adjustment. Evolutionary Computation, 22(2), 231-264. https://doi.org/10.1162/EVCO_a_00109
+            (The WS-transformation used with preferences.)
+    """
+
+    @property
+    def provided_topics(self):
+        """The message topics this operator publishes, keyed by verbosity level."""
+        return {
+            0: [],
+            1: [SelectorMessageTopics.STATE],
+            2: [
+                SelectorMessageTopics.REFERENCE_VECTORS,
+                SelectorMessageTopics.STATE,
+                SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        """The message topics this operator subscribes to."""
+        return []
+
+    def __init__(
+        self,
+        problem: Problem,
+        verbosity: int,
+        publisher: Publisher,
+        reference_vector_options: ReferenceVectorOptions | dict | None = None,
+        neighbourhood_size: int = 20,
+        neighbourhood_probability: float = 1.0,
+        max_replacements: int | None = None,
+        aggregation: Literal["tchebycheff", "pbi", "weighted_sum"] = "tchebycheff",
+        pbi_penalty: float = 5.0,
+        seed: int = 0,
+    ):
+        """Initialize the MOEA/D selector.
+
+        Args:
+            problem (Problem): The optimization problem to be solved.
+            verbosity (int): The verbosity level of the operator.
+            publisher (Publisher): The publisher to use for communication.
+            reference_vector_options (ReferenceVectorOptions | dict | None, optional): Options for the
+                weight vectors. The vectors are always normalized to sum to one. Defaults to None,
+                which uses the default `ReferenceVectorOptions`.
+            neighbourhood_size (int, optional): The neighbourhood size `T`, counting the subproblem
+                itself. Capped at the number of subproblems. Defaults to 20.
+            neighbourhood_probability (float, optional): The probability `delta` that the mating pool
+                and the replacement range are the neighbourhood rather than the whole population.
+                Defaults to 1.0, the original MOEA/D.
+            max_replacements (int | None, optional): The maximum number `n_r` of solutions one
+                offspring may replace. None, the default, places no cap, as in the original MOEA/D.
+            aggregation (str, optional): The aggregation function, "tchebycheff", "pbi" or
+                "weighted_sum". Defaults to "tchebycheff".
+            pbi_penalty (float, optional): The penalty `theta` of the PBI function. Defaults to 5.0,
+                the value of Zhang and Li (2007), Section V-G.
+            seed (int, optional): The random seed to use. Defaults to 0.
+        """
+        if reference_vector_options is None:
+            reference_vector_options = ReferenceVectorOptions()
+        elif isinstance(reference_vector_options, dict):
+            reference_vector_options = ReferenceVectorOptions.model_validate(reference_vector_options)
+        # MOEA/D's weight vectors are convex combinations of the objectives.
+        reference_vector_options.vector_type = "planar"
+        super().__init__(
+            problem,
+            reference_vector_options=reference_vector_options,
+            verbosity=verbosity,
+            publisher=publisher,
+            seed=seed,
+        )
+        if neighbourhood_size < 2:  # noqa: PLR2004
+            raise ValueError("neighbourhood_size must be at least 2, the subproblem and one neighbour.")
+        if not 0 <= neighbourhood_probability <= 1:
+            raise ValueError("neighbourhood_probability must be in [0, 1].")
+        if max_replacements is not None and max_replacements < 1:
+            raise ValueError("max_replacements must be positive, or None for no cap.")
+        if aggregation not in ("tchebycheff", "pbi", "weighted_sum"):
+            raise ValueError(f"Unknown MOEA/D aggregation function: {aggregation}")
+
+        self.weights = self.reference_vectors
+        options = self.reference_vector_options
+        if (
+            options.reference_point
+            or options.preferred_solutions
+            or options.non_preferred_solutions
+            or (options.preferred_ranges)
+        ):
+            # The preference adaptations of Hakanen et al. (2016) place the vectors as directions in
+            # objective space, which is how PBI reads a weight vector. The optimum of a Tchebycheff
+            # subproblem lies along 1 / w instead, so the adapted vectors go through the
+            # WS-transformation of Qi et al. (2014), Eq. 3, whose Tchebycheff optimum lies along the
+            # vector; a vector with a zero component is shifted by epsilon first, as in their
+            # Algorithm 1, Step 2. Without the transformation the population settles on the opposite
+            # side of the front: on DTLZ2 with reference point (0.2, 0.5, 0.8), the median angle to
+            # the reference direction was 44 degrees, against 5.5 with it (6 for PBI).
+            if aggregation == "weighted_sum":
+                raise ValueError("Preference handling is not supported with the weighted sum aggregation.")
+            if aggregation == "tchebycheff":
+                shifted = self.reference_vectors + 1e-6 * np.any(self.reference_vectors <= 0, axis=1, keepdims=True)
+                inverse = 1.0 / shifted
+                self.weights = inverse / inverse.sum(axis=1, keepdims=True)
+        self.neighbourhood_size = min(neighbourhood_size, self.number_of_subproblems)
+        self.neighbourhood_probability = neighbourhood_probability
+        self.max_replacements = max_replacements
+        self.aggregation = aggregation
+        self.pbi_penalty = pbi_penalty
+
+        # Step 1.1 (2009) / Step 1.2 (2007): the T closest weight vectors to each weight vector. A
+        # subproblem's own vector is placed first explicitly, since preference handling can add edge
+        # vectors that duplicate one already in the set.
+        distances = np.linalg.norm(self.weights[:, None, :] - self.weights[None, :, :], axis=2)
+        np.fill_diagonal(distances, -1.0)
+        self.neighbourhoods = np.argsort(distances, axis=1, kind="stable")[:, : self.neighbourhood_size]
+
+        self.ideal_point: np.ndarray | None = None
+        self.solutions: pl.DataFrame | None = None
+        self.outputs: pl.DataFrame | None = None
+        self._variables: np.ndarray | None = None
+        self._outputs: np.ndarray | None = None
+        self._targets: np.ndarray | None = None
+        self._violations: np.ndarray | None = None
+        self._subproblem: int | None = None
+        self._pool: np.ndarray | None = None
+        self.replaced: list[int] = []
+
+    @property
+    def number_of_subproblems(self) -> int:
+        """The number of subproblems, which is also the population size."""
+        return self.reference_vectors.shape[0]
+
+    def mating_pool(self, subproblem: int) -> np.ndarray:
+        """Draw the mating pool of a subproblem, which is also the range the offspring may replace in.
+
+        This is Step 2.1 of MOEA/D-DE. With `neighbourhood_probability = 1` it is always the
+        neighbourhood, as in the original MOEA/D. The pool is remembered for the next call to `do`.
+
+        Args:
+            subproblem (int): The index `i` of the subproblem an offspring is about to be made for.
+
+        Returns:
+            np.ndarray: The indices of the subproblems in the pool. Always contains `subproblem`.
+        """
+        if self.rng.random() < self.neighbourhood_probability:
+            pool = self.neighbourhoods[subproblem]
+        else:
+            pool = np.arange(self.number_of_subproblems)
+        self._subproblem = subproblem
+        self._pool = pool
+        return pool
+
+    def _aggregate(self, targets: np.ndarray, subproblems: np.ndarray) -> np.ndarray:
+        return moead_scalarize(
+            targets, self.weights[subproblems], self.ideal_point, self.aggregation, pbi_penalty=self.pbi_penalty
+        )
+
+    def do(
+        self,
+        parents: tuple[SolutionType, pl.DataFrame],
+        offsprings: tuple[SolutionType, pl.DataFrame],
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Initialize the population, or update the last mating pool with one or more offspring.
+
+        Args:
+            parents (tuple[SolutionType, pl.DataFrame]): The current population, one solution per
+                subproblem in order, and its outputs.
+            offsprings (tuple[SolutionType, pl.DataFrame]): The offspring and their outputs. Empty on
+                the first call, which takes `parents` as the initial population.
+
+        Returns:
+            tuple[SolutionType, pl.DataFrame]: The updated population and its outputs.
+
+        Raises:
+            ValueError: If the initial population does not hold one solution per subproblem, or if
+                offspring arrive before `mating_pool` has been called.
+        """
+        if not isinstance(parents[0], pl.DataFrame):
+            raise TypeError("MOEADSelector works on polars DataFrames only.")
+        if offsprings[1].is_empty():
+            return self._initialize(parents[0], parents[1])
+        if self._pool is None:
+            raise ValueError("Call mating_pool(i) for the subproblem before passing its offspring to do().")
+
+        offspring_targets = offsprings[1][self.target_symbols].to_numpy()
+        offspring_violations = total_constraint_violation(offsprings[1], self.constraints_symbols)
+        offspring_variables = offsprings[0][self.variable_symbols].to_numpy()
+        offspring_outputs = offsprings[1][self.outputs.columns].to_numpy()
+        self.replaced = []
+
+        for row in range(offspring_targets.shape[0]):
+            y = offspring_targets[row]
+            y_violation = 0.0 if offspring_violations is None else offspring_violations[row]
+            # 2007 Step 2.3 / 2009 Step 2.4: update the ideal point.
+            self.ideal_point = np.minimum(self.ideal_point, y)
+
+            # 2009 Step 2.5: visit the pool in random order and stop after n_r replacements. With
+            # no cap, the order does not matter and this is 2007 Step 2.4.
+            order = self.rng.permutation(self._pool)
+            g_new = self._aggregate(np.broadcast_to(y, (len(order), len(y))), order)
+            g_old = self._aggregate(self._targets[order], order)
+            old_violations = self._violations[order]
+            better = (y_violation < old_violations) | ((y_violation == old_violations) & (g_new <= g_old))
+            winners = order[better]
+            if self.max_replacements is not None:
+                winners = winners[: self.max_replacements]
+
+            self._variables[winners] = offspring_variables[row]
+            self._outputs[winners] = offspring_outputs[row]
+            self._targets[winners] = y
+            self._violations[winners] = y_violation
+            self.replaced.extend(winners.tolist())
+
+        if self.replaced:
+            self.solutions = pl.DataFrame(self._variables, schema=self.solutions.schema, orient="row")
+            self.outputs = pl.DataFrame(self._outputs, schema=self.outputs.schema, orient="row")
+        return self.solutions, self.outputs
+
+    def _initialize(self, solutions: pl.DataFrame, outputs: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame]:
+        """Take the initial population and set the ideal point from it (2007 Step 1.4, 2009 Step 1.3)."""
+        if len(solutions) != self.number_of_subproblems:
+            raise ValueError(
+                f"MOEA/D needs one initial solution per subproblem: got {len(solutions)} solutions for "
+                f"{self.number_of_subproblems} weight vectors."
+            )
+        self.solutions = solutions[self.variable_symbols]
+        self.outputs = outputs
+        self._variables = self.solutions.to_numpy().astype(float)
+        self._outputs = outputs.to_numpy().astype(float)
+        self._targets = outputs[self.target_symbols].to_numpy().astype(float)
+        violations = total_constraint_violation(outputs, self.constraints_symbols)
+        self._violations = np.zeros(len(outputs)) if violations is None else violations.astype(float)
+        self.ideal_point = self._targets.min(axis=0)
+        self._pool = None
+        self.notify()
+        return self.solutions, self.outputs
+
+    def state(self) -> Sequence[Message]:
+        """Return the operator's state as messages for the current verbosity level."""
+        if self.verbosity == 0 or self.solutions is None:
+            return []
+        state = DictMessage(
+            topic=SelectorMessageTopics.STATE,
+            value={
+                "population_size": self.number_of_subproblems,
+                "ideal_point": self.ideal_point.tolist(),
+            },
+            source=self.__class__.__name__,
+        )
+        if self.verbosity == 1:
+            return [state]
+        return [
+            Array2DMessage(
+                topic=SelectorMessageTopics.REFERENCE_VECTORS,
+                value=self.reference_vectors.tolist(),
+                source=self.__class__.__name__,
+            ),
+            state,
+            PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=self.solutions.hstack(self.outputs),
+                source=self.__class__.__name__,
+            ),
+        ]
+
+    def update(self, message: Message) -> None:
+        """Handle an incoming message. This operator does not react to messages."""

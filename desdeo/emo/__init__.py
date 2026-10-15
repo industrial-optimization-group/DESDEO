@@ -20,6 +20,8 @@ from .options.algorithms import (
     emo_constructor,
     ibea_mixed_integer_options,
     ibea_options,
+    moead_de_options,
+    moead_options,
     nsga2_options,
     nsga3_mixed_integer_options,
     nsga3_options,
@@ -68,6 +70,7 @@ from .options.scalar_selection import (
 )
 from .options.selection import (
     IBEASelectorOptions,
+    MOEADSelectorOptions,
     NSGA2SelectorOptions,
     NSGA3SelectorOptions,
     ReferenceVectorOptions,
@@ -80,6 +83,7 @@ from .options.templates import (
     ReferencePointOptions,
     Template1Options,
     Template2Options,
+    TemplateMOEADOptions,
     TemplateXLEMOOOptions,
 )
 from .options.termination import (
@@ -97,6 +101,8 @@ algorithms = SimpleNamespace(
     nsga3_options=nsga3_options,
     ibea_options=ibea_options,
     sms_emoa_options=sms_emoa_options,
+    moead_options=moead_options,
+    moead_de_options=moead_de_options,
     rvea_mixed_integer_options=rvea_mixed_integer_options,
     nsga3_mixed_integer_options=nsga3_mixed_integer_options,
     ibea_mixed_integer_options=ibea_mixed_integer_options,
@@ -118,6 +124,7 @@ selection = SimpleNamespace(
     NSGA3SelectorOptions=NSGA3SelectorOptions,
     NSGA2SelectorOptions=NSGA2SelectorOptions,
     RVEASelectorOptions=RVEASelectorOptions,
+    MOEADSelectorOptions=MOEADSelectorOptions,
 )
 
 other = SimpleNamespace(
@@ -154,6 +161,7 @@ templates = SimpleNamespace(
     Template1Options=Template1Options,
     Template2Options=Template2Options,
     TemplateXLEMOOOptions=TemplateXLEMOOOptions,
+    TemplateMOEADOptions=TemplateMOEADOptions,
 )
 
 repair = SimpleNamespace(NoRepairOptions=NoRepairOptions, ClipRepairOptions=ClipRepairOptions)

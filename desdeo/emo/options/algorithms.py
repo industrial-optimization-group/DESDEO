@@ -1,12 +1,17 @@
 """Define popular MOEAs as Pydantic models."""
 
-from desdeo.emo.options.crossover import SimulatedBinaryCrossoverOptions, UniformMixedIntegerCrossoverOptions
-from desdeo.emo.options.generator import LHSGeneratorOptions, RandomMixedIntegerGeneratorOptions
+from desdeo.emo.options.crossover import (
+    DifferentialEvolutionCrossoverOptions,
+    SimulatedBinaryCrossoverOptions,
+    UniformMixedIntegerCrossoverOptions,
+)
+from desdeo.emo.options.generator import LHSGeneratorOptions, RandomGeneratorOptions, RandomMixedIntegerGeneratorOptions
 from desdeo.emo.options.mutation import BoundedPolynomialMutationOptions, MixedIntegerRandomMutationOptions
 from desdeo.emo.options.repair import ClipRepairOptions, NoRepairOptions
 from desdeo.emo.options.scalar_selection import ElitistSelectionOptions, TournamentSelectionOptions
 from desdeo.emo.options.selection import (
     IBEASelectorOptions,
+    MOEADSelectorOptions,
     NSGA2SelectorOptions,
     NSGA3SelectorOptions,
     ParameterAdaptationStrategy,
@@ -19,6 +24,7 @@ from desdeo.emo.options.templates import (
     Template1Options,
     Template2Options,
     Template3Options,
+    TemplateMOEADOptions,
     TemplateXLEMOOOptions,
     emo_constructor,
 )
@@ -28,6 +34,8 @@ __all__ = [
     "emo_constructor",
     "ibea_mixed_integer_options",
     "ibea_options",
+    "moead_de_options",
+    "moead_options",
     "nsga2_options",
     "nsga3_mixed_integer_options",
     "nsga3_options",
@@ -549,6 +557,141 @@ def sms_emoa_mixed_integer_options() -> EMOOptions:
             termination=MaxEvaluationsTerminatorOptions(
                 name="MaxEvaluationsTerminator",
                 max_evaluations=1000,
+            ),
+            use_archive=True,
+            verbosity=2,
+            seed=42,
+        ),
+    )
+
+
+def moead_options() -> EMOOptions:
+    """Get default MOEA/D options as a Pydantic model.
+
+    The variant of Section V of the paper: Tchebycheff aggregation, no external population, simulated
+    binary crossover and polynomial mutation, and neighbourhood mating with every improved neighbour
+    replaced.
+
+    References:
+        Q. Zhang and H. Li, "MOEA/D: A Multiobjective Evolutionary Algorithm Based on Decomposition," IEEE
+        Transactions on Evolutionary Computation, vol. 11, no. 6, pp. 712-731, Dec. 2007,
+        doi: 10.1109/TEVC.2007.892759.
+
+    Returns:
+        EMOOptions: The default MOEA/D options as a Pydantic model.
+    """
+    return EMOOptions(
+        preference=None,
+        template=TemplateMOEADOptions(
+            algorithm_name="MOEA/D",
+            crossover=SimulatedBinaryCrossoverOptions(
+                name="SimulatedBinaryCrossover",
+                xover_distribution=20,
+                # The paper's "crossover rate is 1.00" is per pair, following Deb's NSGA-II code,
+                # whose per-variable rate is 0.5. The template keeps one of the two children.
+                pair_xover_probability=1.0,
+                xover_probability=0.5,
+                uniform_xover_probability=0.5,
+            ),
+            mutation=BoundedPolynomialMutationOptions(
+                name="BoundedPolynomialMutation",
+                distribution_index=20,
+                mutation_probability=None,  # 1/n
+            ),
+            selection=MOEADSelectorOptions(
+                name="MOEADSelector",
+                # The paper uses N = 100 weight vectors at two objectives and 300 at three (H = 23).
+                # At three objectives the simplex lattice gives 91 vectors for 100 requested.
+                reference_vector_options=ReferenceVectorOptions(
+                    adaptation_frequency=0,
+                    creation_type="simplex",
+                    vector_type="planar",
+                    lattice_resolution=None,
+                    number_of_vectors=100,
+                ),
+                neighbourhood_size=20,
+                neighbourhood_probability=1.0,
+                max_replacements=None,
+                aggregation="tchebycheff",
+            ),
+            # The population is drawn uniformly at random; the template sets its size to the number
+            # of weight vectors.
+            generator=RandomGeneratorOptions(
+                name="RandomGenerator",
+                n_points=100,
+            ),
+            repair=ClipRepairOptions(),
+            # The paper runs 250 generations. Each generation spends one evaluation per weight vector.
+            termination=MaxGenerationsTerminatorOptions(
+                name="MaxGenerationsTerminator",
+                max_generations=100,
+            ),
+            use_archive=True,
+            verbosity=2,
+            seed=42,
+        ),
+    )
+
+
+def moead_de_options() -> EMOOptions:
+    """Get default MOEA/D-DE options as a Pydantic model.
+
+    MOEA/D with a differential evolution operator whose base vector is the subproblem's own solution,
+    mating with the whole population with probability 1 - delta, and at most n_r replacements per
+    offspring.
+
+    The paper resets a variable that leaves its bounds to a random value inside them (Step 2.3). This
+    configuration clips it instead, as DESDEO's differential evolution operator, PlatEMO and jMetal
+    all do.
+
+    References:
+        H. Li and Q. Zhang, "Multiobjective Optimization Problems With Complicated Pareto Sets, MOEA/D and
+        NSGA-II," IEEE Transactions on Evolutionary Computation, vol. 13, no. 2, pp. 284-302, Apr. 2009,
+        doi: 10.1109/TEVC.2008.925798.
+
+    Returns:
+        EMOOptions: The default MOEA/D-DE options as a Pydantic model.
+    """
+    return EMOOptions(
+        preference=None,
+        template=TemplateMOEADOptions(
+            algorithm_name="MOEA/D-DE",
+            crossover=DifferentialEvolutionCrossoverOptions(
+                name="DifferentialEvolutionCrossover",
+                scaling_factor=0.5,
+                xover_probability=1.0,
+                base_vector="target",  # Step 2.2 sets r1 = i
+            ),
+            mutation=BoundedPolynomialMutationOptions(
+                name="BoundedPolynomialMutation",
+                distribution_index=20,
+                mutation_probability=None,  # p_m = 1/n
+            ),
+            selection=MOEADSelectorOptions(
+                name="MOEADSelector",
+                # The paper uses N = 300 weight vectors at two objectives (H = 299) and 595 at three
+                # (H = 33), on problems built to be hard to converge on.
+                reference_vector_options=ReferenceVectorOptions(
+                    adaptation_frequency=0,
+                    creation_type="simplex",
+                    vector_type="planar",
+                    lattice_resolution=None,
+                    number_of_vectors=100,
+                ),
+                neighbourhood_size=20,
+                neighbourhood_probability=0.9,
+                max_replacements=2,
+                aggregation="tchebycheff",
+            ),
+            generator=RandomGeneratorOptions(
+                name="RandomGenerator",
+                n_points=100,
+            ),
+            repair=ClipRepairOptions(),
+            # The paper runs 500 generations.
+            termination=MaxGenerationsTerminatorOptions(
+                name="MaxGenerationsTerminator",
+                max_generations=100,
             ),
             use_archive=True,
             verbosity=2,

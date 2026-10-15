@@ -10,7 +10,14 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from desdeo.emo.hooks.archivers import NonDominatedArchive
-from desdeo.emo.methods.templates import EMOResult, template1, template2, template3, template_xlemoo
+from desdeo.emo.methods.templates import (
+    EMOResult,
+    template1,
+    template2,
+    template3,
+    template_moead,
+    template_xlemoo,
+)
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.learning_mode import LearningModeOperator
 from desdeo.emo.operators.scalar_selection import ElitistSelection
@@ -44,7 +51,7 @@ from .scalar_selection import (
     ScalarSelectionOptions,
     scalar_selector_constructor,
 )
-from .selection import ReferenceVectorOptions, SelectorOptions, selection_constructor
+from .selection import MOEADSelectorOptions, ReferenceVectorOptions, SelectorOptions, selection_constructor
 from .termination import (
     TerminatorOptions,
     terminator_constructor,
@@ -171,7 +178,29 @@ class TemplateXLEMOOOptions(BaseTemplateOptions):
     Must be one of the keys of `XLEMOO_SCALARIZATIONS`."""
 
 
-TemplateOptions = Template1Options | Template2Options | TemplateXLEMOOOptions | Template3Options
+class TemplateMOEADOptions(BaseTemplateOptions):
+    """Options for the MOEA/D template.
+
+    The MOEA/D template makes and evaluates one offspring per subproblem, replacing solutions as it
+    goes. See [template_moead][desdeo.emo.methods.templates.template_moead] for details.
+
+    The population size is the number of weight vectors, which the selector's reference vector options
+    decide. A generator with an `n_points` field is built with that many points, whatever its own
+    `n_points` says; the simplex lattice, for instance, turns 100 requested vectors into 91 at three
+    objectives. Any other generator must supply one solution per weight vector.
+    """
+
+    name: Literal["TemplateMOEAD"] = Field(
+        default="TemplateMOEAD", frozen=True, description="The name of the template."
+    )
+    """The name of the template."""
+    selection: MOEADSelectorOptions = Field(  # type: ignore[assignment]
+        description="The MOEA/D selector options."
+    )
+    """The MOEA/D selector, which holds the weight vectors, the neighbourhoods and the replacement rule."""
+
+
+TemplateOptions = Template1Options | Template2Options | TemplateXLEMOOOptions | Template3Options | TemplateMOEADOptions
 
 
 class ReferencePointOptions(BaseModel):
@@ -400,9 +429,14 @@ def emo_constructor(
             seed=template.seed,
         )
 
+    generator_options = template.generator
+    if template.name == "TemplateMOEAD" and "n_points" in type(generator_options).model_fields:
+        # MOEA/D keeps exactly one solution per weight vector.
+        generator_options = generator_options.model_copy(update={"n_points": selector.number_of_subproblems})
+
     generator = generator_constructor(
         problem=problem_,
-        options=template.generator,
+        options=generator_options,
         evaluator=evaluator,
         publisher=publisher,
         verbosity=template.verbosity,
@@ -484,6 +518,7 @@ def emo_constructor(
         "Template2": template2,
         "TemplateXLEMOO": template_xlemoo,
         "Template3": template3,
+        "TemplateMOEAD": template_moead,
     }
 
     if template.name == "TemplateXLEMOO":
@@ -506,7 +541,7 @@ def emo_constructor(
 
     constructor_extras = ConstructorExtras(problem=problem_, publisher=publisher, archive=archive)
 
-    if template.name == "Template3":
+    if template.name in ("Template3", "TemplateMOEAD"):
         components["seed"] = template.seed
 
     return (partial(template_funcs[template.name], **components, repair=repair), constructor_extras)

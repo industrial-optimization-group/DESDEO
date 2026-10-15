@@ -116,6 +116,25 @@ def test_smsemoa_dtlz2():
 
 
 @pytest.mark.ea
+@pytest.mark.parametrize("factory", ["moead_options", "moead_de_options"])
+def test_moead_dtlz2(factory):
+    """Test whether MOEA/D and MOEA/D-DE can be initialized and run as a whole."""
+    problem = dtlz2(n_objectives=3, n_variables=12)
+    options = getattr(algorithms, factory)()
+    options.template.termination = MaxGenerationsTerminatorOptions(max_generations=30)  # to save time
+    solver, extras = algorithms.emo_constructor(emo_options=options, problem=problem)
+    results = solver()
+
+    # One solution per weight vector: the simplex lattice gives 91 for 100 requested at three objectives.
+    assert len(results.optimal_outputs) == 91
+    assert extras.archive is not None
+    norm = results.optimal_outputs.with_columns(
+        (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
+    )["norm"]
+    assert norm.median() < 1.2
+
+
+@pytest.mark.ea
 def test_mixed_integer_nsga3():
     """Test whether the mixed-integer NSGA-III variant can be initialized and run as a whole."""
     problem = momip_ti2()

@@ -27,6 +27,8 @@ from pathlib import Path
 from desdeo.emo.options.algorithms import (
     ibea_mixed_integer_options,
     ibea_options,
+    moead_de_options,
+    moead_options,
     nsga3_mixed_integer_options,
     nsga3_options,
     rvea_mixed_integer_options,
@@ -43,6 +45,8 @@ TEMPLATES: dict[str, Callable[[], EMOOptions]] = {
     "nsga3_mixed_integer": nsga3_mixed_integer_options,
     "ibea_mixed_integer": ibea_mixed_integer_options,
     "xlemoo": xlemoo_options,
+    "moead": moead_options,
+    "moead_de": moead_de_options,
 }
 """The templates to dump, keyed by the file name they are written to."""
 

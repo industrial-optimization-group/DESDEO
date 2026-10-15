@@ -8,13 +8,13 @@ from collections.abc import Callable
 import numpy as np
 import polars as pl
 
-from desdeo.emo.operators.crossover import BaseCrossover
+from desdeo.emo.operators.crossover import BaseCrossover, DifferentialEvolutionCrossover
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.generator import BaseGenerator
 from desdeo.emo.operators.learning_mode import LearningModeOperator
 from desdeo.emo.operators.mutation import BaseMutation
 from desdeo.emo.operators.scalar_selection import BaseScalarSelector
-from desdeo.emo.operators.selection import BaseSelector
+from desdeo.emo.operators.selection import BaseSelector, MOEADSelector
 from desdeo.emo.operators.termination import BaseTerminator
 from desdeo.tools.generics import EMOResult
 
@@ -236,5 +236,88 @@ def template_xlemoo(
                 solutions, outputs = selection.do((combined_decvars, combined_outputs))
             # else: no usable rules this round; keep the current population unchanged
         gen_in_cycle = (gen_in_cycle + 1) % cycle_len
+
+    return EMOResult(optimal_variables=solutions, optimal_outputs=outputs)
+
+
+def template_moead(
+    evaluator: EMOEvaluator,
+    crossover: BaseCrossover,
+    mutation: BaseMutation,
+    generator: BaseGenerator,
+    selection: MOEADSelector,
+    terminator: BaseTerminator,
+    seed: int,
+    repair: Callable[[pl.DataFrame], pl.DataFrame] = lambda x: x,  # Default to identity function if no repair is needed
+) -> EMOResult:
+    """Implements the main loop of MOEA/D and MOEA/D-DE.
+
+    Each generation visits the subproblems in order. For subproblem `i` it draws a mating pool, makes
+    one offspring from parents in that pool, evaluates it, and lets it replace solutions in the pool
+    straight away, so the next subproblem already mates with the updated population. A generation
+    therefore spends exactly as many evaluations as there are subproblems, one at a time.
+
+    How the parents are drawn depends on the crossover. For
+    [DifferentialEvolutionCrossover][desdeo.emo.operators.crossover.DifferentialEvolutionCrossover]
+    the current solution `x_i` is the target and the donors come from the pool (MOEA/D-DE, Step 2.2);
+    set its `base_vector` to "target" to get MOEA/D-DE's `x_i + F * (x_r2 - x_r3)`. Any other
+    crossover gets two distinct parents drawn from the pool (MOEA/D, Step 2.1), and one of the
+    children it returns is kept at random.
+
+    The final population, one solution per subproblem, is returned. Neither paper's continuous
+    experiments keep the external population of nondominated solutions (Zhang and Li 2007,
+    Section V-C); use the template's archive for that.
+
+    References:
+        Zhang, Q., & Li, H. (2007). MOEA/D: A multiobjective evolutionary algorithm based on
+            decomposition. IEEE Transactions on Evolutionary Computation, 11(6), 712-731.
+            https://doi.org/10.1109/TEVC.2007.892759
+
+        Li, H., & Zhang, Q. (2009). Multiobjective optimization problems with complicated Pareto
+            sets, MOEA/D and NSGA-II. IEEE Transactions on Evolutionary Computation, 13(2), 284-302.
+            https://doi.org/10.1109/TEVC.2008.925798
+
+    Args:
+        evaluator (EMOEvaluator): A class that evaluates the solutions and provides the objective vectors, constraint
+            vectors, and targets.
+        crossover (BaseCrossover): The crossover operator.
+        mutation (BaseMutation): The mutation operator.
+        generator (BaseGenerator): A class that generates the initial population, one solution per subproblem.
+        selection (MOEADSelector): The MOEA/D selector, which holds the weight vectors, the neighbourhoods and the
+            ideal point.
+        terminator (BaseTerminator): The termination operator, checked once per generation.
+        seed (int): The random seed for drawing parents from the mating pool.
+        repair (Callable, optional): A function that repairs the offspring if they go out of bounds. Defaults to an
+            identity function, meaning no repair is done. See [desdeo.tools.utils.repair][] as an example of a
+            repair function.
+
+    Returns:
+        EMOResult: The final population and their objective vectors, constraint vectors, and targets
+    """
+    rng = np.random.default_rng(seed)
+    target_aligned = isinstance(crossover, DifferentialEvolutionCrossover)
+
+    solutions, outputs = generator.do()  # 2007 Step 1.3, 2009 Step 1.2
+    # The neighbourhoods (2007 Step 1.2, 2009 Step 1.1) were built with the selector; this sets z.
+    solutions, outputs = selection.do(parents=(solutions, outputs), offsprings=(solutions.clear(), outputs.clear()))
+
+    while not terminator.check():
+        for i in range(selection.number_of_subproblems):  # Step 2
+            pool = selection.mating_pool(i)  # 2009 Step 2.1
+            if target_aligned:
+                # 2009 Step 2.2: r1 = i, and r2, r3 from the pool.
+                position = int(np.flatnonzero(pool == i)[0])
+                offspring = crossover.do(population=solutions[pool.tolist()], to_mate=[position])
+            else:
+                # 2007 Step 2.1: two parents from B(i), and one offspring.
+                parents = rng.choice(pool, size=2, replace=False).tolist()
+                offspring = crossover.do(population=solutions, to_mate=parents)
+                offspring = offspring[[int(rng.integers(offspring.height))]]
+            offspring = mutation.do(offspring, solutions)
+            offspring = repair(offspring)  # 2009 Step 2.3
+            offspring_outputs = evaluator.evaluate(offspring)
+            # 2007 Steps 2.3-2.4, 2009 Steps 2.4-2.5
+            solutions, outputs = selection.do(parents=(solutions, outputs), offsprings=(offspring, offspring_outputs))
+        selection.notify()
 
     return EMOResult(optimal_variables=solutions, optimal_outputs=outputs)

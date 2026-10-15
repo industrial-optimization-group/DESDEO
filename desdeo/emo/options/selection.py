@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from desdeo.emo.operators.selection import (
     BaseSelector,
     IBEASelector,
+    MOEADSelector,
     NSGA2Selector,
     NSGA3Selector,
     ParameterAdaptationStrategy,
@@ -100,13 +101,52 @@ class SMSEMOASelectorOptions(BaseModel):
     this component."""
 
 
+class MOEADSelectorOptions(BaseModel):
+    """Options for the MOEA/D selector.
+
+    Only `TemplateMOEADOptions` takes this selector, since its replacement works one offspring at a
+    time inside the MOEA/D loop. It is therefore not a member of `SelectorOptions`.
+    """
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    name: Literal["MOEADSelector"] = Field(
+        default="MOEADSelector", frozen=True, description="The name of the selection operator."
+    )
+    """The name of the selection operator."""
+    reference_vector_options: ReferenceVectorOptions = Field(
+        default=ReferenceVectorOptions(vector_type="planar"), description="Options for the weight vectors."
+    )
+    """Options for the weight vectors. Their number is the population size. The vectors are always
+    normalized to sum to one, whatever `vector_type` says."""
+    neighbourhood_size: int = Field(default=20, ge=2, description="The neighbourhood size T.")
+    """The neighbourhood size `T`: how many of the closest weight vectors, the subproblem's own
+    included, form a subproblem's neighbourhood."""
+    neighbourhood_probability: float = Field(
+        default=1.0, ge=0.0, le=1.0, description="The probability delta of mating within the neighbourhood."
+    )
+    """The probability `delta` that the mating pool and the replacement range are the neighbourhood
+    rather than the whole population. 1.0 in the original MOEA/D, 0.9 in MOEA/D-DE."""
+    max_replacements: int | None = Field(
+        default=None, ge=1, description="The maximum number n_r of solutions one offspring may replace."
+    )
+    """The maximum number `n_r` of solutions one offspring may replace. None places no cap, as in the
+    original MOEA/D; MOEA/D-DE uses 2."""
+    aggregation: Literal["tchebycheff", "pbi", "weighted_sum"] = Field(
+        default="tchebycheff", description="The aggregation function of the subproblems."
+    )
+    """The aggregation function of the subproblems."""
+    pbi_penalty: float = Field(default=5.0, gt=0.0, description="The penalty theta of the PBI function.")
+    """The penalty `theta` of the PBI aggregation function. Only used with `aggregation="pbi"`."""
+
+
 SelectorOptions = (
     RVEASelectorOptions | NSGA2SelectorOptions | NSGA3SelectorOptions | IBEASelectorOptions | SMSEMOASelectorOptions
 )
 
 
 def selection_constructor(
-    problem: Problem, options: SelectorOptions, publisher: Publisher, verbosity: int, seed: int
+    problem: Problem, options: SelectorOptions | MOEADSelectorOptions, publisher: Publisher, verbosity: int, seed: int
 ) -> BaseSelector:
     """Construct a selection operator from given options.
 
@@ -129,6 +169,7 @@ def selection_constructor(
         "NSGA3Selector": NSGA3Selector,
         "IBEASelector": IBEASelector,
         "SMSEMOASelector": SMSEMOASelector,
+        "MOEADSelector": MOEADSelector,
     }
     options: dict = options.model_dump()
     name = options.pop("name")
