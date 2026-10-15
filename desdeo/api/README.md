@@ -17,7 +17,7 @@ To initialize the database, run the script `db_init.py` with the following comma
 python db_init.py
 ```
 
-This will create an initial databse, which allows testing for, e.g., testing
+This will create an initial database, which allows testing for, e.g., testing
 the databse. However, the tests themselves (see below), do not depend on this
 database, and handle the database for running the tests on their own.
 

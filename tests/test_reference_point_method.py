@@ -52,6 +52,24 @@ def test_rpm_solve_solutions_continuous():
 
 
 @pytest.mark.rpm
+def test_rpm_solve_solutions_without_perturbed():
+    """Test that without the perturbed reference points, only the solution for the reference point is returned."""
+    problem = dtlz2(n_variables=6, n_objectives=3)
+    reference_point = {"f_1": 0.75, "f_2": 0.50, "f_3": 0.33}
+
+    single = rpm_solve_solutions(problem, reference_point, include_perturbed=False)
+    full = rpm_solve_solutions(problem, reference_point)
+
+    assert len(single) == 1
+    assert single[0].success
+    npt.assert_allclose(
+        objective_dict_to_numpy_array(problem, single[0].optimal_objectives),
+        objective_dict_to_numpy_array(problem, full[0].optimal_objectives),
+        atol=1e-6,
+    )
+
+
+@pytest.mark.rpm
 @pytest.mark.slow
 def test_rpm_solve_solutions_discontinuous():
     """Test the solve function with a discontinuous problem."""

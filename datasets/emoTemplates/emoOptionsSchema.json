@@ -203,6 +203,9 @@
                                 "$ref": "#/$defs/SinglePointBinaryCrossoverOptions"
                             },
                             {
+                                "$ref": "#/$defs/UniformCrossoverOptions"
+                            },
+                            {
                                 "$ref": "#/$defs/UniformIntegerCrossoverOptions"
                             },
                             {
@@ -1467,6 +1470,9 @@
                             "$ref": "#/$defs/SinglePointBinaryCrossoverOptions"
                         },
                         {
+                            "$ref": "#/$defs/UniformCrossoverOptions"
+                        },
+                        {
                             "$ref": "#/$defs/UniformIntegerCrossoverOptions"
                         },
                         {
@@ -1657,6 +1663,9 @@
                         },
                         {
                             "$ref": "#/$defs/SinglePointBinaryCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/UniformCrossoverOptions"
                         },
                         {
                             "$ref": "#/$defs/UniformIntegerCrossoverOptions"
@@ -1867,6 +1876,9 @@
                             "$ref": "#/$defs/SinglePointBinaryCrossoverOptions"
                         },
                         {
+                            "$ref": "#/$defs/UniformCrossoverOptions"
+                        },
+                        {
                             "$ref": "#/$defs/UniformIntegerCrossoverOptions"
                         },
                         {
@@ -2057,6 +2069,9 @@
                         },
                         {
                             "$ref": "#/$defs/SinglePointBinaryCrossoverOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/UniformCrossoverOptions"
                         },
                         {
                             "$ref": "#/$defs/UniformIntegerCrossoverOptions"
@@ -2311,6 +2326,36 @@
                 "winner_size"
             ],
             "title": "TournamentSelectionOptions",
+            "type": "object"
+        },
+        "UniformCrossoverOptions": {
+            "description": "Options for Uniform Crossover.",
+            "properties": {
+                "name": {
+                    "const": "UniformCrossover",
+                    "default": "UniformCrossover",
+                    "description": "The name of the crossover operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "pair_xover_probability": {
+                    "default": 1.0,
+                    "description": "Probability that a parent pair is recombined at all, drawn once per pair. A pair that fails is\ncopied to the offspring unchanged, with every decision variable kept together.",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "title": "Pair Xover Probability",
+                    "type": "number"
+                },
+                "uniform_xover_probability": {
+                    "default": 0.5,
+                    "description": "Per-variable probability that the two parents' values for that variable are exchanged between\nthe offspring. 0.5 is Syswerda's rate. Named to match the parameter of the same meaning on\n`SimulatedBinaryCrossoverOptions`, so the mixing component can be held equal across the two.",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "title": "Uniform Xover Probability",
+                    "type": "number"
+                }
+            },
+            "title": "UniformCrossoverOptions",
             "type": "object"
         },
         "UniformIntegerCrossoverOptions": {

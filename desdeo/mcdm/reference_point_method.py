@@ -32,13 +32,16 @@ def rpm_solve_solutions(
     scalarization_options: dict | None = None,
     solver: BaseSolver | None = None,
     solver_options: SolverOptions | None = None,
+    *,
+    include_perturbed: bool = True,
 ) -> list[SolverResults]:
     """Finds (near) Pareto optimal solutions based on a reference point.
 
     Find a (near) Pareto optimal solution based on the given reference point by
     optimizing an achievement scalarizing function. The original reference point
     is also perturbed, and another k (near) Pareto optimal solutions are found.
-    The k+1 solutions are then returned.
+    The k+1 solutions are then returned. If `include_perturbed` is `False`, only
+    the solution based on the given reference point is found and returned.
 
     Args:
         problem (Problem): the problem to be solved.
@@ -52,13 +55,17 @@ def rpm_solve_solutions(
             most suitable solver based on the problem. Defaults to None.
         solver_options (SolverOptions | None, optional): options passed to the
             solver. If not given, the solver will use its default options. Defaults to None.
+        include_perturbed (bool, optional): whether to also find the k solutions based on
+            the perturbed reference points. If `False`, a single solution is returned, which
+            keeps "the current solution" unambiguous. Defaults to True.
 
     Raises:
         ReferencePointError: the reference point is ill-defined.
 
     Returns:
-        list[SolverResults]: a list of results containing the solutions found using
-            the reference point and the k perturbed reference points.
+        list[SolverResults]: a list of results containing the solution found using
+            the reference point and, if `include_perturbed` is `True`, the solutions found
+            using the k perturbed reference points.
 
     Note:
         If the problem is twice differentiable, `add_asf_diff` is used from `desdeo.tools`.
@@ -84,6 +91,9 @@ def rpm_solve_solutions(
     _solver = _init_solver(problem_w_asf, solver_options)
 
     initial_solution = _solver.solve(target)
+
+    if not include_perturbed:
+        return [initial_solution]
 
     # using the found solution, perturb the reference point to get
     # k (num of objectives) perturbed reference points

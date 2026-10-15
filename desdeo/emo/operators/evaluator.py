@@ -95,7 +95,7 @@ class EMOEvaluator(Subscriber):
         if isinstance(self.population, pl.DataFrame):
             message = PolarsDataFrameMessage(
                 topic=EvaluatorMessageTopics.VERBOSE_OUTPUTS,
-                value=pl.concat([self.population, self.out], how="horizontal"),
+                value=self.population.hstack(self.out),
                 source=self.__class__.__name__,
             )
         else:
