@@ -57,6 +57,44 @@ def total_constraint_violation(outputs: pl.DataFrame, constraint_symbols: Sequen
     return np.maximum(values, 0.0).sum(axis=1)
 
 
+def constrained_fronts(targets: np.ndarray, violations: np.ndarray | None) -> np.ndarray:
+    """Rank a population into fronts under the constrained domination of Deb et al. (2002).
+
+    Constrained domination never compares a feasible solution with an infeasible one on objectives,
+    so the two groups can be ranked separately and concatenated instead of a dominance relation being
+    redefined. The feasible group gets the ordinary non-dominated sort; the infeasible group is
+    stratified by total violation, one front per distinct value, which is what "the one with the
+    smaller violation wins" means as a ranking. Without constraints this is the ordinary sort.
+
+    Args:
+        targets (np.ndarray): the minimized objective vectors, shape `(n, m)`.
+        violations (np.ndarray | None): total constraint violation per row, or None for an
+            unconstrained problem.
+
+    Returns:
+        np.ndarray: boolean front masks, shape `(n_fronts, n)`, best front first.
+    """
+    if violations is None:
+        return fast_non_dominated_sort(targets)
+
+    feasible = np.flatnonzero(violations <= 0)
+    infeasible = np.flatnonzero(violations > 0)
+    fronts = []
+
+    if feasible.size > 0:
+        for front in fast_non_dominated_sort(targets[feasible]):
+            row = np.zeros(len(targets), dtype=np.bool_)
+            row[feasible[front]] = True
+            fronts.append(row)
+
+    for violation in np.unique(violations[infeasible]):
+        row = np.zeros(len(targets), dtype=np.bool_)
+        row[infeasible[violations[infeasible] == violation]] = True
+        fronts.append(row)
+
+    return np.array(fronts)
+
+
 class BaseSelector(Subscriber):
     """A base class for selection operators."""
 
@@ -1753,34 +1791,11 @@ class NSGA2Selector(BaseSelector):
     def _sort(self, targets: np.ndarray, violations: np.ndarray | None) -> np.ndarray:
         """Rank a population into fronts, applying constrained domination when the problem has constraints.
 
-        Constrained domination never compares a feasible solution with an infeasible one on
-        objectives, so the two groups can be ranked separately and concatenated instead of a
-        dominance relation being redefined. The feasible group gets the ordinary non-dominated
-        sort; the infeasible group is stratified by total violation, one front per distinct value,
-        which is what "the one with the smaller violation wins" means as a ranking.
-
         Everything downstream -- crowding distance, the partial-front trim, the fitness -- is left
         alone, exactly as in NSGA-II, where constraint handling enters only through the ranking.
+        See `constrained_fronts`.
         """
-        if violations is None:
-            return fast_non_dominated_sort(targets)
-
-        feasible = np.flatnonzero(violations <= 0)
-        infeasible = np.flatnonzero(violations > 0)
-        fronts = []
-
-        if feasible.size > 0:
-            for front in fast_non_dominated_sort(targets[feasible]):
-                row = np.zeros(len(targets), dtype=np.bool_)
-                row[feasible[front]] = True
-                fronts.append(row)
-
-        for violation in np.unique(violations[infeasible]):
-            row = np.zeros(len(targets), dtype=np.bool_)
-            row[infeasible[violations[infeasible] == violation]] = True
-            fronts.append(row)
-
-        return np.array(fronts)
+        return constrained_fronts(targets, violations)
 
     def do(
         self, parents: tuple[SolutionType, pl.DataFrame], offsprings: tuple[SolutionType, pl.DataFrame]
@@ -2548,3 +2563,700 @@ class MOEADSelector(BaseDecompositionSelector):
 
     def update(self, message: Message) -> None:
         """Handle an incoming message. This operator does not react to messages."""
+
+
+class _FitnessPublishingSelector(BaseSelector):
+    """Shared state publishing for selectors that feed a mating tournament through SELECTED_FITNESS."""
+
+    @property
+    def provided_topics(self):
+        """The message topics this operator publishes, keyed by verbosity level."""
+        return {
+            0: [],
+            1: [SelectorMessageTopics.STATE],
+            2: [SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS, SelectorMessageTopics.SELECTED_FITNESS],
+        }
+
+    @property
+    def interested_topics(self):
+        """The message topics this operator subscribes to."""
+        return []
+
+    def __init__(self, problem: Problem, verbosity: int, publisher: Publisher, population_size: int, seed: int = 0):
+        """Initialize the selector.
+
+        Args:
+            problem (Problem): The optimization problem to be solved.
+            verbosity (int): The verbosity level of the operator.
+            publisher (Publisher): The publisher to use for communication.
+            population_size (int): The number of solutions selected each generation.
+            seed (int, optional): The random seed to use. Defaults to 0.
+        """
+        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher, seed=seed)
+        if population_size < 1:
+            raise ValueError("population_size must be positive.")
+        self.population_size = population_size
+        self.selection: list[int] | None = None
+        self.selected_individuals: SolutionType | None = None
+        self.selected_targets: pl.DataFrame | None = None
+        self.fitness: np.ndarray | None = None
+
+    def _merge(
+        self, parents: tuple[SolutionType, pl.DataFrame], offsprings: tuple[SolutionType, pl.DataFrame]
+    ) -> tuple[pl.DataFrame, pl.DataFrame]:
+        if not isinstance(parents[0], pl.DataFrame):
+            raise TypeError(f"{self.__class__.__name__} works on polars DataFrames only.")
+        if offsprings[1].is_empty():
+            return parents[0], parents[1]
+        return parents[0].vstack(offsprings[0]), parents[1].vstack(offsprings[1])
+
+    def _finish(self, solutions: pl.DataFrame, outputs: pl.DataFrame, chosen: list[int], fitness: np.ndarray):
+        self.selection = chosen
+        self.selected_individuals = solutions[chosen]
+        self.selected_targets = outputs[chosen]
+        self.fitness = fitness
+        self.notify()
+        return self.selected_individuals, self.selected_targets
+
+    def state(self) -> Sequence[Message]:
+        """Return the operator's state as messages for the current verbosity level."""
+        if self.verbosity == 0 or self.selection is None or self.selected_targets is None:
+            return []
+        state = DictMessage(
+            topic=SelectorMessageTopics.STATE,
+            value={"population_size": self.population_size, "selected_individuals": self.selection},
+            source=self.__class__.__name__,
+        )
+        if self.verbosity == 1:
+            return [state]
+        return [
+            state,
+            PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=self.selected_individuals.hstack(self.selected_targets),
+                source=self.__class__.__name__,
+            ),
+            NumpyArrayMessage(
+                topic=SelectorMessageTopics.SELECTED_FITNESS,
+                value=self.fitness,
+                source=self.__class__.__name__,
+            ),
+        ]
+
+    def update(self, message: Message) -> None:
+        """Handle an incoming message. This operator does not react to messages."""
+
+
+def constrained_dominance_matrix(targets: np.ndarray, violations: np.ndarray | None) -> np.ndarray:
+    """`dom[i, j]` is True when solution i dominates solution j under constrained domination.
+
+    A feasible solution dominates every infeasible one, of two infeasible solutions the one with the
+    smaller total violation dominates, and two feasible solutions are compared by Pareto dominance
+    (Deb et al. 2002). Without constraints this is Pareto dominance.
+    """
+    no_worse = np.all(targets[:, None, :] <= targets[None, :, :], axis=2)
+    better = np.any(targets[:, None, :] < targets[None, :, :], axis=2)
+    dominance = no_worse & better
+    if violations is None:
+        return dominance
+    feasible = violations <= 0
+    return np.where(feasible[:, None] & feasible[None, :], dominance, violations[:, None] < violations[None, :])
+
+
+def spea2_fitness(targets: np.ndarray, violations: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
+    """The SPEA2 fitness `F = R + D` of every solution, lower is better (Zitzler et al. 2001, Section 3.1).
+
+    The strength `S(i)` counts the solutions `i` dominates and the raw fitness `R(i)` sums the
+    strengths of the solutions dominating `i`, so `R = 0` exactly for the nondominated solutions.
+    The density `D(i) = 1 / (sigma_i^k + 2)` uses the distance to the k-th nearest other solution in
+    objective space, with `k = floor(sqrt(n))` for `n` solutions, and stays below one.
+
+    Args:
+        targets (np.ndarray): the minimized objective vectors, shape `(n, m)`.
+        violations (np.ndarray | None): total constraint violations for constrained domination, or None.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: the fitness `F` and the pairwise objective-space distances,
+            whose diagonal is infinite.
+    """
+    n = len(targets)
+    dominance = constrained_dominance_matrix(targets, violations)
+    strength = dominance.sum(axis=1)
+    raw = (dominance * strength[:, None]).sum(axis=0)
+    distances = np.linalg.norm(targets[:, None, :] - targets[None, :, :], axis=2)
+    np.fill_diagonal(distances, np.inf)
+    if n < 2:  # noqa: PLR2004
+        return raw.astype(float), distances
+    k = min(int(np.sqrt(n)), n - 1)
+    kth_nearest = np.sort(distances, axis=1)[:, k - 1]
+    return raw + 1.0 / (kth_nearest + 2.0), distances
+
+
+def spea2_truncate(distances: np.ndarray, keep: int) -> list[int]:
+    """SPEA2's archive truncation: remove the most crowded solution until `keep` remain.
+
+    At each step the solution whose sorted distances to the others still in the set are
+    lexicographically smallest is removed: the one closest to another, ties broken by the second
+    closest, and so on (Zitzler et al. 2001, Section 3.2). Boundary solutions are kept, since an
+    extreme point always has a larger nearest-neighbour distance than its neighbour on the inside.
+
+    Args:
+        distances (np.ndarray): pairwise distances among the candidates, with an infinite diagonal.
+        keep (int): how many candidates to keep.
+
+    Returns:
+        list[int]: the positions of the kept candidates.
+    """
+    remaining = list(range(len(distances)))
+    while len(remaining) > keep:
+        sorted_rows = np.sort(distances[np.ix_(remaining, remaining)], axis=1)
+        # np.lexsort takes its primary key last, so the nearest-neighbour column goes last.
+        crowded = int(np.lexsort(sorted_rows.T[::-1])[0])
+        del remaining[crowded]
+    return remaining
+
+
+class SPEA2Selector(_FitnessPublishingSelector):
+    """The environmental selection of SPEA2, which fills the archive.
+
+    Every solution of the archive and the population with a fitness below one, that is every
+    nondominated solution, is copied to the next archive. If they do not fill it, the best dominated
+    solutions by fitness complete it; if they overfill it, `spea2_truncate` thins them. The archive is
+    what this selector returns, and the fitness it publishes is `1 / (1 + F)`, higher-is-better and
+    positive, for the binary tournament that mates within the archive.
+
+    Under template 2 the parents passed to `do` are the archive and the offspring are the population,
+    so the archive size is `population_size` and the population size is the mating selection's
+    `winner_size`. In the first generation the archive is empty and the initial population is passed
+    as the parents, which is the same thing.
+
+    The paper has no constraint handling for continuous problems. On a constrained problem the
+    strengths and raw fitness use constrained domination (Deb et al. 2002), so that feasible solutions
+    are the nondominated ones whenever there are any. This is DESDEO's addition.
+
+    References:
+        Zitzler, E., Laumanns, M., & Thiele, L. (2001). SPEA2: Improving the strength Pareto
+            evolutionary algorithm. TIK-Report 103, Computer Engineering and Networks Laboratory
+            (TIK), ETH Zurich. https://doi.org/10.3929/ethz-a-004284029
+    """
+
+    def do(
+        self, parents: tuple[SolutionType, pl.DataFrame], offsprings: tuple[SolutionType, pl.DataFrame]
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Select the next archive from the current archive and population.
+
+        Args:
+            parents (tuple[SolutionType, pl.DataFrame]): the archive (or the initial population) and its outputs.
+            offsprings (tuple[SolutionType, pl.DataFrame]): the population and its outputs. Empty in the first
+                generation.
+
+        Returns:
+            tuple[SolutionType, pl.DataFrame]: the next archive and its outputs.
+        """
+        solutions, outputs = self._merge(parents, offsprings)
+        targets = outputs[self.target_symbols].to_numpy().astype(float)
+        violations = total_constraint_violation(outputs, self.constraints_symbols)
+        fitness, distances = spea2_fitness(targets, violations)
+
+        nondominated = np.flatnonzero(fitness < 1)
+        if len(nondominated) > self.population_size:
+            kept = spea2_truncate(distances[np.ix_(nondominated, nondominated)], self.population_size)
+            chosen = nondominated[kept]
+        else:
+            dominated = np.flatnonzero(fitness >= 1)
+            best_dominated = dominated[np.argsort(fitness[dominated], kind="stable")]
+            chosen = np.concatenate([nondominated, best_dominated[: self.population_size - len(nondominated)]])
+
+        chosen = chosen.tolist()
+        return self._finish(solutions, outputs, chosen, 1.0 / (1.0 + fitness[chosen]))
+
+
+def _point_to_axis_distance(points: np.ndarray, direction: np.ndarray) -> np.ndarray:
+    """Squared distance from each point to the line through the origin along `direction`."""
+    t = points @ direction / (direction @ direction)
+    return np.sum((points - t[:, None] * direction) ** 2, axis=1)
+
+
+def agemoea_corner_solutions(front: np.ndarray) -> np.ndarray:
+    """The extreme points of a front shifted to the origin: the point closest to each objective axis.
+
+    Each axis is offset by 1e-6 in the other objectives, and a point already taken for one axis is
+    not taken for another, as in Panichella's own implementation (pymoo's `find_corner_solutions`).
+    """
+    m, n = front.shape
+    if m <= n:
+        return np.arange(m)
+    axes = 1e-6 + np.eye(n)
+    taken = np.zeros(m, dtype=bool)
+    corners = np.empty(n, dtype=int)
+    for i in range(n):
+        distance = _point_to_axis_distance(front, axes[i])
+        distance[taken] = np.inf
+        corners[i] = int(np.argmin(distance))
+        taken[corners[i]] = True
+    return corners
+
+
+def agemoea_normalize(front: np.ndarray, corners: np.ndarray) -> np.ndarray:
+    """The normalization constants of a shifted first front (Panichella 2019, Section 3.2).
+
+    The constants are the intercepts of the hyperplane through the extreme points. When that plane is
+    undefined, or cuts an axis at a non-positive or non-finite value, the min-max constants (the
+    largest value of each shifted objective) are used instead, as the paper prescribes.
+    """
+    fallback = np.max(front, axis=0)
+    intercepts = fallback
+    if len(np.unique(corners)) == len(corners) and len(corners) == front.shape[1]:
+        try:
+            plane = np.linalg.solve(front[corners], np.ones(front.shape[1]))
+            if np.all(np.isfinite(plane)) and np.all(plane > 0):
+                intercepts = 1.0 / plane
+        except np.linalg.LinAlgError:
+            pass
+    intercepts = np.where(np.isfinite(intercepts), intercepts, fallback)
+    return np.where(intercepts == 0, 1.0, intercepts)
+
+
+def agemoea2_curvature(point: np.ndarray, tolerance: float = 1e-3, max_iterations: int = 100) -> float:
+    """Estimate the exponent `p` with `sum_i a_i ** p = 1` by Newton-Raphson (Panichella 2022, Eq. 7-9).
+
+    Starts from `p = 1` and stops when two iterates differ by at most `tolerance` (Section 3.1).
+    Coordinates equal to zero are left out, which is the paper's convention `0 ** p * log 0 = 0`.
+
+    Eq. 9 is printed as `p + log(S) / D`, with `S = sum a ** p` and `D = sum a ** p log a`. That sign
+    sends the iteration the wrong way: on the paper's own example B = (cos pi/8, sin pi/8) it reaches
+    -1.44 after four steps. Newton's step for `f(p) = log S` is `p - f / f' = p - S log(S) / D`, which
+    reaches the paper's reported 1.999999999879 in four steps, so that is what is implemented.
+
+    The result is kept in [0.1, 20], falling back to 1 (a flat front) when it is not finite or falls
+    below 0.1, as in the author's implementation.
+    """
+    a = point[point > 0]
+    p = 1.0
+    if a.size == 0:
+        return p
+    with np.errstate(all="ignore"):
+        for _ in range(max_iterations):
+            powered = a**p
+            total = powered.sum()
+            slope = (powered * np.log(a)).sum()
+            if not np.isfinite(total) or not np.isfinite(slope) or slope == 0 or total <= 0:
+                return 1.0
+            step = total * np.log(total) / slope
+            p -= step
+            if not np.isfinite(p):
+                return 1.0
+            if abs(step) <= tolerance:
+                break
+    if p <= 0.1:  # noqa: PLR2004
+        return 1.0
+    return min(p, 20.0)
+
+
+def _lp_norm(points: np.ndarray, p: float) -> np.ndarray:
+    with np.errstate(all="ignore"):
+        return np.sum(np.abs(points) ** p, axis=-1) ** (1.0 / p)
+
+
+def agemoea2_geodesic_distances(front: np.ndarray, p: float) -> np.ndarray:
+    """Approximate geodesic distances between the projections of a normalized front (Panichella 2022, Sec. 3.2).
+
+    Each point is projected onto the manifold `||x||_p = 1` (Eq. 14). The distance between two
+    projected points is the length of the two-segment path through the projection of their midpoint
+    (Eq. 11-13). Near p = 1 the manifold is flat and the path is the straight segment, so the
+    Euclidean distance is used directly between 0.95 and 1.05, as in the author's implementation.
+    """
+    norms = _lp_norm(front, p)
+    norms[~np.isfinite(norms) | (norms == 0)] = 1.0
+    projected = front / norms[:, None]
+    if 0.95 < p < 1.05:  # noqa: PLR2004
+        return np.linalg.norm(projected[:, None, :] - projected[None, :, :], axis=2)
+    midpoints = (projected[:, None, :] + projected[None, :, :]) / 2
+    mid_norms = _lp_norm(midpoints, p)
+    mid_norms[~np.isfinite(mid_norms) | (mid_norms == 0)] = 1.0
+    midpoints = midpoints / mid_norms[..., None]
+    return np.linalg.norm(projected[:, None, :] - midpoints, axis=2) + np.linalg.norm(
+        projected[None, :, :] - midpoints, axis=2
+    )
+
+
+def agemoea2_survival_score(front: np.ndarray, corners: np.ndarray, p: float) -> np.ndarray:
+    """The survival scores of a normalized first front (Panichella 2019, Algorithm 2, lines 2-18).
+
+    The extreme points score infinity. The rest join the selected set one at a time, each time the one
+    whose diversity (the sum of its two smallest geodesic distances to the selected set) divided by
+    its proximity (`||f||_p`) is largest, and that ratio is its score.
+    """
+    m = len(front)
+    score = np.zeros(m)
+    score[corners] = np.inf
+    proximity = _lp_norm(front, p)
+    proximity[~np.isfinite(proximity) | (proximity < 1e-8)] = 1.0  # noqa: PLR2004
+    distances = agemoea2_geodesic_distances(front, p)
+    distances[distances < 1e-8] = 1e-8  # noqa: PLR2004
+    distances = distances / proximity[:, None]
+
+    selected = list(np.unique(corners))
+    remaining = [i for i in range(m) if i not in set(selected)]
+    while remaining:
+        to_selected = distances[np.ix_(remaining, selected)]
+        if to_selected.shape[1] > 1:
+            value = np.partition(to_selected, 1, axis=1)[:, :2].sum(axis=1)
+        else:
+            value = to_selected[:, 0]
+        best = int(np.argmax(value))
+        score[remaining[best]] = value[best]
+        selected.append(remaining.pop(best))
+    return score
+
+
+class AGEMOEA2Selector(_FitnessPublishingSelector):
+    """The environmental selection of AGE-MOEA-II.
+
+    Parents and offspring are sorted into nondominated fronts, which are copied whole while they fit.
+    The front that does not fit is ranked by survival score and cut. Survival scores come from the
+    geometry of the first front: it is shifted to its ideal point and normalized by the intercepts of
+    the hyperplane through its extreme points, its curvature `p` is estimated by Newton-Raphson, and
+    each of its solutions is scored by geodesic diversity over proximity
+    (`agemoea2_survival_score`). Solutions of later fronts, normalized with the first front's
+    constants, score `1 / ||f||_p` (Panichella 2019, Algorithm 2, lines 19-21).
+
+    The curvature is estimated from the first front's non-extreme solution nearest to the ideal point,
+    as in the author's implementation; the paper (Section 3.1) leaves the choice open, noting the
+    estimate barely depends on it.
+
+    The fitness published for the binary tournament ranks solutions by front first and survival score
+    second, as AGE-MOEA's mating selection does (Panichella 2019, Section 3.1). On a constrained
+    problem the fronts follow constrained domination (Deb et al. 2002), which is DESDEO's addition.
+
+    Departures of pymoo 0.6.2's AGEMOEA2 from the papers, found while implementing this: it scores
+    fronts `1..max_f_no - 1` and so never scores the front that is cut, whose survivors are then
+    arbitrary unless that front is the first; and it measures later fronts' proximity as
+    `||f / a - z||_p` instead of `||(f - z) / a||_p`.
+
+    References:
+        Panichella, A. (2022). An improved Pareto front modeling algorithm for large-scale
+            many-objective optimization. In Proceedings of the Genetic and Evolutionary Computation
+            Conference (GECCO '22) (pp. 565-573). https://doi.org/10.1145/3512290.3528732
+
+        Panichella, A. (2019). An adaptive evolutionary algorithm based on non-euclidean geometry for
+            many-objective optimization. In Proceedings of the Genetic and Evolutionary Computation
+            Conference (GECCO '19) (pp. 595-603). https://doi.org/10.1145/3321707.3321839
+    """
+
+    def survival_scores(self, targets: np.ndarray, fronts: np.ndarray, last_front: int) -> np.ndarray:
+        """Survival scores of every solution in fronts `0..last_front`; zero elsewhere."""
+        score = np.zeros(len(targets))
+        first = fronts[0]
+        front = targets[first]
+        ideal = front.min(axis=0)
+        shifted = front - ideal
+        if len(front) < targets.shape[1]:
+            # Too few points to place a hyperplane or fit a curvature: keep them all, flat geometry.
+            normalization, p = np.where(shifted.max(axis=0) > 0, shifted.max(axis=0), 1.0), 1.0
+            score[first] = np.inf
+        else:
+            corners = agemoea_corner_solutions(shifted)
+            normalization = agemoea_normalize(shifted, corners)
+            normalized = shifted / normalization
+            nearest = np.linalg.norm(normalized, axis=1)
+            nearest[corners] = np.inf
+            p = agemoea2_curvature(normalized[int(np.argmin(nearest))]) if np.isfinite(nearest).any() else 1.0
+            score[first] = agemoea2_survival_score(normalized, corners, p)
+        for d in range(1, last_front + 1):
+            proximity = _lp_norm((targets[fronts[d]] - ideal) / normalization, p)
+            with np.errstate(divide="ignore"):
+                score[fronts[d]] = 1.0 / np.maximum(proximity, 1e-12)
+        self.curvature = p
+        return score
+
+    def do(
+        self, parents: tuple[SolutionType, pl.DataFrame], offsprings: tuple[SolutionType, pl.DataFrame]
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Select the next population from parents and offspring (Panichella 2022, Algorithm 2, lines 5-16).
+
+        Args:
+            parents (tuple[SolutionType, pl.DataFrame]): the parents and their outputs.
+            offsprings (tuple[SolutionType, pl.DataFrame]): the offspring and their outputs. Empty in the first
+                generation.
+
+        Returns:
+            tuple[SolutionType, pl.DataFrame]: the selected solutions and their outputs.
+        """
+        solutions, outputs = self._merge(parents, offsprings)
+        targets = outputs[self.target_symbols].to_numpy().astype(float)
+        fronts = constrained_fronts(targets, total_constraint_violation(outputs, self.constraints_symbols))
+        sizes = fronts.sum(axis=1)
+        whole = int(np.searchsorted(np.cumsum(sizes), self.population_size, side="right"))
+        last_front = min(whole, len(fronts) - 1)
+        score = self.survival_scores(targets, fronts, last_front)
+
+        chosen = [int(i) for d in range(whole) for i in np.flatnonzero(fronts[d])]
+        if len(chosen) < self.population_size:
+            cut = np.flatnonzero(fronts[last_front])
+            ranked = cut[np.argsort(-score[cut], kind="stable")]
+            chosen.extend(int(i) for i in ranked[: self.population_size - len(chosen)])
+
+        rank = np.argmax(fronts[:, chosen], axis=0)
+        within = np.zeros(len(chosen))
+        for d in np.unique(rank):
+            members = np.flatnonzero(rank == d)
+            order = np.argsort(np.argsort(score[np.asarray(chosen)[members]], kind="stable"), kind="stable")
+            within[members] = order / len(members)
+        # Front first, survival score second, as AGE-MOEA's tournament compares them; positive and
+        # higher-is-better for the tournament, which takes an argmax.
+        fitness = (rank.max() + 1.0 - rank) + within
+        return self._finish(solutions, outputs, chosen, fitness)
+
+
+def hype_alpha(k: int, size: int) -> np.ndarray:
+    """The weights `alpha_i / i` of HypE's fitness `I_h^k` for a set of `size` solutions (Bader and Zitzler, Eq. 12-13).
+
+    `alpha_i = prod_{j=1}^{i-1} (k - j) / (size - j)` is the probability that a region dominated by `i`
+    solutions is lost when `k` solutions are removed at random, given that one of them is removed.
+
+    Returns:
+        np.ndarray: `weights[i] = alpha_i / i` for `i = 0..size`, with `weights[0] = 0` and zero for `i > k`.
+    """
+    weights = np.zeros(size + 1)
+    alpha = 1.0
+    for i in range(1, min(k, size) + 1):
+        if i > 1:
+            alpha *= (k - (i - 1)) / (size - (i - 1))
+        weights[i] = alpha / i
+    return weights
+
+
+@njit
+def _hype_exact_3d(points: np.ndarray, reference: np.ndarray, weights: np.ndarray) -> np.ndarray:
+    """Exact `I_h^k` of every point in three objectives, by sweeping the third objective.
+
+    Within each slab between consecutive values of the third objective, the cells of the grid spanned
+    by the first two objectives' values are dominated by a known number `d` of the points added so far;
+    each such cell's volume times `weights[d]` goes to every point dominating it, which a suffix sum
+    over the grid delivers. The cost is cubic in the number of points.
+    """
+    n = points.shape[0]
+    xs = np.unique(np.append(points[:, 0], reference[0]))
+    ys = np.unique(np.append(points[:, 1], reference[1]))
+    nx, ny = len(xs) - 1, len(ys) - 1
+    ix = np.searchsorted(xs, points[:, 0])
+    iy = np.searchsorted(ys, points[:, 1])
+    order = np.argsort(points[:, 2])
+    counts = np.zeros((nx + 1, ny + 1), dtype=np.int64)
+    suffix = np.zeros((nx + 1, ny + 1))
+    values = np.zeros(n)
+    added = 0
+    while added < n:
+        z_low = points[order[added], 2]
+        while added < n and points[order[added], 2] == z_low:
+            q = order[added]
+            for i in range(ix[q], nx):
+                for j in range(iy[q], ny):
+                    counts[i, j] += 1
+            added += 1
+        z_high = points[order[added], 2] if added < n else reference[2]
+        height = z_high - z_low
+        if height <= 0:
+            continue
+        for i in range(nx - 1, -1, -1):
+            for j in range(ny - 1, -1, -1):
+                count = counts[i, j]
+                cell = weights[count] * (xs[i + 1] - xs[i]) * (ys[j + 1] - ys[j]) * height if count > 0 else 0.0
+                suffix[i, j] = cell + suffix[i + 1, j] + suffix[i, j + 1] - suffix[i + 1, j + 1]
+        for u in range(added):
+            q = order[u]
+            values[q] += suffix[ix[q], iy[q]]
+    return values
+
+
+def hype_fitness_exact(points: np.ndarray, reference: np.ndarray, k: int) -> np.ndarray:
+    """Exact HypE fitness `I_h^k(a, A, R)` of every point for two or three objectives (Bader and Zitzler, Def. III.6).
+
+    Args:
+        points (np.ndarray): the minimized objective vectors of the set `A`, shape `(n, m)`, `m` 2 or 3.
+        reference (np.ndarray): the reference point, shape `(m,)`.
+        k (int): the fitness parameter, the number of solutions to be removed.
+
+    Returns:
+        np.ndarray: the fitness of each point.
+    """
+    n, m = points.shape
+    if m not in (2, 3):
+        raise ValueError("Exact HypE fitness is implemented for two and three objectives.")
+    clipped = np.minimum(points, reference)
+    if m == 2:  # noqa: PLR2004
+        clipped = np.column_stack([clipped, np.zeros(n)])
+        reference = np.append(reference, 1.0)
+    return _hype_exact_3d(clipped.astype(float), np.asarray(reference, dtype=float), hype_alpha(k, n))
+
+
+@njit
+def _hype_monte_carlo_hits(points: np.ndarray, samples: np.ndarray, weights: np.ndarray, k: int) -> np.ndarray:
+    """Sum `weights[d]` over the samples each point dominates, `d` being the sample's dominator count.
+
+    A sample with more than `k` dominators credits nobody, so counting stops there.
+    """
+    n, m = points.shape
+    values = np.zeros(n)
+    dominators = np.empty(n, dtype=np.int64)
+    for s in range(samples.shape[0]):
+        count = 0
+        for a in range(n):
+            dominates = True
+            for j in range(m):
+                if points[a, j] > samples[s, j]:
+                    dominates = False
+                    break
+            if dominates:
+                dominators[count] = a
+                count += 1
+                if count > k:
+                    break
+        if 0 < count <= k:
+            weight = weights[count]
+            for u in range(count):
+                values[dominators[u]] += weight
+    return values
+
+
+def hype_fitness_monte_carlo(
+    points: np.ndarray, reference: np.ndarray, k: int, n_samples: int, rng: np.random.Generator
+) -> np.ndarray:
+    """Monte Carlo estimate of the HypE fitness `I_h^k` (Bader and Zitzler, Algorithm 3).
+
+    Samples are drawn uniformly from the box between the points' minimum and the reference point.
+    Each sample dominated by `d <= k` points credits each of them `weights[d]` times the box volume
+    over the number of samples.
+    """
+    lower = points.min(axis=0)
+    span = np.maximum(reference - lower, 0.0)
+    samples = lower + span * rng.random((n_samples, points.shape[1]))
+    hits = _hype_monte_carlo_hits(points.astype(float), samples, hype_alpha(k, len(points)), k)
+    return hits * float(np.prod(span)) / n_samples
+
+
+class HypESelector(_FitnessPublishingSelector):
+    """The environmental selection of HypE, and the hypervolume fitness for its mating selection.
+
+    Parents and offspring are sorted into nondominated fronts, copied whole while they fit. From the
+    front that does not fit, solutions are removed one at a time, each time the one with the smallest
+    `I_h^k`, where `k` is the number still to be removed and the fitness is recomputed after every
+    removal; ties are broken at random (Bader and Zitzler, Algorithm 7 and Section V). The fitness
+    published for the binary tournament is `I_h^N(a, P, R)` over the selected population (Algorithm 6).
+
+    The fitness is computed exactly up to `exact_max_objectives` objectives (three, as the paper
+    recommends) and estimated from `n_samples` Monte Carlo samples above that.
+
+    The paper leaves the reference point to the user. Here the objectives are normalized to [0, 1] by
+    the minimum and maximum over parents and offspring each generation, as DESDEO's SMS-EMOA does, and
+    the reference point is `normalised_reference_point_component` in every objective.
+
+    On a constrained problem the fronts follow constrained domination (Deb et al. 2002), and the
+    published fitness places every infeasible solution below every feasible one. This is DESDEO's
+    addition.
+
+    References:
+        Bader, J., & Zitzler, E. (2011). HypE: An algorithm for fast hypervolume-based many-objective
+            optimization. Evolutionary Computation, 19(1), 45-76. https://doi.org/10.1162/EVCO_a_00009
+            (Implemented from the technical report version: Bader, J., & Zitzler, E. (2008). TIK
+            Report 286, ETH Zurich. https://doi.org/10.3929/ethz-a-005703480)
+    """
+
+    def __init__(
+        self,
+        problem: Problem,
+        verbosity: int,
+        publisher: Publisher,
+        population_size: int,
+        n_samples: int = 10_000,
+        exact_max_objectives: int = 3,
+        normalised_reference_point_component: float = 1.1,
+        seed: int = 0,
+    ):
+        """Initialize the HypE selector.
+
+        Args:
+            problem (Problem): The optimization problem to be solved.
+            verbosity (int): The verbosity level of the operator.
+            publisher (Publisher): The publisher to use for communication.
+            population_size (int): The number of solutions selected each generation, `N`.
+            n_samples (int, optional): The number of Monte Carlo samples `M`. Defaults to 10 000, the paper's.
+            exact_max_objectives (int, optional): The most objectives for which the fitness is computed
+                exactly, at most 3. Defaults to 3, as the paper recommends.
+            normalised_reference_point_component (float, optional): The reference point in every
+                normalized objective. Must exceed one. Defaults to 1.1.
+            seed (int, optional): The random seed to use. Defaults to 0.
+        """
+        super().__init__(problem, verbosity=verbosity, publisher=publisher, population_size=population_size, seed=seed)
+        if n_samples < 1:
+            raise ValueError("n_samples must be positive.")
+        if not 0 <= exact_max_objectives <= 3:  # noqa: PLR2004
+            raise ValueError("exact_max_objectives must be between 0 and 3.")
+        if normalised_reference_point_component <= 1:
+            raise ValueError("normalised_reference_point_component must exceed one.")
+        self.n_samples = n_samples
+        self.exact_max_objectives = exact_max_objectives
+        self.reference_point_component = normalised_reference_point_component
+
+    def hypervolume_fitness(self, points: np.ndarray, k: int) -> np.ndarray:
+        """`I_h^k` of every point against the normalized reference point, exact or estimated."""
+        reference = np.full(points.shape[1], self.reference_point_component)
+        if 2 <= points.shape[1] <= self.exact_max_objectives:  # noqa: PLR2004
+            return hype_fitness_exact(points, reference, k)
+        return hype_fitness_monte_carlo(points, reference, k, self.n_samples, self.rng)
+
+    def do(
+        self, parents: tuple[SolutionType, pl.DataFrame], offsprings: tuple[SolutionType, pl.DataFrame]
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Select the next population from parents and offspring.
+
+        Args:
+            parents (tuple[SolutionType, pl.DataFrame]): the parents and their outputs.
+            offsprings (tuple[SolutionType, pl.DataFrame]): the offspring and their outputs. Empty in the first
+                generation.
+
+        Returns:
+            tuple[SolutionType, pl.DataFrame]: the selected solutions and their outputs.
+        """
+        solutions, outputs = self._merge(parents, offsprings)
+        targets = outputs[self.target_symbols].to_numpy().astype(float)
+        lower, upper = targets.min(axis=0), targets.max(axis=0)
+        span = np.where(upper > lower, upper - lower, 1.0)
+        normalized = (targets - lower) / span
+        violations = total_constraint_violation(outputs, self.constraints_symbols)
+        fronts = constrained_fronts(targets, violations)
+
+        # Algorithm 7, lines 6-18: copy whole fronts while they fit.
+        chosen: list[int] = []
+        last = np.array([], dtype=int)
+        for front in fronts:
+            members = np.flatnonzero(front)
+            if len(chosen) + len(members) > self.population_size:
+                last = members
+                break
+            chosen.extend(int(i) for i in members)
+
+        # Lines 19-38: remove the worst of the last front one at a time, recomputing I_h^k each time.
+        to_remove = len(chosen) + len(last) - self.population_size
+        while to_remove > 0:
+            fitness = self.hypervolume_fitness(normalized[last], to_remove)
+            worst = np.flatnonzero(fitness == fitness.min())
+            last = np.delete(last, worst[0] if len(worst) == 1 else self.rng.choice(worst))
+            to_remove -= 1
+        chosen.extend(int(i) for i in last)
+
+        # Algorithm 6: the mating fitness is I_h^N(a, P, R) over the new population.
+        fitness = self.hypervolume_fitness(normalized[chosen], len(chosen))
+        if violations is not None:
+            selected_violations = violations[chosen]
+            infeasible = selected_violations > 0
+            if infeasible.all():
+                fitness = 1.0 / (1.0 + selected_violations)
+            elif infeasible.any():
+                # Below every feasible solution, the least infeasible highest.
+                floor = fitness[~infeasible].min()
+                fitness[infeasible] = (
+                    floor * 0.5 * (1.0 - selected_violations[infeasible] / (2.0 * selected_violations.max()))
+                )
+        return self._finish(solutions, outputs, chosen, fitness)

@@ -1,0 +1,38 @@
+{
+    "preference": null,
+    "template": {
+        "crossover": {
+            "name": "UniformMixedIntegerCrossover"
+        },
+        "mutation": {
+            "name": "MixedIntegerRandomMutation",
+            "mutation_probability": null
+        },
+        "selection": {
+            "name": "SPEA2Selector",
+            "population_size": 100
+        },
+        "termination": {
+            "name": "MaxGenerationsTerminator",
+            "max_generations": 100
+        },
+        "generator": {
+            "n_points": 100,
+            "seed": null,
+            "name": "RandomMixedIntegerGenerator"
+        },
+        "repair": {
+            "name": "NoRepair"
+        },
+        "use_archive": true,
+        "seed": 42,
+        "verbosity": 2,
+        "algorithm_name": "SPEA2_Mixed_Integer",
+        "name": "Template2",
+        "mate_selection": {
+            "name": "TournamentSelection",
+            "tournament_size": 2,
+            "winner_size": 100
+        }
+    }
+}

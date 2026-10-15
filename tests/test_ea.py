@@ -1,12 +1,13 @@
 """Tests for Evolutionary Algorithms."""
 
 from contextlib import suppress
-from itertools import pairwise
+from itertools import combinations, pairwise
 
 import numpy as np
 import numpy.testing as npt
 import polars as pl
 import pytest
+from moocore import hypervolume
 
 from desdeo.emo.hooks.archivers import Archive, FeasibleArchive, NonDominatedArchive
 from desdeo.emo.methods.EAs import ibea, nsga3, nsga3_mixed_integer, rvea, rvea_mixed_integer
@@ -44,6 +45,8 @@ from desdeo.emo.operators.mutation import (
 )
 from desdeo.emo.operators.scalar_selection import TournamentSelection
 from desdeo.emo.operators.selection import (
+    AGEMOEA2Selector,
+    HypESelector,
     IBEASelector,
     MOEADSelector,
     NSGA2Selector,
@@ -51,10 +54,17 @@ from desdeo.emo.operators.selection import (
     ParameterAdaptationStrategy,
     ReferenceVectorOptions,
     RVEASelector,
+    SPEA2Selector,
     _nsga2_crowding_distance_assignment,
     _rvea_selection,
     _rvea_selection_constrained,
+    agemoea2_curvature,
+    agemoea2_geodesic_distances,
+    hype_fitness_exact,
+    hype_fitness_monte_carlo,
     moead_scalarize,
+    spea2_fitness,
+    spea2_truncate,
 )
 from desdeo.emo.operators.termination import (
     CompositeTerminator,
@@ -64,12 +74,15 @@ from desdeo.emo.operators.termination import (
     MaxTimeTerminator,
 )
 from desdeo.emo.options.algorithms import (
+    agemoea2_options,
+    hype_options,
     ibea_options,
     moead_de_options,
     moead_options,
     nsga2_options,
     nsga3_options,
     rvea_options,
+    spea2_options,
 )
 from desdeo.emo.options.crossover import (
     DifferentialEvolutionCrossoverOptions,
@@ -100,6 +113,7 @@ from desdeo.problem.testproblems import (
     simple_knapsack,
     simple_knapsack_vectors,
     simple_test_problem,
+    zdt1,
 )
 from desdeo.tools.message import EvaluatorMessageTopics, IntMessage, TerminatorMessageTopics
 from desdeo.tools.non_dominated_sorting import fast_non_dominated_sort
@@ -2731,6 +2745,8 @@ def test_s_energy_gives_every_selector_the_same_population_size(n_objectives):
         ("nsga2", nsga2_options),
         ("ibea", ibea_options),
         ("moead", moead_options),
+        ("spea2", spea2_options),
+        ("agemoea2", agemoea2_options),
     ):
         options = factory()
         template = options.template
@@ -2872,7 +2888,7 @@ def test_ibea_survives_a_population_collapsed_onto_one_objective_vector():
 
 
 @pytest.mark.ea
-@pytest.mark.parametrize("name", ["nsga2", "ibea", "moead", "moead_de"])
+@pytest.mark.parametrize("name", ["nsga2", "ibea", "moead", "moead_de", "spea2", "agemoea2", "hype"])
 def test_constrained_selectors_reach_a_feasible_population(name):
     """Every selector must drive a constrained run to feasibility, not merely tolerate constraints.
 
@@ -2886,6 +2902,9 @@ def test_constrained_selectors_reach_a_feasible_population(name):
         "ibea": ibea_options,
         "moead": moead_options,
         "moead_de": moead_de_options,
+        "spea2": spea2_options,
+        "agemoea2": agemoea2_options,
+        "hype": hype_options,
     }[name]()
     options.template.verbosity = 2
     options.template.use_archive = False
@@ -2971,7 +2990,7 @@ def test_tournament_selection_seed_only_seeds():
 
 
 @pytest.mark.ea
-@pytest.mark.parametrize("name", ["rvea", "nsga3", "nsga2", "ibea", "moead", "moead_de"])
+@pytest.mark.parametrize("name", ["rvea", "nsga3", "nsga2", "ibea", "moead", "moead_de", "spea2", "agemoea2", "hype"])
 def test_a_run_is_reproducible_from_the_template_seed(name):
     """Two runs of the same algorithm at the same template seed must agree exactly.
 
@@ -2986,6 +3005,9 @@ def test_a_run_is_reproducible_from_the_template_seed(name):
         "ibea": ibea_options,
         "moead": moead_options,
         "moead_de": moead_de_options,
+        "spea2": spea2_options,
+        "agemoea2": agemoea2_options,
+        "hype": hype_options,
     }
 
     def run() -> np.ndarray:
@@ -3356,3 +3378,209 @@ def test_moead_weighted_sum_rejects_a_preference():
             reference_vector_options=ReferenceVectorOptions(reference_point={"f_1": 0.2, "f_2": 0.5, "f_3": 0.8}),
             aggregation="weighted_sum",
         )
+
+
+def _selector_population(targets: np.ndarray, problem=None):
+    """Decision variables and outputs for driving a selector by hand on given two-objective targets."""
+    problem = problem if problem is not None else zdt1(3)
+    symbols = [v.symbol for v in problem.get_flattened_variables()]
+    solutions = pl.DataFrame(np.zeros((len(targets), len(symbols))), schema=symbols, orient="row")
+    columns = {}
+    for i, objective in enumerate(problem.objectives):
+        columns[objective.symbol] = targets[:, i]
+        columns[f"{objective.symbol}_min"] = targets[:, i]
+    return problem, solutions, pl.DataFrame(columns)
+
+
+@pytest.mark.ea
+def test_spea2_fitness_follows_its_definition():
+    """R sums the strengths of a solution's dominators, and the density keeps F below the next integer.
+
+    a, b, c are mutually nondominated; b dominates d; everything dominates e. The strengths are
+    S = (1, 2, 1, 1, 0), so R(d) = S(b) = 2 and R(e) = 1 + 2 + 1 + 1 = 5 (Zitzler et al. 2001, Sec. 3.1).
+    """
+    targets = np.array([[1.0, 4.0], [2.0, 2.0], [4.0, 1.0], [3.0, 3.0], [5.0, 5.0]])
+    fitness, distances = spea2_fitness(targets)
+
+    npt.assert_array_equal(np.floor(fitness), [0, 0, 0, 2, 5])
+    density = fitness - np.floor(fitness)
+    assert np.all((density > 0) & (density < 0.5))
+    # k = floor(sqrt(5)) = 2: the second nearest other solution sets the density.
+    npt.assert_allclose(density, 1 / (np.sort(distances, axis=1)[:, 1] + 2))
+
+
+@pytest.mark.ea
+def test_spea2_truncation_thins_a_cluster_and_keeps_the_extremes():
+    """Truncation removes the most crowded solution first and never an extreme one (Fig. 2 of the paper)."""
+    spread = np.linspace(0, 1, 6)
+    front = np.column_stack([spread, 1 - spread])
+    cluster = np.array([[0.41, 0.59], [0.42, 0.58], [0.43, 0.57]])
+    targets = np.vstack([front, cluster])
+    distances = np.linalg.norm(targets[:, None] - targets[None], axis=2)
+    np.fill_diagonal(distances, np.inf)
+
+    kept = spea2_truncate(distances, keep=6)
+
+    assert {0, 5} <= set(kept)  # the extremes
+    assert len(set(kept) & {6, 7, 8}) <= 1  # the cluster is thinned to at most one member
+
+
+@pytest.mark.ea
+def test_spea2_selector_fills_the_archive_with_the_best_dominated():
+    """With fewer nondominated solutions than archive places, the best dominated ones by F fill it."""
+    targets = np.array([[0.0, 1.0], [1.0, 0.0], [0.6, 0.6], [2.0, 2.0], [0.7, 1.2], [3.0, 3.0]])
+    problem, solutions, outputs = _selector_population(targets)
+    selector = SPEA2Selector(problem=problem, verbosity=2, publisher=Publisher(), population_size=4)
+
+    _, archive = selector.do(parents=(solutions, outputs), offsprings=(solutions.clear(), outputs.clear()))
+
+    assert sorted(selector.selection) == [0, 1, 2, 4]  # (0.7, 1.2) has R = 6; (2, 2) 10 and (3, 3) 11
+    assert len(archive) == 4
+    assert np.all(selector.fitness > 0)
+    assert selector.fitness[:3].min() > selector.fitness[3]  # nondominated outrank the dominated one
+
+
+@pytest.mark.ea
+def test_agemoea2_curvature_reproduces_the_papers_newton_raphson_example():
+    """Points on the unit circle have p = 2; the paper's four iterations from p = 1 reach it (Sec. 3.1.1).
+
+    The paper prints Eq. 9 with the opposite sign, which drives p negative on the same points.
+    """
+    for angle in (np.pi / 8, np.pi / 16, np.pi / 4):
+        assert abs(agemoea2_curvature(np.array([np.cos(angle), np.sin(angle)])) - 2.0) < 1e-3
+    assert abs(agemoea2_curvature(np.array([0.5, 0.5])) - 1.0) < 1e-3  # flat front
+    assert abs(agemoea2_curvature(np.array([0.25, 0.25])) - 0.5) < 1e-3  # hyperbolic front
+
+
+@pytest.mark.ea
+def test_agemoea2_geodesic_distance_matches_the_papers_example():
+    """A = (0, 1) and B = (1, 0) on the unit circle are 0.7653 + 0.7653 apart through C (Sec. 3.2.2)."""
+    distances = agemoea2_geodesic_distances(np.array([[0.0, 1.0], [1.0, 0.0]]), p=2.0)
+
+    npt.assert_allclose(distances[0, 1], 2 * np.hypot(1 - 1 / np.sqrt(2), 1 / np.sqrt(2)))
+    assert abs(distances[0, 1] / 2 - 0.7653) < 1e-4
+    # On a flat front the path through the midpoint is the straight segment.
+    npt.assert_allclose(agemoea2_geodesic_distances(np.array([[0.0, 1.0], [1.0, 0.0]]), p=1.0)[0, 1], np.sqrt(2))
+
+
+@pytest.mark.ea
+def test_agemoea2_cuts_a_dominated_front_by_proximity():
+    """The front that does not fit keeps the solutions nearest the ideal point (2019, Algorithm 2, lines 19-21).
+
+    pymoo 0.6.2 leaves that front unscored and keeps (0.95, 0.4) in place of (0.3, 0.9) here.
+    """
+    first = np.column_stack([np.linspace(0, 1, 6), 1 - np.linspace(0, 1, 6)])
+    second = np.array([[0.3, 0.9], [0.5, 0.75], [0.95, 0.4], [0.7, 0.6]])
+    later = np.array([[2.0, 2.0], [1.5, 1.4], [3.0, 3.0], [2.5, 2.6]])
+    problem, solutions, outputs = _selector_population(np.vstack([first, second, later]))
+    selector = AGEMOEA2Selector(problem=problem, verbosity=2, publisher=Publisher(), population_size=9)
+
+    selector.do(parents=(solutions, outputs), offsprings=(solutions.clear(), outputs.clear()))
+
+    assert sorted(selector.selection) == [0, 1, 2, 3, 4, 5, 6, 7, 9]
+    assert selector.curvature == pytest.approx(1.0, abs=1e-3)
+    # Front first, survival score second: every first-front member outranks every second-front one.
+    assert selector.fitness[:6].min() > selector.fitness[6:].max()
+
+
+@pytest.mark.ea
+def test_agemoea2_keeps_the_extreme_points_of_an_overfull_first_front():
+    """Extreme points score infinity, so they survive however crowded the first front is."""
+    angles = np.linspace(0, np.pi / 2, 30)
+    targets = np.column_stack([np.cos(angles), np.sin(angles)])
+    problem, solutions, outputs = _selector_population(targets)
+    selector = AGEMOEA2Selector(problem=problem, verbosity=0, publisher=Publisher(), population_size=10)
+
+    selector.do(parents=(solutions, outputs), offsprings=(solutions.clear(), outputs.clear()))
+
+    assert {0, 29} <= set(selector.selection)
+    assert selector.curvature == pytest.approx(2.0, abs=1e-2)
+
+
+def _hype_brute_force(points: np.ndarray, reference: np.ndarray, k: int) -> np.ndarray:
+    """I_h^k by its definition (Bader and Zitzler, Def. III.6, Eq. 11), with every partition by inclusion-exclusion."""
+    n = len(points)
+
+    def dominated_by_all(members):
+        return float(np.prod(np.maximum(reference - points[list(members)].max(axis=0), 0.0)))
+
+    def partition(members):  # dominated by every solution in `members` and by none outside it
+        rest = [j for j in range(n) if j not in members]
+        return sum(
+            (-1) ** r * dominated_by_all(list(members) + list(extra))
+            for r in range(len(rest) + 1)
+            for extra in combinations(rest, r)
+        )
+
+    values = np.zeros(n)
+    for a in range(n):
+        subsets = [(a, *others) for others in combinations([j for j in range(n) if j != a], k - 1)]
+        values[a] = np.mean(
+            [
+                sum(partition(t) / len(t) for r in range(1, k + 1) for t in combinations(subset, r) if a in t)
+                for subset in subsets
+            ]
+        )
+    return values
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize("n_objectives", [2, 3])
+def test_hype_exact_fitness_matches_its_definition(n_objectives):
+    """The exact sweep must equal Def. III.6 for every k.
+
+    It must also sum to the hypervolume at k = |A| (Theorem III.3) and be the exclusive contribution at
+    k = 1. Dominated solutions are part of the set, as the definition requires; moocore's
+    `hv_contributions` drops them, so the contributions are taken leave-one-out here.
+    """
+    rng = np.random.default_rng(n_objectives)
+    points = rng.random((6, n_objectives))
+    reference = np.full(n_objectives, 1.1)
+
+    for k in (1, 2, 4, 6):
+        npt.assert_allclose(
+            hype_fitness_exact(points, reference, k), _hype_brute_force(points, reference, k), atol=1e-12
+        )
+    npt.assert_allclose(hype_fitness_exact(points, reference, 6).sum(), hypervolume(points, ref=reference))
+    leave_one_out = [
+        hypervolume(points, ref=reference) - hypervolume(np.delete(points, i, axis=0), ref=reference) for i in range(6)
+    ]
+    npt.assert_allclose(hype_fitness_exact(points, reference, 1), leave_one_out, atol=1e-12)
+
+
+@pytest.mark.ea
+def test_hype_monte_carlo_estimates_the_exact_fitness():
+    """Algorithm 3's estimate converges on the exact fitness.
+
+    At 1e6 samples the largest error was at most 1.0% of the largest fitness over five seeds (2.6% at 2e5).
+    """
+    rng = np.random.default_rng(0)
+    points = rng.random((40, 3))
+    reference = np.full(3, 1.1)
+
+    exact = hype_fitness_exact(points, reference, 10)
+    estimate = hype_fitness_monte_carlo(points, reference, 10, 1_000_000, np.random.default_rng(1))
+
+    assert np.max(np.abs(estimate - exact)) < 0.02 * exact.max()
+
+
+@pytest.mark.ea
+def test_hype_removes_the_smallest_fitness_one_at_a_time():
+    """Environmental selection recomputes I_h^k after each removal, with k the number still to go (Algorithm 7)."""
+    rng = np.random.default_rng(3)
+    angles = np.sort(rng.random(12)) * np.pi / 2
+    targets = np.column_stack([np.cos(angles), np.sin(angles)])  # one nondominated front
+    problem, solutions, outputs = _selector_population(targets)
+    selector = HypESelector(problem=problem, verbosity=2, publisher=Publisher(), population_size=7, seed=0)
+
+    selector.do(parents=(solutions, outputs), offsprings=(solutions.clear(), outputs.clear()))
+
+    normalized = (targets - targets.min(axis=0)) / (targets.max(axis=0) - targets.min(axis=0))
+    remaining = list(range(12))
+    for k in range(5, 0, -1):
+        fitness = hype_fitness_exact(normalized[remaining], np.full(2, 1.1), k)
+        del remaining[int(np.argmin(fitness))]
+    assert sorted(selector.selection) == remaining
+    # The mating fitness is I_h over the new population, positive and summing to its hypervolume.
+    assert np.all(selector.fitness > 0)
+    npt.assert_allclose(selector.fitness.sum(), hypervolume(normalized[selector.selection], ref=np.full(2, 1.1)))

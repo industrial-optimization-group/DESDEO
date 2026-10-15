@@ -1,0 +1,50 @@
+{
+    "preference": null,
+    "template": {
+        "crossover": {
+            "name": "SimulatedBinaryCrossover",
+            "pair_xover_probability": 1.0,
+            "xover_probability": 0.5,
+            "xover_distribution": 20.0,
+            "truncated": true,
+            "uniform_xover_probability": 0.5,
+            "swap_uncrossed_variables": false
+        },
+        "mutation": {
+            "name": "BoundedPolynomialMutation",
+            "mutation_probability": null,
+            "distribution_index": 20.0
+        },
+        "selection": {
+            "name": "HypESelector",
+            "population_size": 50,
+            "n_samples": 10000,
+            "exact_max_objectives": 3,
+            "normalised_reference_point_component": 1.1
+        },
+        "termination": {
+            "name": "MaxGenerationsTerminator",
+            "max_generations": 100
+        },
+        "generator": {
+            "n_points": 50,
+            "seed": null,
+            "name": "RandomGenerator"
+        },
+        "repair": {
+            "name": "ClipRepair",
+            "lower_bounds": null,
+            "upper_bounds": null
+        },
+        "use_archive": true,
+        "seed": 42,
+        "verbosity": 2,
+        "algorithm_name": "HypE",
+        "name": "Template2",
+        "mate_selection": {
+            "name": "TournamentSelection",
+            "tournament_size": 2,
+            "winner_size": 50
+        }
+    }
+}

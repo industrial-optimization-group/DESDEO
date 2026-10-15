@@ -7,7 +7,9 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from desdeo.emo.operators.selection import (
+    AGEMOEA2Selector,
     BaseSelector,
+    HypESelector,
     IBEASelector,
     MOEADSelector,
     NSGA2Selector,
@@ -16,6 +18,7 @@ from desdeo.emo.operators.selection import (
     ReferenceVectorOptions,
     RVEASelector,
     SMSEMOASelector,
+    SPEA2Selector,
 )
 from desdeo.tools.indicators_binary import self_epsilon, self_hv
 
@@ -101,6 +104,59 @@ class SMSEMOASelectorOptions(BaseModel):
     this component."""
 
 
+class SPEA2SelectorOptions(BaseModel):
+    """Options for SPEA2 environmental selection."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    name: Literal["SPEA2Selector"] = Field(
+        default="SPEA2Selector", frozen=True, description="The name of the selection operator."
+    )
+    """The name of the selection operator."""
+    population_size: int = Field(gt=0, description="The archive size.")
+    """The archive size, N-bar in the paper. The population size N is the mating selection's
+    `winner_size`."""
+
+
+class AGEMOEA2SelectorOptions(BaseModel):
+    """Options for AGE-MOEA-II environmental selection."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    name: Literal["AGEMOEA2Selector"] = Field(
+        default="AGEMOEA2Selector", frozen=True, description="The name of the selection operator."
+    )
+    """The name of the selection operator."""
+    population_size: int = Field(gt=0, description="The population size.")
+    """The population size."""
+
+
+class HypESelectorOptions(BaseModel):
+    """Options for HypE environmental selection."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    name: Literal["HypESelector"] = Field(
+        default="HypESelector", frozen=True, description="The name of the selection operator."
+    )
+    """The name of the selection operator."""
+    population_size: int = Field(gt=0, description="The population size.")
+    """The population size."""
+    n_samples: int = Field(default=10_000, gt=0, description="The number of Monte Carlo samples.")
+    """The number of Monte Carlo samples M used to estimate the hypervolume fitness above
+    `exact_max_objectives` objectives. Defaults to the paper's 10 000."""
+    exact_max_objectives: int = Field(
+        default=3, ge=0, le=3, description="The most objectives for which the fitness is computed exactly."
+    )
+    """The most objectives for which the hypervolume fitness is computed exactly rather than
+    estimated. Defaults to 3, as the paper recommends."""
+    normalised_reference_point_component: float = Field(
+        default=1.1, gt=1.0, description="The reference point in every normalized objective."
+    )
+    """The reference point in every objective after normalizing parents and offspring to [0, 1]. The
+    paper leaves the reference point to the user."""
+
+
 class MOEADSelectorOptions(BaseModel):
     """Options for the MOEA/D selector.
 
@@ -141,7 +197,14 @@ class MOEADSelectorOptions(BaseModel):
 
 
 SelectorOptions = (
-    RVEASelectorOptions | NSGA2SelectorOptions | NSGA3SelectorOptions | IBEASelectorOptions | SMSEMOASelectorOptions
+    RVEASelectorOptions
+    | NSGA2SelectorOptions
+    | NSGA3SelectorOptions
+    | IBEASelectorOptions
+    | SMSEMOASelectorOptions
+    | SPEA2SelectorOptions
+    | AGEMOEA2SelectorOptions
+    | HypESelectorOptions
 )
 
 
@@ -170,6 +233,9 @@ def selection_constructor(
         "IBEASelector": IBEASelector,
         "SMSEMOASelector": SMSEMOASelector,
         "MOEADSelector": MOEADSelector,
+        "SPEA2Selector": SPEA2Selector,
+        "AGEMOEA2Selector": AGEMOEA2Selector,
+        "HypESelector": HypESelector,
     }
     options: dict = options.model_dump()
     name = options.pop("name")

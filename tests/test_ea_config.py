@@ -135,6 +135,26 @@ def test_moead_dtlz2(factory):
 
 
 @pytest.mark.ea
+@pytest.mark.parametrize(
+    ("factory", "population_size"), [("spea2_options", 100), ("agemoea2_options", 100), ("hype_options", 50)]
+)
+def test_spea2_agemoea2_hype_dtlz2(factory, population_size):
+    """Test whether SPEA2, AGE-MOEA-II and HypE can be initialized and run as a whole."""
+    problem = dtlz2(n_objectives=3, n_variables=12)
+    options = getattr(algorithms, factory)()
+    options.template.termination = MaxGenerationsTerminatorOptions(max_generations=40)  # to save time
+    solver, extras = algorithms.emo_constructor(emo_options=options, problem=problem)
+    results = solver()
+
+    assert len(results.optimal_outputs) == population_size
+    assert extras.archive is not None
+    norm = results.optimal_outputs.with_columns(
+        (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
+    )["norm"]
+    assert norm.median() < 1.2
+
+
+@pytest.mark.ea
 def test_mixed_integer_nsga3():
     """Test whether the mixed-integer NSGA-III variant can be initialized and run as a whole."""
     problem = momip_ti2()
@@ -167,6 +187,27 @@ def test_mixed_integer_smsemoa():
     problem = momip_ti2()
     solver, _ = algorithms.emo_constructor(problem=problem, emo_options=algorithms.sms_emoa_mixed_integer_options())
     _ = solver()
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(
+    "factory",
+    [
+        "moead_mixed_integer_options",
+        "spea2_mixed_integer_options",
+        "agemoea2_mixed_integer_options",
+        "hype_mixed_integer_options",
+    ],
+)
+def test_mixed_integer_new_moeas(factory):
+    """Test whether the mixed-integer MOEA/D, SPEA2, AGE-MOEA-II and HypE variants run as a whole."""
+    problem = momip_ti2()
+    options = getattr(algorithms, factory)()
+    options.template.termination = MaxGenerationsTerminatorOptions(max_generations=20)
+    solver, _ = algorithms.emo_constructor(problem=problem, emo_options=options)
+    results = solver()
+
+    assert len(results.optimal_outputs) > 0
 
 
 @pytest.mark.ea

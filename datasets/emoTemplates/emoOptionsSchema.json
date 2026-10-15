@@ -1,5 +1,28 @@
 {
     "$defs": {
+        "AGEMOEA2SelectorOptions": {
+            "description": "Options for AGE-MOEA-II environmental selection.",
+            "properties": {
+                "name": {
+                    "const": "AGEMOEA2Selector",
+                    "default": "AGEMOEA2Selector",
+                    "description": "The name of the selection operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "population_size": {
+                    "description": "The population size.",
+                    "exclusiveMinimum": 0,
+                    "title": "Population Size",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "population_size"
+            ],
+            "title": "AGEMOEA2SelectorOptions",
+            "type": "object"
+        },
         "BinaryFlipMutationOptions": {
             "description": "Options for Binary Flip Mutation.",
             "properties": {
@@ -429,6 +452,51 @@
                 }
             },
             "title": "ExternalCheckTerminatorOptions",
+            "type": "object"
+        },
+        "HypESelectorOptions": {
+            "description": "Options for HypE environmental selection.",
+            "properties": {
+                "name": {
+                    "const": "HypESelector",
+                    "default": "HypESelector",
+                    "description": "The name of the selection operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "population_size": {
+                    "description": "The population size.",
+                    "exclusiveMinimum": 0,
+                    "title": "Population Size",
+                    "type": "integer"
+                },
+                "n_samples": {
+                    "default": 10000,
+                    "description": "The number of Monte Carlo samples.",
+                    "exclusiveMinimum": 0,
+                    "title": "N Samples",
+                    "type": "integer"
+                },
+                "exact_max_objectives": {
+                    "default": 3,
+                    "description": "The most objectives for which the fitness is computed exactly.",
+                    "maximum": 3,
+                    "minimum": 0,
+                    "title": "Exact Max Objectives",
+                    "type": "integer"
+                },
+                "normalised_reference_point_component": {
+                    "default": 1.1,
+                    "description": "The reference point in every normalized objective.",
+                    "exclusiveMinimum": 1.0,
+                    "title": "Normalised Reference Point Component",
+                    "type": "number"
+                }
+            },
+            "required": [
+                "population_size"
+            ],
+            "title": "HypESelectorOptions",
             "type": "object"
         },
         "IBEASelectorOptions": {
@@ -1423,6 +1491,29 @@
             "title": "SMSEMOASelectorOptions",
             "type": "object"
         },
+        "SPEA2SelectorOptions": {
+            "description": "Options for SPEA2 environmental selection.",
+            "properties": {
+                "name": {
+                    "const": "SPEA2Selector",
+                    "default": "SPEA2Selector",
+                    "description": "The name of the selection operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "population_size": {
+                    "description": "The archive size.",
+                    "exclusiveMinimum": 0,
+                    "title": "Population Size",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "population_size"
+            ],
+            "title": "SPEA2SelectorOptions",
+            "type": "object"
+        },
         "SelfAdaptiveGaussianMutationOptions": {
             "description": "Options for Self-Adaptive Gaussian Mutation.",
             "properties": {
@@ -1636,6 +1727,15 @@
                         },
                         {
                             "$ref": "#/$defs/SMSEMOASelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SPEA2SelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/AGEMOEA2SelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/HypESelectorOptions"
                         }
                     ],
                     "description": "The selection operator options.",
@@ -1831,6 +1931,15 @@
                         },
                         {
                             "$ref": "#/$defs/SMSEMOASelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SPEA2SelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/AGEMOEA2SelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/HypESelectorOptions"
                         }
                     ],
                     "description": "The selection operator options.",
@@ -2042,6 +2151,15 @@
                         },
                         {
                             "$ref": "#/$defs/SMSEMOASelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/SPEA2SelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/AGEMOEA2SelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/HypESelectorOptions"
                         }
                     ],
                     "description": "The selection operator options.",

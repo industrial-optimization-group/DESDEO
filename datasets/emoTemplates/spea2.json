@@ -1,0 +1,47 @@
+{
+    "preference": null,
+    "template": {
+        "crossover": {
+            "name": "SimulatedBinaryCrossover",
+            "pair_xover_probability": 1.0,
+            "xover_probability": 0.5,
+            "xover_distribution": 20.0,
+            "truncated": true,
+            "uniform_xover_probability": 0.5,
+            "swap_uncrossed_variables": false
+        },
+        "mutation": {
+            "name": "BoundedPolynomialMutation",
+            "mutation_probability": null,
+            "distribution_index": 20.0
+        },
+        "selection": {
+            "name": "SPEA2Selector",
+            "population_size": 100
+        },
+        "termination": {
+            "name": "MaxGenerationsTerminator",
+            "max_generations": 100
+        },
+        "generator": {
+            "n_points": 100,
+            "seed": null,
+            "name": "LHSGenerator"
+        },
+        "repair": {
+            "name": "ClipRepair",
+            "lower_bounds": null,
+            "upper_bounds": null
+        },
+        "use_archive": true,
+        "seed": 42,
+        "verbosity": 2,
+        "algorithm_name": "SPEA2",
+        "name": "Template2",
+        "mate_selection": {
+            "name": "TournamentSelection",
+            "tournament_size": 2,
+            "winner_size": 100
+        }
+    }
+}
