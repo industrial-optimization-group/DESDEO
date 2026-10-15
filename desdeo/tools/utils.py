@@ -402,13 +402,12 @@ def repair(lower_bounds: dict[str, float], upper_bounds: dict[str, float]) -> Ca
     # The original code seemed too slow when offsprings were created one at a time?
     # This is just a quick fix.
     def fast_actual_repair(offspring: pl.DataFrame) -> pl.DataFrame:
-        # Convert the DataFrame to a NumPy array for faster operations
-        columns = upper_bounds.keys()
-        offspring_np = offspring[list(columns)].to_numpy()
-
-        # Create arrays for lower and upper bounds
-        lower_bounds_np = np.array([lower_bounds[var] for var in offspring.columns])
-        upper_bounds_np = np.array([upper_bounds[var] for var in offspring.columns])
+        # Convert the DataFrame to a NumPy array for faster operations. The values and both bounds
+        # are taken in the same column order.
+        columns = list(upper_bounds.keys())
+        offspring_np = offspring[columns].to_numpy().astype(float)
+        lower_bounds_np = np.array([lower_bounds[var] for var in columns], dtype=float)
+        upper_bounds_np = np.array([upper_bounds[var] for var in columns], dtype=float)
 
         # Clip the values to be within the specified bounds
         offspring_np = np.clip(offspring_np, lower_bounds_np, upper_bounds_np)
@@ -418,8 +417,9 @@ def repair(lower_bounds: dict[str, float], upper_bounds: dict[str, float]) -> Ca
         nan_mask = np.isnan(offspring_np)
         offspring_np[nan_mask] = np.take(means, np.where(nan_mask)[1])
 
-        # Convert back to a DataFrame
-        offspring[list(columns)] = pl.DataFrame(offspring_np, schema=columns)
-        return offspring
+        # `orient="row"` is required: with as many offspring as variables the array is square, and
+        # polars then reads it column by column, which transposed the whole offspring block.
+        repaired = pl.DataFrame(offspring_np, schema=columns, orient="row")
+        return offspring.with_columns(repaired.get_columns())
 
     return fast_actual_repair

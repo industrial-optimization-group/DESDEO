@@ -3584,3 +3584,32 @@ def test_hype_removes_the_smallest_fitness_one_at_a_time():
     # The mating fitness is I_h over the new population, positive and summing to its hypervolume.
     assert np.all(selector.fitness > 0)
     npt.assert_allclose(selector.fitness.sum(), hypervolume(normalized[selector.selection], ref=np.full(2, 1.1)))
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize("n_offspring", [3, 4, 5])
+def test_clip_repair_keeps_rows_in_place_for_a_square_offspring_block(n_offspring):
+    """Clip repair must not transpose the offspring when there are as many of them as variables.
+
+    It rebuilt its result with `pl.DataFrame(array, schema=...)` and no orientation, and polars reads
+    a square array column by column: with four offspring of four variables, every offspring came back
+    as a column of the input. Any template with a population equal to the number of variables, such as
+    100 solutions on a 100-variable problem, recombined transposed offspring.
+    """
+    names = ["x_1", "x_2", "x_3", "x_4"]
+    lower = {"x_1": 0.0, "x_2": -1.0, "x_3": 0.0, "x_4": 2.0}
+    upper = {"x_1": 1.0, "x_2": 1.0, "x_3": 10.0, "x_4": 3.0}
+    rng = np.random.default_rng(n_offspring)
+    inside = np.array([lower[n] for n in names]) + rng.random((n_offspring, 4)) * np.array(
+        [upper[n] - lower[n] for n in names]
+    )
+    offspring = pl.DataFrame(inside, schema=names, orient="row")
+
+    repaired = repair(lower_bounds=lower, upper_bounds=upper)(offspring.clone())
+
+    npt.assert_array_equal(repaired.to_numpy(), inside)  # nothing to clip, so nothing may move
+    outside = inside.copy()
+    outside[0] = [5.0, -5.0, np.nan, 0.0]
+    repaired = repair(lower_bounds=lower, upper_bounds=upper)(pl.DataFrame(outside, schema=names, orient="row"))
+    npt.assert_array_equal(repaired.to_numpy()[0], [1.0, -1.0, 5.0, 2.0])
+    npt.assert_array_equal(repaired.to_numpy()[1:], inside[1:])
