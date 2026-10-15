@@ -1,7 +1,9 @@
 """Defines end-points to access functionalities related to the CUMULUS method."""
 
-from typing import Annotated
+import logging
+from typing import Annotated, Any
 
+import polars as pl
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlmodel import Session, select
 
@@ -35,6 +37,7 @@ from desdeo.api.models.cumulus import (
     CumulusObjectiveConstraintResponse,
     CumulusSaveRequest,
     CumulusSaveResponse,
+    CumulusScenarioAvailabilityResponse,
     CumulusScenarioSetupResponse,
     ProblemModification,
 )
@@ -45,10 +48,16 @@ from desdeo.api.models.scenario import ScenarioModelDB
 from desdeo.api.models.state import CumulusClassificationState
 from desdeo.api.routers.problem import check_solver
 from desdeo.api.routers.user_authentication import get_current_user
-from desdeo.mcdm.cumulus import CumulusScalarization, generate_starting_point, solve_sub_problems
+from desdeo.mcdm.cumulus import (
+    CumulusScalarization,
+    _minimize_soft_constraint_violations,
+    generate_starting_point,
+    solve_sub_problems,
+)
 from desdeo.mcdm.reference_point_method import rpm_intermediate_solutions
-from desdeo.problem import Problem, ScenarioModel
-from desdeo.problem.schema import Constraint
+from desdeo.problem import PolarsEvaluator, Problem, ScenarioModel
+from desdeo.problem.json_parser import FormatEnum, MathParser
+from desdeo.problem.schema import Constraint, ConstraintTypeEnum
 from desdeo.tools import SolverResults, guess_best_solver
 from desdeo.tools.utils import payoff_table_method
 
@@ -60,11 +69,19 @@ from .utils import (
     collect_all_solutions,
     collect_saved_solutions,
     copy_problem_metadata,
+    determine_unstated_constraint_properties,
     get_solver_results_at,
     iter_states_of_kinds,
+    leaves_properties_unstated,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/method/cumulus")
+
+# Constraint values are normalised to `func <= 0` (or `== 0`), so a small positive value is
+# rounding rather than a genuine violation.
+_CONSTRAINT_TOLERANCE = 1e-6
 
 
 def _get_scenario_model_id(
@@ -80,6 +97,105 @@ def _get_scenario_model_id(
         if sm_id is not None:
             return sm_id
     return None
+
+
+_MAX_PARENT_HOPS = 10
+
+_MEASURE_PREFIXES = {
+    "E_": "expected_value",
+    "robust_": "worst_case_robust",
+    "CVAR_": "conditional_value_at_risk",
+    "weighted_": "weighted_scenarios",
+}
+
+
+def _resolve_scenario_model(problem_db: ProblemDB, db_session: Session) -> tuple[ProblemDB, ScenarioModelDB] | None:
+    """Walk up `parent_problem_id` to find the problem (if any) with an associated scenario model.
+
+    A combined scenario problem's `parent_problem_id` points at the original problem the
+    scenarios are attached to, so this lets callers ask "does scenario X have scenarios"
+    using whichever problem id is currently active on the frontend (original or combined).
+    """
+    current: ProblemDB | None = problem_db
+    for _ in range(_MAX_PARENT_HOPS):
+        if current is None:
+            return None
+        if current.scenario_models:
+            return current, current.scenario_models[0]
+        current = db_session.get(ProblemDB, current.parent_problem_id) if current.parent_problem_id else None
+    return None
+
+
+def _detect_applied_measures(problem_db: ProblemDB) -> list[str]:
+    """Best-effort detection of which uncertainty measures are already on a problem's objectives."""
+    found: set[str] = set()
+    for obj in problem_db.objectives or []:
+        for prefix, measure in _MEASURE_PREFIXES.items():
+            if obj.symbol.startswith(prefix):
+                found.add(measure)
+    return sorted(found)
+
+
+def _build_combined_problem_and_initialize(
+    request: CumulusInitializationRequest,
+    context: SessionContext,
+    base_problem_db: ProblemDB,
+    parent_state: StateDB | None,
+) -> CumulusInitializationResponse:
+    """Build a combined scenario problem from `request.uncertainty_measures` and initialize CUMULUS on it."""
+    db_session = context.db_session
+    user = context.user
+    interactive_session = context.interactive_session
+
+    problem = Problem.from_problemdb(base_problem_db)
+    mods = ProblemModification(uncertainty_measures=request.uncertainty_measures)
+    try:
+        combined_problem = apply_problem_modifications(problem, mods, db_session)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Failed to build combined scenario problem: {e}",
+        ) from e
+
+    # Estimate ideal/nadir via payoff table so scalarizations are well-scaled.
+    solver = check_solver(problem_db=base_problem_db)
+    try:
+        estimated_ideal, estimated_nadir = payoff_table_method(combined_problem, solver)
+        combined_problem = combined_problem.update_ideal_and_nadir(estimated_ideal, estimated_nadir)
+    except Exception:  # noqa: S110
+        pass  # proceed without ideal/nadir if payoff table fails
+
+    new_problem_db = ProblemDB.from_problem(combined_problem, user=user)
+    new_problem_db.parent_problem_id = base_problem_db.id
+    if request.name:
+        new_problem_db.name = request.name
+    original_desc = base_problem_db.description or ""
+    combined_desc = new_problem_db.description or ""
+    if original_desc and combined_desc != original_desc:
+        new_problem_db.description = original_desc + "\n\n" + combined_desc
+    db_session.add(new_problem_db)
+    db_session.commit()
+    db_session.refresh(new_problem_db)
+    copy_problem_metadata(base_problem_db, new_problem_db, db_session)
+    db_session.commit()
+
+    new_context = SessionContext(
+        user=user,
+        db_session=db_session,
+        problem_db=new_problem_db,
+        interactive_session=interactive_session,
+        parent_state=parent_state,
+    )
+    new_request = request.model_copy(
+        update={
+            "problem_id": new_problem_db.id,
+            "original_problem_id": request.original_problem_id or base_problem_db.id,
+            "uncertainty_measures": None,
+        }
+    )
+    return initialize(new_request, new_context)
 
 
 def _load_scenario_model(
@@ -371,7 +487,7 @@ def save(
 
 
 @router.post("/get-or-initialize")
-def get_or_initialize(  # noqa: C901
+def get_or_initialize(
     request: CumulusInitializationRequest,
     context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
 ) -> (
@@ -491,57 +607,72 @@ def get_or_initialize(  # noqa: C901
             return initialize(request, context)
 
         # The DM has chosen measures — build and persist the combined scenario problem.
-        problem = Problem.from_problemdb(problem_db)
-        mods = ProblemModification(uncertainty_measures=request.uncertainty_measures)
-        try:
-            combined_problem = apply_problem_modifications(problem, mods, db_session)
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Failed to build combined scenario problem: {e}",
-            ) from e
-
-        # Estimate ideal/nadir via payoff table so scalarizations are well-scaled.
-        solver = check_solver(problem_db=problem_db)
-        try:
-            estimated_ideal, estimated_nadir = payoff_table_method(combined_problem, solver)
-            combined_problem = combined_problem.update_ideal_and_nadir(estimated_ideal, estimated_nadir)
-        except Exception:  # noqa: S110
-            pass  # proceed without ideal/nadir if payoff table fails
-
-        new_problem_db = ProblemDB.from_problem(combined_problem, user=user)
-        new_problem_db.parent_problem_id = problem_db.id
-        if request.name:
-            new_problem_db.name = request.name
-        original_desc = problem_db.description or ""
-        combined_desc = new_problem_db.description or ""
-        if original_desc and combined_desc != original_desc:
-            new_problem_db.description = original_desc + "\n\n" + combined_desc
-        db_session.add(new_problem_db)
-        db_session.commit()
-        db_session.refresh(new_problem_db)
-        copy_problem_metadata(problem_db, new_problem_db, db_session)
-        db_session.commit()
-
-        new_context = SessionContext(
-            user=user,
-            db_session=db_session,
-            problem_db=new_problem_db,
-            interactive_session=interactive_session,
-            parent_state=context.parent_state,
-        )
-        new_request = request.model_copy(
-            update={
-                "problem_id": new_problem_db.id,
-                "original_problem_id": request.original_problem_id or request.problem_id,
-                "uncertainty_measures": None,
-            }
-        )
-        return initialize(new_request, new_context)
+        return _build_combined_problem_and_initialize(request, context, problem_db, context.parent_state)
 
     return initialize(request, context)
+
+
+@router.get("/scenario-availability")
+def get_scenario_availability(
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).get)],
+) -> CumulusScenarioAvailabilityResponse:
+    """Report whether uncertainty measures can be added to (or changed on) a problem.
+
+    Looks past any combined scenario problem already built from it (via `parent_problem_id`),
+    so this stays accurate whether `problem_id` is the original problem or one already combined
+    from it. Used to decide whether to show the "Add uncertainty measures" UI action at all.
+    """
+    problem_db = context.problem_db
+    resolved = _resolve_scenario_model(problem_db, context.db_session)
+    if resolved is None:
+        return CumulusScenarioAvailabilityResponse(available=False)
+
+    base_problem_db, scenario_model_db = resolved
+    problem = Problem.from_problemdb(base_problem_db)
+    # Include objectives from both the base problem and the scenario pool (e.g. f_3).
+    seen: set[str] = set()
+    all_symbols: list[str] = []
+    for sym in [obj.symbol for obj in problem.objectives] + [obj.symbol for obj in scenario_model_db.objectives]:
+        if sym not in seen:
+            seen.add(sym)
+            all_symbols.append(sym)
+
+    return CumulusScenarioAvailabilityResponse(
+        available=True,
+        base_problem_id=base_problem_db.id,
+        scenario_model_id=scenario_model_db.id,
+        objective_symbols=all_symbols,
+        applied_measures=_detect_applied_measures(problem_db),
+    )
+
+
+@router.post("/apply-scenario-measures")
+def apply_scenario_measures(
+    request: CumulusInitializationRequest,
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
+) -> CumulusInitializationResponse:
+    """Build (or rebuild) a combined scenario problem with the given uncertainty measures.
+
+    Unlike `/get-or-initialize`, this always builds a fresh combined problem and starts CUMULUS
+    on it, even when a CUMULUS state already exists for the current problem. Used by the "Add
+    uncertainty measures" UI action to add measures after the method has already started, or to
+    rebuild the combined problem with a different set of measures.
+    """
+    if not request.uncertainty_measures:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="uncertainty_measures must be provided and non-empty.",
+        )
+
+    resolved = _resolve_scenario_model(context.problem_db, context.db_session)
+    if resolved is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="This problem has no associated scenario model.",
+        )
+    base_problem_db, _scenario_model_db = resolved
+
+    return _build_combined_problem_and_initialize(request, context, base_problem_db, parent_state=None)
 
 
 @router.post("/finalize")
@@ -735,31 +866,86 @@ def delete_save(
     return CumulusDeleteSaveResponse(message="Save deleted.")
 
 
+def _fill_in_soft_constraint_properties(
+    problem_db: ProblemDB, raws: list[Any], constraint_dbs: list[ConstraintDB]
+) -> None:
+    """Derive the math properties of soft constraints whose request left them unstated.
+
+    The rows are stored detached from any problem, but ``solve_sub_problems`` feeds them to
+    ``add_soft_constraint`` against the one in play, so their flags end up describing the
+    problem that is actually solved: a bound that claims not to be twice differentiable drags
+    the whole problem onto the non-differentiable path with it, which not every solver can
+    express. The analysis therefore runs against the problem they will be added to, with the
+    constraints attached, so that the symbols they reference resolve.
+
+    Modifies the rows in `constraint_dbs` in place. `raws` are the request entries they were
+    validated from, positionally matched, and are consulted to see which properties the request
+    stated for itself.
+    """
+    pending = [
+        constraint_db
+        for raw, constraint_db in zip(raws, constraint_dbs, strict=True)
+        if leaves_properties_unstated(raw)
+    ]
+    if not pending:
+        return
+
+    problem = Problem.from_problemdb(problem_db)
+    # `from_attributes` reads just the fields `Constraint` declares, leaving the columns that
+    # only exist on the DB row (which `Constraint` forbids) behind.
+    attached = [Constraint.model_validate(constraint_db, from_attributes=True) for constraint_db in pending]
+
+    analyzed = determine_unstated_constraint_properties(
+        problem.model_copy(update={"constraints": [*(problem.constraints or []), *attached]}),
+        [constraint.symbol for constraint in attached],
+    )
+    by_symbol = {constraint.symbol: constraint for constraint in (analyzed.constraints or [])}
+
+    for constraint_db in pending:
+        result = by_symbol.get(constraint_db.symbol)
+        if result is None:
+            continue
+        constraint_db.is_linear = result.is_linear
+        constraint_db.is_convex = result.is_convex
+        constraint_db.is_twice_differentiable = result.is_twice_differentiable
+
+
 @router.post("/objective-constraint")
 def set_objective_constraints(
     request: CumulusObjectiveConstraintRequest,
     context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
 ) -> CumulusObjectiveConstraintResponse:
-    """Set (replace) the list of objective constraints for the current CUMULUS session.
+    """Set (replace) the list of soft objective constraints for the current CUMULUS session.
 
     Creates ConstraintDB rows in the database without adding them to the active problem.
     A new state records the IDs of the current constraint list.
+
+    Only soft constraints may be set here.  A hard bound shrinks the feasible region and
+    can exclude the current solution, after which every classification sub-problem is
+    infeasible: the classification constraints admit the current solution by
+    construction, which is what normally guarantees a sub-problem can be solved, and that
+    guarantee is worth nothing once the current solution is outside the feasible region.
+    Recovering needs a new starting point and fresh ideal and nadir points, which is what
+    ``/method/cumulus/modify-problem`` does.  Hard bounds are therefore rejected here and
+    must be applied through that endpoint.
     """
     db_session = context.db_session
     interactive_session = context.interactive_session
     parent_state = context.parent_state
     problem_db = context.problem_db
 
-    hard_constraints: list[ConstraintDB] = []
-    for raw in request.hard_constraints:
-        try:
-            constraint_db = ConstraintDB.model_validate(raw)
-        except Exception as e:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
-        constraint_db.id = None
-        constraint_db.problem_id = None
-        db_session.add(constraint_db)
-        hard_constraints.append(constraint_db)
+    if request.hard_constraints:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Hard objective constraints cannot be set through this endpoint. A hard bound "
+                "changes the feasible region and may exclude the current solution, which would "
+                "leave every later classification sub-problem infeasible, so the method has to "
+                "be reinitialized against the new region. Apply hard bounds through "
+                "'/method/cumulus/modify-problem', which rebuilds the problem and recomputes "
+                "its ideal and nadir points. Soft constraints are accepted here."
+            ),
+        )
 
     soft_constraints: list[ConstraintDB] = []
     for raw in request.soft_constraints:
@@ -769,11 +955,15 @@ def set_objective_constraints(
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
         constraint_db.id = None
         constraint_db.problem_id = None
-        db_session.add(constraint_db)
         soft_constraints.append(constraint_db)
 
+    # Before persisting: the stored flags are what later solves read back.
+    _fill_in_soft_constraint_properties(problem_db, list(request.soft_constraints), soft_constraints)
+    for constraint_db in soft_constraints:
+        db_session.add(constraint_db)
+
     db_session.flush()
-    hard_constraint_ids = [c.id for c in hard_constraints]
+    hard_constraint_ids: list[int] = []
     soft_constraint_ids = [c.id for c in soft_constraints]
 
     obj_constraint_state = CumulusObjectiveConstraintState(
@@ -802,8 +992,176 @@ def set_objective_constraints(
     )
 
 
-def _run_payoff_table_background(new_problem_id: int, cumulus_state_id: int, solver_class) -> None:
-    """Background task: run payoff table on the newly created problem and update ideal/nadir + state."""
+def _reported_scalar_values(problem: Problem, results: SolverResults) -> dict[str, float]:
+    """The scalar values a solver reported for one solution, keyed by symbol.
+
+    Tensor-valued variables are left out: they cannot share a frame with scalars, and a bound
+    on the objectives never needs them.
+    """
+    scope: dict[str, float] = {}
+    for source in (
+        results.optimal_variables,
+        results.optimal_objectives,
+        results.extra_func_values or {},
+        results.scalarization_values or {},
+    ):
+        for symbol, value in source.items():
+            if isinstance(value, (int, float)):
+                scope[symbol] = float(value)
+
+    # Constraints may reference the always-minimized variant of an objective, as the evaluators
+    # also provide.
+    for objective in problem.objectives:
+        if objective.symbol in scope:
+            scope.setdefault(
+                f"{objective.symbol}_min",
+                -scope[objective.symbol] if objective.maximize else scope[objective.symbol],
+            )
+    return scope
+
+
+def _evaluated_at_stored_variables(problem: Problem, results: SolverResults) -> dict:
+    """Everything `problem` computes at the stored decision vector, or empty if it cannot.
+
+    Needed for results that carry decision variables without the function values that go with
+    them.
+
+    Vector-valued functions come back as a value per index, which the caller drops along with
+    anything else that is not a single number.
+    """
+    variables = results.optimal_variables
+    if not variables:
+        return {}
+    try:
+        # Only the problem's own variables, in its own order: a stored solution may also carry
+        # auxiliary variables (a CVaR `_alpha`, say) that the evaluators build no column for.
+        xs = {variable.symbol: [variables[variable.symbol]] for variable in problem.variables}
+    except KeyError:
+        return {}
+
+    try:
+        return PolarsEvaluator(problem).evaluate(xs).row(0, named=True)
+    except Exception as e:
+        logger.warning("Could not evaluate the problem at the stored solution: %s", e)
+        return {}
+
+
+def _constraint_values(constraints: list[Constraint], scope: dict[str, float]) -> list[float] | None:
+    """Each constraint's value at `scope`, or None if `scope` does not cover them all."""
+    parser = MathParser(to_format=FormatEnum.polars)
+    frame = pl.DataFrame({symbol: [value] for symbol, value in scope.items()})
+    try:
+        return [float(frame.select(parser.parse(c.func).alias("_value")).row(0)[0]) for c in constraints]
+    except Exception:
+        return None
+
+
+def _satisfies(constraint: Constraint, value: float) -> bool:
+    """Whether a constraint value counts as met. LTE is `func <= 0`; EQ is `func == 0`."""
+    if constraint.cons_type == ConstraintTypeEnum.EQ:
+        return abs(value) <= _CONSTRAINT_TOLERANCE
+    return value <= _CONSTRAINT_TOLERANCE
+
+
+def _current_solution_satisfies(
+    problem: Problem, parent_state, added_constraints: list[Constraint]
+) -> bool:
+    """Whether the solution current at `parent_state` still satisfies the added constraints.
+
+    Only the added ones are checked, for the same reason the background probe only considers
+    them: everything else was already satisfied before this modification.
+
+    They are evaluated against the values the solver reported for the solution, and only failing
+    that against the problem re-evaluated at its stored decision vector.  That order is the
+    point: re-evaluating first reported *every* bound on a combined scenario problem as
+    satisfied, however far outside it the solution sat, because the evaluator cannot build a
+    frame for such a problem at all and the failure read as "nothing to invalidate".
+
+    A missing or unusable parent solution is still reported as satisfied: there is nothing to
+    invalidate. Note that this also skips the background feasibility probe, which is gated on
+    this answer.
+    """
+    checkable = [c for c in added_constraints if c.func is not None]
+    if parent_state is None or not checkable:
+        return True
+    try:
+        results = get_solver_results_at(parent_state.state, 0)
+    except (AttributeError, IndexError, KeyError, TypeError):
+        return True
+
+    scope = _reported_scalar_values(problem, results)
+    values = _constraint_values(checkable, scope)
+
+    if values is None:
+        # A symbol the reported values do not carry; work it out from the decision vector.
+        evaluated = _evaluated_at_stored_variables(problem, results)
+        scope = {
+            **{sym: float(val) for sym, val in evaluated.items() if isinstance(val, (int, float))},
+            **scope,
+        }
+        values = _constraint_values(checkable, scope)
+
+    if values is None:
+        logger.warning(
+            "Could not tell whether the current solution satisfies the added constraints (%s);"
+            " reporting it as satisfied.",
+            ", ".join(c.symbol for c in checkable),
+        )
+        return True
+
+    return all(_satisfies(c, v) for c, v in zip(checkable, values, strict=True))
+
+
+def _probe_new_problem_feasibility(
+    old_problem: Problem, added_constraints: list[Constraint], solver_class, solver_options=None
+) -> tuple[bool, float, str | None]:
+    """Is the modified problem feasible? Decided with one solve on the *old* problem.
+
+    The added constraints are attached to the old problem as soft ones and the total violation is
+    minimised.  A minimum of zero means some point satisfies all of them at once, so the modified
+    problem is feasible; anything larger is the amount by which they cannot jointly be met.
+
+    Solving on the old problem is deliberate: the modified problem may exclude the current
+    solution, and this way the probe never has to distinguish "the bound is unreachable" from "the
+    formulation excluded itself".  Minimising violation rather than projecting a reference point
+    also covers constraints over several objectives at once, which a reference point cannot
+    express.
+
+    Returns:
+        (feasible, minimum total violation, error message or None).
+    """
+    if not added_constraints:
+        return True, 0.0, None
+    try:
+        _, _, violation = _minimize_soft_constraint_violations(
+            old_problem, None, added_constraints, solver_class, solver_options
+        )
+    except Exception as e:
+        return False, float("nan"), f"Could not determine whether the modified problem is feasible: {e}"
+    if violation > _CONSTRAINT_TOLERANCE:
+        symbols = ", ".join(c.symbol for c in added_constraints)
+        return False, violation, (
+            "The modified problem has no feasible solution. The added constraints "
+            f"({symbols}) cannot all be satisfied at once; the smallest total violation "
+            f"achievable is {violation:.6g}. The modification was discarded."
+        )
+    return True, violation, None
+
+
+def _run_modification_checks_background(
+    new_problem_id: int,
+    cumulus_state_id: int,
+    solver_class,
+    old_problem_id: int,
+    added_constraint_symbols: list[str],
+) -> None:
+    """Background: confirm the modified problem is feasible, then refresh its ideal and nadir.
+
+    Feasibility is settled first because it costs one solve, where the payoff table costs one per
+    objective.  An infeasible modification is discarded outright: its ProblemDB row is deleted,
+    which cascades to the states and metadata created alongside it, and the decision maker stays
+    on the problem they were already using.
+    """
     try:
         with Session(engine) as session:
             problem_db = session.get(ProblemDB, new_problem_id)
@@ -815,6 +1173,28 @@ def _run_payoff_table_background(new_problem_id: int, cumulus_state_id: int, sol
             effective_solver = solver_class if solver_class is not None else guess_best_solver(problem)
 
             error_msg = None
+            # Only the constraints this modification added can turn the problem infeasible; the
+            # ones already there were satisfied before it.
+            if added_constraint_symbols and not mod_state.current_solution_feasible:
+                old_problem_db = session.get(ProblemDB, old_problem_id)
+                if old_problem_db is not None:
+                    old_problem = Problem.from_problemdb(old_problem_db)
+                    added = [c for c in (problem.constraints or []) if c.symbol in set(added_constraint_symbols)]
+                    feasible, _, probe_error = _probe_new_problem_feasibility(
+                        old_problem, added, effective_solver
+                    )
+                    if not feasible:
+                        # Discard the modification entirely.  The cascade takes the state with it,
+                        # so record the outcome on the parent problem's behalf before deleting.
+                        mod_state.is_ready = True
+                        mod_state.error = probe_error
+                        mod_state.problem_deleted = True
+                        session.add(mod_state)
+                        session.commit()
+                        session.delete(problem_db)
+                        session.commit()
+                        return
+
             try:
                 estimated_ideal, estimated_nadir = payoff_table_method(problem, solver=effective_solver)
                 for obj_db in problem_db.objectives:
@@ -825,6 +1205,11 @@ def _run_payoff_table_background(new_problem_id: int, cumulus_state_id: int, sol
                     session.add(obj_db)
             except Exception as e:
                 error_msg = str(e)
+
+            if error_msg is None:
+                # The modification survived: it is a real problem now, not a provisional one.
+                problem_db.is_temporary = False
+                session.add(problem_db)
 
             mod_state.is_ready = True
             mod_state.error = error_msg
@@ -851,8 +1236,21 @@ def modify_problem(
     problem = Problem.from_problemdb(problem_db)
     modified_problem = apply_problem_modifications(problem, request.modifications, db_session)
 
-    # Save the modified problem immediately (ideal/nadir will be updated by the background task)
+    # Which constraints this modification introduced; only these can make the problem infeasible.
+    existing_constraint_symbols = {c.symbol for c in (problem.constraints or [])}
+    added_constraint_symbols = [
+        c.symbol for c in (modified_problem.constraints or []) if c.symbol not in existing_constraint_symbols
+    ]
+
+    # Cheap and synchronous: does the solution the decision maker is on survive the modification?
+    # The expensive questions are left to the background task.
+    added_constraints = [c for c in (modified_problem.constraints or []) if c.symbol in set(added_constraint_symbols)]
+    current_solution_feasible = _current_solution_satisfies(modified_problem, parent_state, added_constraints)
+
+    # Save the modified problem immediately (ideal/nadir will be updated by the background task).
+    # It stays temporary until the background check confirms it is feasible.
     new_problem_db = ProblemDB.from_problem(modified_problem, user=user)
+    new_problem_db.is_temporary = True
     new_problem_db.parent_problem_id = problem_db.id
     if request.name is not None:
         new_problem_db.name = request.name
@@ -876,6 +1274,7 @@ def modify_problem(
         original_problem_id=original_problem_id,
         scenario_model_id=mod_scenario_model_id,
         is_ready=False,
+        current_solution_feasible=current_solution_feasible,
     )
 
     state = StateDB.create(
@@ -893,10 +1292,12 @@ def modify_problem(
     solver_class = check_solver(problem_db=problem_db)
 
     background_tasks.add_task(
-        _run_payoff_table_background,
+        _run_modification_checks_background,
         new_problem_db.id,
         state.base_state.id,
         solver_class,
+        problem_db.id,
+        added_constraint_symbols,
     )
 
     return CumulusModificationResponse(
@@ -905,6 +1306,7 @@ def modify_problem(
         original_problem_id=original_problem_id,
         scenario_model_id=mod_scenario_model_id,
         is_ready=False,
+        current_solution_feasible=current_solution_feasible,
     )
 
 
@@ -933,4 +1335,6 @@ def modify_problem_status(
         original_problem_id=mod_state.original_problem_id,
         is_ready=mod_state.is_ready,
         error=mod_state.error,
+        current_solution_feasible=mod_state.current_solution_feasible,
+        problem_deleted=mod_state.problem_deleted,
     )

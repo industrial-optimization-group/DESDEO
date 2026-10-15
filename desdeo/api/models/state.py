@@ -381,6 +381,23 @@ class CumulusModificationState(ResultInterface, SQLModel, table=True):
     scenario_model_id: int | None = Field(default=None)
     is_ready: bool = Field(default=False, description="True once the background feasibility check has completed.")
     error: str | None = Field(default=None, description="Error message if the feasibility check failed.")
+    current_solution_feasible: bool = Field(
+        default=True,
+        description=(
+            "Whether the solution current when the modification was requested still satisfies the "
+            "modified problem's constraints. When False a new starting point has to be found, "
+            "because the classification sub-problems are only guaranteed solvable while the "
+            "current solution lies inside the feasible region."
+        ),
+    )
+    problem_deleted: bool = Field(
+        default=False,
+        description=(
+            "True when the modified problem turned out to be infeasible and its ProblemDB row was "
+            "deleted. The modification did not take effect and the decision maker stays on the "
+            "problem they were using."
+        ),
+    )
 
     @property
     def num_solutions(self) -> int:

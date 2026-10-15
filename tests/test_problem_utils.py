@@ -7,11 +7,16 @@ import pytest
 from desdeo.problem import (
     Constraint,
     ConstraintTypeEnum,
+    ExtraFunction,
     Objective,
+    ObjectiveTypeEnum,
     Problem,
+    ScalarizationFunction,
     Variable,
     VariableTypeEnum,
     add_soft_constraint,
+    determine_function_properties,
+    determine_problem_properties,
     flatten_variable_dict,
     numpy_array_to_objective_dict,
     objective_dict_to_numpy_array,
@@ -301,6 +306,152 @@ def test_flatten_unflatten_variable_dict():
     # unflatten
     res_mix_unflatten = unflatten_variable_array(problem, res_mix)
     assert res_mix_unflatten == var_dict
+
+
+@pytest.fixture
+def properties_problem() -> Problem:
+    """A problem with a mix of linear, convex-nonlinear, unresolvable, and non-smooth functions."""
+    return Problem(
+        name="properties test problem",
+        description="Used in determine_problem_properties/determine_function_properties tests",
+        variables=[
+            Variable(name="x1", symbol="x1", variable_type=VariableTypeEnum.real, lowerbound=-10, upperbound=10),
+            Variable(name="x2", symbol="x2", variable_type=VariableTypeEnum.real, lowerbound=-10, upperbound=10),
+        ],
+        objectives=[
+            Objective(name="linear", symbol="f_linear", func=["Add", ["Multiply", 2, "x1"], "x2"], maximize=False),
+            Objective(
+                name="convex", symbol="f_convex", func=["Add", ["Square", "x1"], ["Square", "x2"]], maximize=False
+            ),
+            Objective(name="unresolvable", symbol="f_sin", func=["Sin", "x1"], maximize=False),
+            Objective(name="abs", symbol="f_abs", func=["Abs", "x1"], maximize=False),
+            Objective(
+                name="data based",
+                symbol="f_data",
+                func=None,
+                objective_type=ObjectiveTypeEnum.data_based,
+                maximize=False,
+            ),
+        ],
+        constraints=[
+            Constraint(
+                name="linear con", symbol="g_linear", cons_type=ConstraintTypeEnum.LTE, func=["Subtract", "x1", 5]
+            ),
+        ],
+        extra_funcs=[
+            ExtraFunction(name="max extra", symbol="e_max", func=["Max", "x1", "x2"]),
+        ],
+        scalarization_funcs=[
+            # references the extra function, so its non-smoothness should propagate here
+            ScalarizationFunction(name="scal", symbol="s_1", func=["Add", "e_max", 1]),
+        ],
+    )
+
+
+@pytest.mark.utils
+def test_determine_problem_properties(properties_problem):
+    """determine_problem_properties analyzes every analytical function in a problem."""
+    new_problem = determine_problem_properties(properties_problem)
+
+    by_symbol = {f.symbol: f for f in [*new_problem.objectives, *new_problem.constraints]}
+
+    # A linear function is linear, convex, and twice differentiable.
+    assert by_symbol["f_linear"].is_linear
+    assert by_symbol["f_linear"].is_convex
+    assert by_symbol["f_linear"].is_twice_differentiable
+
+    # A nonlinear but convex, smooth function (sum of squares) is identified as such.
+    assert not by_symbol["f_convex"].is_linear
+    assert by_symbol["f_convex"].is_convex
+    assert by_symbol["f_convex"].is_twice_differentiable
+
+    # cvxpy cannot resolve trigonometric functions: convexity is conservatively unknown,
+    # but the function does not use any non-smooth operator, so it stays twice differentiable.
+    assert not by_symbol["f_sin"].is_linear
+    assert not by_symbol["f_sin"].is_convex
+    assert by_symbol["f_sin"].is_twice_differentiable
+
+    # Abs is convex but not twice differentiable.
+    assert not by_symbol["f_abs"].is_linear
+    assert by_symbol["f_abs"].is_convex
+    assert not by_symbol["f_abs"].is_twice_differentiable
+
+    # A linear constraint is linear, convex, and twice differentiable.
+    assert by_symbol["g_linear"].is_linear
+    assert by_symbol["g_linear"].is_convex
+    assert by_symbol["g_linear"].is_twice_differentiable
+
+    # A data-based objective has no func to analyze and is left at its defaults.
+    data_obj = next(o for o in new_problem.objectives if o.symbol == "f_data")
+    assert not data_obj.is_linear
+    assert not data_obj.is_convex
+    assert not data_obj.is_twice_differentiable
+
+    # The extra function's use of Max makes it non-smooth, and that propagates to the
+    # scalarization function that references it, even though the scalarization's own
+    # expression does not use Max directly.
+    extra = new_problem.extra_funcs[0]
+    assert not extra.is_twice_differentiable
+    scal = new_problem.scalarization_funcs[0]
+    assert not scal.is_twice_differentiable
+
+    # The problem-level aggregates reflect the per-function results (at least one
+    # function is not linear/convex/twice differentiable, so none of them hold overall).
+    assert not new_problem.is_linear
+    assert not new_problem.is_convex
+    assert not new_problem.is_twice_differentiable
+
+    # The original problem is unchanged.
+    original_linear_obj = next(o for o in properties_problem.objectives if o.symbol == "f_linear")
+    assert not original_linear_obj.is_convex
+
+
+@pytest.mark.utils
+def test_determine_function_properties_only_updates_target(properties_problem):
+    """determine_function_properties only changes the flags of the targeted function."""
+    # Pretend someone has manually marked f_sin as convex from outside knowledge
+    # (e.g. a known restricted domain) that the automatic analysis cannot derive.
+    manually_flagged = properties_problem.model_copy(
+        update={
+            "objectives": [
+                o.model_copy(update={"is_convex": True}) if o.symbol == "f_sin" else o
+                for o in properties_problem.objectives
+            ]
+        }
+    )
+
+    new_problem = determine_function_properties(manually_flagged, "f_linear")
+
+    linear_obj = next(o for o in new_problem.objectives if o.symbol == "f_linear")
+    assert linear_obj.is_linear
+    assert linear_obj.is_convex
+    assert linear_obj.is_twice_differentiable
+
+    # The manually-set flag on the untouched function must survive.
+    sin_obj = next(o for o in new_problem.objectives if o.symbol == "f_sin")
+    assert sin_obj.is_convex
+
+    # Every other function is untouched (same values as the input problem).
+    for symbol in ("f_convex", "f_abs", "g_linear"):
+        before = next(f for f in [*manually_flagged.objectives, *manually_flagged.constraints] if f.symbol == symbol)
+        after = next(f for f in [*new_problem.objectives, *new_problem.constraints] if f.symbol == symbol)
+        assert before.is_linear == after.is_linear
+        assert before.is_convex == after.is_convex
+        assert before.is_twice_differentiable == after.is_twice_differentiable
+
+
+@pytest.mark.utils
+def test_determine_function_properties_raises_on_unknown_symbol(properties_problem):
+    """ProblemUtilsError is raised for a symbol that does not exist in the problem."""
+    with pytest.raises(ProblemUtilsError):
+        determine_function_properties(properties_problem, "does_not_exist")
+
+
+@pytest.mark.utils
+def test_determine_function_properties_raises_on_non_analytical_symbol(properties_problem):
+    """ProblemUtilsError is raised for a symbol whose function has no func to analyze."""
+    with pytest.raises(ProblemUtilsError):
+        determine_function_properties(properties_problem, "f_data")
 
 
 @pytest.mark.utils
