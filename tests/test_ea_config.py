@@ -22,6 +22,11 @@ from desdeo.problem.testproblems import (
     river_pollution_problem,
 )
 
+# MOEADSelector and HypESelector are disabled: their constructors raise NotImplementedError. Their
+# tests are skipped until the selectors are enabled again.
+MOEAD_DISABLED = pytest.mark.skip(reason="MOEADSelector is disabled; its constructor raises NotImplementedError.")
+HYPE_DISABLED = pytest.mark.skip(reason="HypESelector is disabled; its constructor raises NotImplementedError.")
+
 
 @pytest.mark.ea
 def test_nsga2_dtlz2():
@@ -115,6 +120,7 @@ def test_smsemoa_dtlz2():
     assert norm.median() < 1.3  # Really bad convergence to save time.
 
 
+@MOEAD_DISABLED
 @pytest.mark.ea
 @pytest.mark.parametrize("factory", ["moead_options", "moead_de_options"])
 def test_moead_dtlz2(factory):
@@ -136,7 +142,8 @@ def test_moead_dtlz2(factory):
 
 @pytest.mark.ea
 @pytest.mark.parametrize(
-    ("factory", "population_size"), [("spea2_options", 100), ("agemoea2_options", 100), ("hype_options", 50)]
+    ("factory", "population_size"),
+    [("spea2_options", 100), ("agemoea2_options", 100), pytest.param("hype_options", 50, marks=HYPE_DISABLED)],
 )
 def test_spea2_agemoea2_hype_dtlz2(factory, population_size):
     """Test whether SPEA2, AGE-MOEA-II and HypE can be initialized and run as a whole."""
@@ -193,10 +200,10 @@ def test_mixed_integer_smsemoa():
 @pytest.mark.parametrize(
     "factory",
     [
-        "moead_mixed_integer_options",
+        pytest.param("moead_mixed_integer_options", marks=MOEAD_DISABLED),
         "spea2_mixed_integer_options",
         "agemoea2_mixed_integer_options",
-        "hype_mixed_integer_options",
+        pytest.param("hype_mixed_integer_options", marks=HYPE_DISABLED),
     ],
 )
 def test_mixed_integer_new_moeas(factory):

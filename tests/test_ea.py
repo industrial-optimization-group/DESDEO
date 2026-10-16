@@ -121,6 +121,11 @@ from desdeo.tools.patterns import Publisher
 from desdeo.tools.reference_vectors import _ensure_axis_vectors, create_s_energy
 from desdeo.tools.utils import repair
 
+# MOEADSelector and HypESelector are disabled: their constructors raise NotImplementedError. Their
+# tests are skipped until the selectors are enabled again.
+MOEAD_DISABLED = pytest.mark.skip(reason="MOEADSelector is disabled; its constructor raises NotImplementedError.")
+HYPE_DISABLED = pytest.mark.skip(reason="HypESelector is disabled; its constructor raises NotImplementedError.")
+
 
 @pytest.mark.ea
 def test_nsga3():
@@ -2722,6 +2727,7 @@ def test_s_energy_rejects_fewer_vectors_than_objectives():
         create_s_energy(number_of_objectives=5, number_of_vectors=3)
 
 
+@MOEAD_DISABLED
 @pytest.mark.ea
 @pytest.mark.parametrize("n_objectives", [3, 5, 8])
 def test_s_energy_gives_every_selector_the_same_population_size(n_objectives):
@@ -2926,7 +2932,18 @@ def test_ibea_selection_indexes_the_merged_population(constrained, population_si
 
 
 @pytest.mark.ea
-@pytest.mark.parametrize("name", ["nsga2", "ibea", "moead", "moead_de", "spea2", "agemoea2", "hype"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "nsga2",
+        "ibea",
+        pytest.param("moead", marks=MOEAD_DISABLED),
+        pytest.param("moead_de", marks=MOEAD_DISABLED),
+        "spea2",
+        "agemoea2",
+        pytest.param("hype", marks=HYPE_DISABLED),
+    ],
+)
 def test_constrained_selectors_reach_a_feasible_population(name):
     """Every selector must drive a constrained run to feasibility, not merely tolerate constraints.
 
@@ -3028,7 +3045,20 @@ def test_tournament_selection_seed_only_seeds():
 
 
 @pytest.mark.ea
-@pytest.mark.parametrize("name", ["rvea", "nsga3", "nsga2", "ibea", "moead", "moead_de", "spea2", "agemoea2", "hype"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "rvea",
+        "nsga3",
+        "nsga2",
+        "ibea",
+        pytest.param("moead", marks=MOEAD_DISABLED),
+        pytest.param("moead_de", marks=MOEAD_DISABLED),
+        "spea2",
+        "agemoea2",
+        pytest.param("hype", marks=HYPE_DISABLED),
+    ],
+)
 def test_a_run_is_reproducible_from_the_template_seed(name):
     """Two runs of the same algorithm at the same template seed must agree exactly.
 
@@ -3188,6 +3218,7 @@ def _dominating_offspring(solutions: pl.DataFrame, outputs: pl.DataFrame, target
     return solutions[:1], offspring_outputs
 
 
+@MOEAD_DISABLED
 @pytest.mark.ea
 @pytest.mark.parametrize("max_replacements", [None, 2])
 def test_moead_replaces_only_within_the_mating_pool(max_replacements):
@@ -3225,6 +3256,7 @@ def test_moead_replaces_only_within_the_mating_pool(max_replacements):
     npt.assert_array_equal(selector.ideal_point, offspring[1][selector.target_symbols].to_numpy()[0])
 
 
+@MOEAD_DISABLED
 @pytest.mark.ea
 def test_moead_mating_pool_is_the_neighbourhood_with_probability_delta():
     """MOEA/D-DE mates within the neighbourhood with probability delta and population-wide otherwise."""
@@ -3245,6 +3277,7 @@ def test_moead_mating_pool_is_the_neighbourhood_with_probability_delta():
     assert all(i % selector.number_of_subproblems in pool for i, pool in enumerate(draws))
 
 
+@MOEAD_DISABLED
 @pytest.mark.ea
 def test_moead_constraint_violation_decides_before_aggregation():
     """A less infeasible offspring replaces a more infeasible solution even if its aggregation value is worse."""
@@ -3293,6 +3326,7 @@ def test_moead_scalarize_matches_the_paper_definitions():
     npt.assert_allclose(pbi[2], 3.0 + 5.0 * 7.0)
 
 
+@MOEAD_DISABLED
 @pytest.mark.ea
 @pytest.mark.parametrize("crossover", ["sbx", "de"])
 def test_moead_template_spends_one_evaluation_per_subproblem(crossover):
@@ -3381,6 +3415,7 @@ def test_moead_de_takes_the_target_as_its_base_vector():
     assert not all(on_a_target_line("random", target) for target in range(6))
 
 
+@MOEAD_DISABLED
 @pytest.mark.ea
 @pytest.mark.parametrize("aggregation", ["tchebycheff", "pbi"])
 def test_moead_reference_point_draws_the_population_towards_it(aggregation):
@@ -3405,6 +3440,7 @@ def test_moead_reference_point_draws_the_population_towards_it(aggregation):
     assert np.degrees(np.arccos(np.median(cosines))) < 15
 
 
+@MOEAD_DISABLED
 @pytest.mark.ea
 def test_moead_weighted_sum_rejects_a_preference():
     """The weighted sum has no direction a preference could adapt, so it must refuse one."""
@@ -3602,6 +3638,7 @@ def test_hype_monte_carlo_estimates_the_exact_fitness():
     assert np.max(np.abs(estimate - exact)) < 0.02 * exact.max()
 
 
+@HYPE_DISABLED
 @pytest.mark.ea
 def test_hype_removes_the_smallest_fitness_one_at_a_time():
     """Environmental selection recomputes I_h^k after each removal, with k the number still to go (Algorithm 7)."""
