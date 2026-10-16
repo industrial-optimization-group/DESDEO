@@ -1463,19 +1463,8 @@ def _ibea_select_all(fitness_components: np.ndarray, population_size: int, kappa
     return ~bad_sols
 
 
-class IBEASelector(BaseSelector):
-    """The adaptive IBEA selection operator.
-
-    Constraints are handled feasibility-first, as in `NSGA3Selector`: while feasible solutions alone
-    can fill the population the infeasible ones are discarded and the indicator selection runs
-    unchanged, and while they cannot, every feasible solution survives and the remaining places go to
-    the least infeasible. The binary indicator itself is left untouched, since it compares objective
-    vectors and has no reading of an infeasible one.
-
-    Reference: Zitzler, E., Künzli, S. (2004). Indicator-Based Selection in Multiobjective Search. In: Yao, X., et al.
-    Parallel Problem Solving from Nature - PPSN VIII. PPSN 2004. Lecture Notes in Computer Science, vol 3242.
-    Springer, Berlin, Heidelberg. https://doi.org/10.1007/978-3-540-30217-9_84
-    """
+class _FitnessPublishingSelector(BaseSelector):
+    """Shared state publishing for selectors that feed a mating tournament through SELECTED_FITNESS."""
 
     @property
     def provided_topics(self):
@@ -1490,6 +1479,85 @@ class IBEASelector(BaseSelector):
     def interested_topics(self):
         """The message topics this operator subscribes to."""
         return []
+
+    def __init__(self, problem: Problem, verbosity: int, publisher: Publisher, population_size: int, seed: int = 0):
+        """Initialize the selector.
+
+        Args:
+            problem (Problem): The optimization problem to be solved.
+            verbosity (int): The verbosity level of the operator.
+            publisher (Publisher): The publisher to use for communication.
+            population_size (int): The number of solutions selected each generation.
+            seed (int, optional): The random seed to use. Defaults to 0.
+        """
+        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher, seed=seed)
+        if population_size < 1:
+            raise ValueError("population_size must be positive.")
+        self.population_size = population_size
+        self.selection: list[int] | None = None
+        self.selected_individuals: SolutionType | None = None
+        self.selected_targets: pl.DataFrame | None = None
+        self.fitness: np.ndarray | None = None
+
+    def _merge(
+        self, parents: tuple[SolutionType, pl.DataFrame], offsprings: tuple[SolutionType, pl.DataFrame]
+    ) -> tuple[pl.DataFrame, pl.DataFrame]:
+        if not isinstance(parents[0], pl.DataFrame):
+            raise TypeError(f"{self.__class__.__name__} works on polars DataFrames only.")
+        if offsprings[1].is_empty():
+            return parents[0], parents[1]
+        return parents[0].vstack(offsprings[0]), parents[1].vstack(offsprings[1])
+
+    def _finish(self, solutions: pl.DataFrame, outputs: pl.DataFrame, chosen: list[int], fitness: np.ndarray):
+        self.selection = chosen
+        self.selected_individuals = solutions[chosen]
+        self.selected_targets = outputs[chosen]
+        self.fitness = fitness
+        self.notify()
+        return self.selected_individuals, self.selected_targets
+
+    def state(self) -> Sequence[Message]:
+        """Return the operator's state as messages for the current verbosity level."""
+        if self.verbosity == 0 or self.selection is None or self.selected_targets is None:
+            return []
+        state = DictMessage(
+            topic=SelectorMessageTopics.STATE,
+            value={"population_size": self.population_size, "selected_individuals": self.selection},
+            source=self.__class__.__name__,
+        )
+        if self.verbosity == 1:
+            return [state]
+        return [
+            state,
+            PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=self.selected_individuals.hstack(self.selected_targets),
+                source=self.__class__.__name__,
+            ),
+            NumpyArrayMessage(
+                topic=SelectorMessageTopics.SELECTED_FITNESS,
+                value=self.fitness,
+                source=self.__class__.__name__,
+            ),
+        ]
+
+    def update(self, message: Message) -> None:
+        """Handle an incoming message. This operator does not react to messages."""
+
+
+class IBEASelector(_FitnessPublishingSelector):
+    """The adaptive IBEA selection operator.
+
+    Constraints are handled feasibility-first, as in `NSGA3Selector`: while feasible solutions alone
+    can fill the population the infeasible ones are discarded and the indicator selection runs
+    unchanged, and while they cannot, every feasible solution survives and the remaining places go to
+    the least infeasible. The binary indicator itself is left untouched, since it compares objective
+    vectors and has no reading of an infeasible one.
+
+    Reference: Zitzler, E., Künzli, S. (2004). Indicator-Based Selection in Multiobjective Search. In: Yao, X., et al.
+    Parallel Problem Solving from Nature - PPSN VIII. PPSN 2004. Lecture Notes in Computer Science, vol 3242.
+    Springer, Berlin, Heidelberg. https://doi.org/10.1007/978-3-540-30217-9_84
+    """
 
     def __init__(
         self,
@@ -1518,13 +1586,11 @@ class IBEASelector(BaseSelector):
         # Update 21st August, tested against jmetalpy IBEA. Our version is both faster and better
         # What is happening???
         # Results are similar to this https://github.com/Xavier-MaYiMing/IBEA/
-        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher, seed=seed)
-        self.selection: list[int] | None = None
-        self.selected_individuals: SolutionType | None = None
-        self.selected_targets: pl.DataFrame | None = None
+        super().__init__(
+            problem=problem, verbosity=verbosity, publisher=publisher, population_size=population_size, seed=seed
+        )
         self.binary_indicator = binary_indicator
         self.kappa = kappa
-        self.population_size = population_size
 
     def _indicator_components(self, targets: np.ndarray) -> np.ndarray:
         """Scale the targets to the unit box and return the pairwise binary indicator matrix."""
@@ -1583,100 +1649,33 @@ class IBEASelector(BaseSelector):
             tuple[SolutionType, pl.DataFrame]: The selected decision variables and their objective values,
                 targets, and constraint violations.
         """
-        if isinstance(parents[0], pl.DataFrame) and isinstance(offsprings[0], pl.DataFrame):
-            solutions = parents[0].vstack(offsprings[0])
-        elif isinstance(parents[0], list) and isinstance(offsprings[0], list):
-            solutions = parents[0] + offsprings[0]
-        else:
-            raise TypeError("The decision variables must be either a list or a polars DataFrame, not both")
         if len(parents[0]) < self.population_size:
             return parents[0], parents[1]
-        alltargets = parents[1].vstack(offsprings[1])
+        solutions, outputs = self._merge(parents, offsprings)
+        targets = outputs[self.target_symbols].to_numpy()
 
-        violations = total_constraint_violation(alltargets, self.constraints_symbols)
-        if violations is not None:
-            feasible = np.flatnonzero(violations <= 0)
-            if len(feasible) <= self.population_size:
+        violations = total_constraint_violation(outputs, self.constraints_symbols)
+        if violations is None:
+            candidates = np.arange(len(outputs))
+        else:
+            candidates = np.flatnonzero(violations <= 0)
+            if len(candidates) <= self.population_size:
                 # Too few feasible solutions to fill the population, so the indicator has nothing to
                 # choose between: keep every feasible solution and top up with the least infeasible.
-                self.selection = np.argsort(violations, kind="stable")[: self.population_size].tolist()
-                self.selected_individuals = solutions[self.selection]
-                self.selected_targets = alltargets[self.selection]
-                self.fitness = self._infeasible_fitness(
-                    self.selected_targets[self.target_symbols].to_numpy(), violations[self.selection]
-                )
-
-                self.notify()
-                return self.selected_individuals, self.selected_targets
+                chosen = np.argsort(violations, kind="stable")[: self.population_size]
+                fitness = self._infeasible_fitness(targets[chosen], violations[chosen])
+                return self._finish(solutions, outputs, chosen.tolist(), fitness)
             # Enough feasible solutions to fill the population, so the infeasible ones are simply
             # dropped and the indicator selection proceeds unchanged on the feasible ones.
-            solutions = solutions[feasible]
-            alltargets = alltargets[feasible]
 
         # Adaptation
-        fitness_components = self._indicator_components(alltargets[self.target_symbols].to_numpy())
-
-        chosen = _ibea_select_all(
-            fitness_components, population_size=self.population_size, kappa=self._adaptive_kappa(fitness_components)
+        components = self._indicator_components(targets[candidates])
+        survivors = _ibea_select_all(
+            components, population_size=self.population_size, kappa=self._adaptive_kappa(components)
         )
-        self.selected_individuals = solutions.filter(chosen)
-        self.selected_targets = alltargets.filter(chosen)
-        self.selection = chosen
-
-        fitness_components = fitness_components[chosen][:, chosen]
-        self.fitness = _ibea_fitness(fitness_components, kappa=self._adaptive_kappa(fitness_components))
-
-        self.notify()
-        return self.selected_individuals, self.selected_targets
-
-    def state(self) -> Sequence[Message]:
-        """Return the state of the selector."""
-        if self.verbosity == 0 or self.selection is None or self.selected_targets is None:
-            return []
-        if self.verbosity == 1:
-            return [
-                DictMessage(
-                    topic=SelectorMessageTopics.STATE,
-                    value={
-                        "population_size": self.population_size,
-                        "selected_individuals": self.selection,
-                    },
-                    source=self.__class__.__name__,
-                )
-            ]
-        # verbosity == 2
-        if isinstance(self.selected_individuals, pl.DataFrame):
-            message = PolarsDataFrameMessage(
-                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
-                value=self.selected_individuals.hstack(self.selected_targets),
-                source=self.__class__.__name__,
-            )
-        else:
-            warnings.warn("Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.", stacklevel=2)
-            message = PolarsDataFrameMessage(
-                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
-                value=self.selected_targets,
-                source=self.__class__.__name__,
-            )
-        return [
-            DictMessage(
-                topic=SelectorMessageTopics.STATE,
-                value={
-                    "population_size": self.population_size,
-                    "selected_individuals": self.selection,
-                },
-                source=self.__class__.__name__,
-            ),
-            message,
-            NumpyArrayMessage(
-                topic=SelectorMessageTopics.SELECTED_FITNESS,
-                value=self.fitness,
-                source=self.__class__.__name__,
-            ),
-        ]
-
-    def update(self, message: Message) -> None:
-        """Handle an incoming message. This operator does not react to messages."""
+        components = components[survivors][:, survivors]
+        fitness = _ibea_fitness(components, kappa=self._adaptive_kappa(components))
+        return self._finish(solutions, outputs, candidates[survivors].tolist(), fitness)
 
 
 @njit
@@ -1739,7 +1738,7 @@ def _nsga2_crowding_distance_assignment(
     return crowding_distances
 
 
-class NSGA2Selector(BaseSelector):
+class NSGA2Selector(_FitnessPublishingSelector):
     """Implements the selection operator defined for NSGA2.
 
     Implements the selection operator defined for NSGA2, which included the crowding
@@ -1754,44 +1753,6 @@ class NSGA2Selector(BaseSelector):
         (2002). A fast and elitist multiobjective genetic algorithm: NSGA-II. IEEE
         transactions on evolutionary computation, 6(2), 182-197.
     """
-
-    @property
-    def provided_topics(self):
-        """The topics provided for the NSGA2 method."""
-        return {
-            0: [],
-            1: [SelectorMessageTopics.STATE],
-            2: [SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS, SelectorMessageTopics.SELECTED_FITNESS],
-        }
-
-    @property
-    def interested_topics(self):
-        """The topics the NSGA2 method is interested in."""
-        return []
-
-    def __init__(
-        self,
-        problem: Problem,
-        verbosity: int,
-        publisher: Publisher,
-        population_size: int,
-        seed: int = 0,
-    ):
-        """Initialize the NSGA-II selection operator.
-
-        Args:
-            problem (Problem): The optimization problem to be solved.
-            verbosity (int): The verbosity level of the operator.
-            publisher (Publisher): The publisher to use for communication.
-            population_size (int): The number of individuals to select each generation.
-            seed (int, optional): The random seed to use. Defaults to 0.
-        """
-        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher, seed=seed)
-        self.population_size = population_size
-        self.seed = seed
-        self.selection: list[int] | None = None
-        self.selected_individuals: SolutionType | None = None
-        self.selected_targets: pl.DataFrame | None = None
 
     def _sort(self, targets: np.ndarray, violations: np.ndarray | None) -> np.ndarray:
         """Rank a population into fronts, applying constrained domination when the problem has constraints.
@@ -1975,55 +1936,6 @@ class NSGA2Selector(BaseSelector):
 
         self.notify()
         return solutions, outputs
-
-    def state(self) -> Sequence[Message]:
-        """Return the state of the selector."""
-        if self.verbosity == 0 or self.selection is None or self.selected_targets is None:
-            return []
-        if self.verbosity == 1:
-            return [
-                DictMessage(
-                    topic=SelectorMessageTopics.STATE,
-                    value={
-                        "population_size": self.population_size,
-                        "selected_individuals": self.selection,
-                    },
-                    source=self.__class__.__name__,
-                )
-            ]
-        # verbosity == 2
-        if isinstance(self.selected_individuals, pl.DataFrame):
-            message = PolarsDataFrameMessage(
-                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
-                value=self.selected_individuals.hstack(self.selected_targets),
-                source=self.__class__.__name__,
-            )
-        else:
-            warnings.warn("Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.", stacklevel=2)
-            message = PolarsDataFrameMessage(
-                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
-                value=self.selected_targets,
-                source=self.__class__.__name__,
-            )
-        return [
-            DictMessage(
-                topic=SelectorMessageTopics.STATE,
-                value={
-                    "population_size": self.population_size,
-                    "selected_individuals": self.selection,
-                },
-                source=self.__class__.__name__,
-            ),
-            message,
-            NumpyArrayMessage(
-                topic=SelectorMessageTopics.SELECTED_FITNESS,
-                value=self.fitness,
-                source=self.__class__.__name__,
-            ),
-        ]
-
-    def update(self, message: Message) -> None:
-        """Handle an incoming message. This operator does not react to messages."""
 
 
 class SMSEMOASelector(BaseSelector):
@@ -2562,88 +2474,6 @@ class MOEADSelector(BaseDecompositionSelector):
             PolarsDataFrameMessage(
                 topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
                 value=self.solutions.hstack(self.outputs),
-                source=self.__class__.__name__,
-            ),
-        ]
-
-    def update(self, message: Message) -> None:
-        """Handle an incoming message. This operator does not react to messages."""
-
-
-class _FitnessPublishingSelector(BaseSelector):
-    """Shared state publishing for selectors that feed a mating tournament through SELECTED_FITNESS."""
-
-    @property
-    def provided_topics(self):
-        """The message topics this operator publishes, keyed by verbosity level."""
-        return {
-            0: [],
-            1: [SelectorMessageTopics.STATE],
-            2: [SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS, SelectorMessageTopics.SELECTED_FITNESS],
-        }
-
-    @property
-    def interested_topics(self):
-        """The message topics this operator subscribes to."""
-        return []
-
-    def __init__(self, problem: Problem, verbosity: int, publisher: Publisher, population_size: int, seed: int = 0):
-        """Initialize the selector.
-
-        Args:
-            problem (Problem): The optimization problem to be solved.
-            verbosity (int): The verbosity level of the operator.
-            publisher (Publisher): The publisher to use for communication.
-            population_size (int): The number of solutions selected each generation.
-            seed (int, optional): The random seed to use. Defaults to 0.
-        """
-        super().__init__(problem=problem, verbosity=verbosity, publisher=publisher, seed=seed)
-        if population_size < 1:
-            raise ValueError("population_size must be positive.")
-        self.population_size = population_size
-        self.selection: list[int] | None = None
-        self.selected_individuals: SolutionType | None = None
-        self.selected_targets: pl.DataFrame | None = None
-        self.fitness: np.ndarray | None = None
-
-    def _merge(
-        self, parents: tuple[SolutionType, pl.DataFrame], offsprings: tuple[SolutionType, pl.DataFrame]
-    ) -> tuple[pl.DataFrame, pl.DataFrame]:
-        if not isinstance(parents[0], pl.DataFrame):
-            raise TypeError(f"{self.__class__.__name__} works on polars DataFrames only.")
-        if offsprings[1].is_empty():
-            return parents[0], parents[1]
-        return parents[0].vstack(offsprings[0]), parents[1].vstack(offsprings[1])
-
-    def _finish(self, solutions: pl.DataFrame, outputs: pl.DataFrame, chosen: list[int], fitness: np.ndarray):
-        self.selection = chosen
-        self.selected_individuals = solutions[chosen]
-        self.selected_targets = outputs[chosen]
-        self.fitness = fitness
-        self.notify()
-        return self.selected_individuals, self.selected_targets
-
-    def state(self) -> Sequence[Message]:
-        """Return the operator's state as messages for the current verbosity level."""
-        if self.verbosity == 0 or self.selection is None or self.selected_targets is None:
-            return []
-        state = DictMessage(
-            topic=SelectorMessageTopics.STATE,
-            value={"population_size": self.population_size, "selected_individuals": self.selection},
-            source=self.__class__.__name__,
-        )
-        if self.verbosity == 1:
-            return [state]
-        return [
-            state,
-            PolarsDataFrameMessage(
-                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
-                value=self.selected_individuals.hstack(self.selected_targets),
-                source=self.__class__.__name__,
-            ),
-            NumpyArrayMessage(
-                topic=SelectorMessageTopics.SELECTED_FITNESS,
-                value=self.fitness,
                 source=self.__class__.__name__,
             ),
         ]

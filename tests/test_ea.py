@@ -2888,6 +2888,44 @@ def test_ibea_survives_a_population_collapsed_onto_one_objective_vector():
 
 
 @pytest.mark.ea
+@pytest.mark.parametrize(
+    ("constrained", "population_size"),
+    [(False, 20), (True, 5), (True, 20)],
+    ids=["unconstrained", "enough-feasible", "too-few-feasible"],
+)
+def test_ibea_selection_indexes_the_merged_population(constrained, population_size):
+    """IBEA's `selection` holds the survivors' row positions in parents + offspring on every branch.
+
+    The indicator branch used to store the survivor mask, and on a constrained problem a mask over
+    the feasible solutions only, so the STATE message changed shape and meaning between branches.
+    The fixture has 9 feasible solutions of 40, so 5 places can be filled from them and 20 cannot.
+    """
+    problem = car_side_impact(three_obj=False) if constrained else dtlz2(n_variables=8, n_objectives=3)
+    publisher = Publisher()
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=40, seed=0, verbosity=1
+    )
+    selector = IBEASelector(problem=problem, verbosity=1, publisher=publisher, population_size=population_size, seed=0)
+    solutions, outputs = generator.do()
+
+    half = len(solutions) // 2
+    selected_solutions, selected = selector.do(
+        parents=(solutions[:half], outputs[:half]), offsprings=(solutions[half:], outputs[half:])
+    )
+
+    assert isinstance(selector.selection, list)
+    assert len(selector.selection) == population_size
+    assert all(isinstance(index, int) for index in selector.selection)
+    assert selected_solutions.equals(solutions[selector.selection])
+    assert selected.equals(outputs[selector.selection])
+    if constrained and population_size == 5:
+        constraints = [c.symbol for c in problem.constraints]
+        feasible = np.flatnonzero(np.maximum(outputs[constraints].to_numpy(), 0.0).sum(axis=1) <= 0)
+        assert set(selector.selection) <= set(feasible.tolist())
+
+
+@pytest.mark.ea
 @pytest.mark.parametrize("name", ["nsga2", "ibea", "moead", "moead_de", "spea2", "agemoea2", "hype"])
 def test_constrained_selectors_reach_a_feasible_population(name):
     """Every selector must drive a constrained run to feasibility, not merely tolerate constraints.

@@ -14,7 +14,7 @@ from desdeo.emo.operators.generator import BaseGenerator
 from desdeo.emo.operators.learning_mode import LearningModeOperator
 from desdeo.emo.operators.mutation import BaseMutation
 from desdeo.emo.operators.scalar_selection import BaseScalarSelector
-from desdeo.emo.operators.selection import BaseSelector, MOEADSelector
+from desdeo.emo.operators.selection import BaseSelector, MOEADSelector, _FitnessPublishingSelector
 from desdeo.emo.operators.termination import BaseTerminator
 from desdeo.tools.generics import EMOResult
 
@@ -63,7 +63,7 @@ def template2(
     crossover: BaseCrossover,
     mutation: BaseMutation,
     generator: BaseGenerator,
-    selection: BaseSelector,
+    selection: _FitnessPublishingSelector,
     mate_selection: BaseScalarSelector,
     terminator: BaseTerminator,
     repair: Callable[[pl.DataFrame], pl.DataFrame] = lambda x: x,  # Default to identity function if no repair is needed
@@ -76,7 +76,8 @@ def template2(
         crossover (BaseCrossover): The crossover operator.
         mutation (BaseMutation): The mutation operator.
         generator (BaseGenerator): A class that generates the initial population.
-        selection (BaseSelector): The selection operator.
+        selection (_FitnessPublishingSelector): The selection operator. It publishes the fitness that
+            `mate_selection` picks parents by.
         mate_selection (BaseScalarSelector): The mating selection operator, which selects parents for mating.
             This is typically a scalar selector that selects parents based on their fitness.
         terminator (BaseTerminator): The termination operator.
