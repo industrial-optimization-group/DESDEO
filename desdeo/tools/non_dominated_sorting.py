@@ -25,6 +25,28 @@ def dominates(x: np.ndarray, y: np.ndarray) -> bool:
 
 
 @njit()
+def dominance_matrix(data: np.ndarray) -> np.ndarray:
+    """Finds the pairwise dominance relations in a population of solutions.
+
+    Args:
+        data (np.ndarray): 2-D array of solutions, with each row being a single solution.
+
+    Returns:
+        np.ndarray: n x n boolean array, where n is the number of solutions. The element (i, j) is
+            true if solution i dominates solution j. False otherwise.
+    """
+    num_solutions = len(data)
+    matrix = np.zeros((num_solutions, num_solutions), dtype=np.bool_)
+    for i in range(num_solutions):
+        for j in range(i + 1, num_solutions):
+            if dominates(data[i], data[j]):
+                matrix[i, j] = True
+            elif dominates(data[j], data[i]):
+                matrix[j, i] = True
+    return matrix
+
+
+@njit()
 def non_dominated(data: np.ndarray) -> np.ndarray:
     """Finds the non-dominated front from a population of solutions.
 

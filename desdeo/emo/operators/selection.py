@@ -32,7 +32,11 @@ from desdeo.tools.message import (
     SelectorMessageTopics,
     TerminatorMessageTopics,
 )
-from desdeo.tools.non_dominated_sorting import fast_non_dominated_sort, fast_non_dominated_sort_indices
+from desdeo.tools.non_dominated_sorting import (
+    dominance_matrix,
+    fast_non_dominated_sort,
+    fast_non_dominated_sort_indices,
+)
 from desdeo.tools.patterns import Publisher, Subscriber
 from desdeo.tools.reference_vectors import create_s_energy
 
@@ -2654,9 +2658,7 @@ def constrained_dominance_matrix(targets: np.ndarray, violations: np.ndarray | N
     smaller total violation dominates, and two feasible solutions are compared by Pareto dominance
     (Deb et al. 2002). Without constraints this is Pareto dominance.
     """
-    no_worse = np.all(targets[:, None, :] <= targets[None, :, :], axis=2)
-    better = np.any(targets[:, None, :] < targets[None, :, :], axis=2)
-    dominance = no_worse & better
+    dominance = dominance_matrix(targets)
     if violations is None:
         return dominance
     feasible = violations <= 0
