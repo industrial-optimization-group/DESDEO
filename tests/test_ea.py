@@ -2727,7 +2727,6 @@ def test_s_energy_rejects_fewer_vectors_than_objectives():
         create_s_energy(number_of_objectives=5, number_of_vectors=3)
 
 
-@MOEAD_DISABLED
 @pytest.mark.ea
 @pytest.mark.parametrize("n_objectives", [3, 5, 8])
 def test_s_energy_gives_every_selector_the_same_population_size(n_objectives):
@@ -2750,7 +2749,6 @@ def test_s_energy_gives_every_selector_the_same_population_size(n_objectives):
         ("nsga3", nsga3_options),
         ("nsga2", nsga2_options),
         ("ibea", ibea_options),
-        ("moead", moead_options),
         ("spea2", spea2_options),
         ("agemoea2", agemoea2_options),
     ):
@@ -2760,7 +2758,7 @@ def test_s_energy_gives_every_selector_the_same_population_size(n_objectives):
         template.seed = 0
         template.generator.n_points = n_vectors
         template.termination = _MaxEvalOpts(max_evaluations=2000)
-        if name in ("nsga3", "moead"):
+        if name == "nsga3":
             previous = template.selection.reference_vector_options
             template.selection.reference_vector_options = ReferenceVectorOptions(
                 creation_type="s_energy",
