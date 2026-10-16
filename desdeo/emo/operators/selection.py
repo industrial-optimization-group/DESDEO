@@ -2272,6 +2272,12 @@ class MOEADSelector(BaseDecompositionSelector):
                 the value of Zhang and Li (2007), Section V-G.
             seed (int, optional): The random seed to use. Defaults to 0.
         """
+        raise NotImplementedError("""
+        MOEADSelector is not yet implemented.
+        I just haven't gotten around to checking the details of the implementation and testing it.
+        It is very slow anyway, I wouldn't recommend using it for anything unless the objective functions are very
+        expensive and cannot be evaluated in parallel.
+        """)
         if reference_vector_options is None:
             reference_vector_options = ReferenceVectorOptions()
         elif isinstance(reference_vector_options, dict):
@@ -3066,6 +3072,12 @@ class HypESelector(_FitnessPublishingSelector):
                 normalized objective. Must exceed one. Defaults to 1.1.
             seed (int, optional): The random seed to use. Defaults to 0.
         """
+        raise NotImplementedError(
+            """
+            HypESelector is not implemented yet. (I haven't checked the implementation fully yet.)
+            Plus, it's very slow, and the behaviour is similar to IBEA. You aren't missing much.
+            """
+        )
         super().__init__(problem, verbosity=verbosity, publisher=publisher, population_size=population_size, seed=seed)
         if n_samples < 1:
             raise ValueError("n_samples must be positive.")
