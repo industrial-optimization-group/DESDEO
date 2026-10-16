@@ -16,6 +16,7 @@ import polars as pl
 from moocore import hv_contributions
 from numba import njit
 from pydantic import BaseModel, ConfigDict, Field
+from scipy.spatial.distance import cdist
 from scipy.special import comb
 from scipy.stats.qmc import LatinHypercube
 
@@ -2412,7 +2413,7 @@ class MOEADSelector(BaseDecompositionSelector):
         # Step 1.1 (2009) / Step 1.2 (2007): the T closest weight vectors to each weight vector. A
         # subproblem's own vector is placed first explicitly, since preference handling can add edge
         # vectors that duplicate one already in the set.
-        distances = np.linalg.norm(self.weights[:, None, :] - self.weights[None, :, :], axis=2)
+        distances = cdist(self.weights, self.weights)
         np.fill_diagonal(distances, -1.0)
         self.neighbourhoods = np.argsort(distances, axis=1, kind="stable")[:, : self.neighbourhood_size]
 
@@ -2685,7 +2686,7 @@ def spea2_fitness(targets: np.ndarray, violations: np.ndarray | None = None) -> 
     dominance = constrained_dominance_matrix(targets, violations)
     strength = dominance.sum(axis=1)
     raw = (dominance * strength[:, None]).sum(axis=0)
-    distances = np.linalg.norm(targets[:, None, :] - targets[None, :, :], axis=2)
+    distances = cdist(targets, targets)
     np.fill_diagonal(distances, np.inf)
     if n < 2:  # noqa: PLR2004
         return raw.astype(float), distances
@@ -2872,7 +2873,7 @@ def agemoea2_geodesic_distances(front: np.ndarray, p: float) -> np.ndarray:
     norms[~np.isfinite(norms) | (norms == 0)] = 1.0
     projected = front / norms[:, None]
     if 0.95 < p < 1.05:  # noqa: PLR2004
-        return np.linalg.norm(projected[:, None, :] - projected[None, :, :], axis=2)
+        return cdist(projected, projected)
     midpoints = (projected[:, None, :] + projected[None, :, :]) / 2
     mid_norms = _lp_norm(midpoints, p)
     mid_norms[~np.isfinite(mid_norms) | (mid_norms == 0)] = 1.0
