@@ -2663,6 +2663,8 @@ def constrained_dominance_matrix(targets: np.ndarray, violations: np.ndarray | N
     if violations is None:
         return dominance
     feasible = violations <= 0
+    # Basically, feasible solutions dominate infeasible ones, and among infeasible solutions the one with
+    # the smaller violation "dominates". Feasible solutions are compared by Pareto dominance.
     return np.where(feasible[:, None] & feasible[None, :], dominance, violations[:, None] < violations[None, :])
 
 
