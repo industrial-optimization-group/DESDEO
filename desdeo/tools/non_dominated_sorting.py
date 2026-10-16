@@ -123,6 +123,44 @@ def fast_non_dominated_sort_indices(data: np.ndarray) -> list[list[int]]:
     return [np.where(fronts[i])[0].tolist() for i in range(len(fronts))]
 
 
+def constrained_fronts(targets: np.ndarray, violations: np.ndarray | None) -> np.ndarray:
+    """Rank a population into fronts under the constrained domination of Deb et al. (2002).
+
+    Constrained domination never compares a feasible solution with an infeasible one on objectives,
+    so the two groups can be ranked separately and concatenated instead of a dominance relation being
+    redefined. The feasible group gets the ordinary non-dominated sort; the infeasible group is
+    stratified by total violation, one front per distinct value, which is what "the one with the
+    smaller violation wins" means as a ranking. Without constraints this is the ordinary sort.
+
+    Args:
+        targets (np.ndarray): the minimized objective vectors, shape `(n, m)`.
+        violations (np.ndarray | None): total constraint violation per row, or None for an
+            unconstrained problem.
+
+    Returns:
+        np.ndarray: boolean front masks, shape `(n_fronts, n)`, best front first.
+    """
+    if violations is None:
+        return fast_non_dominated_sort(targets)
+
+    feasible = np.flatnonzero(violations <= 0)
+    infeasible = np.flatnonzero(violations > 0)
+    fronts = []
+
+    if feasible.size > 0:
+        for front in fast_non_dominated_sort(targets[feasible]):
+            row = np.zeros(len(targets), dtype=np.bool_)
+            row[feasible[front]] = True
+            fronts.append(row)
+
+    for violation in np.unique(violations[infeasible]):
+        row = np.zeros(len(targets), dtype=np.bool_)
+        row[infeasible[violations[infeasible] == violation]] = True
+        fronts.append(row)
+
+    return np.array(fronts)
+
+
 @njit()
 def non_dominated_merge(set1: np.ndarray, set2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Merge two sets of non-dominated solutions.
