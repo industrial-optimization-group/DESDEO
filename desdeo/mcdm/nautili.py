@@ -46,7 +46,10 @@ class NautiliError(Exception):
 
 
 def solve_reachable_bounds(
-    problem: Problem, navigation_point: dict[str, float], solver: BaseSolver | None = None
+    problem: Problem,
+    navigation_point: dict[str, float],
+    solver: BaseSolver | None = None,
+    solver_options: SolverOptions | None = None,
 ) -> tuple[dict[str, float], dict[str, float]]:
     """Computes the current reachable (upper and lower) bounds of the solutions in the objective space.
 
@@ -60,6 +63,9 @@ def solve_reachable_bounds(
             the navigation point.
         solver (BaseSolver | None, optional): solver based on BaseSolver used to solve the problem.
             If None, then a solver is utilized bases on the problem's properties. Defaults to None.
+        solver_options (SolverOptions | None, optional): optional options passed
+            to the `solver`. Ignored if `solver` is `None`.
+            Defaults to None.
 
     Raises:
         NautiliError: when optimization of an epsilon constraint problem is not successful.
@@ -79,6 +85,7 @@ def solve_reachable_bounds(
 
     # if a solver creator was provided, use that, else, guess the best one
     solver_init = guess_best_solver(problem) if solver is None else solver
+    _solver_options = None if solver_options is None or solver is None else solver_options
 
     lower_bounds = {}
     upper_bounds = {}
@@ -93,8 +100,8 @@ def solve_reachable_bounds(
         )
 
         # solve
-        solver = solver_init(eps_problem)
-        res = solver.solve(target)
+        solver_instance = solver_init(eps_problem, _solver_options)
+        res = solver_instance.solve(target)
 
         if not res.success:
             # could not optimize eps problem
@@ -157,6 +164,7 @@ def solve_reachable_solution(
     """
     # check solver
     init_solver = guess_best_solver(problem) if solver is None else solver
+    _solver_options = None if solver_options is None or solver is None else solver_options
 
     # create and add scalarization function
     # previous_nav_point = objective_dict_to_numpy_array(problem, previous_nav_point).tolist()
@@ -195,11 +203,13 @@ def solve_reachable_solution(
     )
 
     # solve the problem
-    solver = init_solver(problem_w_asf)
-    return solver.solve(target)
+    solver_instance = init_solver(problem_w_asf, _solver_options)
+    return solver_instance.solve(target)
 
 
-def nautili_init(problem: Problem, solver: BaseSolver | None = None) -> NAUTILI_Response:
+def nautili_init(
+    problem: Problem, solver: BaseSolver | None = None, solver_options: SolverOptions | None = None
+) -> NAUTILI_Response:
     """Initializes the NAUTILI method.
 
     Creates the initial response of the method, which sets the navigation point to the nadir point
@@ -208,12 +218,17 @@ def nautili_init(problem: Problem, solver: BaseSolver | None = None) -> NAUTILI_
     Args:
         problem (Problem): The problem to be solved.
         solver (BaseSolver | None, optional): The solver to use. Defaults to None.
+        solver_options (SolverOptions | None, optional): optional options passed
+            to the `solver`. Ignored if `solver` is `None`.
+            Defaults to None.
 
     Returns:
         NAUTILUS_Response: The initial response of the method.
     """
     nav_point = get_nadir_dict(problem)
-    lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point, solver=solver)
+    lower_bounds, upper_bounds = solve_reachable_bounds(
+        problem, nav_point, solver=solver, solver_options=solver_options
+    )
     return NAUTILI_Response(
         distance_to_front=0,
         navigation_point=nav_point,
@@ -232,6 +247,7 @@ def nautili_step(
     step_number: int,
     nav_point: dict,
     solver: BaseSolver | None = None,
+    solver_options: SolverOptions | None = None,
     group_improvement_direction: dict | None = None,
     reachable_solution: dict | None = None,
 ) -> NAUTILI_Response:
@@ -243,14 +259,18 @@ def nautili_step(
         raise NautiliError("Only one of group_improvement_direction or reachable_solution should be provided.")
 
     if group_improvement_direction is not None:
-        opt_result = solve_reachable_solution(problem, group_improvement_direction, nav_point, solver)
+        opt_result = solve_reachable_solution(
+            problem, group_improvement_direction, nav_point, solver, solver_options=solver_options
+        )
         reachable_solution = opt_result.optimal_objectives
 
     # update nav point
     new_nav_point = calculate_navigation_point(problem, nav_point, reachable_solution, steps_remaining)
 
     # update_bounds
-    lower_bounds, upper_bounds = solve_reachable_bounds(problem, new_nav_point, solver=solver)
+    lower_bounds, upper_bounds = solve_reachable_bounds(
+        problem, new_nav_point, solver=solver, solver_options=solver_options
+    )
 
     distance = calculate_distance_to_front(problem, new_nav_point, reachable_solution)
 
@@ -272,6 +292,7 @@ def nautili_all_steps(
     reference_points: dict[str, dict[str, float]],
     previous_responses: list[NAUTILI_Response],
     solver: BaseSolver | None = None,
+    solver_options: SolverOptions | None = None,
 ) -> [NAUTILI_Response]:
     """Run all remaining NAUTILI steps for the given reference points and return the responses."""
     responses = []
@@ -325,6 +346,7 @@ def nautili_all_steps(
                 nav_point=nav_point,
                 group_improvement_direction=group_improvement_direction,
                 solver=solver,
+                solver_options=solver_options,
             )
             first_iteration = False
         else:
@@ -335,6 +357,7 @@ def nautili_all_steps(
                 nav_point=nav_point,
                 reachable_solution=reachable_solution,
                 solver=solver,
+                solver_options=solver_options,
             )
         response.reference_points = reference_points
         response.improvement_directions = improvement_directions

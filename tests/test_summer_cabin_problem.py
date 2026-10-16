@@ -18,7 +18,7 @@ from desdeo.problem.testproblems import (
 )
 from desdeo.tools import CVXPYSolver, GurobipySolver, PyomoBonminSolver, PyomoGurobiSolver, PyomoIpoptSolver
 from desdeo.tools.partial_scalarization import add_cumulonimbus_diff
-from desdeo.tools.robust import add_worst_case_robust
+from desdeo.tools.robust import add_weighted_scenarios, add_worst_case_robust
 from desdeo.tools.scenarios import (
     build_combined_scenario_problem,
     build_scenario_problem,
@@ -547,6 +547,102 @@ def test_payoff_table_cvxpy_wc(combined_wc_problem):
     """Payoff table method runs to completion with CVXPYSolver on the worst-case robust problem."""
     ideal, nadir = payoff_table_method(combined_wc_problem, CVXPYSolver)
     _check_wc_payoff_table(ideal, nadir)
+
+
+# ---------------------------------------------------------------------------
+# User-weighted combined problem
+# ---------------------------------------------------------------------------
+
+# Deliberately not the scenario probabilities: a pessimistic weighting that puts
+# more mass on the outage leaves than their true likelihood warrants.
+_LEAF_WEIGHTS = {"S1a": 0.5, "S1b": 0.2, "S2a": 0.2, "S2b": 0.1}
+
+
+@pytest.fixture(name="combined_weighted_problem")
+def combined_weighted_problem_fixture():
+    """Return the user-weighted combined problem built from the scenario model."""
+    model = summer_cabin_battery_problem_split_scenario()
+    problem, _ = add_weighted_scenarios(model, symbols=["f_1", "f_2", "f_3"], weights=_LEAF_WEIGHTS)
+    return problem
+
+
+def _check_weighted_payoff_table(ideal, nadir):
+    assert set(ideal.keys()) == set(nadir.keys())
+    for sym in ideal:
+        assert ideal[sym] <= nadir[sym] + 1e-6, f"{sym}: ideal {ideal[sym]} > nadir {nadir[sym]}"
+    for sym in ("weighted_f_1", "weighted_f_2", "weighted_f_3"):
+        assert sym in ideal, f"Expected objective {sym} missing from payoff table"
+
+
+@pytest.mark.scenario
+def test_weighted_objectives_added(combined_weighted_problem):
+    """The weighted objectives are present alongside the per-leaf ones."""
+    syms = {o.symbol for o in combined_weighted_problem.objectives}
+    assert {"weighted_f_1", "weighted_f_2", "weighted_f_3"} <= syms
+
+
+@pytest.mark.scenario
+def test_weighted_missing_leaf_raises():
+    """Omitting a leaf from the weights is rejected."""
+    model = summer_cabin_battery_problem_split_scenario()
+    partial = {leaf: w for leaf, w in _LEAF_WEIGHTS.items() if leaf != "S2b"}
+    with pytest.raises(ValueError, match="missing keys"):
+        add_weighted_scenarios(model, symbols=["f_1"], weights=partial)
+
+
+@pytest.mark.pyomo
+@pytest.mark.scenario
+def test_pyomo_gurobi_constructs_weighted(combined_weighted_problem):
+    """PyomoGurobiSolver can be constructed for the user-weighted problem."""
+    assert PyomoGurobiSolver(combined_weighted_problem) is not None
+
+
+@pytest.mark.pyomo
+@pytest.mark.scenario
+def test_pyomo_bonmin_constructs_weighted(combined_weighted_problem):
+    """PyomoBonminSolver can be constructed for the user-weighted problem."""
+    assert PyomoBonminSolver(combined_weighted_problem) is not None
+
+
+@pytest.mark.pyomo
+@pytest.mark.scenario
+def test_pyomo_ipopt_constructs_weighted(combined_weighted_problem):
+    """PyomoIpoptSolver can be constructed for the user-weighted problem."""
+    assert PyomoIpoptSolver(combined_weighted_problem) is not None
+
+
+@pytest.mark.gurobipy
+@pytest.mark.scenario
+def test_gurobipy_constructs_weighted(combined_weighted_problem):
+    """GurobipySolver can be constructed for the user-weighted problem."""
+    assert GurobipySolver(combined_weighted_problem) is not None
+
+
+@pytest.mark.cvxpy
+@pytest.mark.scenario
+def test_cvxpy_constructs_weighted(combined_weighted_problem):
+    """CVXPYSolver can be constructed for the user-weighted problem."""
+    assert CVXPYSolver(combined_weighted_problem) is not None
+
+
+@pytest.mark.gurobipy
+@pytest.mark.scenario
+@pytest.mark.slow
+@pytest.mark.githubskip(reason="Gurobi license issues")
+def test_payoff_table_gurobipy_weighted(combined_weighted_problem):
+    """Payoff table method runs to completion with GurobipySolver on the user-weighted problem."""
+    ideal, nadir = payoff_table_method(combined_weighted_problem, GurobipySolver)
+    _check_weighted_payoff_table(ideal, nadir)
+
+
+@pytest.mark.cvxpy
+@pytest.mark.scenario
+@pytest.mark.slow
+@pytest.mark.githubskip(reason="Gurobi license issues")
+def test_payoff_table_cvxpy_weighted(combined_weighted_problem):
+    """Payoff table method runs to completion with CVXPYSolver on the user-weighted problem."""
+    ideal, nadir = payoff_table_method(combined_weighted_problem, CVXPYSolver)
+    _check_weighted_payoff_table(ideal, nadir)
 
 
 # ---------------------------------------------------------------------------

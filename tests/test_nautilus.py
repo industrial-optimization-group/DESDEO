@@ -8,12 +8,15 @@ from fixtures import dtlz2_5x_3f_data_based  # noqa: F401
 from desdeo.mcdm.nautili import solve_reachable_bounds
 from desdeo.mcdm.nautilus import (
     calculate_navigation_point,
+    nautilus_init,
+    nautilus_step,
     points_to_weights,
     ranks_to_weights,
     solve_reachable_solution,
 )
 from desdeo.problem import objective_dict_to_numpy_array
 from desdeo.problem.testproblems import binh_and_korn, river_pollution_problem
+from desdeo.tools import guess_best_solver
 
 
 @pytest.mark.nautilus
@@ -197,3 +200,69 @@ def test_solve_reachable_bounds_complicated():
     # check than bounds make sense
     for symbol in [objective.symbol for objective in problem.objectives]:
         assert upper_bounds[symbol] > lower_bounds[symbol]
+
+
+@pytest.mark.nautilus
+def test_solve_reachable_solution_forwards_solver_options():
+    """`solver_options` must reach the solver, and be ignored when no solver is given."""
+    problem = binh_and_korn()
+    prev_nav_point = {"f_1": 80.0, "f_2": 30.0}
+    weights = {"f_1": 1.0, "f_2": 1.0}
+    received = []
+
+    class RecordingSolver:
+        """Wraps the solver the method would have picked and records the options given."""
+
+        def __init__(self, problem, options=None):
+            received.append(options)
+            self._inner = guess_best_solver(problem)(problem)
+
+        def solve(self, target):
+            return self._inner.solve(target)
+
+    options = {"a_marker_option": 1}
+    solve_reachable_solution(
+        problem, weights, prev_nav_point, solver=RecordingSolver, solver_options=options
+    )
+    assert received == [options], "solver_options did not reach the solver"
+
+    # documented contract: options are ignored when the solver is not given
+    received.clear()
+    solve_reachable_solution(problem, weights, prev_nav_point, solver_options=options)
+    assert received == []
+
+
+@pytest.mark.nautilus
+def test_nautilus_steps_forward_solver_options():
+    """`solver_options` given to the NAUTILUS steppers must reach the solver."""
+    problem = binh_and_korn()
+    received = []
+
+    class RecordingSolver:
+        """Wraps the solver the method would have picked and records the options given."""
+
+        def __init__(self, problem, options=None):
+            received.append(options)
+            self._inner = guess_best_solver(problem)(problem)
+
+        def solve(self, target):
+            return self._inner.solve(target)
+
+    options = {"a_marker_option": 1}
+
+    initial_response = nautilus_init(problem, solver=RecordingSolver, solver_options=options)
+    assert received, "solver_options did not reach the solver from nautilus_init"
+    assert all(opts == options for opts in received)
+
+    received.clear()
+    nautilus_step(
+        problem,
+        steps_remaining=5,
+        step_number=1,
+        nav_point=initial_response.navigation_point,
+        solver=RecordingSolver,
+        solver_options=options,
+        points={"f_1": 50.0, "f_2": 50.0},
+    )
+    assert received, "solver_options did not reach the solver from nautilus_step"
+    assert all(opts == options for opts in received)

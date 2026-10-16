@@ -112,7 +112,7 @@ def parse_cvxpy_optimizer_results(problem: Problem, evaluator: CVXPYEvaluator) -
 class CVXPYSolver(BaseSolver):
     """Creates a CVXPY solver that utilizes CVXPY's optimization capabilities."""
 
-    def __init__(self, problem: Problem, options: CVXPYSolverOptions = _default_cvxpy_options):
+    def __init__(self, problem: Problem, options: CVXPYSolverOptions | None = _default_cvxpy_options):
         """The solver is initialized by supplying a problem and options.
 
         CVXPY is a Python-embedded modeling language for convex optimization problems,
@@ -120,11 +120,16 @@ class CVXPYSolver(BaseSolver):
 
         Args:
             problem (Problem): the problem to be solved.
-            options (CVXPYSolverOptions): Pydantic model containing solver options for CVXPY.
+            options (CVXPYSolverOptions | None): Pydantic model containing solver options for CVXPY.
                 For available options see https://www.cvxpy.org/api_reference/cvxpy.problems.html#solve
+                If `None` is passed, defaults to `_default_cvxpy_options` defined in this
+                source file.
         """
         self.evaluator = CVXPYEvaluator(problem)
         self.problem = problem
+
+        if options is None:
+            options = _default_cvxpy_options
 
         options_dict = {k: v for k, v in options.model_dump().items() if v is not None}
         extra_options = options_dict.pop("extra_options", None)

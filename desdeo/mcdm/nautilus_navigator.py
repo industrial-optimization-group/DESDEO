@@ -158,8 +158,8 @@ def solve_reachable_bounds(
             eps_problem = eps_problem.add_constraints(bound_constraints)
 
         # solve
-        solver = solver_init(eps_problem)
-        res = solver.solve(target)
+        solver_instance = solver_init(eps_problem)
+        res = solver_instance.solve(target)
 
         if not res.success:
             # could not optimize eps problem
@@ -227,8 +227,8 @@ def solve_reachable_bounds(
             eps_problem = eps_problem.add_constraints([bound_to_nav_constraint])
 
         # solve
-        solver = solver_init(eps_problem)
-        res = solver.solve(target)
+        solver_instance = solver_init(eps_problem)
+        res = solver_instance.solve(target)
         if not res.success:
             # could not optimize eps problem
             msg = (
@@ -331,8 +331,8 @@ def solve_reachable_solution(
     problem_w_asf = problem_w_asf.add_constraints(constraints)
 
     # solve the problem
-    solver = init_solver(problem_w_asf)
-    return solver.solve(target)
+    solver_instance = init_solver(problem_w_asf)
+    return solver_instance.solve(target)
 
 
 def calculate_distance_to_front(

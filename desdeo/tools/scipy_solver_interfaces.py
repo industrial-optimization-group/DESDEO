@@ -291,7 +291,7 @@ def parse_scipy_optimization_result(
 class ScipyMinimizeSolver(BaseSolver):
     """Creates a scipy solver that utilizes the `minimization` routine."""
 
-    def __init__(self, problem: Problem, options: ScipyMinimizeOptions = _default_scipy_minimize_options):
+    def __init__(self, problem: Problem, options: ScipyMinimizeOptions | None = _default_scipy_minimize_options):
         """Initializes a solver that utilizes the `scipy.optimize.minimize` routine.
 
         The `scipy.optimize.minimze` routine is fully accessible through this function.
@@ -300,12 +300,17 @@ class ScipyMinimizeSolver(BaseSolver):
 
         Args:
             problem (Problem): the multiobjective optimization problem to be solved.
-            options: (ScipyMinimizeOptions): Pydantic model containing args for scipy minimize solver.
+            options: (ScipyMinimizeOptions | None): Pydantic model containing args for scipy minimize solver.
+                If `None` is passed, defaults to `_default_scipy_minimize_options` defined in
+                this source file.
 
         """
         if variable_dimension_enumerate(problem) not in SUPPORTED_VAR_DIMENSIONS:
             msg = "ScipyMinimizeSolver only supports scalar variables."
             raise SolverError(msg)
+
+        if options is None:
+            options = _default_scipy_minimize_options
 
         initial_guess = options.initial_guess
         self.problem = problem
@@ -365,7 +370,7 @@ class ScipyDeSolver(BaseSolver):
     def __init__(
         self,
         problem: Problem,
-        options: ScipyDeOptions = _default_scipy_de_options,
+        options: ScipyDeOptions | None = _default_scipy_de_options,
     ):
         """Creates a solver that utilizes the `scipy.optimize.differential_evolution` routine.
 
@@ -375,8 +380,13 @@ class ScipyDeSolver(BaseSolver):
 
         Args:
             problem (Problem): the multiobjective optimization problem to be solved.
-            options (ScipyDeOptions): Pydantic model containing arguments used by scipy DE solver.
+            options (ScipyDeOptions | None): Pydantic model containing arguments used by scipy DE solver.
+                If `None` is passed, defaults to `_default_scipy_de_options` defined in this
+                source file.
         """
+        if options is None:
+            options = _default_scipy_de_options
+
         initial_guess = options.initial_guess
         de_kwargs = options.de_kwargs
 
