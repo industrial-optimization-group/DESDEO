@@ -119,14 +119,12 @@ class ReferenceVectorOptions(BaseModel):
     Only used if no preference is provided."""
     creation_type: Literal["simplex", "s_energy"] = Field(default="simplex")
     """The method for creating reference vectors. Defaults to "simplex".
-    Currently only "simplex" is implemented. Future versions will include "s_energy".
 
     If set to "simplex", the reference vectors are created using the simplex lattice design method.
     This method is generates distributions with specific numbers of reference vectors.
     Check: https://www.itl.nist.gov/div898/handbook/pri/section5/pri542.htm for more information.
     If set to "s_energy", the reference vectors are created using the Riesz s-energy criterion. This method is used to
     distribute an arbitrary number of reference vectors in the objective space while minimizing the s-energy.
-    Currently not implemented.
     """
     vector_type: Literal["spherical", "planar"] = Field(default="spherical")
     """The method for normalizing the reference vectors. Defaults to "spherical"."""
@@ -218,7 +216,7 @@ class BaseDecompositionSelector(BaseSelector):
             self.interactive_adapt_2(
                 corrected_sols,
                 predefined_distance=self.reference_vector_options.adaptation_distance,
-                ord=2 if self.reference_vector_options.vector_type == "spherical" else 1,
+                norm_order=2 if self.reference_vector_options.vector_type == "spherical" else 1,
             )
         elif self.reference_vector_options.preferred_ranges:
             corrected_ranges = np.array(
@@ -659,6 +657,11 @@ class RVEASelector(BaseDecompositionSelector):
         self.denominator: float | None = None
         # Which adaptation epoch was last acted on under an evaluation budget.
         self._adaptation_epoch = 0
+        # Whether the ideal so far was taken over infeasible members only, for
+        # want of any feasible one. Such an ideal can be better than any
+        # feasible design can reach, so it is replaced, not minimised into,
+        # the moment a feasible member appears.
+        self._ideal_is_provisional = False
         self.alpha = alpha
         self.selected_individuals: list | pl.DataFrame
         self.selected_targets: pl.DataFrame
@@ -722,16 +725,21 @@ class RVEASelector(BaseDecompositionSelector):
             # none, at the start on a tightly constrained problem or later once the
             # population has contracted, and a minimum over nothing raises. Keep the
             # previous ideal in that case, as the nadir below already does. With no
-            # ideal yet, take it over every member, as the unconstrained branch does;
-            # that is optimistic, which an ideal point may be, and it is replaced as
-            # soon as a feasible member appears.
+            # ideal yet, take a provisional one over every member. The ideal of
+            # infeasible members can be far better than any feasible design, and
+            # minimising into it would carry that error through every later
+            # generation, so the provisional ideal is replaced outright by the
+            # first feasible one, and only then minimised into as usual.
             if feasible.any():
                 feasible_ideal = np.min(targets[feasible], axis=0)
-                self.ideal = (
-                    feasible_ideal if self.ideal is None else np.min(np.vstack((self.ideal, feasible_ideal)), axis=0)
-                )
-            elif self.ideal is None:
+                if self.ideal is None or self._ideal_is_provisional:
+                    self.ideal = feasible_ideal
+                    self._ideal_is_provisional = False
+                else:
+                    self.ideal = np.min(np.vstack((self.ideal, feasible_ideal)), axis=0)
+            elif self.ideal is None or self._ideal_is_provisional:
                 self.ideal = np.min(targets, axis=0)
+                self._ideal_is_provisional = True
             try:
                 nadir = np.max(targets[feasible], axis=0)
                 self.nadir = nadir
@@ -834,7 +842,7 @@ class RVEASelector(BaseDecompositionSelector):
         if isinstance(self.selected_individuals, pl.DataFrame):
             message = PolarsDataFrameMessage(
                 topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
-                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                value=self.selected_individuals.hstack(self.selected_targets),
                 source=self.__class__.__name__,
             )
         else:
@@ -1287,7 +1295,7 @@ class NSGA3Selector(BaseDecompositionSelector):
         if isinstance(self.selected_individuals, pl.DataFrame):
             message = PolarsDataFrameMessage(
                 topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
-                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                value=self.selected_individuals.hstack(self.selected_targets),
                 source=self.__class__.__name__,
             )
         else:
@@ -1485,6 +1493,20 @@ class IBEASelector(BaseSelector):
         span[span == 0] = 1.0
         return self.binary_indicator((targets - target_min) / span)
 
+    def _adaptive_kappa(self, components: np.ndarray) -> float:
+        """Adaptive IBEA's kappa: the configured kappa scaled by the largest indicator magnitude.
+
+        The scaling makes kappa independent of the objectives' range. When the set has collapsed onto a
+        single objective vector every indicator value is zero, and so is the scale: dividing by it
+        raised ZeroDivisionError in the fitness kernels and would turn the vectorised survivor
+        selection into NaN. A set with no spread has nothing to scale, so the configured kappa is used
+        unscaled. Every exp(-0 / kappa) is then 1 and each member's fitness is -(n - 1), a tie, which is
+        the honest reading of a set the indicator cannot separate. Wherever the scale is positive the
+        value is exactly what it was before.
+        """
+        scale = float(np.abs(components).max())
+        return self.kappa * scale if scale > 0 else self.kappa
+
     def _infeasible_fitness(self, targets: np.ndarray, violations: np.ndarray) -> np.ndarray:
         """Fitness for a set that is partly or wholly infeasible, feasible solutions first.
 
@@ -1494,7 +1516,7 @@ class IBEASelector(BaseSelector):
         higher-is-better, which is what the mating tournament expects.
         """
         components = self._indicator_components(targets)
-        fitness = _ibea_fitness(components, kappa=self.kappa * np.abs(components).max())
+        fitness = _ibea_fitness(components, kappa=self._adaptive_kappa(components))
 
         infeasible = violations > 0
         if not np.any(infeasible):
@@ -1550,17 +1572,16 @@ class IBEASelector(BaseSelector):
 
         # Adaptation
         fitness_components = self._indicator_components(alltargets[self.target_symbols].to_numpy())
-        kappa_mult = np.max(np.abs(fitness_components))
 
         chosen = _ibea_select_all(
-            fitness_components, population_size=self.population_size, kappa=kappa_mult * self.kappa
+            fitness_components, population_size=self.population_size, kappa=self._adaptive_kappa(fitness_components)
         )
         self.selected_individuals = solutions.filter(chosen)
         self.selected_targets = alltargets.filter(chosen)
         self.selection = chosen
 
         fitness_components = fitness_components[chosen][:, chosen]
-        self.fitness = _ibea_fitness(fitness_components, kappa=self.kappa * np.abs(fitness_components).max())
+        self.fitness = _ibea_fitness(fitness_components, kappa=self._adaptive_kappa(fitness_components))
 
         self.notify()
         return self.selected_individuals, self.selected_targets
@@ -1584,7 +1605,7 @@ class IBEASelector(BaseSelector):
         if isinstance(self.selected_individuals, pl.DataFrame):
             message = PolarsDataFrameMessage(
                 topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
-                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                value=self.selected_individuals.hstack(self.selected_targets),
                 source=self.__class__.__name__,
             )
         else:
@@ -1954,7 +1975,7 @@ class NSGA2Selector(BaseSelector):
         if isinstance(self.selected_individuals, pl.DataFrame):
             message = PolarsDataFrameMessage(
                 topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
-                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                value=self.selected_individuals.hstack(self.selected_targets),
                 source=self.__class__.__name__,
             )
         else:
@@ -2154,7 +2175,7 @@ class SMSEMOASelector(BaseSelector):
         if isinstance(self.selected_individuals, pl.DataFrame):
             message = PolarsDataFrameMessage(
                 topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
-                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                value=self.selected_individuals.hstack(self.selected_targets),
                 source=self.__class__.__name__,
             )
         else:

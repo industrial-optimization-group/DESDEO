@@ -12,11 +12,16 @@ from scipy.special import gamma
 
 from desdeo.tools.indicators_binary import epsilon_component, epsilon_indicator
 from desdeo.tools.indicators_unary import (
+    d_phi_batch,
+    d_phi_indicator,
+    desirability_values,
     distance_indicators,
     hv,
     hv_batch,
     igd_plus_batch,
     igd_plus_indicator,
+    phi_plus_batch,
+    phi_plus_indicator,
     r2_batch,
     r2_indicator,
     r_metric_indicators_batch,
@@ -313,3 +318,195 @@ def test_epsilon_indicator():
     assert np.isclose(ei1, ei2), (
         f"Epsilon indicator results do not match: {ei1} vs {ei2} between our and moocore implementations"
     )
+
+
+@pytest.mark.indicators
+def test_desirability_values():
+    """Test that the desirability function interpolates between, and stays within, its limits."""
+    aspiration = np.array([0.2, 0.3])
+    reservation = np.array([0.6, 0.5])
+    c1, c2, epsilon_a, epsilon_r = 1.0, 0.0, 0.2, 0.2
+
+    at_levels = desirability_values(np.array([aspiration, reservation]), aspiration, reservation, c1=c1, c2=c2)
+    assert np.allclose(at_levels[0], c1), "The aspiration levels are not mapped to c1"
+    assert np.allclose(at_levels[1], c2), "The reservation levels are not mapped to c2"
+
+    midpoint = desirability_values((aspiration + reservation) / 2, aspiration, reservation, c1=c1, c2=c2)
+    assert np.allclose(midpoint, (c1 + c2) / 2), "The desirability function is not linear between the levels"
+
+    extremes = desirability_values(np.array([[-1e6, -1e6], [1e6, 1e6]]), aspiration, reservation, c1=c1, c2=c2)
+    assert np.all(extremes[0] < c1 + epsilon_a), "The desirability function exceeds its upper limit"
+    assert np.all(extremes[1] > c2 - epsilon_r), "The desirability function falls below its lower limit"
+    assert np.allclose(extremes[0], c1 + epsilon_a, atol=1e-3), "The upper limit is not approached"
+    assert np.allclose(extremes[1], c2 - epsilon_r, atol=1e-3), "The lower limit is not approached"
+
+    # The desirability function is strictly decreasing, since the objectives are minimized.
+    grid = np.linspace(-1, 2, 200)[:, np.newaxis] * np.ones(2)
+    assert np.all(np.diff(desirability_values(grid, aspiration, reservation), axis=0) < 0), (
+        "The desirability function is not strictly decreasing"
+    )
+
+
+@pytest.mark.indicators
+def test_d_phi_indicator():
+    """Test D-PHI and CI on solution sets with known indicator values."""
+    aspiration = np.array([0.2, 0.2])
+    reservation = np.array([0.6, 0.6])
+
+    # A solution at the aspiration point has a desirability of (c1, c1) = (1, 1), and the reference point of the
+    # hypervolume is (c2 - epsilon_r, c2 - epsilon_r) = (-0.2, -0.2), so D-PHI is 1.2 * 1.2.
+    at_aspiration = d_phi_indicator(aspiration[np.newaxis, :], aspiration, reservation)
+    assert np.isclose(at_aspiration.d_phi, 1.2**2), "D-PHI is not correct at the aspiration point"
+    assert np.isclose(at_aspiration.ci, 0.0), "CI is not 0 at the aspiration point"
+
+    # A solution at the reservation point has a desirability of (c2, c2) = (0, 0), so D-PHI is 0.2 * 0.2.
+    at_reservation = d_phi_indicator(reservation[np.newaxis, :], aspiration, reservation)
+    assert np.isclose(at_reservation.d_phi, 0.2**2), "D-PHI is not correct at the reservation point"
+    assert at_reservation.ci < 0, "CI is not negative for a solution reaching no aspiration level"
+
+    # Reaching every aspiration level is exactly what makes CI non-negative.
+    assert d_phi_indicator(np.array([[0.1, 0.2]]), aspiration, reservation).ci >= 0, (
+        "CI is negative for a solution reaching every aspiration level"
+    )
+    assert d_phi_indicator(np.array([[0.1, 0.21]]), aspiration, reservation).ci < 0, (
+        "CI is non-negative for a solution missing an aspiration level"
+    )
+
+
+@pytest.mark.indicators
+def test_d_phi_monotonicity():
+    """Test that D-PHI rewards better and more numerous solutions."""
+    aspiration = np.array([0.2, 0.2])
+    reservation = np.array([0.6, 0.6])
+    solutions = np.array([[0.3, 0.5], [0.5, 0.3]])
+
+    base = d_phi_indicator(solutions, aspiration, reservation)
+    dominating = d_phi_indicator(solutions - 0.05, aspiration, reservation)
+    extended = d_phi_indicator(np.vstack((solutions, [[0.4, 0.4]])), aspiration, reservation)
+    with_dominated = d_phi_indicator(np.vstack((solutions, [[0.9, 0.9]])), aspiration, reservation)
+
+    assert dominating.d_phi > base.d_phi, "A dominating set does not have a larger D-PHI"
+    assert dominating.ci > base.ci, "A dominating set does not have a larger CI"
+    assert extended.d_phi > base.d_phi, "Adding a non-dominated solution does not increase D-PHI"
+    assert np.isclose(with_dominated.d_phi, base.d_phi), "Adding a dominated solution changed D-PHI"
+
+
+@pytest.mark.indicators
+def test_d_phi_batch():
+    """Test the batch version of D-PHI."""
+    aspiration = np.array([0.2, 0.2])
+    reservation = np.array([0.6, 0.6])
+    solution_sets = {"good": np.array([[0.25, 0.3], [0.3, 0.25]]), "bad": np.array([[0.7, 0.8], [0.8, 0.7]])}
+
+    results = d_phi_batch(solution_sets, aspiration, reservation)
+
+    assert set(results.keys()) == set(solution_sets.keys()), "The batch version lost a solution set"
+    assert results["good"].d_phi > results["bad"].d_phi, "The better set does not have a larger D-PHI"
+    assert results["good"].ci > results["bad"].ci, "The better set does not have a larger CI"
+    for set_name, sols in solution_sets.items():
+        assert np.isclose(results[set_name].d_phi, d_phi_indicator(sols, aspiration, reservation).d_phi), (
+            f"The batch version disagrees with the single set version for {set_name}"
+        )
+
+
+@pytest.mark.indicators
+def test_d_phi_invalid_preferences():
+    """Test that D-PHI rejects inconsistent preference information."""
+    solutions = np.array([[0.3, 0.3]])
+
+    with pytest.raises(ValueError, match="one value per objective"):
+        d_phi_indicator(solutions, np.array([0.1, 0.2, 0.3]), np.array([0.5, 0.6, 0.7]))
+    with pytest.raises(ValueError, match="aspiration level"):
+        d_phi_indicator(solutions, np.array([0.7, 0.2]), np.array([0.5, 0.6]))
+    with pytest.raises(ValueError, match="'c1'"):
+        d_phi_indicator(solutions, np.array([0.1, 0.2]), np.array([0.5, 0.6]), c1=0.0, c2=1.0)
+    with pytest.raises(ValueError, match="positive"):
+        d_phi_indicator(solutions, np.array([0.1, 0.2]), np.array([0.5, 0.6]), epsilon_a=0.0)
+
+
+@pytest.mark.indicators
+def test_phi_plus_indicator():
+    """Test PHI+ on solution sets with known indicator values."""
+    reference_point = np.array([0.5, 0.5])
+    deviations = np.array([0.1, 0.1])
+
+    # The region of interest is [0.4, 0.6]^2. A single solution at the reference point covers 0.1 * 0.1 of it,
+    # and the largest coverage attainable without dominating the reference point is 0.2 * 0.2 - 0.1 * 0.1.
+    at_rp = phi_plus_indicator(reference_point[np.newaxis, :], reference_point, deviations, deviations)
+    assert np.isclose(at_rp.phi_plus, 0.01 / 0.03), "PHI+ is not correct at the reference point"
+
+    # A solution at the lower point dominates the reference point, so the coverage is measured against the
+    # hypervolume of the reference point instead, and the indicator exceeds one.
+    at_lower = phi_plus_indicator(
+        (reference_point - deviations)[np.newaxis, :], reference_point, deviations, deviations
+    )
+    assert np.isclose(at_lower.phi_plus, 0.04 / 0.01), "PHI+ is not correct for a solution dominating the rp"
+
+    # Solutions outside the region of interest do not contribute.
+    outside = np.array([[0.9, 0.1], [0.1, 0.9]])
+    assert phi_plus_indicator(outside, reference_point, deviations, deviations).phi_plus == 0.0, (
+        "PHI+ is not 0 when the region of interest is empty"
+    )
+    assert np.isclose(
+        phi_plus_indicator(np.vstack((reference_point, outside)), reference_point, deviations, deviations).phi_plus,
+        at_rp.phi_plus,
+    ), "Solutions outside the region of interest changed PHI+"
+
+    assert phi_plus_indicator(np.empty((0, 2)), reference_point, deviations, deviations).phi_plus == 0.0, (
+        "PHI+ is not 0 for an empty solution set"
+    )
+
+
+@pytest.mark.indicators
+def test_phi_plus_invalid_deviations():
+    """Test that PHI+ rejects deviations that do not define a usable region of interest."""
+    solutions = np.array([[0.5, 0.5]])
+    reference_point = np.array([0.5, 0.5])
+
+    with pytest.raises(ValueError, match="'deviations_lower'"):
+        phi_plus_indicator(solutions, reference_point, -0.1, 0.1)
+    with pytest.raises(ValueError, match="'deviations_upper'"):
+        phi_plus_indicator(solutions, reference_point, 0.1, 0.0)
+    with pytest.raises(ValueError, match="one value per objective"):
+        phi_plus_indicator(solutions, reference_point, np.array([0.1, 0.1, 0.1]), 0.1)
+
+    # A zero lower deviation is fine: the region of interest simply is not extended past the reference point.
+    assert phi_plus_indicator(np.array([[0.52, 0.55]]), reference_point, 0.0, 0.1).phi_plus > 0, (
+        "A zero lower deviation is not accepted"
+    )
+
+
+@pytest.mark.indicators
+def test_phi_plus_monotonicity():
+    """Test that PHI+ rewards a better coverage of the region of interest."""
+    reference_point = np.array([0.5, 0.5])
+    deviations = np.array([0.1, 0.1])
+    sparse = np.array([[0.45, 0.58], [0.58, 0.45]])
+    dense = np.vstack((sparse, [[0.5, 0.5], [0.48, 0.54], [0.54, 0.48]]))
+
+    sparse_value = phi_plus_indicator(sparse, reference_point, deviations, deviations).phi_plus
+    dense_value = phi_plus_indicator(dense, reference_point, deviations, deviations).phi_plus
+
+    assert 0 < sparse_value < dense_value, "A denser set in the region of interest does not have a larger PHI+"
+
+
+@pytest.mark.indicators
+def test_phi_plus_batch():
+    """Test the batch version of PHI+."""
+    reference_point = np.array([0.5, 0.5])
+    deviations = np.array([0.15, 0.15])
+    solution_sets = {
+        "in_roi": np.array([[0.45, 0.5], [0.5, 0.45]]),
+        "outside_roi": np.array([[0.95, 0.05], [0.05, 0.95]]),
+    }
+
+    results = phi_plus_batch(solution_sets, reference_point, deviations, deviations)
+
+    assert set(results.keys()) == set(solution_sets.keys()), "The batch version lost a solution set"
+    assert results["in_roi"].phi_plus > 0, "PHI+ is 0 for a set covering the region of interest"
+    assert results["outside_roi"].phi_plus == 0.0, "PHI+ is not 0 for a set outside the region of interest"
+    for set_name, sols in solution_sets.items():
+        assert np.isclose(
+            results[set_name].phi_plus,
+            phi_plus_indicator(sols, reference_point, deviations, deviations).phi_plus,
+        ), f"The batch version disagrees with the single set version for {set_name}"

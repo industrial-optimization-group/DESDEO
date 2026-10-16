@@ -20,6 +20,7 @@ from desdeo.emo.operators.crossover import (
     SimulatedBinaryCrossover,
     SingleArithmeticCrossover,
     SinglePointBinaryCrossover,
+    UniformCrossover,
     UniformIntegerCrossover,
     UniformMixedIntegerCrossover,
 )
@@ -65,6 +66,7 @@ from desdeo.emo.options.crossover import (
     DifferentialEvolutionCrossoverOptions,
     ParentCentricCrossoverOptions,
     SimulatedBinaryCrossoverOptions,
+    UniformCrossoverOptions,
     crossover_constructor,
 )
 from desdeo.emo.options.templates import emo_constructor
@@ -892,6 +894,86 @@ def test_blend_alpha_crossover():
 
 
 @pytest.mark.ea
+def test_uniform_crossover():
+    """Test whether the uniform (discrete) crossover operator works as intended."""
+    publisher = Publisher()
+    problem = simple_test_problem()
+    assert problem.variable_domain is VariableDomainTypeEnum.continuous
+
+    crossover = UniformCrossover(problem=problem, publisher=publisher, verbosity=1, seed=0)
+    num_vars = len(crossover.variable_symbols)
+
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=10, seed=0, verbosity=1
+    )
+    population, _outputs = generator.do()
+
+    # An odd-length mating order, to exercise the padding path.
+    to_mate = [0, 9, 1, 8, 2]
+    offspring = crossover.do(population=population, to_mate=to_mate)
+
+    assert offspring.shape == (len(to_mate), num_vars)
+    with npt.assert_raises(AssertionError):
+        npt.assert_allclose(population, offspring)
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize("rate", [0.0, 0.25, 0.5, 0.75, 1.0])
+def test_uniform_crossover_only_ever_copies_parent_values(rate: float):
+    """The defining property: no value is blended, and the swap rate is the one that was asked for.
+
+    This is what separates discrete crossover from every other continuous operator in the module.
+    SBX, BLX-alpha, the bounded exponential and the parent-centric operators all interpolate, so
+    their offspring hold values that appear in neither parent. Here every gene must be exactly one
+    of the two parent values, at any rate, and the fraction taken from the *other* parent must track
+    `uniform_xover_probability`.
+
+    A shape assertion cannot see either property: an operator that blended every gene, or one that
+    ignored the rate and always swapped half, would pass one.
+    """
+    rng = np.random.default_rng(0)
+    problem = simple_test_problem()
+    symbols = [v.symbol for v in problem.get_flattened_variables()]
+
+    # Distinct, well-separated parents, so "equals one parent" cannot be satisfied by coincidence.
+    n_pairs = 200
+    population = pl.DataFrame(rng.uniform(0.0, 1.0, size=(2 * n_pairs, len(symbols))), schema=symbols)
+
+    crossover = UniformCrossover(
+        problem=problem, publisher=Publisher(), verbosity=2, seed=1, uniform_xover_probability=rate
+    )
+    offspring = crossover.do(population=population, to_mate=list(range(2 * n_pairs)))
+
+    parents = crossover.parent_population[symbols].to_numpy()
+    children = offspring[symbols].to_numpy()[:n_pairs]
+    first, second = parents[0::2], parents[1::2]
+
+    from_first = np.isclose(children, first)
+    from_second = np.isclose(children, second)
+    assert (from_first | from_second).all(), "a gene was blended rather than inherited whole"
+
+    swapped = (from_second & ~from_first).mean()
+    assert swapped == pytest.approx(rate, abs=0.05), f"swap rate {swapped:.3f} does not match {rate}"
+
+
+@pytest.mark.ea
+def test_uniform_crossover_options_round_trip():
+    """The options model must build the operator with the same defaults as direct construction."""
+    problem = simple_test_problem()
+    publisher = Publisher()
+
+    direct = UniformCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
+    built = crossover_constructor(
+        problem=problem, publisher=publisher, seed=0, verbosity=1, options=UniformCrossoverOptions()
+    )
+
+    assert isinstance(built, UniformCrossover)
+    assert built.uniform_xover_probability == direct.uniform_xover_probability
+    assert built.pair_xover_probability == direct.pair_xover_probability
+
+
+@pytest.mark.ea
 def test_single_arithmetic_crossover():
     """Tests the single arithmetic crossover operator."""
     publisher = Publisher()
@@ -1163,6 +1245,7 @@ ALL_CROSSOVERS = [
     (BoundedExponentialCrossover, "continuous"),
     (DifferentialEvolutionCrossover, "continuous"),
     (ParentCentricCrossover, "continuous"),
+    (UniformCrossover, "continuous"),
     (SinglePointBinaryCrossover, "binary"),
     (UniformIntegerCrossover, "integer"),
     (UniformMixedIntegerCrossover, "mixed"),
@@ -1176,6 +1259,7 @@ CONTINUOUS_ONLY_CROSSOVERS = [
     BoundedExponentialCrossover,
     DifferentialEvolutionCrossover,
     ParentCentricCrossover,
+    UniformCrossover,
 ]
 
 
@@ -2738,6 +2822,46 @@ def test_ibea_keeps_every_feasible_solution_it_cannot_replace():
 
 
 @pytest.mark.ea
+def test_ibea_survives_a_population_collapsed_onto_one_objective_vector():
+    """Adaptive kappa scales by the largest indicator value, which is zero for a collapsed set.
+
+    It used to divide by that zero: ZeroDivisionError in the fitness kernel, NaN in the vectorised
+    survivor selection. It happened on linked-Pareto-set ZCAT instances and on one RE41 subset. With no
+    spread to scale, the configured kappa is used and every member gets the same fitness; with any
+    spread, kappa is exactly what it was.
+    """
+    from desdeo.emo.operators.selection import _ibea_fitness, _ibea_select_all  # noqa: PLC0415
+
+    problem = car_side_impact(three_obj=False)
+    publisher = Publisher()
+    selector = IBEASelector(problem=problem, verbosity=1, publisher=publisher, population_size=5, seed=0)
+
+    collapsed = np.zeros((10, 10))
+    assert selector._adaptive_kappa(collapsed) == selector.kappa
+    assert selector._adaptive_kappa(np.array([[0.0, 0.4], [-0.2, 0.0]])) == selector.kappa * 0.4
+    npt.assert_array_equal(_ibea_fitness(collapsed, kappa=selector._adaptive_kappa(collapsed)), np.full(10, -9.0))
+    assert _ibea_select_all(collapsed, population_size=5, kappa=selector._adaptive_kappa(collapsed)).sum() == 5
+
+    # End to end: one feasible solution repeated, so every pairwise indicator value is zero.
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=40, seed=0, verbosity=1
+    )
+    solutions, outputs = generator.do()
+    constraints = [c.symbol for c in problem.constraints]
+    feasible = np.flatnonzero(np.maximum(outputs[constraints].to_numpy(), 0.0).sum(axis=1) <= 0)
+    assert len(feasible) > 0, "the fixture needs one feasible solution to repeat"
+    rows = [int(feasible[0])] * 12
+
+    _, selected = selector.do(
+        parents=(solutions[rows[:6]], outputs[rows[:6]]), offsprings=(solutions[rows[6:]], outputs[rows[6:]])
+    )
+
+    assert len(selected) == selector.population_size
+    assert np.all(selector.fitness == selector.fitness[0])
+
+
+@pytest.mark.ea
 @pytest.mark.parametrize("name", ["nsga2", "ibea"])
 def test_constrained_selectors_reach_a_feasible_population(name):
     """Both selectors must drive a constrained run to feasibility, not merely tolerate constraints.
@@ -2934,3 +3058,30 @@ def test_composite_terminator_passes_the_external_check_to_its_children():
     assert terminator.check() is False
     should_stop["value"] = True
     assert terminator.check() is True
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(
+    "preference",
+    [
+        {"reference_point": {"f_1": 0.5, "f_2": 0.1, "f_3": 0.9}},
+        {"preferred_solutions": {"f_1": [0.5, 0.1], "f_2": [0.1, 0.9], "f_3": [0.9, 0.3]}},
+        {"non_preferred_solutions": {"f_1": [0.5, 0.1, 0.9], "f_2": [0.1, 0.9, 0.4], "f_3": [0.9, 0.3, 0.1]}},
+        {"preferred_ranges": {"f_1": [0.2, 0.6], "f_2": [0.1, 0.5], "f_3": [0.4, 0.9]}},
+    ],
+    ids=lambda preference: next(iter(preference)),
+)
+def test_decomposition_selector_adapts_to_each_preference_type(preference):
+    """Each preference type in ReferenceVectorOptions must adapt the reference vectors on construction."""
+    selector = NSGA3Selector(
+        problem=dtlz2(n_objectives=3, n_variables=12),
+        publisher=Publisher(),
+        reference_vector_options=ReferenceVectorOptions(number_of_vectors=20, **preference),
+        verbosity=0,
+    )
+
+    initial = selector.reference_vectors_initial
+    adapted = selector.reference_vectors
+    assert adapted.shape[1] == 3
+    assert np.isfinite(adapted).all()
+    assert adapted.shape != initial.shape or not np.allclose(adapted, initial)

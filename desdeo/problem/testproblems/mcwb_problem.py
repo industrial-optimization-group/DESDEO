@@ -1,7 +1,13 @@
 """Defined multiobjective optimization problems for cantilever welded beams...
 
 This script defines multiobjective optimization problems for cantilever welded beams
-using various cross-section types. The problems aim to minimize the total cost of
+using various cross-section types. The problems are the single-concept problems of
+the multi-concept welded beam (MCWB) problem of Kenny, Ray and Singh, "An extension
+of the welded beam problem that includes multiple interacting design concepts",
+EMO 2025 (https://doi.org/10.1007/978-981-96-3506-1_15), which extends the welded
+beam of Ragsdell and Phillips (1976). The formulations follow the authors' reference
+implementation (https://www.mdolab.net/Ray/Research-Data/mcwb_problem.zip).
+The problems aim to minimize the total cost of
 weld and beam construction while ensuring the structural integrity of the beam
 by considering constraints related to stress and deflection.
 
@@ -157,7 +163,7 @@ def mcwb_solid_rectangular_problem() -> Problem:
             name="g_4",
             symbol="g_4",
             cons_type=ConstraintTypeEnum.LTE,
-            func="(x_1 - x_4) / (0.25 - 0.005)",  # Ensures x_1 <= x_4 (weld height <= flange thickness)
+            func="(x_1 - x_4) / (0.15 - 0.005)",  # weld height <= beam width, normalised by the weld height range
         ),
     ]
 
@@ -257,12 +263,23 @@ def mcwb_hollow_rectangular_problem() -> Problem:
     # Constraints
     constraints = [
         *CONSTRAINTS,
-        Constraint(name="g_4", symbol="g_4", cons_type=ConstraintTypeEnum.LTE, func="(x_1 - x_4) / (0.25 - 0.005)"),
+        Constraint(
+            name="g_4",
+            symbol="g_4",
+            cons_type=ConstraintTypeEnum.LTE,
+            func="(x_1 - x_4) / (0.15 - 0.005)",  # weld height <= beam width, normalised by the weld height range
+        ),
         Constraint(
             name="g_5",
             symbol="g_5",
             cons_type=ConstraintTypeEnum.LTE,
-            func="(x_4 - x_3) / (0.25 - 0.005)",  # Ensures t >= h
+            func="(x_5 - x_3 / 2) / (0.03 - 0.01)",  # wall thickness <= half the beam height
+        ),
+        Constraint(
+            name="g_6",
+            symbol="g_6",
+            cons_type=ConstraintTypeEnum.LTE,
+            func="(x_5 - x_4 / 2) / (0.03 - 0.01)",  # wall thickness <= half the beam width
         ),
     ]
 
@@ -439,7 +456,7 @@ def mcwb_square_channel_problem() -> Problem:
     # Variables
     variables = [
         Variable(
-            name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real, lowerbound=0.0005, upperbound=0.15
+            name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real, lowerbound=0.005, upperbound=0.15
         ),  # weld height (a)
         Variable(
             name="x_2", symbol="x_2", variable_type=VariableTypeEnum.real, lowerbound=0.01, upperbound=0.3
@@ -483,28 +500,20 @@ def mcwb_square_channel_problem() -> Problem:
             name="g_4",
             symbol="g_4",
             cons_type=ConstraintTypeEnum.LTE,
-            func="(x_1 - x_4) / (0.15 - 0.0075)",  # weld height <= flange thickness
+            func="(x_1 - x_4) / (0.15 - 0.005)",  # weld height <= beam width, normalised by the weld height range
         ),
-        # Beam width >= weld height (g_5)
+        # Cross-section geometric constraints (g_5 and g_6)
         Constraint(
             name="g_5",
             symbol="g_5",
             cons_type=ConstraintTypeEnum.LTE,
-            func="(x_4 - x_3) / (0.25 - 0.0075)",  # beam width >= beam height
+            func="(x_6 - x_3 / 2) / (0.03 - 0.0075)",  # flange thickness <= half the beam height
         ),
-        # Cross-section geometric constraints (g_6 and g_7)
         Constraint(
             name="g_6",
             symbol="g_6",
             cons_type=ConstraintTypeEnum.LTE,
-            func="(x_6 - x_3 / 2) / (0.03 - 0.0075)",
-            # web thickness must be greater than half the beam height (normalized)
-        ),
-        Constraint(
-            name="g_7",
-            symbol="g_7",
-            cons_type=ConstraintTypeEnum.LTE,
-            func="(x_5 - x_4) / (0.03 - 0.0075)",  # flange thickness >= beam width
+            func="(x_5 - x_4) / (0.03 - 0.0075)",  # web thickness <= beam width
         ),
     ]
 
@@ -623,7 +632,9 @@ def mcwb_tapered_channel_problem() -> Problem:
         ),
         # Moment of inertia for the outer flange (Ix_flange_outer)
         ExtraFunction(
-            name="Ix_flange_outer", symbol="Ix_flange_outer", func="(flange_to_flange_outer ** 4 / 8 * slope_flange)"
+            name="Ix_flange_outer",
+            symbol="Ix_flange_outer",
+            func="(flange_to_flange_outer ** 4 / 8 * slope_flange) / 12",
         ),
         # Moment of inertia for the inner flange (Ix_flange_inner)
         ExtraFunction(
@@ -643,41 +654,31 @@ def mcwb_tapered_channel_problem() -> Problem:
     # Constraints
     constraints = [
         *CONSTRAINTS,
-        # Weld height constraint (g_4) - weld height should be less than or equal to flange thickness
+        # Weld height constraint (g_4)
         Constraint(
             name="g_4",
             symbol="g_4",
             cons_type=ConstraintTypeEnum.LTE,
-            func="(x_1 - x_5) / (0.03 - 0.01)",  # Weld height should be <= outer flange thickness
+            func="(x_1 - x_4) / (0.15 - 0.005)",  # weld height <= beam width, normalised by the weld height range
         ),
-        # Beam width constraint (g_5) - beam width should be greater than or equal to beam height
+        # Cross-section geometric constraints (g_5 to g_7), normalised by the thickness ranges
         Constraint(
             name="g_5",
             symbol="g_5",
             cons_type=ConstraintTypeEnum.LTE,
-            func="(x_4 - x_3) / (0.2 - 0.01)",  # Beam width should be >= beam height
+            func="(x_7 - x_3 / 2) / (2 * 0.03 - 0.01)",  # inner flange thickness <= half the beam height
         ),
-        # Cross-section geometric constraints (g_6 and g_7)
-        # Inner flange height must be greater than or equal to half the beam height
         Constraint(
             name="g_6",
             symbol="g_6",
             cons_type=ConstraintTypeEnum.LTE,
-            func="(x_6 - x_3 / 2) / (0.03 - 0.01)",  # Inner flange thickness must be greater than half the beam height
+            func="(x_5 - x_4) / (0.03 - 0.01)",  # web thickness <= beam width
         ),
-        # Web thickness constraint: web thickness should be less than the beam width
         Constraint(
             name="g_7",
             symbol="g_7",
             cons_type=ConstraintTypeEnum.LTE,
-            func="(x_7 - x_4) / (0.03 - 0.01)",  # Web thickness should be <= beam width
-        ),
-        # Outer flange thickness constraint: outer flange thickness must be less than or equal to inner flange thickness
-        Constraint(
-            name="g_8",
-            symbol="g_8",
-            cons_type=ConstraintTypeEnum.LTE,
-            func="(x_5 - x_6) / (0.03 - 0.01)",  # Outer flange thickness <= inner flange thickness
+            func="(x_6 - x_7) / (2 * 0.03 - 0.01)",  # outer flange thickness <= inner flange thickness
         ),
     ]
 
@@ -770,17 +771,15 @@ def mcwb_ragsdell1976_problem() -> Problem:
     ]
 
     constants = [
-        Constant(name="P", symbol="P", value=30000),  # Load [N]
-        Constant(name="L", symbol="L", value=0.5),  # Beam length [m]
-        Constant(name="E", symbol="E", value=200e9),  # Young's modulus [Pa]
-        Constant(name="tau_max", symbol="tau_max", value=95e6),  # Max shear stress [Pa]
-        Constant(name="sigma_max", symbol="sigma_max", value=200e6),  # Max normal stress [Pa]
-        Constant(name="C_wl", symbol="C_wl", value=1),  # Welding labor cost [$/in]
-        Constant(name="C_wm", symbol="C_wm", value=0.10471),  # Welding material cost [$/in]
-        Constant(name="C_w", symbol="C_w", value=1 * 0.10471),  # Total welding cost [$/in]
-        Constant(name="steel_cost", symbol="C_s", value=0.7),  # Price of HRC steel [$/kg]
-        Constant(name="steel_density", symbol="rho_s", value=7850),  # Steel density [kg/m^3]
-        Constant(name="C_b", symbol="C_b", value=0.04811),  # Beam material cost [$/in]
+        Constant(name="P", symbol="P", value=6000),  # Load [lb]
+        Constant(name="L", symbol="L", value=14),  # Beam length [in]
+        Constant(name="E", symbol="E", value=30e6),  # Young's modulus [psi]
+        Constant(name="tau_max", symbol="tau_max", value=13600),  # Max shear stress [psi]
+        Constant(name="sigma_max", symbol="sigma_max", value=30000),  # Max normal stress [psi]
+        Constant(name="C_wl", symbol="C_wl", value=1),  # Welding labor cost [$/in^3]
+        Constant(name="C_wm", symbol="C_wm", value=0.10471),  # Welding material cost [$/in^3]
+        Constant(name="C_w", symbol="C_w", value=1 + 0.10471),  # Total welding cost [$/in^3]
+        Constant(name="C_b", symbol="C_b", value=0.04811),  # Beam material cost [$/in^3]
         Constant(name="K", symbol="K", value=2),  # Cantilever beam coefficient
         Constant(name="pi", symbol="pi", value=3.141592653589793),
         Constant(name="delta_t", symbol="delta_t", value=0.05 - 0.005),
@@ -813,7 +812,7 @@ def mcwb_ragsdell1976_problem() -> Problem:
             name="g_4",
             symbol="g_4",
             cons_type=ConstraintTypeEnum.LTE,
-            func="(x_1 - x_4) / (0.25 - 0.005)",  # Ensures x_1 <= x_4 (weld height <= flange thickness)
+            func="(x_1 - x_4) / (5 - 0.125)",  # weld height <= beam width, normalised by the weld height range
         ),
     ]
 

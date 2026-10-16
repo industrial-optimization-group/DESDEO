@@ -14,11 +14,11 @@ from enum import Enum
 from typing import Literal
 from warnings import warn
 
+import matplotlib
 import numpy as np
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
 import polars as pl
-from matplotlib import cm
 from pydantic import BaseModel, ConfigDict, Field
 from scipy.stats import pearsonr
 from sklearn.cluster import DBSCAN, KMeans
@@ -181,6 +181,8 @@ class SCOREBandsResult(BaseModel):
     cluster_hover_info: dict[int, str] | None = Field(default=None)
     """Optional dictionary mapping cluster IDs to hover information for display in the visualization.
         If None, no additional hover information is displayed. Defaults to None."""
+    cluster_extremes: dict[int, dict[str, tuple[float, float]]]
+    """Map cluster IDs to dictionaries of objective names and their corresponding extreme values (min, max)."""
     axis_positions: dict[str, float]
     """Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
         objective is at position 0.0, and the last objective is at position 1.0."""
@@ -454,6 +456,8 @@ def score_json(data: pl.DataFrame, options: SCOREBandsConfig) -> SCOREBandsResul
     max_percentile = 1 - min_percentile
     mins = grouped.quantile(min_percentile)
     maxs = grouped.quantile(max_percentile)
+    cluster_mins = grouped.min()
+    cluster_maxs = grouped.max()
     medians = grouped.median()
     frequencies = grouped.len()
     bands_dict = {
@@ -465,6 +469,16 @@ def score_json(data: pl.DataFrame, options: SCOREBandsConfig) -> SCOREBandsResul
             for col_name in ordered_dimension_names
         }
         for cluster_id in mins[cluster_column_name].to_list()
+    }
+    cluster_extremes_dict = {
+        cluster_id: {
+            col_name: (
+                cluster_mins.filter(pl.col(cluster_column_name) == cluster_id)[col_name][0],
+                cluster_maxs.filter(pl.col(cluster_column_name) == cluster_id)[col_name][0],
+            )
+            for col_name in ordered_dimension_names
+        }
+        for cluster_id in cluster_mins[cluster_column_name].to_list()
     }
     medians_dict = {
         cluster_id: {
@@ -490,6 +504,7 @@ def score_json(data: pl.DataFrame, options: SCOREBandsConfig) -> SCOREBandsResul
         axis_positions=axis_positions,
         bands=bands_dict,
         medians=medians_dict,
+        cluster_extremes=cluster_extremes_dict,
         cardinalities=frequencies_dict,
     )
 
@@ -514,7 +529,9 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
 
     cluster_th = 8  # max number of clusters to use 'Accent' color map with, otherwise use 'tab20'
     colorscale = (
-        cm.get_cmap("Accent", len(clusters)) if len(clusters) <= cluster_th else cm.get_cmap("tab20", len(clusters))
+        matplotlib.colormaps["Accent"].resampled(len(clusters))
+        if len(clusters) <= cluster_th
+        else matplotlib.colormaps["tab20"].resampled(len(clusters))
     )
     if result.options.scales is None:
         raise ValueError("Scales must be provided in the SCOREBandsResult to plot the figure.")

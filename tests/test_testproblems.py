@@ -22,6 +22,7 @@ from desdeo.problem.testproblems import (
     dtlz2,
     dtlz4,
     forest_problem,
+    forest_problem_income_carbon_habitat,
     gaa,
     lame_superspheres,
     mcwb_equilateral_tbeam_problem,
@@ -990,9 +991,9 @@ def test_mcwb_tapered_channel_problem():
     f1 = res["f_1"][0]
     f2 = res["f_2"][0]
 
-    # these are the values we are getting now, are they even correct?
+    # According to Kenny, Ray and Singh (EMO 2025)
     assert np.isclose(f1, 27573.75)
-    assert np.isnan(f2)
+    assert np.isclose(f2, 1.2e-6, rtol=1e-9)
 
 
 @pytest.mark.testproblem
@@ -1006,9 +1007,10 @@ def test_mcwb_ragsdell1976_problem():
     f1 = res["f_1"][0]
     f2 = res["f_2"][0]
 
-    # these are the values we are getting now, are they even correct?
-    assert np.isclose(f1, 0.02511625)
-    assert np.isclose(f2, 1.2e-06, rtol=1e-3, atol=1e-9)
+    # The values of the reference implementation of Kenny, Ray and Singh (EMO 2025)
+    # at this point, with Ragsdell's original imperial constants.
+    assert np.isclose(f1, 0.3124875)
+    assert np.isclose(f2, 35.1232, rtol=1e-9)
 
 
 @pytest.mark.testproblem
@@ -1274,3 +1276,48 @@ def test_ctp2_to_ctp8(problem_func, expected_f2, expected_constraints):
     assert np.isclose(res["f_2"][0], expected_f2)
     for idx, expected in enumerate(expected_constraints, start=1):
         assert np.isclose(res[f"g_{idx}"][0], expected)
+
+
+@pytest.mark.testproblem
+@pytest.mark.forest_problem
+def test_forest_problem_income_carbon_habitat():
+    """Test the discrete forest problem with ecological objectives."""
+    problem = forest_problem_income_carbon_habitat()
+
+    assert len(problem.objectives) == 3
+    assert len(problem.variables) == 1
+    assert all(objective.maximize for objective in problem.objectives)
+    assert all(objective.objective_type == "data_based" for objective in problem.objectives)
+
+    representation = problem.discrete_representation
+    assert representation is not None
+    assert not representation.non_dominated
+
+    # The set is published with 1728 solutions, 1247 of which are non-dominated.
+    assert len(representation.variable_values["index"]) == 1728
+    assert all(len(values) == 1728 for values in representation.objective_values.values())
+
+    # The ideal and nadir points reported in the source publications, once the
+    # display scaling of 1e-7, 1e-9 and 1e-4 is applied.
+    scales = {"income": 1e-7, "stored_co2": 1e-9, "habitat_index": 1e-4}
+    ideal = {"income": 6.285, "stored_co2": 8.269, "habitat_index": 3.244}
+    nadir = {"income": 1.877, "stored_co2": 6.733, "habitat_index": 2.139}
+    for objective in problem.objectives:
+        scale = scales[objective.symbol]
+        npt.assert_allclose(objective.ideal * scale, ideal[objective.symbol], atol=1e-3)
+        npt.assert_allclose(objective.nadir * scale, nadir[objective.symbol], atol=1e-3)
+
+    # Dropping the dominated rows keeps the ideal point, and can only tighten
+    # the nadir. Two of the three components move; the worst income belongs to a
+    # non-dominated row, so it stays put.
+    filtered = forest_problem_income_carbon_habitat(non_dominated_only=True)
+    assert filtered.discrete_representation.non_dominated
+    assert len(filtered.discrete_representation.variable_values["index"]) == 1247
+
+    tightened = 0
+    for before, after in zip(problem.objectives, filtered.objectives, strict=True):
+        assert after.symbol == before.symbol
+        npt.assert_allclose(after.ideal, before.ideal)
+        assert after.nadir >= before.nadir
+        tightened += after.nadir > before.nadir
+    assert tightened == 2
