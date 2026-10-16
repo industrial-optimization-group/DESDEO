@@ -370,6 +370,16 @@ def _minimize_soft_constraint_violations(
         raise CumulusError(msg)
     optimal_violation: float = viol_result.optimal_objectives[violation_symbol]
 
+    # `add_soft_constraint` gives the violation objective a placeholder nadir of one,
+    # since the largest attainable violation is not known without a solve of its own.
+    # Now that one is known, raise the nadir to it if it falls short, so the
+    # scalarizations that follow scale the objective over a range that actually contains
+    # its values.  The budget constraint caps the violation at `optimal_violation`, so no
+    # solution built on the relaxed problem can exceed the nadir set here.
+    violation_obj = next(obj for obj in relaxed_problem.objectives if obj.symbol == violation_symbol)
+    if violation_obj.nadir is None or optimal_violation > violation_obj.nadir:
+        relaxed_problem = relaxed_problem.update_ideal_and_nadir(new_nadir={violation_symbol: optimal_violation})
+
     return relaxed_problem, violation_symbol, optimal_violation
 
 

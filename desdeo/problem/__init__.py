@@ -33,6 +33,8 @@ __all__ = [
     "VariableType",
     "VariableTypeEnum",
     "add_soft_constraint",
+    "determine_function_properties",
+    "determine_problem_properties",
     "flatten_variable_dict",
     "get_ideal_dict",
     "get_nadir_dict",
@@ -80,6 +82,8 @@ from .simulator_evaluator import SimulatorEvaluator
 from .sympy_evaluator import SympyEvaluator
 from .utils import (
     add_soft_constraint,
+    determine_function_properties,
+    determine_problem_properties,
     flatten_variable_dict,
     get_ideal_dict,
     get_nadir_dict,
