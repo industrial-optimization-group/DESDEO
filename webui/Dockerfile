@@ -32,7 +32,7 @@ RUN npm install
 COPY . .
 
 # VITE_API_URL is baked into the bundle at build time.
-ARG VITE_API_URL=https://gialmisi-desdeo-api.rahtiapp.fi
+ARG VITE_API_URL=https://master-desdeo-api.rahtiapp.fi
 ENV VITE_API_URL=$VITE_API_URL
 
 # NPM_RUN=start:production makes svelte.config.js select adapter-node.
