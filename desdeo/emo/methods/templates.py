@@ -88,6 +88,11 @@ def template2(
     Returns:
         EMOResult: The final population and their objective vectors, constraint vectors, and targets
     """
+    if not isinstance(selection, _FitnessPublishingSelector):
+        raise TypeError(
+            "The selection operator must be a subclass of _FitnessPublishingSelector, which publishes the fitness "
+            "that mate_selection picks parents by."
+        )
     solutions, outputs = generator.do()
     # This is just a hack to make all selection operators work (they require offsprings to be passed separately rn)
     offspring = pl.DataFrame(
