@@ -2712,13 +2712,56 @@ def spea2_truncate(distances: np.ndarray, keep: int) -> list[int]:
     Returns:
         list[int]: the positions of the kept candidates.
     """
-    remaining = list(range(len(distances)))
-    while len(remaining) > keep:
-        sorted_rows = np.sort(distances[np.ix_(remaining, remaining)], axis=1)
-        # np.lexsort takes its primary key last, so the nearest-neighbour column goes last.
-        crowded = int(np.lexsort(sorted_rows.T[::-1])[0])
-        del remaining[crowded]
-    return remaining
+    return _spea2_truncate(distances, keep).tolist()
+
+
+@njit
+def _sorts_before(a: float, b: float) -> bool:
+    """True when `a` comes before `b` in ascending order, with NaN last as in `np.sort`."""
+    return a < b or (np.isnan(b) and not np.isnan(a))
+
+
+@njit
+def _spea2_truncate(distances: np.ndarray, keep: int) -> np.ndarray:
+    """The loop of `spea2_truncate`, returning the kept positions in ascending order.
+
+    Each row's candidates are sorted by distance once. Removing a candidate deletes it from every
+    row, which leaves the rows sorted, so no row is sorted again.
+    """
+    n = len(distances)
+    neighbours = np.empty((n, n), dtype=np.int64)
+    for i in range(n):
+        neighbours[i] = np.argsort(distances[i])
+    alive = np.ones(n, dtype=np.bool_)
+    size = n
+    while size > keep:
+        # The lexicographically smallest row of sorted distances; the first one wins a tie.
+        crowded = -1
+        for i in range(n):
+            if not alive[i]:
+                continue
+            if crowded == -1:
+                crowded = i
+                continue
+            for j in range(size):
+                current = distances[i, neighbours[i, j]]
+                best = distances[crowded, neighbours[crowded, j]]
+                if _sorts_before(current, best):
+                    crowded = i
+                    break
+                if _sorts_before(best, current):
+                    break
+        alive[crowded] = False
+        for i in range(n):
+            if not alive[i]:
+                continue
+            j = 0
+            while neighbours[i, j] != crowded:
+                j += 1
+            for t in range(j, size - 1):
+                neighbours[i, t] = neighbours[i, t + 1]
+        size -= 1
+    return np.flatnonzero(alive)
 
 
 class SPEA2Selector(_FitnessPublishingSelector):
