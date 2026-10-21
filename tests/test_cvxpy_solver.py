@@ -3,14 +3,18 @@
 import numpy as np
 import pytest
 
+from desdeo.problem.cvxpy_evaluator import CVXPYEvaluator, CVXPYEvaluatorError
 from desdeo.problem.schema import (
     Constant,
     Constraint,
     ConstraintTypeEnum,
     ExtraFunction,
     Objective,
+    ObjectiveTypeEnum,
     Problem,
+    ScalarizationFunction,
     Variable,
+    VariableTypeEnum,
 )
 from desdeo.problem.testproblems import (
     simple_constrained_quadratic_tensor_test_problem,
@@ -394,3 +398,82 @@ def extra_functions_problem():
             ),
         ],
     )
+
+
+def _chained_problem(**kwargs) -> Problem:
+    """A one-variable problem, extended with whatever elements the test needs."""
+    return Problem(
+        name="Chained elements",
+        description="Elements defined in terms of earlier elements of the same kind.",
+        variables=[
+            Variable(
+                name="x",
+                symbol="x",
+                variable_type=VariableTypeEnum.real,
+                lowerbound=0.0,
+                upperbound=10.0,
+                initial_value=1.0,
+            )
+        ],
+        objectives=[
+            Objective(
+                name="f_1",
+                symbol="f_1",
+                func=["Add", "x", 1],
+                maximize=False,
+                objective_type=ObjectiveTypeEnum.analytical,
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            )
+        ],
+        **kwargs,
+    )
+
+
+@pytest.mark.cvxpy
+def test_extra_function_may_reference_earlier_extra_function():
+    """An extra function can be defined in terms of an extra function declared before it.
+
+    The expressions are registered on the evaluator as they are parsed.  They used to be
+    collected in a local dict published only once every extra function had been parsed,
+    which made such a reference unresolvable.
+    """
+    problem = _chained_problem(
+        extra_funcs=[
+            ExtraFunction(name="e_1", symbol="e_1", func=["Add", "x", 1]),
+            ExtraFunction(name="e_2", symbol="e_2", func=["Multiply", 2, "e_1"]),
+        ]
+    )
+
+    evaluator = CVXPYEvaluator(problem)
+
+    assert "e_1" in evaluator.extra_functions
+    assert "e_2" in evaluator.extra_functions
+
+
+@pytest.mark.cvxpy
+def test_scalarization_may_reference_earlier_scalarization():
+    """A scalarization function can be defined in terms of one declared before it."""
+    problem = _chained_problem(
+        scalarization_funcs=[
+            ScalarizationFunction(name="s_1", symbol="s_1", func=["Add", "x", 1]),
+            ScalarizationFunction(name="s_2", symbol="s_2", func=["Multiply", 2, "s_1"]),
+        ]
+    )
+
+    evaluator = CVXPYEvaluator(problem)
+
+    assert "s_1" in evaluator.scalarizations
+    assert "s_2" in evaluator.scalarizations
+
+
+@pytest.mark.cvxpy
+def test_extra_function_referencing_unknown_symbol_still_raises():
+    """Referencing a symbol that is not defined anywhere remains an error."""
+    problem = _chained_problem(
+        extra_funcs=[ExtraFunction(name="e_1", symbol="e_1", func=["Multiply", 2, "e_nonexistent"])]
+    )
+
+    with pytest.raises(CVXPYEvaluatorError, match="e_nonexistent"):
+        CVXPYEvaluator(problem)

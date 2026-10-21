@@ -1,5 +1,7 @@
 """Tests related to the CUMULUS method."""
 
+import warnings
+
 import numpy as np
 import polars as pl
 import pytest
@@ -508,14 +510,14 @@ def scenario_combined_with_epigraphs():
     combined, _ = add_single_objective_worst_case_regret(
         model, ["f_1"], ideals=ideals, prefix="regret_wc_", combined=combined, symbol_maps=symbol_maps
     )
-    return combined, symbol_maps
+    return combined, list(model.leaf_scenarios)
 
 
 @pytest.mark.cumulus
 @pytest.mark.scenario
 def test_fix_worst_case_epigraphs_tightens_robust_minimize(scenario_combined_with_epigraphs):
     """A loose (too-large) t for a minimised worst-case robust objective is tightened to the max leaf value."""
-    combined, symbol_maps = scenario_combined_with_epigraphs
+    combined, leaves = scenario_combined_with_epigraphs
     # f_1 leaves evaluate to 3, 13, 25 (minimised) -> worst case is the max, 25.
     variable_values = {
         "x_1": 1.0,
@@ -527,7 +529,7 @@ def test_fix_worst_case_epigraphs_tightens_robust_minimize(scenario_combined_wit
     }
     result = _evaluate_to_solver_results(combined, variable_values)
 
-    fixed = _fix_worst_case_epigraphs(result, combined, symbol_maps)
+    fixed = _fix_worst_case_epigraphs(result, combined, leaves)
 
     assert fixed.optimal_objectives["robust_f_1"] == pytest.approx(25.0)
     assert fixed.optimal_variables["_t_robust_f_1"] == pytest.approx(25.0)
@@ -542,7 +544,7 @@ def test_fix_worst_case_epigraphs_tightens_regret(scenario_combined_with_epigrap
     (leaf value minus its per-leaf ideal) isn't present anywhere in the solved result, only in
     the per-leaf bound constraint.
     """
-    combined, symbol_maps = scenario_combined_with_epigraphs
+    combined, leaves = scenario_combined_with_epigraphs
     # regrets: (3-1)=2, (13-2)=11, (25-3)=22 -> worst case is the max, 22.
     variable_values = {
         "x_1": 1.0,
@@ -554,7 +556,7 @@ def test_fix_worst_case_epigraphs_tightens_regret(scenario_combined_with_epigrap
     }
     result = _evaluate_to_solver_results(combined, variable_values)
 
-    fixed = _fix_worst_case_epigraphs(result, combined, symbol_maps)
+    fixed = _fix_worst_case_epigraphs(result, combined, leaves)
 
     assert fixed.optimal_objectives["regret_wc_f_1"] == pytest.approx(22.0)
     assert fixed.optimal_variables["_t_regret_wc_f_1"] == pytest.approx(22.0)
@@ -569,6 +571,7 @@ def test_fix_worst_case_epigraphs_tightens_robust_maximize():
     model = model.model_copy(update={"objectives": flipped})
     combined, symbol_maps = build_combined_scenario_problem(model)
     combined, _ = add_worst_case_robust(model, ["f_1"], prefix="robust_", combined=combined, symbol_maps=symbol_maps)
+    leaves = list(model.leaf_scenarios)
 
     # f_1 leaves: 3, 13, 25 (maximised) -> worst case is the min, 3.
     variable_values = {
@@ -580,7 +583,7 @@ def test_fix_worst_case_epigraphs_tightens_robust_maximize():
     }
     result = _evaluate_to_solver_results(combined, variable_values)
 
-    fixed = _fix_worst_case_epigraphs(result, combined, symbol_maps)
+    fixed = _fix_worst_case_epigraphs(result, combined, leaves)
 
     assert fixed.optimal_objectives["robust_f_1"] == pytest.approx(3.0)
 
@@ -589,7 +592,7 @@ def test_fix_worst_case_epigraphs_tightens_robust_maximize():
 @pytest.mark.scenario
 def test_fix_worst_case_epigraphs_ignores_variable_with_unrecognized_name(scenario_combined_with_epigraphs):
     """A `_t_`-prefixed variable whose name doesn't match a known epigraph constructor is left untouched."""
-    combined, symbol_maps = scenario_combined_with_epigraphs
+    combined, leaves = scenario_combined_with_epigraphs
     decoy = Variable(
         name="Custom epigraph variable for f_1",
         symbol="_t_decoy_f_1",
@@ -611,9 +614,12 @@ def test_fix_worst_case_epigraphs_ignores_variable_with_unrecognized_name(scenar
     }
     result = _evaluate_to_solver_results(combined, variable_values)
 
-    fixed = _fix_worst_case_epigraphs(result, combined, symbol_maps)
+    with pytest.warns(UserWarning, match="_t_decoy_f_1"):
+        fixed = _fix_worst_case_epigraphs(result, combined, leaves)
 
     assert fixed.optimal_variables["_t_decoy_f_1"] == pytest.approx(42.0)
+    # the recognised epigraphs are still tightened alongside it
+    assert fixed.optimal_objectives["robust_f_1"] == pytest.approx(25.0)
 
 
 @pytest.mark.cumulus
@@ -648,3 +654,74 @@ def test_scenario_aug_weights_zeroes_aggregation_objective_not_in_symbol_maps():
     weights = _scenario_aug_weights(problem, reference_point, symbol_maps)
 
     assert weights["f_1"] == 0.0
+
+
+@pytest.mark.cumulus
+@pytest.mark.scenario
+def test_fix_worst_case_epigraphs_warns_without_constraint_values(scenario_combined_with_epigraphs):
+    """Without constraint values nothing can be tightened, and that must not pass silently.
+
+    A solver that does not populate `constraint_values` turns this function into a no-op
+    for every aggregate at once, leaving every worst case reported worse than the solution
+    attains.
+    """
+    combined, leaves = scenario_combined_with_epigraphs
+    variable_values = {
+        "x_1": 1.0,
+        "s_1_x_2": 2.0,
+        "s_2_x_2": 3.0,
+        "s_3_x_2": 4.0,
+        "_t_robust_f_1": 1000.0,
+        "_t_regret_wc_f_1": 1000.0,
+    }
+    result = _evaluate_to_solver_results(combined, variable_values)
+    result = result.model_copy(update={"constraint_values": None})
+
+    with pytest.warns(UserWarning, match="No constraint values"):
+        fixed = _fix_worst_case_epigraphs(result, combined, leaves)
+
+    # left untouched, and the warning is the only way the caller would know
+    assert fixed.optimal_variables["_t_robust_f_1"] == pytest.approx(1000.0)
+
+
+@pytest.mark.cumulus
+@pytest.mark.scenario
+def test_fix_worst_case_epigraphs_warns_on_wrong_leaf_scenarios(scenario_combined_with_epigraphs):
+    """Leaf names that do not belong to the model find no bound constraints, and that warns."""
+    combined, _ = scenario_combined_with_epigraphs
+    variable_values = {
+        "x_1": 1.0,
+        "s_1_x_2": 2.0,
+        "s_2_x_2": 3.0,
+        "s_3_x_2": 4.0,
+        "_t_robust_f_1": 1000.0,
+        "_t_regret_wc_f_1": 1000.0,
+    }
+    result = _evaluate_to_solver_results(combined, variable_values)
+
+    with pytest.warns(UserWarning, match="Could not tighten"):
+        fixed = _fix_worst_case_epigraphs(result, combined, ["not_a_leaf"])
+
+    assert fixed.optimal_variables["_t_robust_f_1"] == pytest.approx(1000.0)
+
+
+@pytest.mark.cumulus
+@pytest.mark.scenario
+def test_fix_worst_case_epigraphs_silent_on_the_normal_path(scenario_combined_with_epigraphs):
+    """Tightening everything it should must not warn: a noisy success trains people to ignore it."""
+    combined, leaves = scenario_combined_with_epigraphs
+    variable_values = {
+        "x_1": 1.0,
+        "s_1_x_2": 2.0,
+        "s_2_x_2": 3.0,
+        "s_3_x_2": 4.0,
+        "_t_robust_f_1": 1000.0,
+        "_t_regret_wc_f_1": 1000.0,
+    }
+    result = _evaluate_to_solver_results(combined, variable_values)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        fixed = _fix_worst_case_epigraphs(result, combined, leaves)
+
+    assert fixed.optimal_objectives["robust_f_1"] == pytest.approx(25.0)

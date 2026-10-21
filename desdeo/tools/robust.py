@@ -3,7 +3,12 @@
 from typing import TYPE_CHECKING
 
 from desdeo.problem.schema import Constraint, ConstraintTypeEnum, Variable, VariableTypeEnum
-from desdeo.tools.scenarios import append_aggregated_elem, build_combined_scenario_problem, resolve_elem
+from desdeo.tools.scenarios import (
+    append_aggregated_elem,
+    build_combined_scenario_problem,
+    resolve_elem,
+    weighted_sum_expr,
+)
 
 if TYPE_CHECKING:
     from desdeo.problem.scenario import ScenarioModel
@@ -309,7 +314,7 @@ def add_weighted_scenarios(
 
     for sym in symbols:
         info = resolve_elem(sym, symbol_maps, combined, scenario_model)
-        terms = [["Multiply", weights[leaf], info.per_leaf[leaf]] for leaf in leaf_scenarios]
+        weighted_expr = weighted_sum_expr(info, {leaf: weights[leaf] for leaf in leaf_scenarios}, combined)
         weighted_sym = f"{prefix}{sym}"
         added_symbols[sym] = weighted_sym
 
@@ -323,7 +328,7 @@ def add_weighted_scenarios(
             if info.elem_desc
             else f"Weighted scenario value of {info.elem_name}",
             symbol=weighted_sym,
-            func=terms[0] if len(terms) == 1 else ["Add", *terms],
+            func=weighted_expr,
             maximize=info.maximize,
             is_linear=info.is_linear,
             is_convex=info.is_convex,

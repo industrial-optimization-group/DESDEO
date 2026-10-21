@@ -119,14 +119,12 @@ class ReferenceVectorOptions(BaseModel):
     Only used if no preference is provided."""
     creation_type: Literal["simplex", "s_energy"] = Field(default="simplex")
     """The method for creating reference vectors. Defaults to "simplex".
-    Currently only "simplex" is implemented. Future versions will include "s_energy".
 
     If set to "simplex", the reference vectors are created using the simplex lattice design method.
     This method is generates distributions with specific numbers of reference vectors.
     Check: https://www.itl.nist.gov/div898/handbook/pri/section5/pri542.htm for more information.
     If set to "s_energy", the reference vectors are created using the Riesz s-energy criterion. This method is used to
     distribute an arbitrary number of reference vectors in the objective space while minimizing the s-energy.
-    Currently not implemented.
     """
     vector_type: Literal["spherical", "planar"] = Field(default="spherical")
     """The method for normalizing the reference vectors. Defaults to "spherical"."""

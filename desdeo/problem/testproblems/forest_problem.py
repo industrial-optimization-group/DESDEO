@@ -282,3 +282,141 @@ def forest_problem_discrete() -> Problem:
         objectives=objectives,
         discrete_representation=discrete_def,
     )
+
+
+def _non_dominated_mask(values: np.ndarray) -> np.ndarray:
+    """Find the rows of a maximized objective table that no other row dominates.
+
+    Args:
+        values (np.ndarray): a 2D array with one row per solution and one column
+            per objective. Every objective is assumed to be maximized.
+
+    Returns:
+        np.ndarray: a boolean mask that is True for each non-dominated row.
+    """
+    keep = np.ones(len(values), dtype=bool)
+    for i in range(len(values)):
+        if not keep[i]:
+            continue
+        dominated_by = np.all(values >= values[i], axis=1) & np.any(values > values[i], axis=1)
+        if dominated_by.any():
+            keep[i] = False
+    return keep
+
+
+def forest_problem_income_carbon_habitat(*, non_dominated_only: bool = False) -> Problem:
+    r"""Defines a discrete Finnish forest management problem with ecological objectives.
+
+    A forest is divided into managerial areas known as stands. A management
+    plan, such as clearing, thinning, or leaving a stand untouched, is chosen
+    for each stand, and the consequences are aggregated over the whole forest.
+    Three consequences are considered, and all of them are to be maximized:
+
+    - the income from sold timber,
+    - the carbon dioxide stored in the trees,
+    - the combined habitat suitability index, describing how habitable the
+      forest is for fauna.
+
+    The objectives conflict. Felling trees and selling the timber raises income
+    while releasing stored carbon and leaving the stand uninhabitable, and
+    leaving a stand untouched maximizes stored carbon while yielding no income.
+
+    The problem is given purely as a precomputed set of objective vectors,
+    simulated with SIMO over a one hundred year horizon. The management plan
+    behind each solution was not published, so the decision variables cannot be
+    recovered and the only variable here is an index into the set. The ideal and
+    nadir points are taken from the set rather than from a payoff table.
+
+    Note:
+        The published set is not filtered for dominance: of its 1728 rows, 1247
+        are non-dominated. Pass `non_dominated_only=True` to keep only those.
+        Dropping rows leaves the ideal point untouched and can only tighten the
+        nadir point. For this data the stored carbon dioxide and the habitat
+        index both move, while the worst income belongs to a non-dominated row
+        and so stays put. The default reproduces the set as published.
+
+    Note:
+        The source publications scale the objectives for display, by 1e-7 for
+        the income, 1e-9 for the stored carbon dioxide, and 1e-4 for the
+        habitat index. The values here are unscaled.
+
+    Args:
+        non_dominated_only (bool, optional): whether to drop the dominated rows
+            of the published set. Defaults to False.
+
+    Returns:
+        Problem: the discrete forest management problem.
+
+    References:
+        Misitano, G. (2020). INFRINGER: a novel interactive multi-objective
+            optimization method able to learn a decision maker's preferences
+            utilizing machine learning. Master's thesis, University of
+            Jyvaskyla. http://urn.fi/URN:NBN:fi:jyu-202007065235
+
+        Misitano, G. (2020). Interactively learning the preferences of a
+            decision maker in multi-objective optimization utilizing
+            belief-rules. In 2020 IEEE Symposium Series on Computational
+            Intelligence (SSCI), 133-140.
+            https://doi.org/10.1109/SSCI47803.2020.9308316
+
+        Misitano, G., Afsar, B., Larraga, G., & Miettinen, K. (2022). Towards
+            explainable interactive multiobjective optimization: R-XIMO.
+            Autonomous Agents and Multi-Agent Systems, 36(2), 43.
+            https://doi.org/10.1007/s10458-022-09577-3
+    """
+    path = Path(__file__).parent.parent.parent.parent / "datasets/forest_income_carbon_habitat.csv"
+
+    # The published file carries a constant 'dummy' column, which an earlier
+    # version of DESDEO required to stand in for the missing decision variables.
+    columns = {"Income": "income", "Carbon": "stored_co2", "Habitat index": "habitat_index"}
+    names = {
+        "income": "Income",
+        "stored_co2": "Stored CO2",
+        "habitat_index": "Combined habitat suitability index",
+    }
+
+    data = pl.read_csv(path, has_header=True, columns=list(columns)).rename(columns)
+
+    if non_dominated_only:
+        mask = _non_dominated_mask(data.to_numpy())
+        data = data.filter(mask)
+
+    variables = [
+        Variable(
+            name="index",
+            symbol="index",
+            variable_type=VariableTypeEnum.integer,
+            lowerbound=0,
+            upperbound=len(data) - 1,
+            initial_value=0,
+        )
+    ]
+
+    objectives = [
+        Objective(
+            name=names[symbol],
+            symbol=symbol,
+            objective_type=ObjectiveTypeEnum.data_based,
+            ideal=data[symbol].max(),
+            nadir=data[symbol].min(),
+            maximize=True,
+        )
+        for symbol in columns.values()
+    ]
+
+    discrete_def = DiscreteRepresentation(
+        variable_values={"index": list(range(len(data)))},
+        objective_values=data.to_dict(as_series=False),
+        non_dominated=non_dominated_only,
+    )
+
+    return Problem(
+        name="Finnish forest problem with ecological objectives (discrete)",
+        description=(
+            "Defines a discrete Finnish forest management problem with three objectives to be maximized: "
+            "income from sold timber, stored carbon dioxide, and the combined habitat suitability index."
+        ),
+        variables=variables,
+        objectives=objectives,
+        discrete_representation=discrete_def,
+    )

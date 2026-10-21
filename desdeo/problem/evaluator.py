@@ -102,10 +102,10 @@ class PolarsEvaluator:
     #    in new columns of the dataframe.
     # 2. Evaluate the objective functions based on the decision variables and the extra function values (if any).
     #    Store the results in the dataframe in their own columns.
-    # 3. Evaluate the constraints (if any) based on the decision variables and extra function values (if any).
-    #    Store the results in the dataframe in their own columns.
-    # 4. Evalute the scalarization functions (if any) based on the objective function values and extra function values
+    # 3. Evalute the scalarization functions (if any) based on the objective function values and extra function values
     #    (if any). Store the results in the dataframe in their own columns.
+    # 4. Evaluate the constraints (if any) last, so that a constraint may reference any of the above.
+    #    Nothing else is expected to reference a constraint. Store the results in their own columns.
     # 5. Return a pydantic dataclass with the results (decision variables, objective function values, constraint values,
     #    and scalarization function valeus).
     # 6. End.
@@ -408,10 +408,13 @@ class PolarsEvaluator:
         )
         agg_df = agg_df.hstack(min_obj_columns)
 
-        # Evaluate any scalarization functions and put the result in the aggregate dataframe
+        # Evaluate any scalarization functions and put the result in the aggregate dataframe.
+        # Evaluated one at a time so that a scalarization function may reference one
+        # defined before it, as objectives, extra functions and constraints already can.
         if self.scalarization_expressions is not None:
-            scal_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.scalarization_expressions])
-            agg_df = agg_df.hstack(scal_columns)
+            for symbol, expr in self.scalarization_expressions:
+                scal_column = agg_df.select(expr.alias(symbol))
+                agg_df = agg_df.hstack(scal_column)
 
         # Evaluate any constraints and put the results in the aggregate dataframe
         # If a constraint is simulator or surrogate based (expression None), skip it here
@@ -486,9 +489,11 @@ class PolarsEvaluator:
         agg_df = self.discrete_df.clone()
 
         # Evaluate any extra functions and put the results in the aggregate dataframe.
+        # Evaluated one at a time so that an extra function may reference one defined before it.
         if self.extra_expressions is not None:
-            extra_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.extra_expressions])
-            agg_df = agg_df.hstack(extra_columns)
+            for symbol, expr in self.extra_expressions:
+                extra_column = agg_df.select(expr.alias(symbol))
+                agg_df = agg_df.hstack(extra_column)
 
         # Evaluate the minimization form of the objective functions
         # Note that the column name of these should be 'the objective function's symbol'_min
@@ -502,15 +507,19 @@ class PolarsEvaluator:
 
         agg_df = agg_df.hstack(min_obj_columns)
 
-        # Evaluate any scalarization functions and put the result in the aggregate dataframe
+        # Evaluate any scalarization functions and put the result in the aggregate dataframe.
+        # Evaluated one at a time so that a scalarization function may reference one defined before it.
         if self.scalarization_expressions is not None:
-            scal_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.scalarization_expressions])
-            agg_df = agg_df.hstack(scal_columns)
+            for symbol, expr in self.scalarization_expressions:
+                scal_column = agg_df.select(expr.alias(symbol))
+                agg_df = agg_df.hstack(scal_column)
 
-        # Evaluate any constraints and put the results in the aggregate dataframe
+        # Evaluate any constraints and put the results in the aggregate dataframe.
+        # Evaluated one at a time so that a constraint may reference one defined before it.
         if self.constraint_expressions is not None:
-            cons_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.constraint_expressions])
-            agg_df = agg_df.hstack(cons_columns)
+            for symbol, expr in self.constraint_expressions:
+                cons_column = agg_df.select(expr.alias(symbol))
+                agg_df = agg_df.hstack(cons_column)
 
         # no more processing needed, it is assumed a solver will handle the rest
         return agg_df

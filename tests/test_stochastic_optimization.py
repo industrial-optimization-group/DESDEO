@@ -6,10 +6,10 @@ import pytest
 
 from desdeo.problem.testproblems import simple_scenario_model
 from desdeo.tools import guess_best_solver
-from desdeo.tools.robust import add_worst_case_robust
+from desdeo.tools.robust import add_weighted_scenarios, add_worst_case_robust
 from desdeo.tools.scalarization import add_asf_diff
 from desdeo.tools.scenarios import build_combined_scenario_problem
-from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_asf
+from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_asf, add_expected_value
 
 _REF = {"f_1": 0.0, "f_2": 0.0, "f_3": 0.0}
 _IDEAL = {"f_1": -100.0, "f_2": -100.0, "f_3": -100.0}
@@ -196,4 +196,89 @@ def test_robust_asf_value_is_finite(robust_solve_result):
 def test_robust_asf_has_shared_variable(robust_solve_result):
     """The result contains the shared (non-anticipative) variable x_1."""
     result, _ = robust_solve_result
+    assert "x_1" in result.optimal_variables
+
+
+# ---------------------------------------------------------------------------
+# add_weighted_scenarios — solving tests
+# ---------------------------------------------------------------------------
+
+_LEAF_WEIGHTS = {"s_1": 0.5, "s_2": 0.3, "s_3": 0.2}
+
+
+@pytest.fixture(name="weighted_asf_problem")
+def weighted_asf_problem_fixture(model):
+    """Combined problem with a user-weighted sum of the per-leaf ASF scalarizations."""
+    asf_base, scal = add_asf_diff(model.base_problem, "asf", _REF, ideal=_IDEAL, nadir=_NADIR)
+    asf_model = model.with_base_problem(problem=asf_base)
+    combined, symbol_maps = build_combined_scenario_problem(asf_model)
+    return add_weighted_scenarios(asf_model, [scal], weights=_LEAF_WEIGHTS, combined=combined, symbol_maps=symbol_maps)
+
+
+@pytest.fixture(name="weighted_solve_result")
+def weighted_solve_result_fixture(weighted_asf_problem):
+    """Solve the weighted-ASF problem and return (result, weighted_symbol)."""
+    problem, added = weighted_asf_problem
+    weighted_sym = added["asf"]
+    solver_class = guess_best_solver(problem)
+    solver = solver_class(problem)
+    return solver.solve(weighted_sym), weighted_sym
+
+
+@pytest.mark.scenario
+@pytest.mark.slow
+def test_weighted_asf_solves_successfully(weighted_solve_result):
+    """The weighted-ASF problem reports a successful solve.
+
+    Regression test: the aggregated scalarization used to reference the per-leaf
+    scalarization symbols instead of inlining their expressions, which no evaluator
+    could resolve because all scalarization functions are computed in one pass.
+    """
+    result, _ = weighted_solve_result
+    assert result.success
+
+
+@pytest.mark.scenario
+@pytest.mark.slow
+def test_weighted_asf_value_is_finite(weighted_solve_result):
+    """The optimal weighted ASF value is a finite number."""
+    result, weighted_sym = weighted_solve_result
+    value = (result.scalarization_values or {}).get(weighted_sym)
+    assert value is not None
+    assert math.isfinite(value)
+
+
+@pytest.mark.scenario
+@pytest.mark.slow
+def test_weighted_asf_matches_expected_value_when_weights_are_probabilities(model):
+    """With the scenario probabilities as weights, the result matches add_expected_value."""
+    asf_base, scal = add_asf_diff(model.base_problem, "asf", _REF, ideal=_IDEAL, nadir=_NADIR)
+    asf_model = model.with_base_problem(problem=asf_base)
+    combined, symbol_maps = build_combined_scenario_problem(asf_model)
+
+    weighted_problem, weighted_added = add_weighted_scenarios(
+        asf_model,
+        [scal],
+        weights=asf_model.leaf_scenarios,
+        combined=combined,
+        symbol_maps=symbol_maps,
+    )
+    expected_problem, expected_added = add_expected_value(asf_model, [scal], combined=combined, symbol_maps=symbol_maps)
+
+    weighted_sym, expected_sym = weighted_added["asf"], expected_added["asf"]
+    weighted_value = guess_best_solver(weighted_problem)(weighted_problem).solve(weighted_sym)
+    expected_value = guess_best_solver(expected_problem)(expected_problem).solve(expected_sym)
+
+    assert weighted_value.success
+    assert expected_value.success
+    assert (weighted_value.scalarization_values or {})[weighted_sym] == pytest.approx(
+        (expected_value.scalarization_values or {})[expected_sym], rel=1e-4
+    )
+
+
+@pytest.mark.scenario
+@pytest.mark.slow
+def test_weighted_asf_has_shared_variable(weighted_solve_result):
+    """The result contains the shared (non-anticipative) variable x_1."""
+    result, _ = weighted_solve_result
     assert "x_1" in result.optimal_variables

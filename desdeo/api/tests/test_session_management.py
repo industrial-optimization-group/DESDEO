@@ -2,6 +2,10 @@
 
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlmodel import Session, select
+
+from desdeo.api.models import ProblemDB, ReferencePoint, RPMSolveRequest, StateDB, User
+from desdeo.problem.testproblems import dtlz2
 
 from .conftest import get_json, login, post_json
 
@@ -181,4 +185,77 @@ def test_dm_cannot_delete_other_dm_session(client: TestClient):
 
     # Session should still exist
     response = get_json(client, f"/session/get/{target_session_id}", analyst_token)
+    assert response.status_code == status.HTTP_200_OK
+
+
+def _add_problem_for(db_session: Session, username: str) -> int:
+    """Helper: add a problem owned by the given user directly to the database and return its id."""
+    user = db_session.exec(select(User).where(User.username == username)).one()
+    problem_db = ProblemDB.from_problem(dtlz2(5, 3), user=user)
+    db_session.add(problem_db)
+    db_session.commit()
+    db_session.refresh(problem_db)
+    return problem_db.id
+
+
+def _rpm_solve(
+    client: TestClient, token: str, problem_id: int, session_id: int | None = None, parent_state_id: int | None = None
+):
+    """Helper: iterate the reference point method, which resolves its session and parent state through the guard."""
+    request = RPMSolveRequest(
+        problem_id=problem_id,
+        session_id=session_id,
+        parent_state_id=parent_state_id,
+        preference=ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.3, "f_3": 0.4}),
+    )
+    return post_json(client, "/method/rpm/solve", request.model_dump(), token)
+
+
+def test_dm_cannot_use_other_dm_session_or_state(client: TestClient, session_and_user: dict):
+    """A DM cannot iterate in another DM's interactive session, nor continue from another DM's state."""
+    db_session = session_and_user["session"]
+    analyst_token = login(client)
+    _add_dm(client, analyst_token, "dm_owner", "dm_owner")
+    _add_dm(client, analyst_token, "dm_intruder", "dm_intruder")
+    owner_token = login(client, username="dm_owner", password="dm_owner")  # noqa: S106
+    intruder_token = login(client, username="dm_intruder", password="dm_intruder")  # noqa: S106
+
+    owner_problem = _add_problem_for(db_session, "dm_owner")
+    intruder_problem = _add_problem_for(db_session, "dm_intruder")
+
+    owner_session = _create_session(client, owner_token)
+    response = _rpm_solve(client, owner_token, owner_problem, session_id=owner_session)
+    assert response.status_code == status.HTTP_200_OK
+    owner_state = db_session.exec(select(StateDB).where(StateDB.session_id == owner_session)).one()
+
+    # the intruder names the owner's session or state explicitly, on a problem of their own
+    response = _rpm_solve(client, intruder_token, intruder_problem, session_id=owner_session)
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    intruder_session = _create_session(client, intruder_token)
+    response = _rpm_solve(
+        client, intruder_token, intruder_problem, session_id=intruder_session, parent_state_id=owner_state.id
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    # nothing was added to the owner's session
+    assert len(db_session.exec(select(StateDB).where(StateDB.session_id == owner_session)).all()) == 1
+
+
+def test_owner_and_analyst_keep_access_to_session_and_state(client: TestClient, session_and_user: dict):
+    """The owner may name their own session and state explicitly, and an analyst may name a DM's."""
+    db_session = session_and_user["session"]
+    analyst_token = login(client)
+    _add_dm(client, analyst_token, "dm_self", "dm_self")
+    dm_token = login(client, username="dm_self", password="dm_self")  # noqa: S106
+    dm_problem = _add_problem_for(db_session, "dm_self")
+
+    dm_session = _create_session(client, dm_token)
+    assert _rpm_solve(client, dm_token, dm_problem, session_id=dm_session).status_code == status.HTTP_200_OK
+    first_state = db_session.exec(select(StateDB).where(StateDB.session_id == dm_session)).one()
+
+    response = _rpm_solve(client, dm_token, dm_problem, session_id=dm_session, parent_state_id=first_state.id)
+    assert response.status_code == status.HTTP_200_OK
+
+    response = _rpm_solve(client, analyst_token, dm_problem, session_id=dm_session, parent_state_id=first_state.id)
     assert response.status_code == status.HTTP_200_OK
