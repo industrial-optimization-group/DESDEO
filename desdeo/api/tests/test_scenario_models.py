@@ -4,6 +4,16 @@ import pytest
 from sqlmodel import Session
 
 from desdeo.api.models import ProblemDB, ScenarioModelDB, ScenarioModelInfo, User
+from desdeo.problem.scenario import Scenario, ScenarioModel
+from desdeo.problem.schema import (
+    Constant,
+    Objective,
+    Problem,
+    TensorConstant,
+    TensorVariable,
+    Variable,
+    VariableTypeEnum,
+)
 from desdeo.problem.testproblems import river_pollution_scenario, simple_scenario_model
 
 
@@ -166,3 +176,79 @@ def test_scenario_model_info_from_db(session_and_user):
     assert info.base_problem_id == problem_db.id
     assert info.scenario_tree == original.scenario_tree
     assert set(info.scenarios.keys()) == set(original.scenarios.keys())
+
+
+def test_scenario_model_db_round_trip_interleaved_pools(session_and_user):
+    """Scenarios resolve to the same elements after a round-trip when scalar and tensor pool elements interleave.
+
+    Scalars and tensors are stored in separate tables, so the pool order changes on reload.
+    """
+    session = session_and_user["session"]
+    user = session_and_user["user"]
+    problem_db = session_and_user["problem_db"]
+
+    real = VariableTypeEnum.real
+
+    base_problem = Problem(
+        name="Interleaved pools",
+        description="Base problem with scalar and tensor constants and variables.",
+        variables=[
+            Variable(name="x_1", symbol="x_1", variable_type=real, lowerbound=0, upperbound=10, initial_value=1),
+            TensorVariable(
+                name="X", symbol="X", variable_type=real, shape=[2], lowerbounds=0, upperbounds=10, initial_values=1
+            ),
+        ],
+        constants=[
+            Constant(name="c_1", symbol="c_1", value=1.0),
+            TensorConstant(name="T", symbol="T", shape=[2], values=[0.0, 0.0]),
+        ],
+        objectives=[Objective(name="f_1", symbol="f_1", func="x_1 + c_1", maximize=False)],
+    )
+
+    original = ScenarioModel(
+        scenario_tree={"ROOT": ["s_1", "s_2"], "s_1": [], "s_2": []},
+        base_problem=base_problem,
+        constants=[
+            TensorConstant(name="T (s_1)", symbol="T", shape=[2], values=[1.0, 2.0]),  # index 0
+            Constant(name="c_1 (s_1)", symbol="c_1", value=10.0),  # index 1
+            TensorConstant(name="T (s_2)", symbol="T", shape=[2], values=[3.0, 4.0]),  # index 2
+            Constant(name="c_1 (s_2)", symbol="c_1", value=20.0),  # index 3
+        ],
+        variables=[
+            TensorVariable(
+                name="X (s_1)",
+                symbol="X",
+                variable_type=real,
+                shape=[2],
+                lowerbounds=0,
+                upperbounds=5,
+                initial_values=1,
+            ),
+            Variable(name="x_1 (s_1)", symbol="x_1", variable_type=real, lowerbound=0, upperbound=5, initial_value=1),
+            TensorVariable(
+                name="X (s_2)",
+                symbol="X",
+                variable_type=real,
+                shape=[2],
+                lowerbounds=1,
+                upperbounds=6,
+                initial_values=2,
+            ),
+            Variable(name="x_1 (s_2)", symbol="x_1", variable_type=real, lowerbound=1, upperbound=6, initial_value=2),
+        ],
+        scenarios={
+            "s_1": Scenario(constants={"T": 0, "c_1": 1}, variables={"X": 0, "x_1": 1}),
+            "s_2": Scenario(constants={"T": 2, "c_1": 3}, variables={"X": 2, "x_1": 3}),
+        },
+    )
+
+    db_record = ScenarioModelDB.from_scenario_model(original, user=user, base_problem_id=problem_db.id)
+    session.add(db_record)
+    session.commit()
+    session.refresh(db_record)
+
+    from_db = session.get(ScenarioModelDB, db_record.id)
+    reconstructed = from_db.to_scenario_model(original.base_problem)
+
+    for leaf in original.leaf_scenarios:
+        assert reconstructed.get_scenario_problem(leaf).model_dump() == original.get_scenario_problem(leaf).model_dump()

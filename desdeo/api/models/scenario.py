@@ -52,15 +52,37 @@ class ScenarioModelDB(SQLModel, table=True):
     user: "User" = Relationship(back_populates="scenario_models")
     base_problem: "ProblemDB" = Relationship(back_populates="scenario_models")
 
-    constants: list["ConstantDB"] = Relationship(back_populates="scenario_model", cascade_delete=True)
-    tensor_constants: list["TensorConstantDB"] = Relationship(back_populates="scenario_model", cascade_delete=True)
-    variables: list["VariableDB"] = Relationship(back_populates="scenario_model", cascade_delete=True)
-    tensor_variables: list["TensorVariableDB"] = Relationship(back_populates="scenario_model", cascade_delete=True)
-    objectives: list["ObjectiveDB"] = Relationship(back_populates="scenario_model", cascade_delete=True)
-    constraints: list["ConstraintDB"] = Relationship(back_populates="scenario_model", cascade_delete=True)
-    extra_funcs: list["ExtraFunctionDB"] = Relationship(back_populates="scenario_model", cascade_delete=True)
+    constants: list["ConstantDB"] = Relationship(
+        back_populates="scenario_model", cascade_delete=True, sa_relationship_kwargs={"order_by": "ConstantDB.id"}
+    )
+    tensor_constants: list["TensorConstantDB"] = Relationship(
+        back_populates="scenario_model",
+        cascade_delete=True,
+        sa_relationship_kwargs={"order_by": "TensorConstantDB.id"},
+    )
+    variables: list["VariableDB"] = Relationship(
+        back_populates="scenario_model", cascade_delete=True, sa_relationship_kwargs={"order_by": "VariableDB.id"}
+    )
+    tensor_variables: list["TensorVariableDB"] = Relationship(
+        back_populates="scenario_model",
+        cascade_delete=True,
+        sa_relationship_kwargs={"order_by": "TensorVariableDB.id"},
+    )
+    objectives: list["ObjectiveDB"] = Relationship(
+        back_populates="scenario_model", cascade_delete=True, sa_relationship_kwargs={"order_by": "ObjectiveDB.id"}
+    )
+    constraints: list["ConstraintDB"] = Relationship(
+        back_populates="scenario_model", cascade_delete=True, sa_relationship_kwargs={"order_by": "ConstraintDB.id"}
+    )
+    extra_funcs: list["ExtraFunctionDB"] = Relationship(
+        back_populates="scenario_model",
+        cascade_delete=True,
+        sa_relationship_kwargs={"order_by": "ExtraFunctionDB.id"},
+    )
     scalarization_funcs: list["ScalarizationFunctionDB"] = Relationship(
-        back_populates="scenario_model", cascade_delete=True
+        back_populates="scenario_model",
+        cascade_delete=True,
+        sa_relationship_kwargs={"order_by": "ScalarizationFunctionDB.id"},
     )
 
     @classmethod
@@ -79,17 +101,41 @@ class ScenarioModelDB(SQLModel, table=True):
 
         Returns:
             ScenarioModelDB: the new DB instance (not yet added to a session).
+
+        Note:
+            Scalar and tensor constants (and variables) are stored in separate tables and
+            reloaded as scalars followed by tensors, so scenario indices into these pools are
+            remapped to that order. Pool order may change on reload; each scenario still
+            resolves to the same elements.
         """
         scalar_constants = [c for c in scenario_model.constants if isinstance(c, Constant)]
         tensor_constants = [c for c in scenario_model.constants if isinstance(c, TensorConstant)]
         scalar_variables = [v for v in scenario_model.variables if isinstance(v, Variable)]
         tensor_variables = [v for v in scenario_model.variables if isinstance(v, TensorVariable)]
 
+        # Maps each original pool index to its index in the scalars-then-tensors order.
+        constant_order = sorted(
+            range(len(scenario_model.constants)), key=lambda i: isinstance(scenario_model.constants[i], TensorConstant)
+        )
+        variable_order = sorted(
+            range(len(scenario_model.variables)), key=lambda i: isinstance(scenario_model.variables[i], TensorVariable)
+        )
+        constant_index = {old: new for new, old in enumerate(constant_order)}
+        variable_index = {old: new for new, old in enumerate(variable_order)}
+        scenarios = {
+            name: s.model_dump()
+            | {
+                "constants": {symbol: constant_index[i] for symbol, i in s.constants.items()},
+                "variables": {symbol: variable_index[i] for symbol, i in s.variables.items()},
+            }
+            for name, s in scenario_model.scenarios.items()
+        }
+
         return cls(
             user_id=user.id,
             base_problem_id=base_problem_id,
             scenario_tree=scenario_model.scenario_tree,
-            scenarios={name: s.model_dump() for name, s in scenario_model.scenarios.items()},
+            scenarios=scenarios,
             anticipation_stop=scenario_model.anticipation_stop,
             scenario_probabilities=scenario_model.scenario_probabilities,
             constants=[ConstantDB.model_validate(c) for c in scalar_constants],
@@ -99,9 +145,7 @@ class ScenarioModelDB(SQLModel, table=True):
             objectives=[ObjectiveDB.model_validate(o) for o in scenario_model.objectives],
             constraints=[ConstraintDB.model_validate(c) for c in scenario_model.constraints],
             extra_funcs=[ExtraFunctionDB.model_validate(e) for e in scenario_model.extra_funcs],
-            scalarization_funcs=[
-                ScalarizationFunctionDB.model_validate(s) for s in scenario_model.scalarization_funcs
-            ],
+            scalarization_funcs=[ScalarizationFunctionDB.model_validate(s) for s in scenario_model.scalarization_funcs],
         )
 
     def to_scenario_model(self, base_problem: Problem) -> ScenarioModel:
@@ -128,8 +172,7 @@ class ScenarioModelDB(SQLModel, table=True):
             constraints=[Constraint.model_validate(c.model_dump(exclude=_EXCLUDE)) for c in self.constraints],
             extra_funcs=[ExtraFunction.model_validate(e.model_dump(exclude=_EXCLUDE)) for e in self.extra_funcs],
             scalarization_funcs=[
-                ScalarizationFunction.model_validate(s.model_dump(exclude=_EXCLUDE))
-                for s in self.scalarization_funcs
+                ScalarizationFunction.model_validate(s.model_dump(exclude=_EXCLUDE)) for s in self.scalarization_funcs
             ],
             scenarios={name: Scenario.model_validate(s) for name, s in self.scenarios.items()},
             anticipation_stop=self.anticipation_stop,
