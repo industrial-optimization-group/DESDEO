@@ -21,6 +21,7 @@ from desdeo.problem.testproblems import (
 )
 from desdeo.tools.robust import add_single_objective_worst_case_regret, add_weighted_scenarios, add_worst_case_robust
 from desdeo.tools.scenarios import (
+    _symbols_in,
     build_combined_scenario_problem,
     build_scenario_problem,
     build_scenario_symbol_maps,
@@ -382,6 +383,80 @@ def test_symbol_map_scenario_variable_renamed_per_leaf(symbol_maps):
     """x_2 is scenario-specific so each leaf gets its own symbol."""
     vm = symbol_maps["variables"]["x_2"]
     assert vm == {"s_1": "s_1_x_2", "s_2": "s_2_x_2", "s_3": "s_3_x_2"}
+
+
+def _pool_only_variable_model():
+    """Two sibling leaves that each add the pool-only variable ``u`` and a constraint on it."""
+    base_problem = Problem(
+        name="Pool-only variable test problem",
+        description="Base problem without the variable the scenarios add.",
+        variables=[
+            Variable(name="x", symbol="x", lowerbound=0, upperbound=10, variable_type=VariableTypeEnum.real),
+        ],
+        objectives=[
+            Objective(name="f", symbol="f", func=["Add", "x", 0], maximize=False, ideal=0, nadir=10),
+        ],
+    )
+
+    return ScenarioModel(
+        scenario_tree={"ROOT": ["s_1", "s_2"], "s_1": [], "s_2": []},
+        base_problem=base_problem,
+        variables=[
+            Variable(name="u", symbol="u", lowerbound=0, upperbound=5, variable_type=VariableTypeEnum.real),
+        ],
+        constraints=[
+            Constraint(name="c (s_1)", symbol="c", func=["Subtract", "u", 1], cons_type=ConstraintTypeEnum.LTE),
+            Constraint(name="c (s_2)", symbol="c", func=["Subtract", "u", 2], cons_type=ConstraintTypeEnum.LTE),
+        ],
+        scenarios={
+            "s_1": Scenario(variables={"u": 0}, constraints={"c": 0}),
+            "s_2": Scenario(variables={"u": 0}, constraints={"c": 1}),
+        },
+        anticipation_stop={"ROOT": ["x"]},
+    )
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_pool_only_variable_renamed_per_leaf():
+    """A variable added only via the pool gets a per-leaf copy, referenced by that leaf's constraint."""
+    combined, symbol_maps = build_combined_scenario_problem(_pool_only_variable_model())
+
+    assert symbol_maps["variables"]["u"] == {"s_1": "s_1_u", "s_2": "s_2_u"}
+    assert {v.symbol for v in combined.variables} == {"x", "s_1_u", "s_2_u"}
+
+    cons = {c.symbol: c.func for c in combined.constraints}
+    assert cons["s_1_c"] == ["Subtract", "s_1_u", 1]
+    assert cons["s_2_c"] == ["Subtract", "s_2_u", 2]
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_summer_cabin_pool_only_variables_follow_anticipation_stop():
+    """Pool-only variables are shared only under the anticipation_stop node that lists them."""
+    _, symbol_maps = build_combined_scenario_problem(summer_cabin_battery_problem_split_scenario())
+    vm = symbol_maps["variables"]
+
+    assert vm["unmet_s3"] == {"S1b": "S1b_unmet_s3", "S2b": "S2b_unmet_s3"}
+    assert vm["z_s3"] == {"S1b": "S1b_z_s3", "S2b": "S2b_z_s3"}
+    assert vm["unmet_s2"] == {"S2a": "S2_unmet_s2", "S2b": "S2_unmet_s2"}
+    assert vm["z_s2"] == {"S2a": "S2_z_s2", "S2b": "S2_z_s2"}
+
+
+@pytest.mark.schema
+@pytest.mark.scenario
+def test_summer_cabin_leaf_constraints_reference_only_own_variables():
+    """Each leaf's constraints reference only variables that the leaf's symbol map points at."""
+    combined, symbol_maps = build_combined_scenario_problem(summer_cabin_battery_problem_split_scenario())
+    combined_vars = {v.symbol for v in combined.variables}
+    cons = {c.symbol: c.func for c in combined.constraints}
+
+    for leaf in ("S1a", "S1b", "S2a", "S2b"):
+        own_vars = {per_leaf[leaf] for per_leaf in symbol_maps["variables"].values() if leaf in per_leaf}
+        for per_leaf in symbol_maps["constraints"].values():
+            if leaf in per_leaf:
+                referenced = _symbols_in(cons[per_leaf[leaf]]) & combined_vars
+                assert referenced <= own_vars, (leaf, per_leaf[leaf], referenced - own_vars)
 
 
 # ---------------------------------------------------------------------------
