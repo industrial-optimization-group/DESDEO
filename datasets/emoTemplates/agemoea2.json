@@ -26,7 +26,7 @@
         "generator": {
             "n_points": 100,
             "seed": null,
-            "name": "RandomGenerator"
+            "name": "LHSGenerator"
         },
         "repair": {
             "name": "ClipRepair",
