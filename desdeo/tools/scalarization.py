@@ -210,7 +210,7 @@ def add_asf_nondiff(
     else:
         aug_operands = [
             (
-                f"({obj.symbol}_min - {reference_point[obj.symbol]}{' * -1' if obj.maximize else 1}) "
+                f"({obj.symbol}_min - {reference_point[obj.symbol]}{' * -1' if obj.maximize else ''}) "
                 f"/ ({nadir_point[obj.symbol]} - ({ideal_point[obj.symbol]} - {delta}))"
             )
             for obj in problem.objectives

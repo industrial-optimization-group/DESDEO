@@ -2,6 +2,7 @@
 
 import numpy as np
 import numpy.testing as npt
+import polars as pl
 import pytest
 
 from desdeo.problem import (
@@ -115,6 +116,51 @@ def test_add_asf_nondiff(river_w_fake_ideal_and_nadir):
     for key, value in reference_point.items():
         assert f"{key}_min" in flatten(problem.scalarization_funcs[0].func)
         assert value in flatten(problem.scalarization_funcs[0].func)
+
+
+@pytest.mark.scalarization
+@pytest.mark.parametrize("q_1", [10, 10.0, 2.5])
+def test_add_asf_nondiff_reference_in_aug_value(q_1):
+    """Tests that the ASF with the reference point in the augmentation term evaluates correctly."""
+    problem = Problem(
+        name="asf test",
+        description="One minimized and one maximized objective.",
+        variables=[
+            Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real),
+            Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.real),
+        ],
+        objectives=[
+            Objective(name="f_1", symbol="f_1", func="x_1", maximize=False),
+            Objective(name="f_2", symbol="f_2", func="x_2", maximize=True),
+        ],
+    )
+    q_2 = 4
+    ideal = {"f_1": 0.0, "f_2": -20.0}
+    nadir = {"f_1": 20.0, "f_2": 0.0}
+    delta, rho = 0.5, 0.1
+
+    problem, target = add_asf_nondiff(
+        problem,
+        symbol="asf",
+        reference_point={"f_1": q_1, "f_2": q_2},
+        ideal=ideal,
+        nadir=nadir,
+        delta=delta,
+        rho=rho,
+        reference_in_aug=True,
+    )
+
+    x_1, x_2 = 7.0, 6.0
+    result = PolarsEvaluator(problem).evaluate(pl.DataFrame({"x_1": [x_1], "x_2": [x_2]}))
+
+    # in the minimized space: f_1 = x_1, f_2 = -x_2, q_2 -> -q_2
+    terms = [
+        (x_1 - q_1) / (nadir["f_1"] - (ideal["f_1"] - delta)),
+        (-x_2 - (-q_2)) / (nadir["f_2"] - (ideal["f_2"] - delta)),
+    ]
+    expected = max(terms) + rho * sum(terms)
+
+    npt.assert_allclose(result[target][0], expected)
 
 
 @pytest.mark.scalarization
