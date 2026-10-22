@@ -1092,7 +1092,7 @@ def add_stom_sf_diff(
     # define the objective function of the scalarization
     aug_expr = " + ".join(
         [
-            f"{obj.symbol}_min / ({(reference_point[obj.symbol] - ideal_point[obj.symbol]) + delta})"
+            f"{obj.symbol}_min / ({(corrected_rp[obj.symbol] - ideal_point[obj.symbol]) + delta})"
             for obj in problem.objectives
         ]
     )
@@ -1205,7 +1205,7 @@ def add_stom_sf_nondiff(
     )
     aug_expr = " + ".join(
         [
-            f"{obj.symbol}_min / ({(reference_point[obj.symbol] - ideal_point[obj.symbol]) + delta})"
+            f"{obj.symbol}_min / ({(corrected_rp[obj.symbol] - ideal_point[obj.symbol]) + delta})"
             for obj in problem.objectives
         ]
     )
