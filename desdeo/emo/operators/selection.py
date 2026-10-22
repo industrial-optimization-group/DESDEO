@@ -16,6 +16,7 @@ import polars as pl
 from moocore import hv_contributions
 from numba import njit
 from pydantic import BaseModel, ConfigDict, Field
+from scipy.linalg import LinAlgWarning, lu_factor, lu_solve
 from scipy.spatial.distance import cdist
 from scipy.special import comb
 from scipy.stats.qmc import LatinHypercube
@@ -2618,204 +2619,197 @@ class SPEA2Selector(_FitnessPublishingSelector):
         return self._finish(solutions, outputs, chosen, 1.0 / (1.0 + fitness[chosen]))
 
 
-def _point_to_axis_distance(points: np.ndarray, direction: np.ndarray) -> np.ndarray:
-    """Squared distance from each point to the line through the origin along `direction`."""
-    t = points @ direction / (direction @ direction)
-    return np.sum((points - t[:, None] * direction) ** 2, axis=1)
+def _nan_argmin(values: np.ndarray) -> int:
+    """Index of the smallest value skipping NaN, or 0 when every value is NaN, as MATLAB's `min` returns it."""
+    return 0 if np.isnan(values).all() else int(np.nanargmin(values))
 
 
-def agemoea_corner_solutions(front: np.ndarray) -> np.ndarray:
-    """The extreme points of a front shifted to the origin: the point closest to each objective axis.
+def _nan_argmax(values: np.ndarray) -> int:
+    """Index of the largest value skipping NaN, or 0 when every value is NaN, as MATLAB's `max` returns it."""
+    return 0 if np.isnan(values).all() else int(np.nanargmax(values))
 
-    Each axis is offset by 1e-6 in the other objectives, and a point already taken for one axis is
-    not taken for another, as in Panichella's own implementation (pymoo's `find_corner_solutions`).
+
+def _lp_norm(points: np.ndarray, p: float) -> np.ndarray:
+    """`||x||_p` along the last axis; the largest absolute value when `p` is infinite, as MATLAB's `vecnorm`."""
+    with np.errstate(all="ignore"):
+        if np.isinf(p):
+            return np.max(np.abs(points), axis=-1)
+        return np.sum(np.abs(points) ** p, axis=-1) ** (1.0 / p)
+
+
+def agemoea2_extreme_points(front: np.ndarray) -> np.ndarray:
+    """The extreme points AGE-MOEA-II normalizes a shifted first front by (`front_normalization` in the author's code).
+
+    For each objective, the point that minimizes the achievement scalarizing function with weight 1 on that
+    objective and 1e-6 on the others, as in NSGA-III. One point can be the extreme of several objectives.
+    """
+    weights = 1e-6 + np.eye(front.shape[1])
+    with np.errstate(all="ignore"):
+        return np.array([_nan_argmin(np.fmax.reduce(front / w, axis=1)) for w in weights])
+
+
+def agemoea2_normalize(front: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Normalize a first front shifted to its ideal point (Panichella 2019, Section 3.2, as the author's code does it).
+
+    Each objective is divided by the intercept of the hyperplane through the extreme points
+    (`agemoea2_extreme_points`), and the result is shifted so that each objective's smallest value is zero again.
+    The largest value of each objective replaces the intercepts only when one of them is NaN, so a negative or
+    infinite intercept is kept, although the paper falls back to these min-max constants whenever the plane is
+    "indefinite, impossible or leading to abnormal normalization results". The plane is solved by LU factorization,
+    as MATLAB's backslash solves a square system, so a singular one gives Inf or NaN instead of an error.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: the normalized front and the indices of the extreme points.
+    """
+    extremes = agemoea2_extreme_points(front)
+    with np.errstate(all="ignore"), warnings.catch_warnings():
+        warnings.simplefilter("ignore", LinAlgWarning)
+        plane = lu_solve(lu_factor(front[extremes], check_finite=False), np.ones(front.shape[1]), check_finite=False)
+        intercepts = 1.0 / plane
+    if np.isnan(intercepts).any():
+        intercepts = np.fmax.reduce(front, axis=0)
+    with np.errstate(all="ignore"):
+        normalized = front / intercepts
+        return normalized - np.fmin.reduce(normalized, axis=0), extremes
+
+
+def agemoea2_corner_solutions(front: np.ndarray) -> np.ndarray:
+    """The point nearest each objective axis by perpendicular distance (`FindCornerSolutions` in the author's code).
+
+    A point can be the corner of several axes. When the front has no more points than objectives, every point is a
+    corner.
     """
     m, n = front.shape
     if m <= n:
         return np.arange(m)
-    axes = 1e-6 + np.eye(n)
-    taken = np.zeros(m, dtype=bool)
-    corners = np.empty(n, dtype=int)
-    for i in range(n):
-        distance = _point_to_axis_distance(front, axes[i])
-        distance[taken] = np.inf
-        corners[i] = int(np.argmin(distance))
-        taken[corners[i]] = True
-    return corners
-
-
-def agemoea_normalize(front: np.ndarray, corners: np.ndarray) -> np.ndarray:
-    """The normalization constants of a shifted first front (Panichella 2019, Section 3.2).
-
-    The constants are the intercepts of the hyperplane through the extreme points. When that plane is
-    undefined, or cuts an axis at a non-positive or non-finite value, the min-max constants (the
-    largest value of each shifted objective) are used instead, as the paper prescribes.
-    """
-    fallback = np.max(front, axis=0)
-    intercepts = fallback
-    if len(np.unique(corners)) == len(corners) and len(corners) == front.shape[1]:
-        try:
-            plane = np.linalg.solve(front[corners], np.ones(front.shape[1]))
-            if np.all(np.isfinite(plane)) and np.all(plane > 0):
-                intercepts = 1.0 / plane
-        except np.linalg.LinAlgError:
-            pass
-    intercepts = np.where(np.isfinite(intercepts), intercepts, fallback)
-    return np.where(intercepts == 0, 1.0, intercepts)
+    with np.errstate(all="ignore"):
+        return np.array([_nan_argmin(np.linalg.norm(np.delete(front, i, axis=1), axis=1)) for i in range(n)])
 
 
 def agemoea2_curvature(point: np.ndarray, tolerance: float = 1e-3, max_iterations: int = 100) -> float:
     """Estimate the exponent `p` with `sum_i a_i ** p = 1` by Newton-Raphson (Panichella 2022, Eq. 7-9).
 
-    Starts from `p = 1` and stops when two iterates differ by at most `tolerance` (Section 3.1).
-    Coordinates equal to zero are left out, which is the paper's convention `0 ** p * log 0 = 0`.
+    Starts from `p = 1` and stops when two iterates differ by at most `tolerance` (Section 3.1). Coordinates equal to
+    zero are left out of the derivative, the paper's convention `0 ** p * log 0 = 0`. A result that is NaN or not
+    positive is replaced by 1, a flat front, as `ComputeGeometry` in the author's code does.
 
-    Eq. 9 is printed as `p + log(S) / D`, with `S = sum a ** p` and `D = sum a ** p log a`. That sign
-    sends the iteration the wrong way: on the paper's own example B = (cos pi/8, sin pi/8) it reaches
-    -1.44 after four steps. Newton's step for `f(p) = log S` is `p - f / f' = p - S log(S) / D`, which
-    reaches the paper's reported 1.999999999879 in four steps, so that is what is implemented.
-
-    The result is kept in [0.1, 20], falling back to 1 (a flat front) when it is not finite or falls
-    below 0.1, as in the author's implementation.
+    Eq. 9 is printed as `p + log(S) / D`, with `S = sum a ** p` and `D = sum a ** p log a`. That sign sends the
+    iteration the wrong way: on the paper's own example B = (cos pi/8, sin pi/8) it reaches -1.44 after four steps.
+    Newton's step for `f(p) = log S` is `p - f / f' = p - S log(S) / D`, which the author's code takes and which reaches
+    the paper's reported 1.999999999879 in four steps.
     """
-    a = point[point > 0]
-    p = 1.0
-    if a.size == 0:
-        return p
+    nonzero = point[point != 0]
+    p = previous = 1.0
     with np.errstate(all="ignore"):
         for _ in range(max_iterations):
-            powered = a**p
-            total = powered.sum()
-            slope = (powered * np.log(a)).sum()
-            if not np.isfinite(total) or not np.isfinite(slope) or slope == 0 or total <= 0:
-                return 1.0
-            step = total * np.log(total) / slope
-            p -= step
-            if not np.isfinite(p):
-                return 1.0
-            if abs(step) <= tolerance:
+            powered = nonzero**p
+            p -= np.log(np.sum(point**p)) * np.sum(powered) / np.sum(powered * np.log(nonzero))
+            if abs(p - previous) <= tolerance:
                 break
-    if p <= 0.1:  # noqa: PLR2004
-        return 1.0
-    return min(p, 20.0)
-
-
-def _lp_norm(points: np.ndarray, p: float) -> np.ndarray:
-    with np.errstate(all="ignore"):
-        return np.sum(np.abs(points) ** p, axis=-1) ** (1.0 / p)
+            previous = p
+    return 1.0 if np.isnan(p) or p <= 0 else float(abs(p))
 
 
 def agemoea2_geodesic_distances(front: np.ndarray, p: float) -> np.ndarray:
     """Approximate geodesic distances between the projections of a normalized front (Panichella 2022, Sec. 3.2).
 
-    Each point is projected onto the manifold `||x||_p = 1` (Eq. 14). The distance between two
-    projected points is the length of the two-segment path through the projection of their midpoint
-    (Eq. 11-13). Near p = 1 the manifold is flat and the path is the straight segment, so the
-    Euclidean distance is used directly between 0.95 and 1.05, as in the author's implementation.
+    Each point is projected onto the manifold `sum_i x_i ** p = 1` (Eq. 14). The distance between two projected
+    points is the length of the two-segment path through the projection of their midpoint (Eq. 11-13). On a flat
+    front (p = 1) the midpoint already lies on the manifold, and the path is the straight segment.
     """
-    norms = _lp_norm(front, p)
-    norms[~np.isfinite(norms) | (norms == 0)] = 1.0
-    projected = front / norms[:, None]
-    if 0.95 < p < 1.05:  # noqa: PLR2004
-        return cdist(projected, projected)
-    midpoints = (projected[:, None, :] + projected[None, :, :]) / 2
-    mid_norms = _lp_norm(midpoints, p)
-    mid_norms[~np.isfinite(mid_norms) | (mid_norms == 0)] = 1.0
-    midpoints = midpoints / mid_norms[..., None]
-    return np.linalg.norm(projected[:, None, :] - midpoints, axis=2) + np.linalg.norm(
-        projected[None, :, :] - midpoints, axis=2
-    )
+    with np.errstate(all="ignore"):
+        projected = front / np.sum(front**p, axis=1, keepdims=True) ** (1.0 / p)
+        midpoints = (projected[:, None, :] + projected[None, :, :]) / 2
+        midpoints = midpoints / np.sum(midpoints**p, axis=2, keepdims=True) ** (1.0 / p)
+        distances = np.linalg.norm(projected[:, None, :] - midpoints, axis=2) + np.linalg.norm(
+            projected[None, :, :] - midpoints, axis=2
+        )
+    np.fill_diagonal(distances, 0.0)
+    return distances
 
 
-def agemoea2_survival_score(front: np.ndarray, corners: np.ndarray, p: float) -> np.ndarray:
-    """The survival scores of a normalized first front (Panichella 2019, Algorithm 2, lines 2-18).
+def agemoea2_survival_score(front: np.ndarray) -> tuple[np.ndarray, float]:
+    """The survival scores of a first front and its curvature (Panichella 2019, Algorithm 2, lines 2-18).
 
-    The extreme points score infinity. The rest join the selected set one at a time, each time the one
-    whose diversity (the sum of its two smallest geodesic distances to the selected set) divided by
-    its proximity (`||f||_p`) is largest, and that ratio is its score.
+    The front is shifted to its ideal point and normalized (`agemoea2_normalize`), and the curvature `p` is estimated
+    on the solution nearest the origin that is not a corner (`agemoea2_corner_solutions`, `agemoea2_curvature`). The
+    extreme points score infinity. The rest join the selected set one at a time, each time the one whose diversity
+    (the sum of its two smallest geodesic distances to the selected set) divided by its proximity (`||f||_p`) is
+    largest, and that ratio is its score. As in the author's code, the last solution left keeps the score 0.
+
+    Returns:
+        tuple[np.ndarray, float]: the scores, in the order of `front`, and `p`.
     """
-    m = len(front)
-    score = np.zeros(m)
-    score[corners] = np.inf
-    proximity = _lp_norm(front, p)
-    proximity[~np.isfinite(proximity) | (proximity < 1e-8)] = 1.0  # noqa: PLR2004
-    distances = agemoea2_geodesic_distances(front, p)
-    distances[distances < 1e-8] = 1e-8  # noqa: PLR2004
-    distances = distances / proximity[:, None]
+    score = np.zeros(len(front))
+    with np.errstate(all="ignore"):
+        normalized, extremes = agemoea2_normalize(front - np.fmin.reduce(front, axis=0))
+    score[extremes] = np.inf
+    selected = np.zeros(len(front), dtype=bool)
+    selected[extremes] = True
 
-    selected = list(np.unique(corners))
-    remaining = [i for i in range(m) if i not in set(selected)]
-    while remaining:
-        to_selected = distances[np.ix_(remaining, selected)]
-        if to_selected.shape[1] > 1:
-            value = np.partition(to_selected, 1, axis=1)[:, :2].sum(axis=1)
-        else:
-            value = to_selected[:, 0]
-        best = int(np.argmax(value))
+    nearest = np.linalg.norm(normalized, axis=1)
+    nearest[agemoea2_corner_solutions(normalized)] = np.inf
+    p = agemoea2_curvature(normalized[_nan_argmin(nearest)])
+    with np.errstate(all="ignore"):
+        distances = agemoea2_geodesic_distances(normalized, p) / _lp_norm(normalized, p)[:, None]
+
+    remaining = list(np.flatnonzero(~selected))
+    for _ in range(len(remaining) - 1):
+        # np.sort puts NaN last, as MATLAB's mink does.
+        value = np.sort(distances[np.ix_(remaining, np.flatnonzero(selected))], axis=1)[:, :2].sum(axis=1)
+        best = _nan_argmax(value)
         score[remaining[best]] = value[best]
-        selected.append(remaining.pop(best))
-    return score
+        selected[remaining.pop(best)] = True
+    return score, p
 
 
 class AGEMOEA2Selector(_FitnessPublishingSelector):
-    """The environmental selection of AGE-MOEA-II.
+    """The environmental selection of AGE-MOEA-II, as the author's code implements it.
 
-    Parents and offspring are sorted into nondominated fronts, which are copied whole while they fit.
-    The front that does not fit is ranked by survival score and cut. Survival scores come from the
-    geometry of the first front: it is shifted to its ideal point and normalized by the intercepts of
-    the hyperplane through its extreme points, its curvature `p` is estimated by Newton-Raphson, and
-    each of its solutions is scored by geodesic diversity over proximity
-    (`agemoea2_survival_score`). Solutions of later fronts, normalized with the first front's
-    constants, score `1 / ||f||_p` (Panichella 2019, Algorithm 2, lines 19-21).
+    This follows Panichella's own implementation, the replication package of the 2022 paper (Zenodo 6462859), whose
+    code PlatEMO 4.15 ships unchanged as AGE-MOEA-II. It leaves out one step of that code, described below.
 
-    The curvature is estimated from the first front's non-extreme solution nearest to the ideal point,
-    as in the author's implementation; the paper (Section 3.1) leaves the choice open, noting the
-    estimate barely depends on it.
+    Parents and offspring are sorted into nondominated fronts, which are copied whole while they fit. The front that
+    does not fit is ranked by survival score and cut. First-front scores come from the front's geometry
+    (`agemoea2_survival_score`). A solution of a later front scores `1 / ||f - z||_p`, where `f` are its raw
+    objective values, `z` holds the smallest value of each objective in the merged population, and `p` is the first
+    front's curvature. On a constrained problem the fronts follow constrained domination, as PlatEMO's sorting does.
 
-    The fitness published for the binary tournament ranks solutions by front first and survival score
-    second, as AGE-MOEA's mating selection does (Panichella 2019, Section 3.1). On a constrained
-    problem the fronts follow constrained domination (Deb et al. 2002), which is DESDEO's addition.
+    The author's code departs from the papers in three places, and this selector follows the code:
 
-    Departures of pymoo 0.6.2's AGEMOEA2 from the papers, found while implementing this: it scores
-    fronts `1..max_f_no - 1` and so never scores the front that is cut, whose survivors are then
-    arbitrary unless that front is the first; and it measures later fronts' proximity as
-    `||f / a - z||_p` instead of `||(f - z) / a||_p`.
+    - Normalization keeps a negative or infinite intercept (`agemoea2_normalize`), where the 2019 paper falls back to
+      min-max constants.
+    - Later fronts are scored on raw objectives. The 2019 paper (Section 3.2) normalizes them with the first front's
+      constants.
+    - The last first-front solution of the greedy scoring loop keeps the score 0.
+
+    NaN, which degenerate fronts produce through `0 / 0`, is handled the way MATLAB handles it: `min` and `max` skip
+    it, and the descending sort that orders the cut front puts it first.
+
+    The author's code also rounds every objective to 12 decimals before sorting. That step is left out here. It is an
+    absolute threshold, so what it does depends on the objectives' scale. On 3-objective DTLZ4 its effect is large:
+    from a random start, 47 of 50 runs with the rounding reached the whole front, and 26 of 50 without it.
+
+    The fitness published for the binary tournament ranks solutions by front first and survival score second, with
+    NaN below every number and equal scores tied, as the author's `TournamentSelection(2, N, FrontNo, -CrowdDis)`
+    compares them.
+
+    pymoo 0.6.2's AGEMOEA2 differs from the author's code in several places: it picks the extreme points by distance
+    to the axes, falls back to min-max constants on a negative intercept, normalizes later fronts, and never scores
+    the cut front unless it is the first.
 
     References:
-        Panichella, A. (2022). An improved Pareto front modeling algorithm for large-scale
-            many-objective optimization. In Proceedings of the Genetic and Evolutionary Computation
-            Conference (GECCO '22) (pp. 565-573). https://doi.org/10.1145/3512290.3528732
+        Panichella, A. (2022). An improved Pareto front modeling algorithm for large-scale many-objective
+            optimization. In Proceedings of the Genetic and Evolutionary Computation Conference (GECCO '22)
+            (pp. 565-573). https://doi.org/10.1145/3512290.3528732
 
-        Panichella, A. (2019). An adaptive evolutionary algorithm based on non-euclidean geometry for
-            many-objective optimization. In Proceedings of the Genetic and Evolutionary Computation
-            Conference (GECCO '19) (pp. 595-603). https://doi.org/10.1145/3321707.3321839
+        Panichella, A. (2019). An adaptive evolutionary algorithm based on non-euclidean geometry for many-objective
+            optimization. In Proceedings of the Genetic and Evolutionary Computation Conference (GECCO '19)
+            (pp. 595-603). https://doi.org/10.1145/3321707.3321839
+
+        Panichella, A. (2022). An improved Pareto front modeling algorithm for large-scale many-objective
+            optimization [Source code]. Zenodo. https://doi.org/10.5281/zenodo.6462859
     """
-
-    def survival_scores(self, targets: np.ndarray, fronts: np.ndarray, last_front: int) -> np.ndarray:
-        """Survival scores of every solution in fronts `0..last_front`; zero elsewhere."""
-        score = np.zeros(len(targets))
-        first = fronts[0]
-        front = targets[first]
-        ideal = front.min(axis=0)
-        shifted = front - ideal
-        if len(front) < targets.shape[1]:
-            # Too few points to place a hyperplane or fit a curvature: keep them all, flat geometry.
-            normalization, p = np.where(shifted.max(axis=0) > 0, shifted.max(axis=0), 1.0), 1.0
-            score[first] = np.inf
-        else:
-            corners = agemoea_corner_solutions(shifted)
-            normalization = agemoea_normalize(shifted, corners)
-            normalized = shifted / normalization
-            nearest = np.linalg.norm(normalized, axis=1)
-            nearest[corners] = np.inf
-            p = agemoea2_curvature(normalized[int(np.argmin(nearest))]) if np.isfinite(nearest).any() else 1.0
-            score[first] = agemoea2_survival_score(normalized, corners, p)
-        for d in range(1, last_front + 1):
-            proximity = _lp_norm((targets[fronts[d]] - ideal) / normalization, p)
-            with np.errstate(divide="ignore"):
-                score[fronts[d]] = 1.0 / np.maximum(proximity, 1e-12)
-        self.curvature = p
-        return score
 
     def do(
         self, parents: tuple[SolutionType, pl.DataFrame], offsprings: tuple[SolutionType, pl.DataFrame]
@@ -2833,26 +2827,31 @@ class AGEMOEA2Selector(_FitnessPublishingSelector):
         solutions, outputs = self._merge(parents, offsprings)
         targets = outputs[self.target_symbols].to_numpy().astype(float)
         fronts = constrained_fronts(targets, total_constraint_violation(outputs, self.constraints_symbols))
-        sizes = fronts.sum(axis=1)
-        whole = int(np.searchsorted(np.cumsum(sizes), self.population_size, side="right"))
-        last_front = min(whole, len(fronts) - 1)
-        score = self.survival_scores(targets, fronts, last_front)
+        # The front reached when N solutions have been sorted is the one to cut, even when it fits exactly.
+        last = min(int(np.searchsorted(np.cumsum(fronts.sum(axis=1)), self.population_size)), len(fronts) - 1)
 
-        chosen = [int(i) for d in range(whole) for i in np.flatnonzero(fronts[d])]
-        if len(chosen) < self.population_size:
-            cut = np.flatnonzero(fronts[last_front])
-            ranked = cut[np.argsort(-score[cut], kind="stable")]
-            chosen.extend(int(i) for i in ranked[: self.population_size - len(chosen)])
+        score = np.zeros(len(targets))
+        score[fronts[0]], p = agemoea2_survival_score(targets[fronts[0]])
+        ideal = targets.min(axis=0)
+        for d in range(1, last + 1):
+            with np.errstate(divide="ignore"):
+                score[fronts[d]] = 1.0 / _lp_norm(targets[fronts[d]] - ideal, p)
+
+        chosen = [int(i) for d in range(last) for i in np.flatnonzero(fronts[d])]
+        cut = np.flatnonzero(fronts[last])
+        # Descending, NaN first, ties in index order, as MATLAB's sort(..., 'descend').
+        order = np.lexsort((-np.where(np.isnan(score[cut]), 0.0, score[cut]), ~np.isnan(score[cut])))
+        chosen = sorted(chosen + [int(i) for i in cut[order[: self.population_size - len(chosen)]]])
 
         rank = np.argmax(fronts[:, chosen], axis=0)
-        within = np.zeros(len(chosen))
+        kept = np.where(np.isnan(score[chosen]), -np.inf, score[chosen])
+        fitness = np.zeros(len(chosen))
         for d in np.unique(rank):
             members = np.flatnonzero(rank == d)
-            order = np.argsort(np.argsort(score[np.asarray(chosen)[members]], kind="stable"), kind="stable")
-            within[members] = order / len(members)
-        # Front first, survival score second, as AGE-MOEA's tournament compares them; positive and
-        # higher-is-better for the tournament, which takes an argmax.
-        fitness = (rank.max() + 1.0 - rank) + within
+            levels = np.unique(kept[members], return_inverse=True)[1]
+            # Front first, survival score second; positive and higher-is-better for the tournament's argmax.
+            fitness[members] = (rank.max() + 1.0 - d) + (levels + 1) / (levels.max() + 2)
+        self.curvature = p
         return self._finish(solutions, outputs, chosen, fitness)
 
 

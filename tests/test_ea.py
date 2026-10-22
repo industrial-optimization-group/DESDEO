@@ -60,6 +60,8 @@ from desdeo.emo.operators.selection import (
     _rvea_selection_constrained,
     agemoea2_curvature,
     agemoea2_geodesic_distances,
+    agemoea2_normalize,
+    agemoea2_survival_score,
     hype_fitness_exact,
     hype_fitness_monte_carlo,
     moead_scalarize,
@@ -3522,6 +3524,8 @@ def test_agemoea2_curvature_reproduces_the_papers_newton_raphson_example():
         assert abs(agemoea2_curvature(np.array([np.cos(angle), np.sin(angle)])) - 2.0) < 1e-3
     assert abs(agemoea2_curvature(np.array([0.5, 0.5])) - 1.0) < 1e-3  # flat front
     assert abs(agemoea2_curvature(np.array([0.25, 0.25])) - 0.5) < 1e-3  # hyperbolic front
+    # No lower bound, as in the author's code; pymoo would replace anything at or below 0.1 by 1.
+    assert abs(agemoea2_curvature(np.array([1e-4, 1e-4])) - np.log(2) / np.log(1e4)) < 1e-3
 
 
 @pytest.mark.ea
@@ -3567,6 +3571,52 @@ def test_agemoea2_keeps_the_extreme_points_of_an_overfull_first_front():
 
     assert {0, 29} <= set(selector.selection)
     assert selector.curvature == pytest.approx(2.0, abs=1e-2)
+
+
+@pytest.mark.ea
+def test_agemoea2_normalization_keeps_a_negative_intercept():
+    """The author's code falls back to min-max constants only when an intercept is NaN.
+
+    The plane through the extreme points (1, 0, 0), (0.6, 1e-6, 0.8) and (0, 0, 1) cuts the second axis at -2.5e-6.
+    The 2019 paper (Section 3.2) would fall back here; the author's code divides by it and shifts the minimum back to
+    zero, which turns the second objective around.
+    """
+    front = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.6, 1e-6, 0.8], [0.8, 0.0, 0.6]])
+
+    normalized, extremes = agemoea2_normalize(front)
+
+    npt.assert_array_equal(extremes, [0, 2, 1])
+    npt.assert_allclose(normalized[:, [0, 2]], front[:, [0, 2]])
+    npt.assert_allclose(normalized[:, 1], [0.4, 0.4, 0.0, 0.4])
+
+
+@pytest.mark.ea
+def test_agemoea2_scores_later_fronts_on_raw_objectives():
+    """A later front is ranked by `||f - z||_p` on the raw objectives, as in the author's code.
+
+    The first front normalizes f2 by 0.01, so (1.2, 0.001) is nearer the ideal point in normalized space and
+    (0.1, 0.05) in raw space. The 2019 paper (Section 3.2) normalizes later fronts and would keep the first.
+    """
+    targets = np.array([[1.0, 0.0], [0.0, 0.01], [1.2, 0.001], [0.1, 0.05]])
+    problem, solutions, outputs = _selector_population(targets)
+    selector = AGEMOEA2Selector(problem=problem, verbosity=0, publisher=Publisher(), population_size=3)
+
+    selector.do(parents=(solutions, outputs), offsprings=(solutions.clear(), outputs.clear()))
+
+    assert sorted(selector.selection) == [0, 1, 3]
+
+
+@pytest.mark.ea
+def test_agemoea2_survival_score_leaves_the_last_solution_at_zero():
+    """The greedy loop stops one solution short, as in the author's code, so the last one keeps the score 0."""
+    front = np.column_stack([np.linspace(0, 1, 6), 1 - np.linspace(0, 1, 6)])
+
+    score, p = agemoea2_survival_score(front)
+
+    assert p == pytest.approx(1.0, abs=1e-3)
+    assert np.isinf(score[[0, 5]]).all()
+    assert np.count_nonzero(score == 0) == 1
+    assert (score[1:5] >= 0).all()
 
 
 def _hype_brute_force(points: np.ndarray, reference: np.ndarray, k: int) -> np.ndarray:
