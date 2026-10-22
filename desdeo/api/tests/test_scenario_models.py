@@ -1,4 +1,5 @@
 """Tests for ScenarioModelDB and ScenarioModelInfo."""
+# ruff: noqa: PLC0415
 
 import pytest
 from sqlmodel import Session
