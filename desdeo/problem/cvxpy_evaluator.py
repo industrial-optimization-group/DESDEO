@@ -282,8 +282,8 @@ class CVXPYEvaluator:
             # Set bounds
             bounds = None
             if lowerbound is not None or upperbound is not None:
-                lb = lowerbound if lowerbound is not None else -cp.inf
-                ub = upperbound if upperbound is not None else cp.inf
+                lb = lowerbound if lowerbound is not None else -np.inf
+                ub = upperbound if upperbound is not None else np.inf
                 bounds = [lb, ub]
 
             # figure out the variable type

@@ -446,17 +446,19 @@ def _build_variable_maps(
         var_maps: {leaf -> {original_sym -> new_sym}}
         combined_variables: {new_sym -> Variable | TensorVariable}
     """
-    var_syms = {v.symbol for v in scenario_model.base_problem.variables}
-
+    # Each leaf's own variables, so variables added only by scenario pools are renamed too.
     var_maps: dict[str, dict[str, str]] = {
-        leaf: {sym: _new_variable_symbol(sym, leaf, scenario_model.anticipation_stop, parent_map) for sym in var_syms}
+        leaf: {
+            v.symbol: _new_variable_symbol(v.symbol, leaf, scenario_model.anticipation_stop, parent_map)
+            for v in scenario_problems[leaf].variables
+        }
         for leaf in leaf_scenarios
     }
 
     combined_variables: dict[str, Variable | TensorVariable] = {}
     for leaf in leaf_scenarios:
         for var in scenario_problems[leaf].variables:
-            new_sym = var_maps[leaf].get(var.symbol, var.symbol)
+            new_sym = var_maps[leaf][var.symbol]
             if new_sym not in combined_variables:
                 combined_variables[new_sym] = var.model_copy(
                     update={"symbol": new_sym, "name": f"{var.name} ({new_sym})"}
@@ -790,10 +792,10 @@ def build_combined_scenario_problem(
     scalarization_renames = _merge(objective_renames, _renames(scalarization_funcs_map))
     constraints_list, constraints_map = _combine(lambda p: p.constraints, scalarization_renames)
 
-    # Variable symbol map: original_sym -> {leaf -> new_sym}
+    # Variable symbol map: original_sym -> {leaf -> new_sym}, for the leaves carrying the variable
     variables_map: dict[str, dict[str, str]] = {
-        sym: {leaf: var_maps[leaf][sym] for leaf in leaf_scenarios}
-        for sym in {v.symbol for v in scenario_model.base_problem.variables}
+        sym: {leaf: var_maps[leaf][sym] for leaf in leaf_scenarios if sym in var_maps[leaf]}
+        for sym in dict.fromkeys(sym for leaf in leaf_scenarios for sym in var_maps[leaf])
     }
 
     # Constant symbol map: original_sym -> {leaf -> new_sym}, defaulting to original

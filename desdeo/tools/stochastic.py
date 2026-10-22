@@ -173,6 +173,10 @@ def add_conditional_value_at_risk(
     - ``{leaf}_{var_prefix}{sym}_con``: per-leaf LTE constraint sym_s - eta - z_s <= 0.
     - ``{cvar_prefix}{sym}``: CVaR = eta + 1/(1-alpha) * sum_s p_s * z_s.
 
+    For maximized objectives the bad tail is the low values, so the constraints are
+    eta - sym_s - z_s <= 0 and CVaR = eta - 1/(1-alpha) * sum_s p_s * z_s, which stays
+    maximized. Non-objective elements always use the minimization form.
+
     The CVaR element preserves the type of the original element (objective stays
     objective, scalarization function stays scalarization function, anything else
     becomes an extra function).
@@ -212,6 +216,7 @@ def add_conditional_value_at_risk(
         var_sym = f"{var_prefix}{sym}"
         cvar_sym = f"{cvar_prefix}{sym}"
         added_symbols[sym] = cvar_sym
+        is_maximize = info.found_type == "objectives" and info.maximize
 
         # VaR threshold η — shared across all scenarios.
         new_variables.append(
@@ -242,13 +247,18 @@ def add_conditional_value_at_risk(
                 )
             )
 
-            # z_s >= sym_s - eta  ->  sym_s - eta - z_s <= 0
+            # Minimize: z_s >= sym_s - eta; maximize: z_s >= eta - sym_s
             leaf_func = leaf_expr(info, leaf)
+            con_func = (
+                ["Add", var_sym, ["Negate", leaf_func], ["Negate", z_sym]]
+                if is_maximize
+                else ["Add", leaf_func, ["Negate", var_sym], ["Negate", z_sym]]
+            )
             new_constraints.append(
                 Constraint(
                     name=f"CVaR constraint for {info.elem_name} in {leaf}",
                     symbol=f"{z_sym}_con",
-                    func=["Add", leaf_func, ["Negate", var_sym], ["Negate", z_sym]],
+                    func=con_func,
                     cons_type=ConstraintTypeEnum.LTE,
                     is_linear=info.is_linear,
                     is_convex=info.is_convex,
@@ -256,7 +266,7 @@ def add_conditional_value_at_risk(
                 )
             )
 
-        # CVaR = η + scale · Σ_s p_s · z_s
+        # CVaR = η ± scale · Σ_s p_s · z_s (minus for maximized objectives)
         weighted_z = [["Multiply", weights[leaf], leaf_z_syms[leaf]] for leaf in weights]
         sum_z = weighted_z[0] if len(weighted_z) == 1 else ["Add", *weighted_z]
 
@@ -268,8 +278,8 @@ def add_conditional_value_at_risk(
             name=f"CVaR of {info.elem_name}",
             description=f"CVaR of {info.elem_desc}" if info.elem_desc else f"CVaR of {info.elem_name}",
             symbol=cvar_sym,
-            func=["Add", var_sym, ["Multiply", scale, sum_z]],
-            maximize=info.maximize,
+            func=["Add", var_sym, ["Multiply", -scale if is_maximize else scale, sum_z]],
+            maximize=is_maximize,
             is_linear=True,
             is_convex=True,
             is_twice_differentiable=True,
