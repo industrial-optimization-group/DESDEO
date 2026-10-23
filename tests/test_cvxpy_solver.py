@@ -477,3 +477,43 @@ def test_extra_function_referencing_unknown_symbol_still_raises():
 
     with pytest.raises(CVXPYEvaluatorError, match="e_nonexistent"):
         CVXPYEvaluator(problem)
+
+
+@pytest.mark.cvxpy
+@pytest.mark.parametrize(
+    ("lowerbound", "upperbound", "maximize", "expected"),
+    [(2.0, None, False, 2.0), (None, 3.0, True, 3.0)],
+)
+def test_cvxpy_solver_one_sided_variable_bounds(lowerbound, upperbound, maximize, expected):
+    """A variable with only one bound is solvable and the bound holds at the optimum."""
+    problem = Problem(
+        name="One-sided bounds",
+        description="A single variable bounded from one side only.",
+        variables=[
+            Variable(
+                name="x",
+                symbol="x",
+                variable_type=VariableTypeEnum.real,
+                lowerbound=lowerbound,
+                upperbound=upperbound,
+            )
+        ],
+        objectives=[
+            Objective(
+                name="f_1",
+                symbol="f_1",
+                func=["Multiply", 1, "x"],
+                maximize=maximize,
+                objective_type=ObjectiveTypeEnum.analytical,
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            )
+        ],
+    )
+
+    results = CVXPYSolver(problem).solve("f_1")
+
+    assert results.success
+    assert np.isclose(results.optimal_variables["x"], expected, atol=1e-6)
+    assert np.isclose(results.optimal_objectives["f_1"], expected, atol=1e-6)

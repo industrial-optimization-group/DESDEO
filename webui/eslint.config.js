@@ -3,6 +3,7 @@ import prettier from 'eslint-config-prettier';
 import js from '@eslint/js';
 import { includeIgnoreFile } from '@eslint/compat';
 import svelte from 'eslint-plugin-svelte';
+import ts from 'typescript-eslint';
 import globals from 'globals';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -43,12 +44,19 @@ export default defineConfig(
     }
   },
 
+  // Files outside tsconfig.json: lint without type information
+  {
+    files: ['*.{js,mjs,ts}', '.storybook/**', 'e2e/**', 'tests/**'],
+    ...ts.configs.disableTypeChecked
+  },
+
   // Make sure Svelte blocks use TS parser
   {
-    files: ['**/*.svelte'],
+    files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
     languageOptions: {
       parserOptions: {
         parser: ts.parser,
+        extraFileExtensions: ['.svelte'],
         svelteConfig
       }
     }

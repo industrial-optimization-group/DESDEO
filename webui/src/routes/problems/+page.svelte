@@ -87,12 +87,16 @@
 	// 'me' = current user, 'all' = everyone, '<id>' = specific user id
 	let selectedFilter = $state('me');
 
+	// Other users get a backend-scoped list (own + group-shared problems), so the owner filter,
+	// shown only to analysts/admins, does not apply to them.
 	const filteredProblemList = $derived(
-		selectedFilter === 'all'
+		!isAnalystOrAdmin
 			? problemList
-			: selectedFilter === 'me'
-				? problemList.filter((p: ProblemInfo) => p.user_id === $auth.user?.id)
-				: problemList.filter((p: ProblemInfo) => p.user_id === Number(selectedFilter))
+			: selectedFilter === 'all'
+				? problemList
+				: selectedFilter === 'me'
+					? problemList.filter((p: ProblemInfo) => p.user_id === $auth.user?.id)
+					: problemList.filter((p: ProblemInfo) => p.user_id === Number(selectedFilter))
 	);
 	let selectedProblem = $state<ProblemInfo | undefined>(undefined);
 	let expandedObjectives = $state(new Set<number>());

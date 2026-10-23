@@ -4,8 +4,10 @@ import math
 
 import pytest
 
+from desdeo.problem.scenario import Scenario, ScenarioModel
+from desdeo.problem.schema import Constant, Objective, Problem, Variable, VariableTypeEnum
 from desdeo.problem.testproblems import simple_scenario_model
-from desdeo.tools import guess_best_solver
+from desdeo.tools import GurobipySolver, guess_best_solver
 from desdeo.tools.robust import add_weighted_scenarios, add_worst_case_robust
 from desdeo.tools.scalarization import add_asf_diff
 from desdeo.tools.scenarios import build_combined_scenario_problem
@@ -147,6 +149,62 @@ def test_cvar_asf_auxiliary_variables_nonnegative(cvar_solve_result):
     result, _ = cvar_solve_result
     for s in ("s_1", "s_2", "s_3"):
         assert result.optimal_variables[f"{s}_VAR_asf"] >= -1e-6
+
+
+def _cvar_direction_model(maximize: bool) -> ScenarioModel:
+    """Four leaves with f = x + c, x in [0, 1], c = 1..4 and probabilities 0.1..0.4."""
+    base_problem = Problem(
+        name="CVaR direction test problem",
+        description="f = x + c with a per-leaf constant c.",
+        variables=[
+            Variable(name="x", symbol="x", variable_type=VariableTypeEnum.real, lowerbound=0, upperbound=1),
+        ],
+        constants=[Constant(name="c", symbol="c", value=0.0)],
+        objectives=[
+            Objective(
+                name="f",
+                symbol="f",
+                func="x + c",
+                maximize=maximize,
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
+            ),
+        ],
+    )
+    leaves = ["s_1", "s_2", "s_3", "s_4"]
+    return ScenarioModel(
+        scenario_tree={"ROOT": leaves, **{leaf: [] for leaf in leaves}},
+        scenario_probabilities={"s_1": 0.1, "s_2": 0.2, "s_3": 0.3, "s_4": 0.4},
+        base_problem=base_problem,
+        constants=[Constant(name=f"c ({leaf})", symbol="c", value=float(i + 1)) for i, leaf in enumerate(leaves)],
+        scenarios={leaf: Scenario(constants={"c": i}) for i, leaf in enumerate(leaves)},
+    )
+
+
+@pytest.mark.scenario
+@pytest.mark.gurobipy
+@pytest.mark.parametrize(
+    ("maximize", "expected"),
+    [
+        # x = 1, values 2, 3, 4, 5: mean of the lowest 0.5 mass = (0.1*2 + 0.2*3 + 0.2*4) / 0.5
+        (True, 3.2),
+        # x = 0, values 1, 2, 3, 4: mean of the highest 0.5 mass = (0.4*4 + 0.1*3) / 0.5
+        (False, 3.8),
+    ],
+)
+def test_cvar_objective_value_matches_tail_mean(maximize, expected):
+    """Optimising the CVaR of an objective gives the mean of its worst tail in either direction."""
+    model = _cvar_direction_model(maximize)
+    problem, added = add_conditional_value_at_risk(model, ["f"], alpha=0.5)
+    cvar_sym = added["f"]
+
+    result = GurobipySolver(problem).solve(cvar_sym)
+
+    assert result.success
+    for leaf in ("s_1", "s_2", "s_3", "s_4"):
+        assert result.optimal_variables[f"{leaf}_x"] == pytest.approx(1.0 if maximize else 0.0)
+    assert result.optimal_objectives[cvar_sym] == pytest.approx(expected)
 
 
 # ---------------------------------------------------------------------------

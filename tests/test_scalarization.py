@@ -2,9 +2,18 @@
 
 import numpy as np
 import numpy.testing as npt
+import polars as pl
 import pytest
 
-from desdeo.problem import ConstraintTypeEnum, SimulatorEvaluator
+from desdeo.problem import (
+    ConstraintTypeEnum,
+    Objective,
+    PolarsEvaluator,
+    Problem,
+    SimulatorEvaluator,
+    Variable,
+    VariableTypeEnum,
+)
 from desdeo.problem.testproblems import (
     dtlz2,
     momip_ti7,
@@ -17,6 +26,7 @@ from desdeo.tools import (
     NevergradGenericSolver,
     PyomoBonminSolver,
     ScipyMinimizeSolver,
+    guess_best_solver,
 )
 from desdeo.tools.group_scalarization import (
     add_group_asf,
@@ -106,6 +116,51 @@ def test_add_asf_nondiff(river_w_fake_ideal_and_nadir):
     for key, value in reference_point.items():
         assert f"{key}_min" in flatten(problem.scalarization_funcs[0].func)
         assert value in flatten(problem.scalarization_funcs[0].func)
+
+
+@pytest.mark.scalarization
+@pytest.mark.parametrize("q_1", [10, 10.0, 2.5])
+def test_add_asf_nondiff_reference_in_aug_value(q_1):
+    """Tests that the ASF with the reference point in the augmentation term evaluates correctly."""
+    problem = Problem(
+        name="asf test",
+        description="One minimized and one maximized objective.",
+        variables=[
+            Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real),
+            Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.real),
+        ],
+        objectives=[
+            Objective(name="f_1", symbol="f_1", func="x_1", maximize=False),
+            Objective(name="f_2", symbol="f_2", func="x_2", maximize=True),
+        ],
+    )
+    q_2 = 4
+    ideal = {"f_1": 0.0, "f_2": -20.0}
+    nadir = {"f_1": 20.0, "f_2": 0.0}
+    delta, rho = 0.5, 0.1
+
+    problem, target = add_asf_nondiff(
+        problem,
+        symbol="asf",
+        reference_point={"f_1": q_1, "f_2": q_2},
+        ideal=ideal,
+        nadir=nadir,
+        delta=delta,
+        rho=rho,
+        reference_in_aug=True,
+    )
+
+    x_1, x_2 = 7.0, 6.0
+    result = PolarsEvaluator(problem).evaluate(pl.DataFrame({"x_1": [x_1], "x_2": [x_2]}))
+
+    # in the minimized space: f_1 = x_1, f_2 = -x_2, q_2 -> -q_2
+    terms = [
+        (x_1 - q_1) / (nadir["f_1"] - (ideal["f_1"] - delta)),
+        (-x_2 - (-q_2)) / (nadir["f_2"] - (ideal["f_2"] - delta)),
+    ]
+    expected = max(terms) + rho * sum(terms)
+
+    npt.assert_allclose(result[target][0], expected)
 
 
 @pytest.mark.scalarization
@@ -633,6 +688,67 @@ def test_stom_sf_diff():
     assert first_solution["f_1"] < second_solution["f_1"]  # f_1 should have worsened
     assert first_solution["f_2"] > second_solution["f_2"]  # f_2 should have worsened
     assert first_solution["f_3"] > second_solution["f_3"]  # f_3 should have improved
+
+
+@pytest.fixture
+def stom_maximize_problem():
+    """Linear problem with a minimized and a maximized objective.
+
+    The ideal of f_1 lies below its attainable range, so the max term of STOM is determined
+    by f_1 alone and every x_2 ties; only the augmentation term can pick the Pareto optimal x_2 = -1.
+    """
+    return Problem(
+        name="STOM maximize test problem",
+        description="For testing the STOM augmentation term with a maximized objective.",
+        variables=[
+            Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real, lowerbound=1, upperbound=2),
+            Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.real, lowerbound=-3, upperbound=-1),
+        ],
+        objectives=[
+            Objective(name="f_1", symbol="f_1", func="x_1", ideal=0, nadir=2, is_linear=True),
+            Objective(name="f_2", symbol="f_2", func="x_2", maximize=True, ideal=-1, nadir=-3, is_linear=True),
+        ],
+    )
+
+
+@pytest.mark.scalarization
+@pytest.mark.parametrize("add_stom", [add_stom_sf_diff, add_stom_sf_nondiff])
+def test_stom_augmentation_maximized_objective(stom_maximize_problem, add_stom):
+    """Test that the STOM augmentation weights are computed in the minimization-corrected space."""
+    rho, delta = 0.1, 1e-6
+    rp = {"f_1": 0.25, "f_2": -2.0}
+    problem_w_sf, target = add_stom(stom_maximize_problem, "target", rp, rho=rho, delta=delta)
+
+    # corrected rp = (0.25, 2), corrected ideal = (0, 1)
+    weights = {"f_1": 1 / (0.25 - 0 + delta), "f_2": 1 / (2 - 1 + delta)}
+    assert all(w > 0 for w in weights.values())
+
+    xs = {"x_1": [1.0, 1.0, 2.0], "x_2": [-1.0, -3.0, -2.0]}
+    if add_stom is add_stom_sf_diff:
+        xs["_alpha"] = [0.0, 0.0, 0.0]
+    res = PolarsEvaluator(problem_w_sf).evaluate(xs)
+
+    for x_1, x_2, value in zip(xs["x_1"], xs["x_2"], res[target], strict=True):
+        aug = weights["f_1"] * x_1 + weights["f_2"] * -x_2
+        if add_stom is add_stom_sf_nondiff:
+            expected = max(weights["f_1"] * (x_1 + delta), weights["f_2"] * (-x_2 - (1 - delta))) + rho * aug
+        else:
+            expected = rho * aug
+        npt.assert_allclose(value, expected)
+
+
+@pytest.mark.scalarization
+def test_stom_augmentation_maximized_objective_solution(stom_maximize_problem):
+    """Test that the STOM augmentation term picks the Pareto optimal solution for a maximized objective."""
+    rp = {"f_1": 0.25, "f_2": -2.0}
+    problem_w_sf, target = add_stom_sf_diff(stom_maximize_problem, "target", rp, rho=0.1)
+
+    solver = guess_best_solver(problem_w_sf)(problem_w_sf)
+    result = solver.solve(target)
+
+    assert result.success
+    npt.assert_allclose(result.optimal_objectives["f_1"], 1.0, atol=1e-6)
+    npt.assert_allclose(result.optimal_objectives["f_2"], -1.0, atol=1e-6)
 
 
 @pytest.mark.scalarization
