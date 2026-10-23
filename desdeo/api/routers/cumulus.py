@@ -1184,8 +1184,13 @@ def _run_modification_checks_background(
                         old_problem, added, effective_solver
                     )
                     if not feasible:
-                        # Discard the modification entirely.  The cascade takes the state with it,
-                        # so record the outcome on the parent problem's behalf before deleting.
+                        # Discard the modification entirely.  Deleting the problem cascades to its
+                        # states, so first move the state reporting this outcome over to the parent
+                        # problem, which the decision maker stays on.  It holds no solutions.
+                        state_db = session.exec(select(StateDB).where(StateDB.state_id == cumulus_state_id)).first()
+                        if state_db is not None:
+                            state_db.problem_id = old_problem_id
+                            session.add(state_db)
                         mod_state.is_ready = True
                         mod_state.error = probe_error
                         mod_state.problem_deleted = True
