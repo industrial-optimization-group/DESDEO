@@ -116,12 +116,17 @@
 	}
 	const CONSTRAINT_TYPES: ConstraintType[] = ['<=0', '=0', '<=0 (soft)', '=0 (soft)'];
 	let show_constraint_dialog = $state(false);
+	// Progress text for the hard-bound path, which rebuilds the problem and can take a while.
+	let constraint_progress: string | null = $state(null);
 	let constraint_obj_filter: 'active' | 'all' = $state('active');
 	let pending_constraints: ObjectiveConstraint[] = $state([]);
 	let next_constraint_id = $state(0);
 
 	function add_constraint() {
-		pending_constraints = [...pending_constraints, { id: next_constraint_id++, func: '', type: '<=0' }];
+		pending_constraints = [
+			...pending_constraints,
+			{ id: next_constraint_id++, func: '', type: '<=0 (soft)' }
+		];
 	}
 
 	function remove_constraint(id: number) {
@@ -130,21 +135,48 @@
 
 	async function apply_constraints() {
 		if (!problem) return;
+
+		constraint_progress = null;
 		const result = await setObjectiveConstraintsRequest(
 			problem,
 			current_state.state_id ?? null,
-			pending_constraints
+			pending_constraints,
+			(message) => (constraint_progress = message)
 		);
-		if (result) show_constraint_dialog = false;
+		constraint_progress = null;
+
+		if (!result) return;
+		show_constraint_dialog = false;
+
+		if (result.new_problem_id === null) return;
+
+		// Hard bounds rebuilt the problem. Solving, saving and the solution archive are all
+		// scoped by problem id, so the session has to follow it. Scenario detection is skipped:
+		// the bounded problem inherits whatever the decision maker already chose, and asking
+		// again here would be wrong.
+		const initialization = await initializeCumulusStateRequest(result.new_problem_id, true);
+		if (!initialization) return;
+
+		await apply_initialization_result(initialization);
+		warning_message = result.current_solution_excluded
+			? 'The bounds exclude the solution you were on, so the method restarted from a new ' +
+				'starting point. Your earlier solutions are still available under the unbounded problem.'
+			: 'The bounds created a new problem and the method restarted against it. Your earlier ' +
+				'solutions are still available under the unbounded problem.';
 	}
 
 	function cancel_constraints() {
 		pending_constraints = [];
+		constraint_progress = null;
 		show_constraint_dialog = false;
 	}
 
 	// Scenario setup dialog state
 	let show_scenario_setup_dialog = $state(false);
+	// 'initial': shown automatically on first load of a scenario-bearing problem.
+	// 'reopen': opened later from the "Add uncertainty measures" menu action, either to add
+	// measures that were declined initially, or to rebuild the combined problem with different ones.
+	let scenario_setup_mode: 'initial' | 'reopen' = $state('initial');
 	let pending_scenario_model_id = $state(0);
 	let pending_objective_symbols: string[] = $state([]);
 	const AVAILABLE_MEASURES: { value: MeasureType; label: string }[] = [
@@ -155,6 +187,31 @@
 	let selected_measures: MeasureType[] = $state(['expected_value']);
 	let cvar_alpha = $state(0.95);
 	let combined_problem_name = $state('');
+
+	// Whether the current problem (or the base problem it was combined from) has scenarios at
+	// all — gates whether "Add uncertainty measures" is enabled in the hamburger menu.
+	let scenario_availability: CumulusScenarioAvailabilityResponse | null = $state(null);
+
+	async function refresh_scenario_availability() {
+		if (!problem) {
+			scenario_availability = null;
+			return;
+		}
+		scenario_availability = await checkScenarioAvailabilityRequest(problem.id);
+	}
+
+	function open_add_uncertainty_measures() {
+		if (!problem || !scenario_availability?.available) return;
+		pending_scenario_model_id = scenario_availability.scenario_model_id!;
+		pending_objective_symbols = scenario_availability.objective_symbols ?? [];
+		const applied = scenario_availability.applied_measures ?? [];
+		selected_measures =
+			applied.length > 0 ? [...(applied as MeasureType[])] : ['expected_value', 'worst_case_robust'];
+		cvar_alpha = 0.95;
+		combined_problem_name = `${problem.name} (combined)`;
+		scenario_setup_mode = 'reopen';
+		show_scenario_setup_dialog = true;
+	}
 
 	$effect(() => {
 		if (problem && active_objective_symbols.size === 0) {
@@ -243,30 +300,48 @@
 	async function confirm_scenario_setup() {
 		show_scenario_setup_dialog = false;
 		if (selected_measures.length === 0) {
-			// No measures chosen — treat as "use plain problem"
-			const plainResult = await initializeCumulusStateRequest(problem?.id!, true);
-			if (plainResult) await apply_initialization_result(plainResult);
+			// No measures chosen — treat as "use plain problem". Only meaningful on first load;
+			// reopening from the menu with nothing selected is just a no-op cancel.
+			if (scenario_setup_mode === 'initial') {
+				const plainResult = await initializeCumulusStateRequest(problem?.id!, true);
+				if (plainResult) await apply_initialization_result(plainResult);
+				await refresh_scenario_availability();
+			}
 			return;
 		}
 		const measure_options: MeasureOptions = { cvar_alpha };
-		const scenarioResult = await initializeCumulusStateWithScenariosRequest(
-			problem?.id!,
-			pending_scenario_model_id,
-			pending_objective_symbols,
-			selected_measures,
-			measure_options,
-			combined_problem_name.trim() || undefined
-		);
+		const scenarioResult =
+			scenario_setup_mode === 'initial'
+				? await initializeCumulusStateWithScenariosRequest(
+						problem?.id!,
+						pending_scenario_model_id,
+						pending_objective_symbols,
+						selected_measures,
+						measure_options,
+						combined_problem_name.trim() || undefined
+					)
+				: await applyScenarioMeasuresRequest(
+						problem?.id!,
+						pending_scenario_model_id,
+						pending_objective_symbols,
+						selected_measures,
+						measure_options,
+						combined_problem_name.trim() || undefined
+					);
 		if (scenarioResult) {
 			await apply_initialization_result(scenarioResult);
 			show_objectives_dialog = true;
+			await refresh_scenario_availability();
 		}
 	}
 
 	async function cancel_scenario_setup() {
 		show_scenario_setup_dialog = false;
-		const plainResult = await initializeCumulusStateRequest(problem?.id!, true);
-		if (plainResult) await apply_initialization_result(plainResult);
+		if (scenario_setup_mode === 'initial') {
+			const plainResult = await initializeCumulusStateRequest(problem?.id!, true);
+			if (plainResult) await apply_initialization_result(plainResult);
+			await refresh_scenario_availability();
+		}
 	}
 
 	function confirm_finish() {
@@ -306,11 +381,14 @@
 		get_solution_description as getSolutionDescriptionRequest,
 		initialize_cumulus_state as initializeCumulusStateRequest,
 		initialize_cumulus_state_with_scenarios as initializeCumulusStateWithScenariosRequest,
+		check_scenario_availability as checkScenarioAvailabilityRequest,
+		apply_scenario_measures as applyScenarioMeasuresRequest,
 		set_objective_constraints as setObjectiveConstraintsRequest,
 		type MeasureType,
 		type MeasureOptions
 	} from './handlers';
 	import { getProblemProblemProblemIdGet } from '$lib/gen/endpoints/DESDEOFastAPI';
+	import type { CumulusScenarioAvailabilityResponse } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import EndStateView from '../GNIMBUS/components/EndStateView.svelte';
 
 	async function handle_intermediate() {
@@ -594,11 +672,13 @@
 			selected_measures = ['expected_value', 'worst_case_robust'];
 			cvar_alpha = 0.95;
 			combined_problem_name = problem ? `${problem.name} (combined)` : '';
+			scenario_setup_mode = 'initial';
 			show_scenario_setup_dialog = true;
 			return;
 		}
 
 		await apply_initialization_result(result);
+		await refresh_scenario_availability();
 	}
 
 	async function apply_initialization_result(result: Response) {
@@ -666,7 +746,7 @@
 </svelte:head>
 
 {#if $isLoading}
-	<LoadingSpinner />
+	<LoadingSpinner text={constraint_progress ?? ''} />
 {/if}
 
 {#if $errorMessage}
@@ -841,7 +921,12 @@
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content align="end">
 					<DropdownMenu.Item onclick={() => (show_constraint_dialog = true)}>Add objective constraint</DropdownMenu.Item>
-					<DropdownMenu.Item>Add uncertainty measures</DropdownMenu.Item>
+					<DropdownMenu.Item
+						disabled={!scenario_availability?.available}
+						onclick={open_add_uncertainty_measures}
+					>
+						Add uncertainty measures
+					</DropdownMenu.Item>
 					<DropdownMenu.Item>Modify problem</DropdownMenu.Item>
 				</DropdownMenu.Content>
 			</DropdownMenu.Root>
@@ -976,10 +1061,13 @@
 		<Dialog.Overlay />
 		<Dialog.Content class="max-w-sm">
 			<Dialog.Header>
-				<Dialog.Title>Scenario-based Problem Detected</Dialog.Title>
+				<Dialog.Title>
+					{scenario_setup_mode === 'initial' ? 'Scenario-based Problem Detected' : 'Add Uncertainty Measures'}
+				</Dialog.Title>
 				<Dialog.Description>
-					This problem has associated scenarios. Select which uncertainty measures to include in the
-					combined problem. At least one measure is recommended.
+					{scenario_setup_mode === 'initial'
+						? 'This problem has associated scenarios. Select which uncertainty measures to include in the combined problem. At least one measure is recommended.'
+						: 'Select which uncertainty measures to include. Rebuilding replaces the current combined problem and restarts the method against it; your earlier solutions stay available under the previous problem.'}
 				</Dialog.Description>
 			</Dialog.Header>
 			<div class="space-y-3 py-4">
@@ -1024,8 +1112,12 @@
 				{/if}
 			</div>
 			<Dialog.Footer>
-				<Button variant="outline" onclick={cancel_scenario_setup}>Use problem as-is</Button>
-				<Button variant="default" onclick={confirm_scenario_setup}>Build combined problem</Button>
+				<Button variant="outline" onclick={cancel_scenario_setup}>
+					{scenario_setup_mode === 'initial' ? 'Use problem as-is' : 'Cancel'}
+				</Button>
+				<Button variant="default" onclick={confirm_scenario_setup}>
+					{scenario_setup_mode === 'initial' ? 'Build combined problem' : 'Rebuild combined problem'}
+				</Button>
 			</Dialog.Footer>
 		</Dialog.Content>
 	</Dialog.Portal>
@@ -1041,6 +1133,11 @@
 					<Dialog.Title>Add Objective Constraints</Dialog.Title>
 					<Dialog.Description>
 						Define constraints on the objective functions. Changes take effect only when you press Apply.
+						Soft constraints are penalised when violated and leave the problem as it is. Hard constraints
+						(<span class="font-mono">&lt;=0</span> and <span class="font-mono">=0</span>) shrink the
+						feasible region, so applying one rebuilds the problem and restarts the method against it —
+						this takes a moment, and is rejected if no solution satisfies the bounds. The problem you are
+						on now stays available either way.
 					</Dialog.Description>
 				</Dialog.Header>
 

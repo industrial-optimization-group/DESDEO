@@ -67,7 +67,7 @@ from desdeo.api.models.nimbus import (
     NIMBUSMultiplierRequest,
     NIMBUSMultiplierResponse,
 )
-from desdeo.api.models.problem import ProblemMetaDataDB
+from desdeo.api.models.problem import ConstraintDB, ProblemMetaDataDB
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.emo.options.algorithms import rvea_options
 from desdeo.emo.options.templates import ReferencePointOptions
@@ -1642,7 +1642,6 @@ def test_cumulus_finalize(client: TestClient):
     solve_result = CumulusClassificationResponse.model_validate(json.loads(solve_response.content))
 
     chosen_obj = solve_result.current_solutions[0].objective_values
-    chosen_var = solve_result.current_solutions[0].variable_values
 
     # Finalize
     finalize_request = CumulusFinalizeRequest(
@@ -1656,7 +1655,9 @@ def test_cumulus_finalize(client: TestClient):
     assert finalize_result.response_type == "cumulus.finalize"
     assert finalize_result.state_id is not None
     assert finalize_result.final_solution.objective_values == chosen_obj
-    assert finalize_result.final_solution.variable_values == chosen_var
+    # Only the final solution carries decision variables; the other solution lists are sent without
+    # them to keep responses small, so there is nothing to compare against here.
+    assert finalize_result.final_solution.variable_values
     # The finalize state id differs from the origin solution state id
     assert finalize_result.final_solution.state_id != finalize_result.state_id
 
@@ -1862,6 +1863,154 @@ def test_cumulus_modify_problem_add_constraint(client: TestClient):
     assert result.is_ready is False
 
 
+def _constraint_of(client: TestClient, problem_id: int, symbol: str, access_token: str):
+    """Read one constraint back off a problem, as the API reports it."""
+    response = client.get(f"/problem/{problem_id}", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == status.HTTP_200_OK
+    info = ProblemInfo.model_validate(response.json())
+    matching = [con for con in (info.constraints or []) if con.symbol == symbol]
+    assert matching, f"constraint '{symbol}' not found on problem {problem_id}"
+    return matching[0]
+
+
+def test_cumulus_modify_problem_derives_unstated_constraint_properties(client: TestClient):
+    """A linear bound is recognised as linear, convex, and twice differentiable.
+
+    All three flags default to False, so taking the request at its word would mark a plain
+    linear bound as non-convex and not twice differentiable, and that one constraint is enough
+    to push the whole rebuilt problem onto the non-differentiable path.
+
+    A bound on a decision variable is affine whatever the objectives look like.
+    """
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "constraints": [
+                # No is_linear/is_convex/is_twice_differentiable: left to be worked out.
+                {"name": "x_1 bound", "symbol": "oc_1", "func": "x_1 - 0.8", "cons_type": "<="}
+            ]
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+
+    constraint = _constraint_of(client, result.problem_id, "oc_1", access_token)
+    assert constraint.is_linear is True
+    assert constraint.is_convex is True
+    assert constraint.is_twice_differentiable is True
+
+
+def test_cumulus_modify_problem_derives_properties_through_the_objective(client: TestClient):
+    """The properties describe the constraint as a function of the variables, not of the symbols.
+
+    Bounding `f_1` of dtlz2 reads as a linear expression, but `f_1` is itself nonlinear in the
+    variables, so the bound is neither linear nor provably convex. It is still smooth, and that
+    is the flag that decides whether a solver can express the problem at all — which is why a
+    client cannot usefully guess these and they have to be derived here.
+    """
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "constraints": [{"name": "f_1 bound", "symbol": "oc_1", "func": "f_1 - 0.8", "cons_type": "<="}]
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+
+    constraint = _constraint_of(client, result.problem_id, "oc_1", access_token)
+    assert constraint.is_linear is False, "dtlz2's f_1 is not linear in the variables"
+    assert constraint.is_convex is False
+    assert constraint.is_twice_differentiable is True, "the default of False is what broke solvers"
+
+
+def test_cumulus_modify_problem_keeps_stated_constraint_properties(client: TestClient):
+    """Properties the request states are kept, since the checks cannot see outside knowledge.
+
+    The convexity check is conservative and may fail to prove a convex function convex, so a
+    caller that knows better has to be able to say so without being overruled.
+    """
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "constraints": [
+                {
+                    "name": "declared non-convex",
+                    "symbol": "oc_1",
+                    "func": "f_1 - 0.8",
+                    "cons_type": "<=",
+                    "is_linear": False,
+                    "is_convex": False,
+                    "is_twice_differentiable": True,
+                }
+            ]
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+
+    constraint = _constraint_of(client, result.problem_id, "oc_1", access_token)
+    assert constraint.is_linear is False, "a stated property must not be re-derived"
+    assert constraint.is_convex is False, "a stated property must not be re-derived"
+    assert constraint.is_twice_differentiable is True
+
+
+def test_cumulus_modify_problem_does_not_claim_convexity_it_cannot_show(client: TestClient):
+    """Deriving the properties must not overstate them: a product is not reported as convex."""
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        modifications={
+            "constraints": [{"name": "product", "symbol": "oc_1", "func": "f_1 * f_2 - 1", "cons_type": "<="}]
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+
+    constraint = _constraint_of(client, result.problem_id, "oc_1", access_token)
+    assert constraint.is_linear is False
+    assert constraint.is_convex is False
+    # Smooth, even though neither linear nor provably convex.
+    assert constraint.is_twice_differentiable is True
+
+
+def test_cumulus_objective_constraint_derives_soft_constraint_properties(
+    client: TestClient, session_and_user: dict
+):
+    """Soft constraints get their properties derived too.
+
+    They are stored detached from the problem, but later solves hand them to
+    `add_soft_constraint` against it, so their flags describe the problem that is solved.
+    """
+    access_token = login(client)
+
+    request = CumulusObjectiveConstraintRequest(
+        problem_id=2,
+        soft_constraints=[{"name": "f_1 soft bound", "symbol": "oc_1", "func": "f_1 - 5.0", "cons_type": "<="}],
+    )
+    response = post_json(client, "/method/cumulus/objective-constraint", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusObjectiveConstraintResponse.model_validate(json.loads(response.content))
+    assert len(result.soft_constraint_ids) == 1
+
+    db_session = session_and_user["session"]
+    stored = db_session.get(ConstraintDB, result.soft_constraint_ids[0])
+    assert stored is not None
+    assert stored.is_linear is True
+    assert stored.is_convex is True
+    assert stored.is_twice_differentiable is True
+
+
 def test_cumulus_modify_problem_cross_type_conflict(client: TestClient):
     """Using a variable symbol for an objective should return 422."""
     access_token = login(client)
@@ -1896,6 +2045,40 @@ def test_cumulus_modify_problem_invalid_element(client: TestClient):
     )
     response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_cumulus_modify_problem_reports_current_solution_feasibility(client: TestClient):
+    """The response says straight away whether the current solution survives the modification.
+
+    The verdict costs no solve, so the decision maker learns immediately that a bound excluded
+    their current solution, instead of waiting on the background check to explain a stalled
+    session.
+    """
+    access_token = login(client)
+
+    request = CumulusModificationRequest(
+        problem_id=1,
+        original_problem_id=1,
+        modifications={
+            "variables": [
+                {
+                    "name": "x_1",
+                    "symbol": "x_1",
+                    "variable_type": "real",
+                    "lowerbound": 0.1,
+                    "upperbound": 0.9,
+                }
+            ]
+        },
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+
+    # No previous solution and no added constraints, so nothing can have been invalidated.
+    assert result.current_solution_feasible is True
+    assert result.problem_deleted is False
 
 
 def test_cumulus_modify_problem_status(client: TestClient):
@@ -2125,6 +2308,107 @@ def test_cumulus_modify_problem_uncertainty_cvar_missing_alpha(client: TestClien
     assert "alpha" in response.json()["detail"]
 
 
+def test_cumulus_scenario_availability_no_scenarios(client: TestClient):
+    """A plain problem with no associated scenario model reports unavailable."""
+    access_token = login(client)
+
+    response = get_json(client, "/method/cumulus/scenario-availability?problem_id=1", access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["available"] is False
+
+
+def test_cumulus_scenario_availability_with_scenarios(client: TestClient, session_and_user: dict):
+    """A problem with an associated scenario model reports it, including its objective symbols."""
+    access_token = login(client)
+    problem_id, sm_id = _setup_simple_scenario(session_and_user)
+
+    response = get_json(client, f"/method/cumulus/scenario-availability?problem_id={problem_id}", access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["available"] is True
+    assert data["base_problem_id"] == problem_id
+    assert data["scenario_model_id"] == sm_id
+    assert "f_3" in data["objective_symbols"]
+    assert data["applied_measures"] == []
+
+
+def test_cumulus_scenario_availability_after_combined_problem(client: TestClient, session_and_user: dict):
+    """Querying with the id of an already-combined problem resolves back to its scenario model."""
+    access_token = login(client)
+    problem_id, sm_id = _setup_simple_scenario(session_and_user)
+
+    init_request = CumulusInitializationRequest(
+        problem_id=problem_id,
+        uncertainty_measures=[{"measure_type": "expected_value", "scenario_model_id": sm_id, "symbols": ["f_3"]}],
+    )
+    init_response = post_json(client, "/method/cumulus/get-or-initialize", init_request.model_dump(), access_token)
+    assert init_response.status_code == status.HTTP_200_OK
+    combined_problem_id = init_response.json()["problem_id"]
+    assert combined_problem_id != problem_id
+
+    response = get_json(
+        client, f"/method/cumulus/scenario-availability?problem_id={combined_problem_id}", access_token
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["available"] is True
+    assert data["base_problem_id"] == problem_id
+    assert data["scenario_model_id"] == sm_id
+    assert data["applied_measures"] == ["expected_value"]
+
+
+def test_cumulus_apply_scenario_measures_builds_combined_problem(client: TestClient, session_and_user: dict):
+    """apply-scenario-measures builds a combined problem even though a CUMULUS state already exists."""
+    access_token = login(client)
+    problem_id, sm_id = _setup_simple_scenario(session_and_user)
+
+    # Decline scenarios on first init, as the DM might from the "Choose Objectives" dialog.
+    init_request = CumulusInitializationRequest(problem_id=problem_id, uncertainty_measures=[])
+    init_response = post_json(client, "/method/cumulus/get-or-initialize", init_request.model_dump(), access_token)
+    assert init_response.status_code == status.HTTP_200_OK
+    assert init_response.json()["problem_id"] == problem_id
+
+    apply_request = CumulusInitializationRequest(
+        problem_id=problem_id,
+        uncertainty_measures=[{"measure_type": "expected_value", "scenario_model_id": sm_id, "symbols": ["f_3"]}],
+    )
+    apply_response = post_json(
+        client, "/method/cumulus/apply-scenario-measures", apply_request.model_dump(), access_token
+    )
+
+    assert apply_response.status_code == status.HTTP_200_OK
+    result = CumulusInitializationResponse.model_validate(json.loads(apply_response.content))
+    assert result.problem_id is not None
+    assert result.problem_id != problem_id
+
+
+def test_cumulus_apply_scenario_measures_no_scenario_model(client: TestClient):
+    """apply-scenario-measures on a problem with no scenario model returns 422."""
+    access_token = login(client)
+
+    request = CumulusInitializationRequest(
+        problem_id=1,
+        uncertainty_measures=[{"measure_type": "expected_value", "scenario_model_id": 1, "symbols": ["f_1"]}],
+    )
+    response = post_json(client, "/method/cumulus/apply-scenario-measures", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_cumulus_apply_scenario_measures_requires_measures(client: TestClient, session_and_user: dict):
+    """apply-scenario-measures with no uncertainty_measures returns 422."""
+    access_token = login(client)
+    problem_id, _sm_id = _setup_simple_scenario(session_and_user)
+
+    request = CumulusInitializationRequest(problem_id=problem_id, uncertainty_measures=[])
+    response = post_json(client, "/method/cumulus/apply-scenario-measures", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
 def test_cumulus_modify_problem_inherits_metadata(client: TestClient, session_and_user: dict):
     """Modified problem should inherit all metadata (e.g. solver selection, solution description) from the original."""
     access_token = login(client)
@@ -2197,8 +2481,14 @@ _SOFT_CONSTRAINT = {
 }
 
 
-def test_cumulus_objective_constraint_hard_only(client: TestClient):
-    """Setting only hard constraints should persist them and return their DB ids."""
+def test_cumulus_objective_constraint_rejects_hard(client: TestClient):
+    """Hard constraints are refused here: they need the method reinitialized.
+
+    A hard bound can exclude the current solution, and the classification sub-problems
+    are only guaranteed solvable because they admit the current solution.  Hard bounds go
+    through '/method/cumulus/modify-problem', which rebuilds the problem and recomputes
+    its ideal and nadir points.
+    """
     access_token = login(client)
 
     request = CumulusObjectiveConstraintRequest(
@@ -2207,13 +2497,23 @@ def test_cumulus_objective_constraint_hard_only(client: TestClient):
     )
     response = post_json(client, "/method/cumulus/objective-constraint", request.model_dump(), access_token)
 
-    assert response.status_code == status.HTTP_200_OK
-    result = CumulusObjectiveConstraintResponse.model_validate(json.loads(response.content))
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    # the error must say where hard bounds belong, not merely that they are refused
+    assert "modify-problem" in json.loads(response.content)["detail"]
 
-    assert result.response_type == "cumulus.objective_constraint"
-    assert result.state_id is not None
-    assert len(result.hard_constraint_ids) == 1
-    assert len(result.soft_constraint_ids) == 0
+
+def test_cumulus_objective_constraint_rejects_hard_alongside_soft(client: TestClient):
+    """A hard constraint is refused even when soft ones are sent in the same call."""
+    access_token = login(client)
+
+    request = CumulusObjectiveConstraintRequest(
+        problem_id=1,
+        hard_constraints=[_HARD_CONSTRAINT],
+        soft_constraints=[_SOFT_CONSTRAINT],
+    )
+    response = post_json(client, "/method/cumulus/objective-constraint", request.model_dump(), access_token)
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 def test_cumulus_objective_constraint_soft_only(client: TestClient):
@@ -2233,24 +2533,22 @@ def test_cumulus_objective_constraint_soft_only(client: TestClient):
     assert len(result.soft_constraint_ids) == 1
 
 
-def test_cumulus_objective_constraint_hard_and_soft(client: TestClient):
-    """Setting both hard and soft constraints in one call should persist both lists."""
+def test_cumulus_objective_constraint_multiple_soft(client: TestClient):
+    """Several soft constraints in one call are all persisted as distinct rows."""
     access_token = login(client)
 
     request = CumulusObjectiveConstraintRequest(
         problem_id=1,
-        hard_constraints=[_HARD_CONSTRAINT],
-        soft_constraints=[_SOFT_CONSTRAINT],
+        soft_constraints=[_SOFT_CONSTRAINT, {**_SOFT_CONSTRAINT, "symbol": "oc_2"}],
     )
     response = post_json(client, "/method/cumulus/objective-constraint", request.model_dump(), access_token)
 
     assert response.status_code == status.HTTP_200_OK
     result = CumulusObjectiveConstraintResponse.model_validate(json.loads(response.content))
 
-    assert len(result.hard_constraint_ids) == 1
-    assert len(result.soft_constraint_ids) == 1
-    # The two IDs must be distinct DB rows
-    assert result.hard_constraint_ids[0] != result.soft_constraint_ids[0]
+    assert result.hard_constraint_ids == []
+    assert len(result.soft_constraint_ids) == 2
+    assert result.soft_constraint_ids[0] != result.soft_constraint_ids[1]
 
 
 def test_cumulus_objective_constraint_empty_lists(client: TestClient):
@@ -2274,7 +2572,7 @@ def test_cumulus_objective_constraint_replace_semantics(client: TestClient):
 
     first = CumulusObjectiveConstraintRequest(
         problem_id=1,
-        hard_constraints=[_HARD_CONSTRAINT],
+        soft_constraints=[_SOFT_CONSTRAINT],
     )
     r1 = post_json(client, "/method/cumulus/objective-constraint", first.model_dump(), access_token)
     assert r1.status_code == status.HTTP_200_OK
@@ -2282,8 +2580,7 @@ def test_cumulus_objective_constraint_replace_semantics(client: TestClient):
 
     second = CumulusObjectiveConstraintRequest(
         problem_id=1,
-        hard_constraints=[],
-        soft_constraints=[_SOFT_CONSTRAINT],
+        soft_constraints=[{**_SOFT_CONSTRAINT, "symbol": "oc_2"}],
     )
     r2 = post_json(client, "/method/cumulus/objective-constraint", second.model_dump(), access_token)
     assert r2.status_code == status.HTTP_200_OK
@@ -2303,7 +2600,6 @@ def test_cumulus_initialize_includes_constraint_ids_after_set(client: TestClient
     # Set constraints before initialization
     constraint_request = CumulusObjectiveConstraintRequest(
         problem_id=1,
-        hard_constraints=[_HARD_CONSTRAINT],
         soft_constraints=[_SOFT_CONSTRAINT],
     )
     post_json(client, "/method/cumulus/objective-constraint", constraint_request.model_dump(), access_token)
@@ -2314,7 +2610,7 @@ def test_cumulus_initialize_includes_constraint_ids_after_set(client: TestClient
     assert init_response.status_code == status.HTTP_200_OK
     init_result = CumulusInitializationResponse.model_validate(json.loads(init_response.content))
 
-    assert len(init_result.hard_constraint_ids) == 1
+    assert init_result.hard_constraint_ids == []
     assert len(init_result.soft_constraint_ids) == 1
 
 
@@ -2325,7 +2621,7 @@ def test_cumulus_get_or_initialize_includes_constraint_ids(client: TestClient):
     # Set constraints
     constraint_request = CumulusObjectiveConstraintRequest(
         problem_id=1,
-        hard_constraints=[_HARD_CONSTRAINT],
+        soft_constraints=[_SOFT_CONSTRAINT],
     )
     post_json(client, "/method/cumulus/objective-constraint", constraint_request.model_dump(), access_token)
 
@@ -2335,16 +2631,16 @@ def test_cumulus_get_or_initialize_includes_constraint_ids(client: TestClient):
     assert response.status_code == status.HTTP_200_OK
     result = CumulusInitializationResponse.model_validate(json.loads(response.content))
 
-    assert len(result.hard_constraint_ids) == 1
-    assert len(result.soft_constraint_ids) == 0
+    assert result.hard_constraint_ids == []
+    assert len(result.soft_constraint_ids) == 1
 
     # get-or-initialize (second call — returns existing init state) should also carry the IDs
     response2 = post_json(client, "/method/cumulus/get-or-initialize", init_request.model_dump(), access_token)
     assert response2.status_code == status.HTTP_200_OK
     result2 = CumulusInitializationResponse.model_validate(json.loads(response2.content))
 
-    assert len(result2.hard_constraint_ids) == 1
-    assert len(result2.soft_constraint_ids) == 0
+    assert result2.hard_constraint_ids == []
+    assert len(result2.soft_constraint_ids) == 1
 
 
 def test_cumulus_initialize_no_constraints_returns_empty_ids(client: TestClient):

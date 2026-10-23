@@ -437,6 +437,22 @@ class SolutionReferenceResponse(SQLModel):
     variable_values: dict[str, "VariableType | Tensor"] | None
 
 
+class SolutionReferenceResponseLite(SQLModel):
+    """The same as `SolutionReferenceResponse`, but without decision variables.
+
+    The decision variable vectors dominate the size of responses that carry many solutions, while
+    clients generally render only the objective values. This model is used where the variables are
+    not needed, to keep responses small.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str | None = Field(default=None)
+    solution_index: int | None
+    state_id: int
+    objective_values: dict[str, float] | None
+
+
 class SavedSolutionReference(SQLModel):
     """A model that functions as a reference to solutions that users have chosen to explicitly save in the database."""
 

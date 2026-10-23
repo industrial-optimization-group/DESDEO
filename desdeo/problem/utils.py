@@ -4,6 +4,7 @@ import itertools
 import warnings
 from functools import reduce
 
+import cvxpy as cp
 import numpy as np
 import polars as pl
 
@@ -17,6 +18,12 @@ from desdeo.problem import (
     Variable,
     VariableTypeEnum,
 )
+from desdeo.problem.json_parser import FormatEnum, MathParser
+
+# MathJSON operators that are not twice differentiable everywhere (they are discontinuous,
+# kinked, or otherwise non-smooth), used by `determine_problem_properties` to flag functions
+# that use them, directly or through a reference to another function in the problem.
+_NON_SMOOTH_OPERATORS = frozenset({"Abs", "Max", "Min", "Ceil", "Floor"})
 
 
 class ProblemUtilsError(Exception):
@@ -366,6 +373,18 @@ def add_soft_constraint(
             symbol=symbol,
             func=violation_func,
             maximize=False,
+            # A sum of slack variables.
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
+            # The slack variables are non-negative, so zero violation is attainable by
+            # definition and is the ideal.  The nadir has no natural value: the largest
+            # violation depends on how far the soft constraints reach outside the
+            # feasible region, and computing it would need a solve of its own.  One is a
+            # placeholder, meant to be raised once an actual violation is observed, as
+            # `desdeo.mcdm.cumulus` does after minimizing the total violation.
+            ideal=0.0,
+            nadir=1.0,
         )
         new_objectives = [*existing_objectives, violation_objective]
 
@@ -383,3 +402,256 @@ def add_soft_constraint(
     )
 
     return new_problem, symbol
+
+
+def _cvxpy_symbol_scope(problem: Problem) -> dict[str, object]:
+    """Build a symbol-to-cvxpy-expression scope for a problem's decision variables and constants."""
+    scope: dict[str, object] = {}
+
+    for var in problem.variables:
+        scope[var.symbol] = (
+            cp.Variable(shape=tuple(var.shape), name=var.symbol)
+            if isinstance(var, TensorVariable)
+            else cp.Variable(name=var.symbol)
+        )
+
+    if problem.constants is not None:
+        for const in problem.constants:
+            scope[const.symbol] = np.array(const.get_values()) if isinstance(const, TensorConstant) else const.value
+
+    return scope
+
+
+def _contains_nonsmooth_operator(node: object, symbol_funcs: dict[str, list], visited: frozenset[str]) -> bool:
+    """Check whether a MathJSON expression uses an operator that is not twice differentiable everywhere.
+
+    Recurses into the expression tree, and, whenever a string names a function declared
+    elsewhere in the problem (an extra function, objective, scalarization function, or
+    constraint), follows that reference too. This way, e.g., an objective built from an
+    extra function that uses `Abs` is flagged as not twice differentiable as well.
+
+    Args:
+        node: the current MathJSON node being inspected (a list, a symbol/operator
+            string, or a literal number).
+        symbol_funcs (dict[str, list]): a map from every function symbol declared in the
+            problem to its MathJSON expression.
+        visited (frozenset[str]): symbols already followed, to guard against cycles.
+
+    Returns:
+        bool: `True` if a non-twice-differentiable operator was found.
+    """
+    if isinstance(node, list):
+        return any(_contains_nonsmooth_operator(child, symbol_funcs, visited) for child in node)
+    if isinstance(node, str):
+        if node in _NON_SMOOTH_OPERATORS:
+            return True
+        if node in symbol_funcs and node not in visited:
+            return _contains_nonsmooth_operator(symbol_funcs[node], symbol_funcs, visited | {node})
+    return False
+
+
+def _cvxpy_linear_and_convex(expr: object) -> tuple[bool, bool]:
+    """Determine linearity and convexity from a resolved cvxpy expression.
+
+    Args:
+        expr: the expression to inspect, or `None` if it could not be resolved
+            (e.g. because it uses an operator cvxpy's DCP atom library does not support,
+            such as a trigonometric function).
+
+    Returns:
+        tuple[bool, bool]: `(is_linear, is_convex)`. When `expr` could not be resolved,
+            both are conservatively `False`: it is better to under-report these properties
+            than to claim a function is linear or convex when it is not.
+    """
+    if isinstance(expr, (int, float)):
+        return True, True
+    if expr is not None and hasattr(expr, "is_affine"):
+        is_linear = bool(expr.is_affine())
+        return is_linear, is_linear or bool(expr.is_convex())
+    return False, False
+
+
+def _collect_symbol_funcs(problem: Problem) -> dict[str, list]:
+    """Map every function symbol declared in a problem to its MathJSON expression.
+
+    Objectives are also mapped under their `f"{symbol}_min"` alias (the always-minimized
+    variant used by scalarization functions and constraints, see `SympyEvaluator`), so that
+    a reference to that alias still follows through to the objective's own expression when
+    checking for non-smooth operators.
+    """
+    symbol_funcs: dict[str, list] = {}
+    for items in (problem.extra_funcs, problem.objectives, problem.scalarization_funcs, problem.constraints):
+        if items is None:
+            continue
+        for item in items:
+            if item.func is not None:
+                symbol_funcs[item.symbol] = item.func
+                if isinstance(item, Objective):
+                    symbol_funcs[f"{item.symbol}_min"] = item.func
+    return symbol_funcs
+
+
+def _resolve_properties(
+    symbol: str,
+    func: list,
+    symbol_funcs: dict[str, list],
+    scope: dict[str, object],
+    cvxpy_parser: MathParser,
+) -> tuple[bool, bool, bool]:
+    """Resolve one function's expression in cvxpy and derive its properties.
+
+    As a side effect, stores the resolved cvxpy expression (if any) in `scope` under
+    `symbol`, so that functions processed afterwards can reference it in turn.
+    """
+    try:
+        expr = cvxpy_parser.parse(func, callback=scope.__getitem__)
+    except Exception:
+        expr = None
+
+    is_linear, is_convex = _cvxpy_linear_and_convex(expr)
+    is_twice_differentiable = is_linear or not _contains_nonsmooth_operator(func, symbol_funcs, frozenset())
+
+    if expr is not None:
+        scope[symbol] = expr
+
+    return is_linear, is_convex, is_twice_differentiable
+
+
+def _analyze_problem_functions(problem: Problem) -> dict[str, tuple[bool, bool, bool]]:
+    """Analyze every analytical function in a problem, in the order the other evaluators resolve them."""
+    symbol_funcs = _collect_symbol_funcs(problem)
+    cvxpy_parser = MathParser(to_format=FormatEnum.cvxpy)
+    scope = _cvxpy_symbol_scope(problem)
+    properties: dict[str, tuple[bool, bool, bool]] = {}
+
+    for extra in problem.extra_funcs or []:
+        if extra.func is not None:
+            properties[extra.symbol] = _resolve_properties(extra.symbol, extra.func, symbol_funcs, scope, cvxpy_parser)
+
+    for obj in problem.objectives:
+        if obj.func is None:
+            continue
+        properties[obj.symbol] = _resolve_properties(obj.symbol, obj.func, symbol_funcs, scope, cvxpy_parser)
+        if obj.symbol in scope:
+            # Scalarization functions and constraints may reference the always-minimized variant
+            # of an objective, as the other evaluators also provide (e.g. SympyEvaluator).
+            scope[f"{obj.symbol}_min"] = -scope[obj.symbol] if obj.maximize else scope[obj.symbol]
+
+    for scal in problem.scalarization_funcs or []:
+        properties[scal.symbol] = _resolve_properties(scal.symbol, scal.func, symbol_funcs, scope, cvxpy_parser)
+
+    for con in problem.constraints or []:
+        if con.func is not None:
+            is_linear, is_convex, is_twice_differentiable = _resolve_properties(
+                con.symbol, con.func, symbol_funcs, scope, cvxpy_parser
+            )
+            if con.cons_type == ConstraintTypeEnum.EQ:
+                # `func == 0` bounds a convex region only when `func` is affine; a convex `func` is not enough.
+                is_convex = is_linear
+            properties[con.symbol] = (is_linear, is_convex, is_twice_differentiable)
+
+    return properties
+
+
+def _with_properties(item, properties: dict[str, tuple[bool, bool, bool]]):
+    """Return a copy of a function (objective/constraint/extra/scalarization) with analyzed properties applied."""
+    props = properties.get(item.symbol)
+    if props is None:
+        return item
+    is_linear, is_convex, is_twice_differentiable = props
+    return item.model_copy(
+        update={
+            "is_linear": is_linear,
+            "is_convex": is_convex,
+            "is_twice_differentiable": is_twice_differentiable,
+        }
+    )
+
+
+def determine_problem_properties(problem: Problem) -> Problem:
+    """Analyze a problem's functions and set their linearity, convexity, and differentiability flags.
+
+    For every analytical function defined in the problem (objectives, constraints, extra
+    functions, and scalarization functions), determines whether its expression is linear,
+    convex, and twice differentiable, and returns a copy of the problem with the
+    corresponding `is_linear`, `is_convex`, and `is_twice_differentiable` fields set
+    accordingly. Functions without a `func` expression (data-based, simulator, or
+    surrogate functions) are left untouched, as there is no expression to analyze.
+
+    Linearity is checked first, since an affine (linear) function is always both convex
+    and twice differentiable, regardless of what the other two checks find. Convexity is
+    otherwise determined with cvxpy's DCP curvature rules, applied to the function's
+    expression after resolving any other problem functions and constants it references.
+    Proving convexity in general is undecidable, and cvxpy's DCP rules only recognize
+    convexity that follows from a known composition of convex/concave building blocks, so
+    this check can miss functions that are convex. It is deliberately conservative: it may
+    report a convex function as not (provably) convex, but should not report a non-convex
+    function as convex. Twice differentiability is determined by scanning the function's
+    expression, and transitively any function it references, for the `Abs`, `Max`, `Min`,
+    `Ceil`, and `Floor` operators, none of which are twice differentiable everywhere.
+
+    Args:
+        problem (Problem): the problem whose functions are to be analyzed.
+
+    Returns:
+        Problem: a copy of `problem` with the `is_linear`, `is_convex`, and
+            `is_twice_differentiable` fields set on each analytical function.
+    """
+    properties = _analyze_problem_functions(problem)
+
+    return problem.model_copy(
+        update={
+            "objectives": [_with_properties(obj, properties) for obj in problem.objectives],
+            "constraints": [_with_properties(con, properties) for con in problem.constraints]
+            if problem.constraints is not None
+            else None,
+            "extra_funcs": [_with_properties(extra, properties) for extra in problem.extra_funcs]
+            if problem.extra_funcs is not None
+            else None,
+            "scalarization_funcs": [_with_properties(scal, properties) for scal in problem.scalarization_funcs]
+            if problem.scalarization_funcs is not None
+            else None,
+        }
+    )
+
+
+def determine_function_properties(problem: Problem, symbol: str) -> Problem:
+    """Analyze a single function of a problem and set its linearity, convexity, and differentiability flags.
+
+    Behaves exactly like `determine_problem_properties`, but only applies the result to
+    the one function identified by `symbol` (an objective, constraint, extra function, or
+    scalarization function), leaving every other function's flags untouched.
+
+    This matters because the convexity and twice-differentiability checks are
+    conservative and can produce false negatives (see `determine_problem_properties`):
+    re-running them over the whole problem would silently overwrite flags that may have
+    been deliberately set elsewhere from outside knowledge the checks here cannot derive
+    on their own. Targeting a single, newly added or changed function avoids that.
+
+    Args:
+        problem (Problem): the problem the function belongs to.
+        symbol (str): the symbol of the function to analyze.
+
+    Raises:
+        ProblemUtilsError: no function with the given symbol and an analyzable `func`
+            expression (i.e., not a data-based, simulator, or surrogate function) was
+            found in the problem.
+
+    Returns:
+        Problem: a copy of `problem` with the `is_linear`, `is_convex`, and
+            `is_twice_differentiable` fields set on the identified function only.
+    """
+    properties = _analyze_problem_functions(problem)
+
+    if symbol in properties:
+        for attr in ("objectives", "constraints", "extra_funcs", "scalarization_funcs"):
+            items = getattr(problem, attr)
+            if items is None:
+                continue
+            for i, item in enumerate(items):
+                if item.symbol == symbol:
+                    new_items = [*items[:i], _with_properties(item, properties), *items[i + 1 :]]
+                    return problem.model_copy(update={attr: new_items})
+
+    msg = f"No analyzable function with the symbol '{symbol}' was found in the problem."
+    raise ProblemUtilsError(msg)

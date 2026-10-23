@@ -98,6 +98,27 @@ def parse_infix_to_func(cls: "Problem", v: str | list) -> list:
     raise ValueError(msg)
 
 
+def enforce_linear_implies_convex_and_smooth(cls: "Objective", data: Any) -> Any:
+    """Validator that keeps a function's curvature/smoothness flags consistent with linearity.
+
+    A linear (affine) function is always convex and infinitely (and so twice)
+    differentiable. If `is_linear` is set to `True`, this forces `is_convex` and
+    `is_twice_differentiable` to `True` as well, regardless of what they were
+    otherwise given as, so the three flags can never contradict each other.
+
+    Args:
+        cls: the class of the pydantic model the validator is applied to.
+        data (Any): the raw input data for the model, before validation.
+
+    Returns:
+        Any: the (possibly amended) input data.
+    """
+    if isinstance(data, dict) and data.get("is_linear"):
+        data["is_convex"] = True
+        data["is_twice_differentiable"] = True
+    return data
+
+
 def parse_list_to_mathjson(cls: "TensorVariable", v: Tensor | VariableType | None) -> list:
     """Validator that makes sure a nested Python list is represented as tensor following the MathJSON convention.
 
@@ -620,6 +641,9 @@ class ExtraFunction(BaseModel):
     )
     """Whether the function expression is twice differentiable or not. Defaults to `False`"""
     _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
+    _enforce_linear_implies_convex_and_smooth = model_validator(mode="before")(
+        enforce_linear_implies_convex_and_smooth
+    )
 
 
 class ScalarizationFunction(BaseModel):
@@ -664,6 +688,9 @@ class ScalarizationFunction(BaseModel):
     )
     """Whether the function expression is twice differentiable or not. Defaults to `False`"""
     _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
+    _enforce_linear_implies_convex_and_smooth = model_validator(mode="before")(
+        enforce_linear_implies_convex_and_smooth
+    )
 
 
 class Url(BaseModel):
@@ -846,6 +873,9 @@ class Objective(BaseModel):
     )
     """Whether the function expression is twice differentiable or not. Defaults to `False`"""
     _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
+    _enforce_linear_implies_convex_and_smooth = model_validator(mode="before")(
+        enforce_linear_implies_convex_and_smooth
+    )
 
 
 class Constraint(BaseModel):
@@ -918,8 +948,9 @@ class Constraint(BaseModel):
     """A list of paths to models saved on disk. Can be 'None' for if either 'func' or 'simulator_path'
     is not 'None'. If 'None', either 'func' or 'simulator_path' must not be 'None'."""
     is_linear: bool = Field(
-        description="Whether the constraint is linear or not. Defaults to True, e.g., a linear constraint is assumed.",
-        default=True,
+        description="Whether the constraint is linear or not. Defaults to False, e.g., a linearity of constraint is" \
+        " not assumed.",
+        default=False,
     )
     """Whether the constraint is linear or not. Defaults to True, e.g., a linear
     constraint is assumed. Defaults to `True`."""
@@ -932,6 +963,9 @@ class Constraint(BaseModel):
     )
     """Whether the function expression is twice differentiable or not. Defaults to `False`"""
     _parse_infix_to_func = field_validator("func", mode="before")(parse_infix_to_func)
+    _enforce_linear_implies_convex_and_smooth = model_validator(mode="before")(
+        enforce_linear_implies_convex_and_smooth
+    )
 
 
 class DiscreteRepresentation(BaseModel):
