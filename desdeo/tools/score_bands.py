@@ -615,7 +615,9 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
         )
     # Add bands
     for cluster_id in sorted(result.bands.keys()):
-        r, g, b, a = colorscale(cluster_id - 1)  # Needed as cluster numbering starts at 1
+        # The cluster numbering starts at 1. Plotly reads the red, green and blue of rgba() from 0 to 255, so the
+        # colors are taken as bytes: matplotlib's default fractions would all draw as (nearly) black.
+        r, g, b, _ = colorscale(cluster_id - 1, bytes=True)
         a = 0.6
         highlight = None
         if result.options.highlight_cluster is not None and cluster_id == result.options.highlight_cluster:
