@@ -2894,6 +2894,33 @@ def test_ibea_survives_a_population_collapsed_onto_one_objective_vector():
 
 
 @pytest.mark.ea
+def test_ibea_grows_a_population_seeded_with_fewer_solutions_than_its_size():
+    """A run seeded with too few solutions keeps them and their offspring until the population is full.
+
+    The selector used to return a short population as it was, before computing any fitness. The mating
+    tournament then raised "The fitness is not set", and even with a fitness the offspring would have been
+    dropped every generation. The interactive SCORE bands sessions seed IBEA this way.
+    """
+    from desdeo.emo.options.generator import ArchiveGeneratorOptions  # noqa: PLC0415
+
+    problem = dtlz2(n_variables=6, n_objectives=3)
+    objectives = [objective.symbol for objective in problem.objectives]
+    options = ibea_options()
+    options.template.generator.n_points = 20
+    options.template.selection.population_size = 20
+    options.template.mate_selection.winner_size = 20
+    options.template.termination = MaxGenerationsTerminatorOptions(max_generations=3)
+    seeds = emo_constructor(problem=problem, emo_options=options)[0]()
+
+    options.template.generator = ArchiveGeneratorOptions(
+        solutions=seeds.optimal_variables[:5], outputs=seeds.optimal_outputs[objectives][:5]
+    )
+    result = emo_constructor(problem=problem, emo_options=options)[0]()
+
+    assert len(result.optimal_variables) == 20
+
+
+@pytest.mark.ea
 @pytest.mark.parametrize(
     ("constrained", "population_size"),
     [(False, 20), (True, 5), (True, 20)],

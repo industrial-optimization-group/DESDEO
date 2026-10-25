@@ -1613,8 +1613,9 @@ class IBEASelector(_FitnessPublishingSelector):
             tuple[SolutionType, pl.DataFrame]: The selected decision variables and their objective values,
                 targets, and constraint violations.
         """
-        if len(parents[0]) < self.population_size:
-            return parents[0], parents[1]
+        # A population seeded with fewer solutions than population_size keeps all of them and their offspring
+        # until it is full: _ibea_select_all removes no one then. Fitness is published either way, as the mating
+        # selection that follows needs it.
         solutions, outputs = self._merge(parents, offsprings)
         targets = outputs[self.target_symbols].to_numpy()
 
