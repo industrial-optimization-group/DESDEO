@@ -41,7 +41,8 @@
         "mate_selection": {
             "name": "TournamentSelection",
             "tournament_size": 2,
-            "winner_size": 100
+            "winner_size": 100,
+            "comparison": "fitness"
         }
     }
 }

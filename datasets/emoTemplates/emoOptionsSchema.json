@@ -1462,6 +1462,13 @@
                     "exclusiveMinimum": 1,
                     "title": "Winner Size",
                     "type": "integer"
+                },
+                "comparison": {
+                    "const": "fitness",
+                    "default": "fitness",
+                    "description": "A roulette wheel draws the winner in proportion to fitness, so it only compares by fitness.",
+                    "title": "Comparison",
+                    "type": "string"
                 }
             },
             "required": [
@@ -2703,6 +2710,16 @@
                     "exclusiveMinimum": 1,
                     "title": "Winner Size",
                     "type": "integer"
+                },
+                "comparison": {
+                    "default": "fitness",
+                    "description": "How the members of a tournament are compared. 'fitness' picks the highest fitness the selector publishes. 'dominance' picks uniformly among the members no other member dominates, under constrained domination, and ignores the fitness.",
+                    "enum": [
+                        "fitness",
+                        "dominance"
+                    ],
+                    "title": "Comparison",
+                    "type": "string"
                 }
             },
             "required": [

@@ -419,6 +419,7 @@ def emo_constructor(
             publisher=publisher,
             verbosity=template.verbosity,
             seed=template.seed,
+            problem=problem_,
         )
     else:
         selector = selection_constructor(
@@ -489,6 +490,7 @@ def emo_constructor(
             publisher=publisher,
             verbosity=template.verbosity,
             seed=template.seed,
+            problem=problem_,
         )
         components["mate_selection"] = scalar_selector
 

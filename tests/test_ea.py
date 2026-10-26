@@ -8,6 +8,7 @@ import numpy.testing as npt
 import polars as pl
 import pytest
 from moocore import hypervolume
+from pydantic import ValidationError
 
 from desdeo.emo.hooks.archivers import Archive, FeasibleArchive, NonDominatedArchive
 from desdeo.emo.methods.EAs import ibea, nsga3, nsga3_mixed_integer, rvea, rvea_mixed_integer
@@ -62,11 +63,13 @@ from desdeo.emo.operators.selection import (
     agemoea2_geodesic_distances,
     agemoea2_normalize,
     agemoea2_survival_score,
+    constrained_dominance_matrix,
     hype_fitness_exact,
     hype_fitness_monte_carlo,
     moead_scalarize,
     spea2_fitness,
     spea2_truncate,
+    total_constraint_violation,
 )
 from desdeo.emo.operators.termination import (
     CompositeTerminator,
@@ -92,6 +95,11 @@ from desdeo.emo.options.crossover import (
     SimulatedBinaryCrossoverOptions,
     UniformCrossoverOptions,
     crossover_constructor,
+)
+from desdeo.emo.options.scalar_selection import (
+    RouletteWheelSelectionOptions,
+    TournamentSelectionOptions,
+    scalar_selector_constructor,
 )
 from desdeo.emo.options.templates import ReferencePointOptions, emo_constructor
 from desdeo.emo.options.termination import (
@@ -3069,6 +3077,95 @@ def test_tournament_selection_seed_only_seeds():
 
     with pytest.raises(ValueError, match="stochastic must be True"):
         TournamentSelection(winner_size=20, verbosity=0, publisher=Publisher(), selection_probability=0.5)
+
+
+@pytest.mark.ea
+def test_dominance_tournament_never_picks_a_dominated_member():
+    """Under constrained domination a dominated member never wins, and the published fitness plays no part.
+
+    Solution 0 dominates every other solution in the objectives but is infeasible, so it must lose to
+    every feasible solution. Among the feasible ones, 1 dominates 2 and 3, while 1 and 4 are mutually
+    non-dominated, so each of them has to win some of their tournaments.
+    """
+    outputs = pl.DataFrame(
+        {
+            "f1_min": [0.0, 1.0, 2.0, 1.5, 0.5],
+            "f2_min": [0.0, 1.0, 2.0, 1.5, 3.0],
+            "g": [1.0, 0.0, -1.0, 0.0, 0.0],
+        }
+    )
+    solutions = (pl.DataFrame({"x": np.arange(5.0)}), outputs)
+    # (winner, loser): every feasible solution beats the infeasible 0, then plain Pareto dominance.
+    decided = [(1, 0), (2, 0), (3, 0), (4, 0), (1, 2), (1, 3), (3, 2)]
+
+    selector = TournamentSelection(
+        winner_size=10,
+        verbosity=0,
+        publisher=Publisher(),
+        seed=3,
+        comparison="dominance",
+        target_symbols=["f1_min", "f2_min"],
+        constraint_symbols=["g"],
+    )
+    dominance = constrained_dominance_matrix(
+        outputs[["f1_min", "f2_min"]].to_numpy(), total_constraint_violation(outputs, ["g"])
+    )
+    for winner, loser in decided:
+        for order in ([winner, loser], [loser, winner]):
+            assert all(selector.dominance_select(np.array(order), dominance) == winner for _ in range(20))
+    assert {selector.dominance_select(np.array([1, 4]), dominance) for _ in range(50)} == {1, 4}
+
+    # A published fitness of the wrong length would make a fitness tournament raise. Here it is ignored and cleared.
+    selector.fitness = np.zeros(2)
+    winners = selector.do(solutions)[1]
+    assert selector.fitness is None
+    assert len(winners) == 10
+
+    def replay(seed: int) -> list[float]:
+        replayed = TournamentSelection(
+            winner_size=10,
+            verbosity=0,
+            publisher=Publisher(),
+            seed=seed,
+            comparison="dominance",
+            target_symbols=["f1_min", "f2_min"],
+            constraint_symbols=["g"],
+        )
+        return replayed.do(solutions)[0]["x"].to_list()
+
+    assert replay(3) == replay(3)
+
+    with pytest.raises(ValueError, match="target symbols"):
+        TournamentSelection(winner_size=10, verbosity=0, publisher=Publisher(), comparison="dominance")
+
+
+@pytest.mark.ea
+def test_dominance_tournament_options():
+    """The options route a dominance tournament to the problem's targets, and a roulette wheel refuses one."""
+    problem = dtlz2(n_variables=5, n_objectives=3)
+    selector = scalar_selector_constructor(
+        TournamentSelectionOptions(winner_size=10, comparison="dominance"),
+        seed=0,
+        publisher=Publisher(),
+        verbosity=0,
+        problem=problem,
+    )
+    assert selector.comparison == "dominance"
+    assert selector.target_symbols == [f"{obj.symbol}_min" for obj in problem.objectives]
+    assert selector.constraint_symbols is None
+
+    # The default stays a fitness tournament, which existing algorithms rely on.
+    assert TournamentSelectionOptions(winner_size=10).comparison == "fitness"
+
+    with pytest.raises(ValueError, match="needs the problem"):
+        scalar_selector_constructor(
+            TournamentSelectionOptions(winner_size=10, comparison="dominance"),
+            seed=0,
+            publisher=Publisher(),
+            verbosity=0,
+        )
+    with pytest.raises(ValidationError):
+        RouletteWheelSelectionOptions(winner_size=10, comparison="dominance")
 
 
 @pytest.mark.ea
