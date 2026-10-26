@@ -2620,6 +2620,231 @@ class SPEA2Selector(_FitnessPublishingSelector):
         return self._finish(solutions, outputs, chosen, 1.0 / (1.0 + fitness[chosen]))
 
 
+def modified_wasfga_weights(n_objectives: int, number_of_weights: int, epsilon: float) -> np.ndarray:
+    """The weight vectors of (Modified) WASF-GA, whose inverses are spread over the simplex.
+
+    The reference code generates well-spread vectors `u` with every component at least `epsilon`, inverts
+    them and normalises the result to sum to one, `mu_i = (1 / u_i) / sum_j (1 / u_j)` (WASF-GA eq. 4,
+    `Weights.invertWeights(weights, true)`). With two objectives `u` is uniform,
+    `u_1 = epsilon + j (1 - 2 epsilon) / (N_mu - 1)` and `u_2 = 1 - u_1` (`initUniformPairAndOddWeights2D`).
+    With more, the code reads a fixed simplex lattice from a file, which its loader cannot parse; here
+    `number_of_weights` s-energy vectors are shrunk affinely onto the part of the simplex where every
+    component is at least `epsilon`, which maps the simplex's corners to the corners of those files.
+
+    Args:
+        n_objectives (int): The number of objectives k.
+        number_of_weights (int): The number of weight vectors N_mu.
+        epsilon (float): The smallest component of `u`.
+
+    Returns:
+        np.ndarray: The weight vectors mu, one per row, in the order the fronts visit them.
+    """
+    if n_objectives == 2:  # noqa: PLR2004
+        first = epsilon + np.arange(number_of_weights) * (1 - 2 * epsilon) / (number_of_weights - 1)
+        spread = np.column_stack([first, 1 - first])
+    else:
+        lattice = create_s_energy(n_objectives, number_of_weights, seed=0)
+        spread = epsilon + (1 - n_objectives * epsilon) * lattice
+    inverse = 1.0 / spread
+    return inverse / inverse.sum(axis=1, keepdims=True)
+
+
+def modified_wasfga_asf(
+    targets: np.ndarray,
+    reference_points: np.ndarray,
+    weights: np.ndarray,
+    ideal: np.ndarray,
+    nadir: np.ndarray,
+    rho: float,
+) -> np.ndarray:
+    """The normalised achievement scalarizing function of WASF-GA's reference code.
+
+    `s = max_i mu_i d_i + rho sum_i d_i`, with `d_i = (f_i - q_i) / (nadir_i - ideal_i)`, as
+    `AchievementScalarizingFunction.evaluateNormalizing` computes it. The augmentation term is not weighted
+    by `mu`, unlike eq. (2) of the papers. An objective whose range is zero is divided by one instead.
+
+    Args:
+        targets (np.ndarray): The minimised objective vectors, one per row (n x k).
+        reference_points (np.ndarray): The reference point of each weight vector, one per row (m x k).
+        weights (np.ndarray): The weight vectors, one per row (m x k).
+        ideal (np.ndarray): The ideal point used for normalisation (k).
+        nadir (np.ndarray): The nadir point used for normalisation (k).
+        rho (float): The augmentation coefficient.
+
+    Returns:
+        np.ndarray: The ASF value of every solution for every weight vector (n x m).
+    """
+    span = nadir - ideal
+    span = np.where(span > 0, span, 1.0)
+    differences = (targets[:, None, :] - reference_points[None, :, :]) / span
+    return (weights[None, :, :] * differences).max(axis=2) + rho * differences.sum(axis=2)
+
+
+class ModifiedWASFGASelector(_FitnessPublishingSelector):
+    """The environmental selection of Modified WASF-GA, the evolutionary part of IRA-EMO.
+
+    The parents and the offspring are sorted into fronts by an achievement scalarizing function (ASF)
+    that uses two reference points: an aspiration point, the values the decision maker would like to
+    reach, and a reservation point, the values they will not accept anything worse than. The weight
+    vectors alternate between the two, the even ones going with the reservation point and the odd ones
+    with the aspiration point (`RankingASFs`). Front 1 takes, for each weight vector in turn, the solution
+    not yet placed with the lowest ASF value for that vector and its reference point. Front 2 does the
+    same with the solutions that remain, and so on. The next population is filled front by front, and
+    the last front that fits only partly is cut in the order its members were placed. The final
+    population thus approximates the parts of the Pareto front that project onto the two points; IRA-EMO
+    keeps the solutions between them for the decision maker.
+
+    Without levels the aspiration point is the ideal point and the reservation point the nadir point,
+    both estimated from the run, which is the setting of Global WASF-GA.
+
+    The ASF is normalised by an ideal and a nadir point estimated from every solution the selector has
+    seen in the run, as the reference code does when `estimatePoints` is on. The reference code
+    normalises only the aspiration ASF this way and leaves the reservation ASF with its initial bounds
+    (`Double.MAX_VALUE` and `Double.MIN_VALUE`), which flips the sign of the reservation half; here both
+    use the estimated bounds. Other departures from the reference code: the weight vectors for three or
+    more objectives (see `modified_wasfga_weights`), and constraint handling, which the reference code
+    lacks. As WASF-GA's paper describes, feasible solutions are sorted into fronts by the ASF and
+    infeasible ones follow, one per front, in order of increasing total constraint violation.
+
+    The published fitness is `1 / (1 + front)`, with the first front at zero, so it is positive and
+    higher is better.
+
+    References:
+        Saborido, R., Ruiz, A. B., Luque, M., & Miettinen, K. (2019). IRA-EMO: Interactive method using
+            reservation and aspiration levels for evolutionary multiobjective optimization. In K. Deb et al.
+            (Eds.), Evolutionary Multi-Criterion Optimization (EMO 2019), LNCS 11411, pp. 618-630. Springer.
+            https://doi.org/10.1007/978-3-030-12598-1_49
+
+        Ruiz, A. B., Saborido, R., & Luque, M. (2015). A preference-based evolutionary algorithm for
+            multiobjective optimization: The weighting achievement scalarizing function genetic algorithm.
+            Journal of Global Optimization, 62(1), 101-129. https://doi.org/10.1007/s10898-014-0214-y
+    """
+
+    def __init__(
+        self,
+        problem: Problem,
+        verbosity: int,
+        publisher: Publisher,
+        population_size: int,
+        number_of_weights: int | None = None,
+        aspiration_levels: dict[str, float] | None = None,
+        reservation_levels: dict[str, float] | None = None,
+        rho: float = 0.001,
+        epsilon: float | None = None,
+        seed: int = 0,
+    ):
+        """Initialize the selector.
+
+        Args:
+            problem (Problem): The optimization problem to be solved.
+            verbosity (int): The verbosity level of the operator.
+            publisher (Publisher): The publisher to use for communication.
+            population_size (int): The number of solutions selected each generation.
+            number_of_weights (int | None, optional): The number of weight vectors N_mu, split evenly between
+                the two reference points. None uses `population_size`. Defaults to None.
+            aspiration_levels (dict[str, float] | None, optional): The aspiration level of every objective,
+                keyed by symbol and in the objective's own sense. None uses the estimated ideal point.
+                Defaults to None.
+            reservation_levels (dict[str, float] | None, optional): The reservation level of every objective,
+                keyed by symbol and in the objective's own sense. None uses the estimated nadir point.
+                Defaults to None.
+            rho (float, optional): The augmentation coefficient of the ASF. Defaults to 0.001, the reference
+                code's value.
+            epsilon (float | None, optional): The smallest component of the vectors whose inverses are the
+                weights. None uses the reference code's values, 0.01 for two objectives and 0.005 for more.
+                Defaults to None.
+            seed (int, optional): The random seed to use. The selection itself draws nothing. Defaults to 0.
+
+        Raises:
+            ValueError: If levels are given for a problem whose targets are not its objectives, or if they
+                miss an objective.
+        """
+        super().__init__(
+            problem=problem, verbosity=verbosity, publisher=publisher, population_size=population_size, seed=seed
+        )
+        n_objectives = len(self.target_symbols)
+        self.number_of_weights = population_size if number_of_weights is None else number_of_weights
+        self.rho = rho
+        self.epsilon = epsilon if epsilon is not None else (0.01 if n_objectives == 2 else 0.005)  # noqa: PLR2004
+        self.weights = modified_wasfga_weights(n_objectives, self.number_of_weights, self.epsilon)
+        # Even weight vectors go with the reservation point, odd ones with the aspiration point.
+        self.uses_aspiration = np.arange(self.number_of_weights) % 2 == 1
+        self.aspiration = self._minimised(aspiration_levels)
+        self.reservation = self._minimised(reservation_levels)
+        self.estimated_ideal: np.ndarray | None = None
+        self.estimated_nadir: np.ndarray | None = None
+
+    def _minimised(self, levels: dict[str, float] | None) -> np.ndarray | None:
+        if levels is None:
+            return None
+        if self.problem.scalarization_funcs is not None:
+            raise ValueError("Aspiration and reservation levels need a problem whose targets are its objectives.")
+        missing = set(self.objective_symbols) - set(levels)
+        if missing:
+            raise ValueError(f"The levels miss the objectives {sorted(missing)}.")
+        return np.array([levels[symbol] * self.maximization_mult[symbol] for symbol in self.objective_symbols])
+
+    def do(
+        self, parents: tuple[SolutionType, pl.DataFrame], offsprings: tuple[SolutionType, pl.DataFrame]
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Select the next population from the parents and the offspring.
+
+        Args:
+            parents (tuple[SolutionType, pl.DataFrame]): the population and its outputs.
+            offsprings (tuple[SolutionType, pl.DataFrame]): the offspring and their outputs. Empty in the
+                first generation.
+
+        Returns:
+            tuple[SolutionType, pl.DataFrame]: the next population and its outputs.
+        """
+        solutions, outputs = self._merge(parents, offsprings)
+        targets = outputs[self.target_symbols].to_numpy().astype(float)
+
+        # IRAEMO.updateBounds: the bounds cover every solution evaluated in the run.
+        lowest, highest = targets.min(axis=0), targets.max(axis=0)
+        if self.estimated_ideal is None or self.estimated_nadir is None:
+            self.estimated_ideal, self.estimated_nadir = lowest, highest
+        else:
+            self.estimated_ideal = np.minimum(self.estimated_ideal, lowest)
+            self.estimated_nadir = np.maximum(self.estimated_nadir, highest)
+
+        aspiration = self.estimated_ideal if self.aspiration is None else self.aspiration
+        reservation = self.estimated_nadir if self.reservation is None else self.reservation
+        reference_points = np.where(self.uses_aspiration[:, None], aspiration, reservation)
+        asf = modified_wasfga_asf(
+            targets, reference_points, self.weights, self.estimated_ideal, self.estimated_nadir, self.rho
+        )
+
+        violations = total_constraint_violation(outputs, self.constraints_symbols)
+        feasible = np.ones(len(targets), dtype=bool) if violations is None else violations <= 0
+
+        chosen: list[int] = []
+        fronts: list[int] = []
+        placed = ~feasible
+        front = 0
+        # RankingASFs: each front takes the best unplaced solution for every weight vector in turn.
+        while len(chosen) < self.population_size and not placed.all():
+            for column in range(self.number_of_weights):
+                if placed.all() or len(chosen) == self.population_size:
+                    break
+                best = int(np.argmin(np.where(placed, np.inf, asf[:, column])))
+                placed[best] = True
+                chosen.append(best)
+                fronts.append(front)
+            front += 1
+        # WASF-GA section 3: infeasible solutions follow, one per front, by increasing violation.
+        if violations is not None and len(chosen) < self.population_size:
+            infeasible = np.flatnonzero(~feasible)
+            for best in infeasible[np.argsort(violations[infeasible], kind="stable")]:
+                if len(chosen) == self.population_size:
+                    break
+                chosen.append(int(best))
+                fronts.append(front)
+                front += 1
+
+        return self._finish(solutions, outputs, chosen, 1.0 / (1.0 + np.array(fronts, dtype=float)))
+
+
 def _nan_argmin(values: np.ndarray) -> int:
     """Index of the smallest value skipping NaN, or 0 when every value is NaN, as MATLAB's `min` returns it."""
     return 0 if np.isnan(values).all() else int(np.nanargmin(values))

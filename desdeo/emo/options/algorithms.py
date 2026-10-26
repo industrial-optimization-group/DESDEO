@@ -13,6 +13,7 @@ from desdeo.emo.options.selection import (
     AGEMOEA2SelectorOptions,
     HypESelectorOptions,
     IBEASelectorOptions,
+    ModifiedWASFGASelectorOptions,
     MOEADSelectorOptions,
     NSGA2SelectorOptions,
     NSGA3SelectorOptions,
@@ -41,6 +42,8 @@ __all__ = [
     "hype_options",
     "ibea_mixed_integer_options",
     "ibea_options",
+    "modified_wasfga_mixed_integer_options",
+    "modified_wasfga_options",
     "moead_de_options",
     "moead_mixed_integer_options",
     "moead_options",
@@ -957,6 +960,93 @@ def hype_mixed_integer_options() -> EMOOptions:
         EMOOptions: The default HypE mixed integer options as a Pydantic model.
     """
     return _mixed_integer(hype_options(), "HypE_Mixed_Integer")
+
+
+def modified_wasfga_options() -> EMOOptions:
+    """Get default Modified WASF-GA options as a Pydantic model.
+
+    Modified WASF-GA is the evolutionary part of IRA-EMO (Step 5 of the paper's algorithm). It looks for
+    solutions between an aspiration point and a reservation point, which are given as a
+    `DesirableRangesOptions` preference with `method="Modified WASF-GA"`. Without a preference it uses the
+    ideal and nadir points estimated from the run, as Global WASF-GA does. The rest of IRA-EMO (showing
+    the decision maker the solutions between the two points, and asking for new levels) is left to the
+    caller.
+
+    The settings are those of the authors' reference code (`IRAEMO_Settings`, real-coded problems):
+    population and weight vectors 100, 200 generations, a random initial population, SBX and polynomial
+    mutation with distribution indices of 20, and a binary tournament by Pareto dominance (jMetal's
+    `BinaryTournament2`). The paper's own example used a population of 50 for 100 generations, on a
+    mixed-integer problem. Where the paper and the code disagree, this follows the code, except for the
+    defects listed in `ModifiedWASFGASelector`.
+
+    References:
+        R. Saborido, A. B. Ruiz, M. Luque and K. Miettinen, "IRA-EMO: Interactive Method Using Reservation and
+        Aspiration Levels for Evolutionary Multiobjective Optimization," in Evolutionary Multi-Criterion
+        Optimization (EMO 2019), LNCS vol. 11411, Springer, 2019, pp. 618-630, doi: 10.1007/978-3-030-12598-1_49.
+
+        A. B. Ruiz, R. Saborido and M. Luque, "A preference-based evolutionary algorithm for multiobjective
+        optimization: the weighting achievement scalarizing function genetic algorithm," Journal of Global
+        Optimization, vol. 62, no. 1, pp. 101-129, 2015, doi: 10.1007/s10898-014-0214-y.
+
+    Returns:
+        EMOOptions: The default Modified WASF-GA options as a Pydantic model.
+    """
+    return EMOOptions(
+        preference=None,
+        template=Template2Options(
+            algorithm_name="ModifiedWASFGA",
+            crossover=SimulatedBinaryCrossoverOptions(
+                name="SimulatedBinaryCrossover",
+                xover_distribution=20,
+                # jMetal's SBXCrossover crosses a pair with probability 0.9, then each variable with
+                # probability 0.5, and swaps the two values between the offspring with probability 0.5.
+                pair_xover_probability=0.9,
+                xover_probability=0.5,
+                uniform_xover_probability=0.5,
+            ),
+            mutation=BoundedPolynomialMutationOptions(
+                name="BoundedPolynomialMutation",
+                distribution_index=20,
+                mutation_probability=None,  # 1 / n
+            ),
+            selection=ModifiedWASFGASelectorOptions(
+                name="ModifiedWASFGASelector",
+                population_size=100,  # the reference code sets the number of weight vectors to the same value
+            ),
+            mate_selection=TournamentSelectionOptions(
+                name="TournamentSelection",
+                tournament_size=2,
+                winner_size=100,
+                comparison="dominance",
+            ),
+            generator=RandomGeneratorOptions(
+                name="RandomGenerator",
+                n_points=100,
+            ),
+            repair=ClipRepairOptions(),
+            termination=MaxGenerationsTerminatorOptions(
+                name="MaxGenerationsTerminator",
+                max_generations=200,
+            ),
+            use_archive=True,
+            verbosity=2,
+            seed=42,
+        ),
+    )
+
+
+def modified_wasfga_mixed_integer_options() -> EMOOptions:
+    """Get default Modified WASF-GA options for mixed integer problems as a Pydantic model.
+
+    References:
+        R. Saborido, A. B. Ruiz, M. Luque and K. Miettinen, "IRA-EMO: Interactive Method Using Reservation and
+        Aspiration Levels for Evolutionary Multiobjective Optimization," in Evolutionary Multi-Criterion
+        Optimization (EMO 2019), LNCS vol. 11411, Springer, 2019, pp. 618-630, doi: 10.1007/978-3-030-12598-1_49.
+
+    Returns:
+        EMOOptions: The default Modified WASF-GA mixed integer options as a Pydantic model.
+    """
+    return _mixed_integer(modified_wasfga_options(), "ModifiedWASFGA_Mixed_Integer")
 
 
 # The serialized templates under `datasets/emoTemplates` are regenerated by

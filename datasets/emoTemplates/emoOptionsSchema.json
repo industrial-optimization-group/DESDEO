@@ -340,7 +340,8 @@
                     "description": "The method for handling the desirable ranges.",
                     "enum": [
                         "Hakanen",
-                        "DF transformation"
+                        "DF transformation",
+                        "Modified WASF-GA"
                     ],
                     "title": "Method",
                     "type": "string"
@@ -820,6 +821,96 @@
                 }
             },
             "title": "MixedIntegerRandomMutationOptions",
+            "type": "object"
+        },
+        "ModifiedWASFGASelectorOptions": {
+            "description": "Options for the environmental selection of Modified WASF-GA (IRA-EMO).",
+            "properties": {
+                "name": {
+                    "const": "ModifiedWASFGASelector",
+                    "default": "ModifiedWASFGASelector",
+                    "description": "The name of the selection operator.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "population_size": {
+                    "description": "The number of solutions selected each generation.",
+                    "exclusiveMinimum": 0,
+                    "title": "Population Size",
+                    "type": "integer"
+                },
+                "number_of_weights": {
+                    "anyOf": [
+                        {
+                            "exclusiveMinimum": 1,
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The number of weight vectors, split evenly between the two reference points. None uses the population size.",
+                    "title": "Number Of Weights"
+                },
+                "aspiration_levels": {
+                    "anyOf": [
+                        {
+                            "additionalProperties": {
+                                "type": "number"
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The aspiration level of every objective, keyed by symbol. None uses the estimated ideal point.",
+                    "title": "Aspiration Levels"
+                },
+                "reservation_levels": {
+                    "anyOf": [
+                        {
+                            "additionalProperties": {
+                                "type": "number"
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The reservation level of every objective, keyed by symbol. None uses the estimated nadir point.",
+                    "title": "Reservation Levels"
+                },
+                "rho": {
+                    "default": 0.001,
+                    "description": "The augmentation coefficient of the ASF.",
+                    "exclusiveMinimum": 0.0,
+                    "title": "Rho",
+                    "type": "number"
+                },
+                "epsilon": {
+                    "anyOf": [
+                        {
+                            "exclusiveMinimum": 0.0,
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The smallest component of the vectors whose inverses are the weights. None uses 0.01 for two objectives and 0.005 for more.",
+                    "title": "Epsilon"
+                }
+            },
+            "required": [
+                "population_size"
+            ],
+            "title": "ModifiedWASFGASelectorOptions",
             "type": "object"
         },
         "NSGA2SelectorOptions": {
@@ -1743,6 +1834,9 @@
                         },
                         {
                             "$ref": "#/$defs/HypESelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ModifiedWASFGASelectorOptions"
                         }
                     ],
                     "description": "The selection operator options.",
@@ -1947,6 +2041,9 @@
                         },
                         {
                             "$ref": "#/$defs/HypESelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ModifiedWASFGASelectorOptions"
                         }
                     ],
                     "description": "The selection operator options.",
@@ -2167,6 +2264,9 @@
                         },
                         {
                             "$ref": "#/$defs/HypESelectorOptions"
+                        },
+                        {
+                            "$ref": "#/$defs/ModifiedWASFGASelectorOptions"
                         }
                     ],
                     "description": "The selection operator options.",

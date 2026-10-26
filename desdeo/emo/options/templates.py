@@ -235,10 +235,11 @@ class DesirableRangesOptions(BaseModel):
         description="The reservation levels as a dictionary with objective function symbols as the keys."
     )
     """The reservation levels as a dictionary with objective function symbols as the keys."""
-    method: Literal["Hakanen", "DF transformation"] = Field(
+    method: Literal["Hakanen", "DF transformation", "Modified WASF-GA"] = Field(
         default="Hakanen", description="The method for handling the desirable ranges."
     )
-    """The method for handling the desirable ranges."""
+    """The method for handling the desirable ranges. "Modified WASF-GA" hands the levels to a
+    `ModifiedWASFGASelector` as its aspiration and reservation points."""
     desirability_levels: tuple[float, float] = Field(
         default=(0.9, 0.1),
         description=(
@@ -306,7 +307,8 @@ def preference_handler(
     This function modifies the problem and selection operator based on the provided preference options. E.g., if
     the preference method is "Hakanen", the reference vector options of the selection operator are modified to
     include the preference information. If the preference method is "IOPIS" or "DF transformation", the problem is
-    modified to include desirability functions or IOPIS functions.
+    modified to include desirability functions or IOPIS functions. If it is "Modified WASF-GA", the aspiration and
+    reservation levels become the two reference points of a copy of the `ModifiedWASFGASelector` options.
 
     Args:
         preference (PreferenceOptions | None): The preference options.
@@ -349,6 +351,18 @@ def preference_handler(
             reference_point=preference.preference,
         )
         return iopis_problem, selection
+    if preference.method == "Modified WASF-GA":
+        if not isinstance(preference, DesirableRangesOptions):
+            raise InvalidTemplateError("The Modified WASF-GA method takes aspiration and reservation levels.")
+        if selection.name != "ModifiedWASFGASelector":
+            raise InvalidTemplateError("The Modified WASF-GA method needs the ModifiedWASFGASelector.")
+        selection = selection.model_copy(
+            update={
+                "aspiration_levels": dict(preference.aspiration_levels),
+                "reservation_levels": dict(preference.reservation_levels),
+            }
+        )
+        return problem, selection
     if preference.method == "DF transformation":
         df_problem, _ = add_desirability_funcs(
             problem=problem,

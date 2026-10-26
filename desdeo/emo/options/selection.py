@@ -11,6 +11,7 @@ from desdeo.emo.operators.selection import (
     BaseSelector,
     HypESelector,
     IBEASelector,
+    ModifiedWASFGASelector,
     MOEADSelector,
     NSGA2Selector,
     NSGA3Selector,
@@ -118,6 +119,49 @@ class SPEA2SelectorOptions(BaseModel):
     `winner_size`."""
 
 
+class ModifiedWASFGASelectorOptions(BaseModel):
+    """Options for the environmental selection of Modified WASF-GA (IRA-EMO)."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    name: Literal["ModifiedWASFGASelector"] = Field(
+        default="ModifiedWASFGASelector", frozen=True, description="The name of the selection operator."
+    )
+    """The name of the selection operator."""
+    population_size: int = Field(gt=0, description="The number of solutions selected each generation.")
+    """The number of solutions selected each generation."""
+    number_of_weights: int | None = Field(
+        default=None,
+        gt=1,
+        description="The number of weight vectors, split evenly between the two reference points. None uses the "
+        "population size.",
+    )
+    """The number of weight vectors, split evenly between the two reference points. None uses the population
+    size, which is the reference code's default."""
+    aspiration_levels: dict[str, float] | None = Field(
+        default=None,
+        description="The aspiration level of every objective, keyed by symbol. None uses the estimated ideal point.",
+    )
+    """The aspiration level of every objective, keyed by symbol and in the objective's own sense. None uses the
+    ideal point estimated from the run."""
+    reservation_levels: dict[str, float] | None = Field(
+        default=None,
+        description="The reservation level of every objective, keyed by symbol. None uses the estimated nadir point.",
+    )
+    """The reservation level of every objective, keyed by symbol and in the objective's own sense. None uses the
+    nadir point estimated from the run."""
+    rho: float = Field(default=0.001, gt=0.0, description="The augmentation coefficient of the ASF.")
+    """The augmentation coefficient of the achievement scalarizing function. 0.001 is the reference code's value."""
+    epsilon: float | None = Field(
+        default=None,
+        gt=0.0,
+        description="The smallest component of the vectors whose inverses are the weights. None uses 0.01 for two "
+        "objectives and 0.005 for more.",
+    )
+    """The smallest component of the vectors whose inverses are the weights. None uses the reference code's
+    values, 0.01 for two objectives and 0.005 for more."""
+
+
 class AGEMOEA2SelectorOptions(BaseModel):
     """Options for AGE-MOEA-II environmental selection."""
 
@@ -205,6 +249,7 @@ SelectorOptions = (
     | SPEA2SelectorOptions
     | AGEMOEA2SelectorOptions
     | HypESelectorOptions
+    | ModifiedWASFGASelectorOptions
 )
 
 
@@ -236,6 +281,7 @@ def selection_constructor(
         "SPEA2Selector": SPEA2Selector,
         "AGEMOEA2Selector": AGEMOEA2Selector,
         "HypESelector": HypESelector,
+        "ModifiedWASFGASelector": ModifiedWASFGASelector,
     }
     options: dict = options.model_dump()
     name = options.pop("name")

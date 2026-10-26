@@ -49,6 +49,7 @@ from desdeo.emo.operators.selection import (
     AGEMOEA2Selector,
     HypESelector,
     IBEASelector,
+    ModifiedWASFGASelector,
     MOEADSelector,
     NSGA2Selector,
     NSGA3Selector,
@@ -66,6 +67,8 @@ from desdeo.emo.operators.selection import (
     constrained_dominance_matrix,
     hype_fitness_exact,
     hype_fitness_monte_carlo,
+    modified_wasfga_asf,
+    modified_wasfga_weights,
     moead_scalarize,
     spea2_fitness,
     spea2_truncate,
@@ -82,6 +85,7 @@ from desdeo.emo.options.algorithms import (
     agemoea2_options,
     hype_options,
     ibea_options,
+    modified_wasfga_options,
     moead_de_options,
     moead_options,
     nsga2_options,
@@ -101,7 +105,12 @@ from desdeo.emo.options.scalar_selection import (
     TournamentSelectionOptions,
     scalar_selector_constructor,
 )
-from desdeo.emo.options.templates import ReferencePointOptions, emo_constructor
+from desdeo.emo.options.templates import (
+    DesirableRangesOptions,
+    InvalidTemplateError,
+    ReferencePointOptions,
+    emo_constructor,
+)
 from desdeo.emo.options.termination import (
     CompositeTerminatorOptions,
     ExternalCheckTerminatorOptions,
@@ -2977,6 +2986,7 @@ def test_ibea_selection_indexes_the_merged_population(constrained, population_si
         "spea2",
         "agemoea2",
         pytest.param("hype", marks=HYPE_DISABLED),
+        "modified_wasfga",
     ],
 )
 def test_constrained_selectors_reach_a_feasible_population(name):
@@ -2995,6 +3005,7 @@ def test_constrained_selectors_reach_a_feasible_population(name):
         "spea2": spea2_options,
         "agemoea2": agemoea2_options,
         "hype": hype_options,
+        "modified_wasfga": modified_wasfga_options,
     }[name]()
     options.template.verbosity = 2
     options.template.use_archive = False
@@ -3169,6 +3180,194 @@ def test_dominance_tournament_options():
 
 
 @pytest.mark.ea
+def test_modified_wasfga_asf_matches_the_reference_code():
+    """The ASF is `AchievementScalarizingFunction.evaluateNormalizing`, whose augmentation term is unweighted.
+
+    f = (0.5, 0.3), q = (0.1, 0.2), mu = (0.25, 0.75), ideal = (0, 0) and nadir = (2, 1) give
+    d = (0.2, 0.1), so s = max(0.05, 0.075) + 0.001 * 0.3. Eq. (2) of the papers would weight the
+    sum, giving 0.075 + 0.001 * 0.125 instead.
+    """
+    value = modified_wasfga_asf(
+        targets=np.array([[0.5, 0.3]]),
+        reference_points=np.array([[0.1, 0.2]]),
+        weights=np.array([[0.25, 0.75]]),
+        ideal=np.array([0.0, 0.0]),
+        nadir=np.array([2.0, 1.0]),
+        rho=0.001,
+    )
+    npt.assert_allclose(value, [[0.075 + 0.001 * 0.3]])
+
+
+@pytest.mark.ea
+def test_modified_wasfga_weights_match_the_reference_code():
+    """Two objectives follow `initUniformPairAndOddWeights2D` and `invertWeights(weights, true)`.
+
+    Inverting u = (u1, 1 - u1) and normalising gives mu = (1 - u1, u1). With more objectives there is
+    one weight vector per requested one, all finite and positive.
+    """
+    weights = modified_wasfga_weights(2, 10, 0.01)
+    first = 0.01 + np.arange(10) * 0.98 / 9
+    npt.assert_allclose(weights, np.column_stack([1 - first, first]))
+
+    for n_objectives in (3, 5, 10):
+        weights = modified_wasfga_weights(n_objectives, 100, 0.005)
+        assert weights.shape == (100, n_objectives)
+        assert np.isfinite(weights).all()
+        assert (weights > 0).all()
+        npt.assert_allclose(weights.sum(axis=1), 1.0)
+
+
+def _ranking_asfs(asf: np.ndarray, population_size: int) -> list[int]:
+    """A line-by-line copy of the reference code's `RankingASFs` and the loop of `IRAEMO.execute` that uses it."""
+    remaining = list(range(len(asf)))
+    population: list[int] = []
+    while remaining and len(population) < population_size:
+        front = []
+        for column in range(asf.shape[1]):
+            if not remaining:
+                break
+            best = remaining[0]
+            for node in remaining:
+                if asf[node, column] < asf[best, column]:
+                    best = node
+            front.append(best)
+            remaining.remove(best)
+        population.extend(front[: population_size - len(population)])
+    return population
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize("n_objectives", [2, 3])
+def test_modified_wasfga_fronts_follow_the_reference_ranking(n_objectives):
+    """On random parents and offspring the selection is what the reference code's ranking keeps, in its order."""
+    rng = np.random.default_rng(1)
+    problem = dtlz2(n_variables=n_objectives + 1, n_objectives=n_objectives)
+    symbols = [objective.symbol for objective in problem.objectives]
+    targets = rng.random((30, n_objectives))
+    outputs = pl.DataFrame(
+        {
+            **dict(zip(symbols, targets.T, strict=True)),
+            **{f"{s}_min": t for s, t in zip(symbols, targets.T, strict=True)},
+        }
+    )
+    solutions = pl.DataFrame({v.symbol: rng.random(30) for v in problem.get_flattened_variables()})
+    aspiration = dict.fromkeys(symbols, 0.2)
+    reservation = dict.fromkeys(symbols, 0.7)
+    selector = ModifiedWASFGASelector(
+        problem=problem,
+        verbosity=1,
+        publisher=Publisher(),
+        population_size=13,
+        number_of_weights=6,
+        aspiration_levels=aspiration,
+        reservation_levels=reservation,
+    )
+
+    selector.do(parents=(solutions[:15], outputs[:15]), offsprings=(solutions[15:], outputs[15:]))
+
+    reference_points = np.where(
+        (np.arange(6) % 2 == 1)[:, None], np.full(n_objectives, 0.2), np.full(n_objectives, 0.7)
+    )
+    asf = modified_wasfga_asf(
+        targets, reference_points, selector.weights, targets.min(axis=0), targets.max(axis=0), rho=0.001
+    )
+    assert selector.selection == _ranking_asfs(asf, 13)
+    npt.assert_allclose(selector.fitness, [1.0] * 6 + [0.5] * 6 + [1 / 3])
+
+
+@pytest.mark.ea
+def test_modified_wasfga_keeps_what_the_reservation_point_finds():
+    """The reservation point decides part of the selection, and the last front is cut in assignment order.
+
+    The eight solutions lie on or near the line f1 + f2 = 1, plus (0.35, 0.35). With aspiration (0.3, 0.3)
+    and reservation (1, 1), the four weight vectors keep solutions 3, 6, 2 and 1. With the aspiration point
+    in both roles, which is WASF-GA with a single reference point, they keep 0, 6, 1 and 3: solution 2,
+    (0.25, 0.45), survives only because the reservation half of the weights finds it.
+    """
+    problem = dtlz2(n_variables=3, n_objectives=2)
+    targets = np.array(
+        [[0.3, 0.4], [0.4, 0.3], [0.25, 0.45], [0.45, 0.25], [0.0, 1.0], [1.0, 0.0], [0.35, 0.35], [0.05, 0.8]]
+    )
+    outputs = pl.DataFrame(
+        {"f_1": targets[:, 0], "f_2": targets[:, 1], "f_1_min": targets[:, 0], "f_2_min": targets[:, 1]}
+    )
+    solutions = pl.DataFrame({f"x_{i}": np.arange(8.0) for i in range(1, 4)})
+
+    def selection(reservation: tuple[float, float], population_size: int = 4) -> list[int]:
+        selector = ModifiedWASFGASelector(
+            problem=problem,
+            verbosity=1,
+            publisher=Publisher(),
+            population_size=population_size,
+            number_of_weights=4,
+            aspiration_levels={"f_1": 0.3, "f_2": 0.3},
+            reservation_levels={"f_1": reservation[0], "f_2": reservation[1]},
+        )
+        selector.do(parents=(solutions[:4], outputs[:4]), offsprings=(solutions[4:], outputs[4:]))
+        return selector.selection
+
+    assert selection((1.0, 1.0)) == [3, 6, 2, 1]
+    assert selection((0.3, 0.3)) == [0, 6, 1, 3]
+    # The second front would be 0, 7, 4, 5; two places are left for it.
+    assert selection((1.0, 1.0), population_size=6) == [3, 6, 2, 1, 0, 7]
+
+
+@pytest.mark.ea
+def test_modified_wasfga_puts_feasible_solutions_first():
+    """Infeasible solutions follow the feasible ones, one per front, by increasing total violation."""
+    problem = car_side_impact(three_obj=False)
+    publisher = Publisher()
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=40, seed=0, verbosity=1
+    )
+    solutions, outputs = generator.do()
+    constraints = [c.symbol for c in problem.constraints]
+    violations = np.maximum(outputs[constraints].to_numpy(), 0.0).sum(axis=1)
+    feasible = np.flatnonzero(violations <= 0)
+    assert 0 < len(feasible) < 20, "the fixture must have some feasible solutions, but too few to fill the population"
+
+    selector = ModifiedWASFGASelector(problem=problem, verbosity=1, publisher=publisher, population_size=20)
+    selector.do(parents=(solutions[:20], outputs[:20]), offsprings=(solutions[20:], outputs[20:]))
+
+    assert set(selector.selection[: len(feasible)]) == set(feasible.tolist())
+    rest = violations[selector.selection[len(feasible) :]]
+    assert (rest > 0).all()
+    assert (np.diff(rest) >= 0).all()
+    assert (np.diff(selector.fitness[len(feasible) - 1 :]) < 0).all()
+
+
+@pytest.mark.ea
+def test_modified_wasfga_preference_reaches_the_selector():
+    """Desirable ranges with the "Modified WASF-GA" method become the selector's two points, sign-corrected."""
+    problem = river_pollution_problem()
+    symbols = [objective.symbol for objective in problem.objectives]
+    aspiration = {symbol: float(i) for i, symbol in enumerate(symbols)}
+    reservation = {symbol: float(i) + 0.5 for i, symbol in enumerate(symbols)}
+    options = modified_wasfga_options()
+    options.preference = DesirableRangesOptions(
+        method="Modified WASF-GA", aspiration_levels=aspiration, reservation_levels=reservation
+    )
+
+    solver, _ = emo_constructor(options, problem)
+    selector = solver.keywords["selection"]
+
+    sense = np.array([-1.0 if objective.maximize else 1.0 for objective in problem.objectives])
+    assert (sense < 0).any(), "the fixture needs a maximised objective"
+    npt.assert_allclose(selector.aspiration, sense * np.array([aspiration[s] for s in symbols]))
+    npt.assert_allclose(selector.reservation, sense * np.array([reservation[s] for s in symbols]))
+    # The caller's options are left as they were.
+    assert options.template.selection.aspiration_levels is None
+
+    options = ibea_options()
+    options.preference = DesirableRangesOptions(
+        method="Modified WASF-GA", aspiration_levels=aspiration, reservation_levels=reservation
+    )
+    with pytest.raises(InvalidTemplateError, match="ModifiedWASFGASelector"):
+        emo_constructor(options, problem)
+
+
+@pytest.mark.ea
 @pytest.mark.parametrize(
     "name",
     [
@@ -3181,6 +3380,7 @@ def test_dominance_tournament_options():
         "spea2",
         "agemoea2",
         pytest.param("hype", marks=HYPE_DISABLED),
+        "modified_wasfga",
     ],
 )
 def test_a_run_is_reproducible_from_the_template_seed(name):
@@ -3200,6 +3400,7 @@ def test_a_run_is_reproducible_from_the_template_seed(name):
         "spea2": spea2_options,
         "agemoea2": agemoea2_options,
         "hype": hype_options,
+        "modified_wasfga": modified_wasfga_options,
     }
 
     def run() -> np.ndarray:

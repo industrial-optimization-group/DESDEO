@@ -24,6 +24,8 @@ from .options.algorithms import (
     hype_options,
     ibea_mixed_integer_options,
     ibea_options,
+    modified_wasfga_mixed_integer_options,
+    modified_wasfga_options,
     moead_de_options,
     moead_mixed_integer_options,
     moead_options,
@@ -79,6 +81,7 @@ from .options.selection import (
     AGEMOEA2SelectorOptions,
     HypESelectorOptions,
     IBEASelectorOptions,
+    ModifiedWASFGASelectorOptions,
     MOEADSelectorOptions,
     NSGA2SelectorOptions,
     NSGA3SelectorOptions,
@@ -118,6 +121,7 @@ algorithms = SimpleNamespace(
     spea2_options=spea2_options,
     agemoea2_options=agemoea2_options,
     hype_options=hype_options,
+    modified_wasfga_options=modified_wasfga_options,
     rvea_mixed_integer_options=rvea_mixed_integer_options,
     nsga3_mixed_integer_options=nsga3_mixed_integer_options,
     ibea_mixed_integer_options=ibea_mixed_integer_options,
@@ -126,6 +130,7 @@ algorithms = SimpleNamespace(
     spea2_mixed_integer_options=spea2_mixed_integer_options,
     agemoea2_mixed_integer_options=agemoea2_mixed_integer_options,
     hype_mixed_integer_options=hype_mixed_integer_options,
+    modified_wasfga_mixed_integer_options=modified_wasfga_mixed_integer_options,
     xlemoo_options=xlemoo_options,
     emo_constructor=emo_constructor,
 )
@@ -148,6 +153,7 @@ selection = SimpleNamespace(
     SPEA2SelectorOptions=SPEA2SelectorOptions,
     AGEMOEA2SelectorOptions=AGEMOEA2SelectorOptions,
     HypESelectorOptions=HypESelectorOptions,
+    ModifiedWASFGASelectorOptions=ModifiedWASFGASelectorOptions,
 )
 
 other = SimpleNamespace(
