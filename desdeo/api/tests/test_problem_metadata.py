@@ -5,12 +5,21 @@ Covers representative solution sets and solution description metadata.
 
 from types import SimpleNamespace
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import select
 
-from desdeo.api.models import ProblemDB, ProblemMetaDataDB, RepresentativeNonDominatedSolutions
+from desdeo.api.models import (
+    CumulusSaveState,
+    NIMBUSSaveState,
+    ProblemDB,
+    ProblemMetaDataDB,
+    RepresentativeNonDominatedSolutions,
+    UserSavedSolutionDB,
+)
 from desdeo.api.models.problem import SolutionDescriptionMetaData
 from desdeo.api.models.representative_solution import RepresentativeSolutionSetBase
+from desdeo.api.routers.solution_description import _extract_result_values
 from desdeo.api.routers.utils import SessionContextGuard
 from desdeo.problem.testproblems import dtlz2
 
@@ -420,3 +429,17 @@ def test_update_solution_description_metadata_known_symbols(client: TestClient, 
 
     assert response.status_code == 200
     assert len(response.json()["parts"]) == 3
+
+
+@pytest.mark.parametrize("save_state_type", [NIMBUSSaveState, CumulusSaveState])
+def test_extract_result_values_from_save_state(save_state_type):
+    """A saved solution provides its variables and objectives, picked by solution index."""
+    state = save_state_type(
+        solutions=[
+            UserSavedSolutionDB(objective_values={"f_1": 1.0}, variable_values={"x": [1.0, 2.0]}),
+            UserSavedSolutionDB(objective_values={"f_1": 3.0}, variable_values={"x": [4.0, 5.0]}),
+        ]
+    )
+
+    assert _extract_result_values(state, 1) == {"f_1": 3.0, "x": 4.0, "x_1": 4.0, "x_2": 5.0}
+    assert _extract_result_values(state, 2) is None
