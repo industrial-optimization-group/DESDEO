@@ -2643,7 +2643,7 @@ def modified_wasfga_weights(n_objectives: int, number_of_weights: int, epsilon: 
         first = epsilon + np.arange(number_of_weights) * (1 - 2 * epsilon) / (number_of_weights - 1)
         spread = np.column_stack([first, 1 - first])
     else:
-        lattice = create_s_energy(n_objectives, number_of_weights, seed=0)
+        lattice = create_s_energy(n_objectives, number_of_weights, seed=0)  # should this seed also be connected to EA?
         spread = epsilon + (1 - n_objectives * epsilon) * lattice
     inverse = 1.0 / spread
     return inverse / inverse.sum(axis=1, keepdims=True)
@@ -2806,7 +2806,7 @@ class ModifiedWASFGASelector(_FitnessPublishingSelector):
             self.estimated_ideal, self.estimated_nadir = lowest, highest
         else:
             self.estimated_ideal = np.minimum(self.estimated_ideal, lowest)
-            self.estimated_nadir = np.maximum(self.estimated_nadir, highest)
+            self.estimated_nadir = np.maximum(self.estimated_nadir, highest)  # TODO: not great
 
         aspiration = self.estimated_ideal if self.aspiration is None else self.aspiration
         reservation = self.estimated_nadir if self.reservation is None else self.reservation
