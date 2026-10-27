@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import SQLModel, select
 
 from desdeo.api.models import (
+    CumulusSaveState,
     NIMBUSFinalState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
@@ -103,10 +104,14 @@ def _flatten_solver_results(results) -> dict[str, float]:
 
 def _extract_result_values(actual_state, solution_index: int) -> dict[str, float] | None:
     """Extract a flat dict of symbol → scalar value from a state's solver results."""
-    if type(actual_state) is NIMBUSSaveState:
-        variables = actual_state.result_variable_values[0]
+    if type(actual_state) in [NIMBUSSaveState, CumulusSaveState]:
+        if solution_index >= actual_state.num_solutions:
+            return None
         values: dict[str, float] = {}
-        for k, v in (variables or {}).items():
+        for k, v in {
+            **(actual_state.result_objective_values[solution_index] or {}),
+            **(actual_state.result_variable_values[solution_index] or {}),
+        }.items():
             _flatten_value(k, v, values)
         return values
 
