@@ -58,6 +58,7 @@ def solve_solutions(
         request.scalarization_options,
         solver,
         request.solver_options,
+        include_perturbed=request.include_perturbed,
     )
 
     # create DB preference
@@ -73,6 +74,7 @@ def solve_solutions(
 
     # create state and add to DB
     rpm_state = RPMState(
+        preferences=request.preference,
         scalarization_options=request.scalarization_options,
         solver=request.solver,
         solver_options=request.solver_options,
@@ -80,16 +82,17 @@ def solve_solutions(
     )
 
     # create DB state and add it to the DB
-    state = StateDB(
+    state = StateDB.create(
+        database_session=db_session,
         problem_id=problem_db.id,
-        preference_id=preference_db.id,
-        session_id=interactive_session.id if interactive_session else None,
-        parent_id=parent_state.id if parent_state else None,
+        session_id=interactive_session.id if interactive_session is not None else None,
+        parent_id=parent_state.id if parent_state is not None else None,
         state=rpm_state,
     )
 
     db_session.add(state)
     db_session.commit()
     db_session.refresh(state)
+    db_session.refresh(rpm_state)
 
     return rpm_state

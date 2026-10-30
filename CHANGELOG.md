@@ -54,61 +54,186 @@ This project follows **Keep a Changelog** and **Semantic Versioning**:
 
 ---
 
-## [Unreleased]
+## [2.8.0] - 13.10.2026
+
+### Highlights
+
+This release fixes two defects that users should be aware of. The infix parser
+grouped chains of mixed operators wrongly, so `a / b * c` was parsed as
+`a / (b * c)`. This affects every function given as a string, so problems
+defined with such expressions may evaluate differently after upgrading. In the
+Web API, a decision maker could use another user's interactive session or
+parent state by passing its id; this is now refused.
 
 ### Core logic
 
+#### Added
+
+- Added `DifferentialEvolutionCrossover` (DE/rand/1/bin, Storn and Price 1997)
+  and `ParentCentricCrossover` (PCX, Deb, Anand and Joshi 2002), with
+  `DifferentialEvolutionCrossoverOptions` and `ParentCentricCrossoverOptions`,
+  and the `SCALING_FACTOR`, `SIGMA_ZETA` and `SIGMA_ETA` crossover message
+  topics. Both recombine more than two parents and take their step size from the
+  population.
+- Added `UniformCrossover` and `UniformCrossoverOptions`, a discrete crossover
+  for continuous problems in which every decision variable is inherited whole
+  from one parent or the other, with `pair_xover_probability` and
+  `uniform_xover_probability` parameters.
+- Added `swap_uncrossed_variables` to simulated binary crossover, which
+  exchanges the variables not selected for crossover between the two offspring,
+  to reproduce jMetal (Java). Defaults to `False`.
+- Added `uniform_xover_probability` to the bounded exponential crossover, the
+  same uniform-crossover component simulated binary crossover already has.
+  Defaults to 0.0, which reproduces the previous offspring exactly.
+- Added an `include_perturbed` keyword to `rpm_solve_solutions`. When `False`,
+  only the solution for the given reference point is computed and returned,
+  without the k solutions for the perturbed reference points. Defaults to
+  `True`.
+- Added the D-PHI and PHI+ unary indicators to `desdeo/tools/indicators_unary.py`
+  (`d_phi_indicator`, `d_phi_batch`, `phi_plus_indicator`, `phi_plus_batch`,
+  `desirability_values`, and the `DPhiIndicators` and `PhiPlusIndicator`
+  result models) (#595).
+- Added `desdeo/gdm/grp_subproblem.py` for aggregating the reference points of a
+  group fairly in NAUTILI: `build_grp_subproblem` assembles the Group Reference
+  Point subproblem from a local preference model
+  (`additive_preference_constraints` or
+  `symmetric_cones_preference_constraints`) and a max-min fairness model
+  (`maxmin_fairness_constraints`, `maxmin_fairness_objective`). All are exported
+  from `desdeo.gdm` (#572).
+- Added a `cluster_extremes` field to `SCOREBandsResult`, which reports the
+  minimum and maximum value attained by the solutions of each cluster, as
+  opposed to the limits of the band drawn from the cluster.
+- Added the test problems `re31` (two bar truss), `re32` (welded beam), `re33`
+  (disc brake) and `re42` (conceptual marine design), and exported them, along
+  with `re34`, `re37`, `re41` and `re61`, from `desdeo.problem.testproblems`.
+- Added the General Aviation Aircraft product family design problem, `gaa`
+  (`gaa_problem.py`): ten objectives, 27 continuous variables and a single
+  aggregated constraint, with coefficients checked bit for bit against the MOEA
+  Framework implementation.
+- Added the microalloyed steel design problem of Saini et al. (2023),
+  `metallurgical_application` (`metallurgical_application_problem.py`). Four
+  objectives come from surrogate models that are trained on first use and
+  cached; the datasets are read from the repository or downloaded from GitHub.
+- Added `forest_problem_income_carbon_habitat` (`forest_problem.py`), the
+  discrete forest management problem with income, carbon storage and habitat
+  suitability objectives used in R-XIMO and INFRINGER, with its dataset
+  `datasets/forest_income_carbon_habitat.csv`. `non_dominated_only=True` keeps
+  only the 1247 non-dominated rows of the 1728.
+
 #### Changed
 
-- Problem elements may now reference other elements of their own kind, as long
-  as the referenced element appears earlier in the problem definition: an
-  objective may be defined in terms of an earlier objective, and likewise for
-  extra functions, scalarization functions and constraints. All evaluators were
-  adjusted to support this. `PolarsEvaluator` evaluates scalarization functions
-  one at a time instead of in a single `select` (and likewise extra functions,
-  scalarization functions and constraints on the data-based path);
-  `GurobipyEvaluator` and `CVXPYEvaluator` register expressions as they are
-  built rather than publishing them only once every element of a kind has been
-  parsed; and `SympyEvaluator` substitutes the elements of a kind into each
-  other. Forward references, to an element declared later, remain an error.
-- `SympyEvaluator` now resolves constraints last, after scalarization functions,
-  matching the order the other evaluators use. A scalarization function that
-  references a constraint used to resolve there and now raises
-  `SympyEvaluatorError`; no other evaluator supported it. Constraints may
-  reference scalarization functions, which the scenario tools rely on.
-- `build_combined_scenario_problem` combines elements in the same order the
-  evaluators evaluate them (extra functions, objectives, scalarization
-  functions, constraints), so each kind's references to earlier kinds are
-  renamed to the per-leaf copies. Elements are combined in the order they are
-  declared, which is now deterministic.
+- Subscribers now register themselves with their publisher once they have been
+  constructed, through a metaclass that calls the new `Subscriber.__post_init__`.
+  The EA factories in `EAs.py` and `emo_constructor` no longer subscribe the
+  components by hand. `Publisher.subscribe` and `Publisher.register_topics` are
+  now idempotent, so existing code that still subscribes explicitly does not
+  receive each message twice.
+- `RVEASelector` now uses the provisional ideal point, when one is given, until
+  the population has a feasible solution, and only then builds the ideal point
+  from feasible solutions.
+- `RVEASelector` now adapts its reference vectors periodically under the
+  function evaluation based strategy, instead of only once.
+- `CompositeTerminator` now forwards messages to its children and exposes their
+  topics, so that a limit inside a composite counts. Children the publisher
+  already delivers to are skipped.
+- Renamed `MaxTimeTerminatorOptions.max_time` to `max_time_in_seconds`, to match
+  the `MaxTimeTerminator` constructor.
+- `dmitry_forest_problem_disc` now removes duplicate objective vectors, and its
+  objectives carry full names and units.
+- Documented that `r2_indicator` returns the utility form of R2 (higher is
+  better, always negative), the negation of the distance form reported by
+  PlatEMO and jMetal, and pinned the relationship with tests.
+- The MCWB problem module docstring now names its source, Kenny, Ray and Singh
+  (EMO 2025), and the authors' reference implementation.
 
 #### Fixed
 
-- `add_weighted_scenarios` referenced the per-leaf copies of a scalarization
-  function by symbol, producing an aggregate that no evaluator could resolve.
-  The aggregators now share one rule for when a per-leaf element is referenced
-  and when its expression is inlined (`leaf_expr` in
-  `desdeo/tools/scenarios.py`).
-- `SympyEvaluator` silently returned an unevaluated expression when a symbol
-  could not be substituted, instead of a number. Unresolved symbols now raise
-  `SympyEvaluatorError` naming the symbol.
-- References to elements of the same kind are renamed to their per-leaf copies
-  when a scenario problem is combined. They were left untouched before, which
-  both produced a reference to a symbol not in the combined problem and made
-  the element compare equal across leaves, so it was treated as shared and its
-  per-scenario variation was lost.
-- The symbol maps from `build_combined_scenario_problem` and
-  `build_scenario_symbol_maps` no longer give a leaf that does not define an
-  element the original symbol, which named nothing in the combined problem.
-  Such leaves are absent from the map, and aggregating an element that is not
-  defined in every scenario now raises a `ValueError` naming the missing
-  scenarios instead of failing during evaluation.
-- Aggregating a constraint that references an objective, a scalarization
-  function or another constraint now raises a `ValueError` explaining that the
-  quantity should be defined as an extra function, instead of failing during
-  evaluation.
-- Auto-inserted leaf scenarios keep the order the scenario tree declares them
-  in, rather than an order that varied between processes.
+- Fixed the infix parser grouping mixed operator chains to the right: when the
+  operator changed mid-chain, the rest of the chain became the right operand,
+  so `a / b * c` parsed as `a / (b * c)`. Chains are now folded from the left.
+  Chains of a single operator and parenthesized expressions were not affected.
+- Fixed the six MCWB welded beam problems (`mcwb_*_problem`): the parser defect
+  inverted their polar moment, which silenced the shear-stress constraint and
+  made the tapered deflection NaN, and the formulations had drifted from the
+  authors' code (extra and missing constraints, a lost factor of twelve in the
+  tapered inertia, a wrong channel bound, mixed units in the Ragsdell variant).
+  Every objective and constraint now agrees with the reference implementation
+  to machine precision.
+- Fixed `RVEASelector` crashing on a generation with no feasible member, since
+  the ideal point was updated from an empty selection.
+- Fixed the decomposition-based selectors raising `TypeError` on construction
+  when `ReferenceVectorOptions` had `non_preferred_solutions` set: the
+  `norm_order` argument of `interactive_adapt_2` was passed as `ord`.
+- Fixed adaptive IBEA dividing by zero when the population collapses onto one
+  objective vector. `IBEASelector` now falls back to the configured kappa when
+  the adaptive scale is zero; runs that completed before are unchanged.
+- Fixed `terminator_constructor` for composite, external check and maximum time
+  terminators, none of which could previously be built from options.
+- Fixed the verbose state messages of the EMO evaluator, generators and
+  selectors emitting a polars `DeprecationWarning` on every message, by using
+  `DataFrame.hstack` instead of `pl.concat(how="horizontal")`.
+- Fixed `plot_score` using `matplotlib.cm.get_cmap`, which was removed in recent
+  matplotlib versions.
+
+### Web API
+
+#### Added
+
+- Added `include_perturbed` to `RPMSolveRequest`, passed on to
+  `rpm_solve_solutions`, so that the reference point method endpoint can return
+  a single solution. Defaults to `True`.
+
+#### Fixed
+
+- Fixed the reference point method router not persisting its states. It now
+  creates them with `StateDB.create`, links them to their parent state, and
+  stores the preference in `RPMState`.
+
+#### Security
+
+- Fixed `SessionContextGuard` accepting other users' interactive sessions and
+  parent states. `fetch_interactive_session` now checks that the session belongs
+  to the user, and `fetch_parent_state` only accepts a state in one of the
+  user's own sessions or, for a state outside any session, a state of a problem
+  the user may access. Analysts and admins are unaffected. A state the user may
+  not access is reported as not found.
+
+### Documentation
+
+#### Added
+
+- Added a how-to guide on solving problems with the web GUI on a local machine
+  (`docs/howtoguides/webui_solving_problems.md`) (#579).
+- Added a how-to guide on solving the RE problems
+  (`docs/howtoguides/re_problems.ipynb`).
+- Replaced the NAUTILI how-to guide with an executable notebook
+  (`docs/howtoguides/nautili.ipynb`) (#572).
+
+#### Changed
+
+- Updated the guide on using uv with conda (#579).
+- The installation guide now clones the repository over HTTPS instead of SSH.
+- Moved the solver check in the OpenShift deployment guide after the API
+  deployment has rolled out (#576, #577).
+- Listed D-PHI and PHI+ in the features page, and updated the crossover
+  explanation notebook for the new operators.
+- Fixed typos throughout the documentation (#588).
+- Re-executed the cached EA how-to notebooks so that they no longer show the
+  polars deprecation warnings.
+
+### Tooling, CI, and deployment
+
+#### Added
+
+- Added command line options to `run_fullstack.py`: `--host`, `--port`,
+  `--frontend-port`, `--no-open`, `--no-reload` and `--log-level`.
+
+#### Changed
+
+- `run_fullstack.py` now locates `npm` on `PATH`, so it also works on Windows,
+  and reports when it cannot be found (#579).
+- Reformatted `pyproject.toml` to two-space indentation and updated the lock
+  file.
 
 ---
 

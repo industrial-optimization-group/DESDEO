@@ -17,6 +17,7 @@ from desdeo.emo.operators.crossover import (
     SimulatedBinaryCrossover,
     SingleArithmeticCrossover,
     SinglePointBinaryCrossover,
+    UniformCrossover,
     UniformIntegerCrossover,
     UniformMixedIntegerCrossover,
 )
@@ -99,6 +100,22 @@ class UniformMixedIntegerCrossoverOptions(BaseModel):
         default="UniformMixedIntegerCrossover", frozen=True, description="The name of the crossover operator."
     )
     """The name of the crossover operator."""
+
+
+class UniformCrossoverOptions(BaseModel):
+    """Options for Uniform Crossover."""
+
+    model_config = {"use_attribute_docstrings": True}
+
+    name: Literal["UniformCrossover"] = Field(default="UniformCrossover", frozen=True)
+    """The name of the crossover operator."""
+    pair_xover_probability: float = Field(default=1.0, ge=0.0, le=1.0)
+    """Probability that a parent pair is recombined at all, drawn once per pair. A pair that fails is
+    copied to the offspring unchanged, with every decision variable kept together."""
+    uniform_xover_probability: float = Field(default=0.5, ge=0.0, le=1.0)
+    """Per-variable probability that the two parents' values for that variable are exchanged between
+    the offspring. 0.5 is Syswerda's rate. Named to match the parameter of the same meaning on
+    `SimulatedBinaryCrossoverOptions`, so the mixing component can be held equal across the two."""
 
 
 class BlendAlphaCrossoverOptions(BaseModel):
@@ -225,6 +242,7 @@ class CompositeCrossoverOptions(BaseModel):
 CrossoverOptions = (
     SimulatedBinaryCrossoverOptions
     | SinglePointBinaryCrossoverOptions
+    | UniformCrossoverOptions
     | UniformIntegerCrossoverOptions
     | UniformMixedIntegerCrossoverOptions
     | BlendAlphaCrossoverOptions
@@ -255,6 +273,7 @@ def crossover_constructor(
     crossover_types = {
         "SimulatedBinaryCrossover": SimulatedBinaryCrossover,
         "SinglePointBinaryCrossover": SinglePointBinaryCrossover,
+        "UniformCrossover": UniformCrossover,
         "UniformIntegerCrossover": UniformIntegerCrossover,
         "UniformMixedIntegerCrossover": UniformMixedIntegerCrossover,
         "BlendAlphaCrossover": BlendAlphaCrossover,

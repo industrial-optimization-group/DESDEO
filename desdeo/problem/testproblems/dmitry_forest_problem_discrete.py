@@ -28,6 +28,8 @@ def dmitry_forest_problem_disc() -> Problem:
     )
 
     obj_names = ["Rev", "HA", "Carb", "DW"]
+    full_names = ["Harvest Revenue", "Habitat Availability", "Carbon Storage", "Deadwood Volume"]
+    units = ["million €", "(unitless)", "thousand Mg C", "thousand m³"]
 
     var_name = "index"
 
@@ -37,6 +39,12 @@ def dmitry_forest_problem_disc() -> Problem:
         columns=["Rev", "HA", "Carb", "DW"],
         separator=",",  # decimal_comma=True
     )
+
+    # Remove duplicate rows to ensure unique objective values for each index
+    # The obj values are in 100s, 1000s or 10000s, so just removing the floating point part doesn't change the
+    # objective values significantly (they'd look very similar in visualization anyway).
+    # After that, we can simply remove duplicates and cast back to float for DESDEO calculations.
+    data = data.cast(pl.Int32).unique().cast(pl.Float64)
 
     variables = [
         Variable(
@@ -51,14 +59,15 @@ def dmitry_forest_problem_disc() -> Problem:
 
     objectives = [
         Objective(
-            name=obj_name,
+            name=full_name,
             symbol=obj_name,
+            unit=unit,
             objective_type=ObjectiveTypeEnum.data_based,
             ideal=data[obj_name].max(),
             nadir=data[obj_name].min(),
             maximize=True,
         )
-        for obj_name in obj_names
+        for obj_name, full_name, unit in zip(obj_names, full_names, units, strict=True)
     ]
 
     discrete_def = DiscreteRepresentation(

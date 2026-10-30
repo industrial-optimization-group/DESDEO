@@ -373,6 +373,10 @@ def add_soft_constraint(
             symbol=symbol,
             func=violation_func,
             maximize=False,
+            # A sum of slack variables.
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
             # The slack variables are non-negative, so zero violation is attainable by
             # definition and is the ideal.  The nadir has no natural value: the largest
             # violation depends on how far the soft constraints reach outside the
@@ -542,7 +546,13 @@ def _analyze_problem_functions(problem: Problem) -> dict[str, tuple[bool, bool, 
 
     for con in problem.constraints or []:
         if con.func is not None:
-            properties[con.symbol] = _resolve_properties(con.symbol, con.func, symbol_funcs, scope, cvxpy_parser)
+            is_linear, is_convex, is_twice_differentiable = _resolve_properties(
+                con.symbol, con.func, symbol_funcs, scope, cvxpy_parser
+            )
+            if con.cons_type == ConstraintTypeEnum.EQ:
+                # `func == 0` bounds a convex region only when `func` is affine; a convex `func` is not enough.
+                is_convex = is_linear
+            properties[con.symbol] = (is_linear, is_convex, is_twice_differentiable)
 
     return properties
 
