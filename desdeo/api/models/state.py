@@ -381,6 +381,21 @@ class CumulusModificationState(ResultInterface, SQLModel, table=True):
     scenario_model_id: int | None = Field(default=None)
     is_ready: bool = Field(default=False, description="True once the background feasibility check has completed.")
     error: str | None = Field(default=None, description="Error message if the feasibility check failed.")
+    current_solution_feasible: bool = Field(
+        default=True,
+        description=(
+            "Whether some solution current when the modification was requested is known to "
+            "satisfy the modified problem, which proves it feasible."
+        ),
+    )
+    problem_deleted: bool = Field(
+        default=False,
+        description=(
+            "True when the modified problem turned out to be infeasible and its ProblemDB row was "
+            "deleted. The modification did not take effect and the decision maker stays on the "
+            "problem they were using."
+        ),
+    )
 
     @property
     def num_solutions(self) -> int:
@@ -395,11 +410,6 @@ class CumulusObjectiveConstraintState(ResultInterface, SQLModel, table=True):
 
     problem_id: int | None = Field(default=None, description="Problem these constraints are associated with.")
     original_problem_id: int | None = Field(default=None)
-    hard_constraint_ids: list[int] = Field(
-        sa_column=Column(JSON),
-        default_factory=list,
-        description="DB ids of the hard ConstraintDB rows in the current objective constraint list.",
-    )
     soft_constraint_ids: list[int] = Field(
         sa_column=Column(JSON),
         default_factory=list,

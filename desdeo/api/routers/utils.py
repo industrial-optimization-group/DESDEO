@@ -6,7 +6,7 @@ NOTE: No routers should be defined in this file!
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, status
 from numpy import allclose
@@ -52,7 +52,7 @@ from desdeo.problem.schema import (
     TensorVariable,
     Variable,
 )
-from desdeo.problem.utils import ProblemUtilsError, add_soft_constraint
+from desdeo.problem.utils import ProblemUtilsError, add_soft_constraint, determine_function_properties
 from desdeo.tools import SolverResults, guess_best_solver
 from desdeo.tools.robust import add_weighted_scenarios, add_worst_case_robust
 from desdeo.tools.scenarios import build_combined_scenario_problem
@@ -265,6 +265,36 @@ def _apply_uncertainty_measures(problem: Problem, mods: ProblemModification, db_
     return combined
 
 
+# A request that states none of these for a constraint leaves its math properties to be derived
+# from the expression; stating any of them keeps the request's own word for all three.
+_PROPERTY_FIELDS = ("is_linear", "is_convex", "is_twice_differentiable")
+
+
+def _as_dict(raw: Any) -> dict:
+    """A request entry as a plain dict, whether it arrived as JSON or as a model."""
+    return raw if isinstance(raw, dict) else raw.model_dump()
+
+
+def leaves_properties_unstated(raw: Any) -> bool:
+    """Whether a constraint entry in a request states none of its math properties.
+
+    This has to look at the request entry itself: a parsed ``Constraint`` carries the schema
+    defaults for whatever the request omitted, and a defaulted False cannot be told apart from
+    a deliberate one.
+    """
+    return not any(field in _as_dict(raw) for field in _PROPERTY_FIELDS)
+
+
+def _constraints_without_stated_properties(mods: ProblemModification) -> list[str]:
+    """Symbols of the request's constraints whose math properties are left to be derived."""
+    symbols: list[str] = []
+    for raw in mods.constraints or []:
+        symbol = _as_dict(raw).get("symbol")
+        if symbol is not None and leaves_properties_unstated(raw):
+            symbols.append(symbol)
+    return symbols
+
+
 def _parse_and_merge_elements(
     problem: Problem,
     mods: ProblemModification,
@@ -370,6 +400,46 @@ def _parse_and_merge_elements(
     }
 
 
+def determine_unstated_constraint_properties(problem: Problem, symbols: Iterable[str]) -> Problem:
+    """Derive the math properties of the named constraints and apply them to `problem`.
+
+    ``Constraint`` defaults all three properties to False, so a client that adds a constraint
+    without stating them downgrades the whole problem: a single constraint flagged as not twice
+    differentiable is enough to send a solver down the non-differentiable path, which not every
+    solver can even express. Deriving the properties from the expression keeps an added bound
+    from misrepresenting the problem it is added to.
+
+    The properties describe the constraint as a function of the decision variables, not of the
+    symbols it names: bounding an objective that is itself nonlinear gives a nonlinear
+    constraint. That is why a client cannot usefully supply these itself.
+
+    Only constraints the caller picks out are analyzed, and the checks behind this are
+    deliberately conservative (see ``determine_problem_properties``), so this must not be used
+    to re-analyze a whole problem: it would overwrite flags set from outside knowledge the
+    checks cannot derive themselves.
+
+    Args:
+        problem (Problem): the problem the constraints belong to, in its final shape — the
+            checks resolve every other function and constant a constraint references.
+        symbols (Iterable[str]): symbols of the constraints to analyze. Symbols that are not
+            present, or that have no analyzable expression, are skipped.
+
+    Returns:
+        Problem: a copy of `problem` with the analyzed properties applied.
+    """
+    present = {constraint.symbol for constraint in (problem.constraints or [])}
+    for symbol in symbols:
+        if symbol not in present:
+            # Removed by `remove`, or set aside by `soft_constraints` and re-added slackened.
+            continue
+        try:
+            problem = determine_function_properties(problem, symbol)
+        except ProblemUtilsError:
+            # Nothing to analyze (data-based, simulator, or surrogate); keep what was declared.
+            continue
+    return problem
+
+
 def apply_problem_modifications(problem: Problem, mods: ProblemModification, db_session: Session) -> Problem:
     """Apply a ProblemModification spec to a Problem and return the modified result.
 
@@ -382,6 +452,7 @@ def apply_problem_modifications(problem: Problem, mods: ProblemModification, db_
     5. Rebuild the problem via ``model_copy``.
     6. Add each soft constraint via ``add_soft_constraint``.
     7. Expand and apply uncertainty-measure aggregates.
+    8. Derive the math properties of any added constraint that did not state them.
 
     Args:
         problem: the current Problem instance to modify.
@@ -418,7 +489,8 @@ def apply_problem_modifications(problem: Problem, mods: ProblemModification, db_
     if mods.uncertainty_measures:
         modified_problem = _apply_uncertainty_measures(modified_problem, mods, db_session)
 
-    return modified_problem
+    # Last, so that the analysis sees the problem in its final shape.
+    return determine_unstated_constraint_properties(modified_problem, _constraints_without_stated_properties(mods))
 
 
 RequestType = (
