@@ -277,10 +277,14 @@ def solve_solutions(
         and results_by_scalarization.get(CumulusScalarization.CUMULONIMBUS) is None
         and soft_ids
     ):
+        # Cumulonimbus keeps every objective within what the classification allows, so it fails
+        # when no solution there meets the soft constraints as closely as they can be met at all.
         warnings.append(
-            f"Cumulonimbus scalarization failed to find a feasible solution. "
-            f"You have {len(soft_ids)} active soft objective constraint(s) that may conflict "
-            f"with the current reference point. Consider loosening or removing the constraints."
+            "Cumulonimbus found no solution. Your reference point does not let some objectives get "
+            "worse than in the current solution, and no solution within those limits meets your "
+            f"{len(soft_ids)} soft objective constraint(s) as closely as they can be met. To get a "
+            "Cumulonimbus solution, allow those objectives to get worse in the reference point, or "
+            "loosen or remove the constraints."
         )
 
     # The largest relaxation of each soft constraint over the returned solutions.
@@ -529,13 +533,13 @@ def get_or_initialize(
     )
     states = db_session.exec(statement).all()
 
+    # Save states hold the saved solutions, not the current ones, so they are skipped.
     latest_state = None
     for state in states:
         if state.base_state is not None and state.base_state.kind in (
             StateKind.CUMULUS_SOLVE,
             StateKind.CUMULUS_INIT,
             StateKind.CUMULUS_FINAL,
-            StateKind.CUMULUS_SAVE,
         ):
             latest_state = state
             break
@@ -544,12 +548,9 @@ def get_or_initialize(
         saved_solutions = collect_saved_solutions(user, request.problem_id, db_session)
         all_solutions = collect_all_solutions(user, request.problem_id, db_session)
 
-        solver_results = latest_state.state.solver_results
-        current_solutions = (
-            [SolutionReference(state=latest_state, solution_index=i) for i in range(len(solver_results))]
-            if isinstance(solver_results, list)
-            else [SolutionReference(state=latest_state, solution_index=0)]
-        )
+        current_solutions = [
+            SolutionReference(state=latest_state, solution_index=i) for i in range(latest_state.state.num_solutions)
+        ]
 
         if isinstance(latest_state.state, CumulusClassificationState):
             return CumulusClassificationResponse(
@@ -579,7 +580,7 @@ def get_or_initialize(
                 all_solutions=all_solutions,
             )
 
-        # CumulusInitializationState or CumulusSaveState
+        # CumulusInitializationState
         _session_id = interactive_session.id if interactive_session is not None else user.active_session_id
         soft_ids = _get_objective_constraint_ids(request.problem_id, _session_id, db_session)
         return CumulusInitializationResponse(

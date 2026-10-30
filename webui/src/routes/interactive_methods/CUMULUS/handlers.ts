@@ -32,8 +32,14 @@ import type {
 	SolutionReferenceResponse as Solution,
 	ReferencePoint
 } from '$lib/gen/endpoints/DESDEOFastAPI';
-import type { Response } from './types';
+import type { MapOptions, Response } from './types';
 import { errorMessage, isLoading } from '../../../stores/uiState';
+
+/** `value`, or null when it is missing or empty. */
+export function blankToNull(value: string | null | undefined): string | null {
+	if (!value) return null;
+	return value;
+}
 
 /** Convert a Solution to a SolutionInfo for API requests. */
 function toSolutionInfo(solution: Solution, name?: string | null): SolutionInfo {
@@ -225,8 +231,7 @@ export async function handle_remove_saved(
  */
 export async function handle_finish(
 	problem: ProblemInfo | null,
-	solution: Solution,
-	_preferences: ReferencePoint
+	solution: Solution
 ): Promise<boolean> {
 	if (!problem) {
 		errorMessage.set('No problem selected');
@@ -268,11 +273,10 @@ export async function get_maps(
 	solution: Solution
 ): Promise<{
 	years: string[];
-	options: Record<string, any>;
+	options: Record<string, MapOptions>;
 	map_json: object;
 	map_name: string;
 	description: string;
-	compensation: number;
 } | null> {
 	isLoading.set(true);
 	errorMessage.set(null);
@@ -288,19 +292,16 @@ export async function get_maps(
 			return null;
 		}
 
-		const result = response.data as any;
-
-		if (result) {
-			for (const year of result.years) {
-				if (result.options[year].tooltip.formatterEnabled) {
-					result.options[year].tooltip.formatter = function (params: any) {
-						return `${params.name}`;
-					};
-				}
+		const result = response.data;
+		const options = result.options as Record<string, MapOptions>;
+		for (const year of result.years) {
+			const tooltip = options[year]?.tooltip;
+			if (tooltip?.formatterEnabled) {
+				tooltip.formatter = (params) => params.name;
 			}
 		}
 
-		return result;
+		return { ...result, options };
 	} catch (error) {
 		const msg = error instanceof Error ? error.message : 'Unknown error';
 		errorMessage.set(msg);
@@ -390,7 +391,7 @@ function build_uncertainty_measures_request(
 ): CumulusInitializationRequest {
 	return {
 		problem_id: problem_id,
-		name: name || null,
+		name: blankToNull(name),
 		uncertainty_measures: selected_measures.map((measure_type) => ({
 			measure_type,
 			scenario_model_id,

@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
 
-const setObjectiveConstraints = vi.fn();
-const getObjectiveConstraints = vi.fn();
-const getScenarioAvailability = vi.fn();
-const applyScenarioMeasures = vi.fn();
+const setObjectiveConstraints = vi.fn<(...args: unknown[]) => unknown>();
+const getObjectiveConstraints = vi.fn<(...args: unknown[]) => unknown>();
+const getScenarioAvailability = vi.fn<(...args: unknown[]) => unknown>();
+const applyScenarioMeasures = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('$lib/gen/endpoints/DESDEOFastAPI', () => ({
 	setObjectiveConstraintsMethodCumulusObjectiveConstraintPost: (...args: unknown[]) =>

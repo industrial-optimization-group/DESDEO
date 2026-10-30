@@ -40,11 +40,13 @@
 
 	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
 	import type { Response, MapState } from './types';
+	import type { PageProps } from './$types';
+	import type { TableData } from '../GNIMBUS/types';
 
 	let current_state: Response = $state({} as Response);
 
 	let problem: ProblemInfo | null = $state(null);
-	const { data } = $props<{ data: ProblemInfo[] }>();
+	const { data }: PageProps = $props();
 	let problem_list = $derived(data.problems ?? []);
 
 	let selected_type_solutions = $state('current');
@@ -292,11 +294,12 @@
 
 	async function confirm_scenario_setup() {
 		show_scenario_setup_dialog = false;
+		if (!problem) return;
 		if (selected_measures.length === 0) {
 			// No measures chosen — treat as "use plain problem". Only meaningful on first load;
 			// reopening from the menu with nothing selected is just a no-op cancel.
 			if (scenario_setup_mode === 'initial') {
-				const plainResult = await initializeCumulusStateRequest(problem?.id!, true);
+				const plainResult = await initializeCumulusStateRequest(problem.id, true);
 				if (plainResult) await apply_initialization_result(plainResult);
 				await refresh_scenario_availability();
 			}
@@ -306,20 +309,20 @@
 		const scenarioResult =
 			scenario_setup_mode === 'initial'
 				? await initializeCumulusStateWithScenariosRequest(
-						problem?.id!,
+						problem.id,
 						pending_scenario_model_id,
 						pending_objective_symbols,
 						selected_measures,
 						measure_options,
-						combined_problem_name.trim() || undefined
+						combined_problem_name.trim() ? combined_problem_name.trim() : undefined
 					)
 				: await applyScenarioMeasuresRequest(
-						problem?.id!,
+						problem.id,
 						pending_scenario_model_id,
 						pending_objective_symbols,
 						selected_measures,
 						measure_options,
-						combined_problem_name.trim() || undefined
+						combined_problem_name.trim() ? combined_problem_name.trim() : undefined
 					);
 		if (scenarioResult) {
 			await apply_initialization_result(scenarioResult);
@@ -330,8 +333,9 @@
 
 	async function cancel_scenario_setup() {
 		show_scenario_setup_dialog = false;
+		if (!problem) return;
 		if (scenario_setup_mode === 'initial') {
-			const plainResult = await initializeCumulusStateRequest(problem?.id!, true);
+			const plainResult = await initializeCumulusStateRequest(problem.id, true);
 			if (plainResult) await apply_initialization_result(plainResult);
 			await refresh_scenario_availability();
 		}
@@ -340,7 +344,8 @@
 	function confirm_finish() {
 		const selectedSolution = chosen_solutions[selectedIndexes[0]];
 		const final_solution = { ...selectedSolution };
-		const solutionName = selectedSolution.name || `Solution #${selectedIndexes[0] + 1}`;
+		const solutionName =
+			blankToNull(selectedSolution.name) ?? `Solution #${selectedIndexes[0] + 1}`;
 
 		openConfirmDialog({
 			title: 'Confirm Final Choice',
@@ -348,7 +353,7 @@
 			confirmText: 'Yes, Proceed',
 			cancelText: 'Cancel',
 			confirmVariant: 'destructive',
-			onConfirm: () => handle_finish(final_solution, selectedIndexes[0])
+			onConfirm: () => void handle_finish(final_solution, selectedIndexes[0])
 		});
 	}
 
@@ -357,11 +362,7 @@
 			console.error('No previous preference values found for finishing.');
 			return;
 		}
-		const response = await handleFinishRequest(
-			problem,
-			final_solution,
-			current_state.previous_preference
-		);
+		const response = await handleFinishRequest(problem, final_solution);
 		if (response) {
 			selected_iteration_index = [index];
 			mode = 'final';
@@ -371,6 +372,7 @@
 	import {
 		handle_intermediate as handleIntermediateRequest,
 		handle_iterate as handleIterateRequest,
+		blankToNull,
 		handle_save as handleSaveRequest,
 		handle_remove_saved as handleRemoveSavedRequest,
 		handle_finish as handleFinishRequest,
@@ -416,14 +418,15 @@
 			description: 'Enter a name for this solution.',
 			confirmText: 'Save',
 			cancelText: 'Cancel',
-			initialValue: solution.name || '',
+			initialValue: solution.name ?? '',
 			placeholder: 'Solution name',
-			onConfirm: (name) => handle_save(solution, name)
+			required: true,
+			onConfirm: (name) => void handle_save(solution, name.trim())
 		});
 	}
 
 	async function handle_save(solution: Solution, name: string | undefined) {
-		const solutionToSave = { ...solution, name: name || null };
+		const solutionToSave = { ...solution, name: blankToNull(name) };
 
 		const success = await handleSaveRequest(problem, solution, name);
 
@@ -444,7 +447,7 @@
 				updatedSavedSolutions = [...current_state.saved_solutions];
 				updatedSavedSolutions[existingIndex] = {
 					...updatedSavedSolutions[existingIndex],
-					name: name || null
+					name: blankToNull(name)
 				};
 			} else {
 				updatedSavedSolutions = [...current_state.saved_solutions, solutionToSave];
@@ -462,10 +465,10 @@
 	function confirm_remove_saved(solution: Solution) {
 		openConfirmDialog({
 			title: 'Remove Saved Solution',
-			description: `Are you sure you want to remove ${solution.name || 'this solution'} from saved solutions?`,
+			description: `Are you sure you want to remove ${blankToNull(solution.name) ?? 'this solution'} from saved solutions?`,
 			confirmText: 'Remove',
 			cancelText: 'Cancel',
-			onConfirm: () => handle_remove_saved(solution)
+			onConfirm: () => void handle_remove_saved(solution)
 		});
 	}
 
@@ -487,12 +490,7 @@
 		}
 	}
 
-	async function handle_iterate(_data: {
-		numSolutions: number;
-		typePreferences: string;
-		preferenceValues: number[];
-		objectiveValues: number[];
-	}) {
+	async function handle_iterate() {
 		if (!problem) {
 			console.error('No problem selected');
 			return;
@@ -563,19 +561,12 @@
 					mapDescription: data.description
 				};
 
-				for (let year of newMapState.yearlist) {
-					if (data.options[year]?.tooltip?.formatterEnabled) {
-						data.options[year].tooltip.formatter = function (params: any) {
-							return `${params.name}`;
-						};
-					}
-				}
-
+				// get_maps has already set up the tooltip formatters.
 				newMapState.mapOptions = {
-					period1: data.options[newMapState.yearlist[0]] || {},
-					period2: data.options[newMapState.yearlist[1]] || {},
-					period3: data.options[newMapState.yearlist[2]] || {}
-				} as Record<PeriodKey, Record<string, any>>;
+					period1: data.options[newMapState.yearlist[0]] ?? {},
+					period2: data.options[newMapState.yearlist[1]] ?? {},
+					period3: data.options[newMapState.yearlist[2]] ?? {}
+				};
 
 				mapStates[solutionIndex] = newMapState;
 				if (solutionIndex === selected_iteration_index[0]) {
@@ -589,9 +580,9 @@
 
 	$effect(() => {
 		if (hasUtopiaMetadata && chosen_solutions.length > 0) {
-			mapStates = new Array(chosen_solutions.length);
+			mapStates = new Array<MapState>(chosen_solutions.length);
 			chosen_solutions.forEach((solution, index) => {
-				get_maps(solution, index);
+				void get_maps(solution, index);
 			});
 		}
 	});
@@ -606,7 +597,7 @@
 		}
 
 		const selectedSolution = chosen_solutions[selected_iteration_index[0]];
-		selected_iteration_objectives = selectedSolution.objective_values || {};
+		selected_iteration_objectives = selectedSolution.objective_values ?? {};
 
 		if (
 			hasUtopiaMetadata &&
@@ -617,7 +608,7 @@
 		}
 
 		if (hasSolutionDescription && problem) {
-			getSolutionDescriptionRequest(problem, selectedSolution).then((desc) => {
+			void getSolutionDescriptionRequest(problem, selectedSolution).then((desc) => {
 				solutionDescription = desc;
 			});
 		}
@@ -625,7 +616,10 @@
 
 	function update_preferences_from_state(state: Response | null) {
 		if (!problem) return;
-		current_preference = updatePreferencesFromState(state as any, problem);
+		current_preference = updatePreferencesFromState(
+			state as unknown as Parameters<typeof updatePreferencesFromState>[0],
+			problem
+		);
 		last_iterated_preference = [...current_preference];
 	}
 
@@ -653,9 +647,10 @@
 
 	onMount(async () => {
 		if ($methodSelection.selectedProblemId) {
-			problem = problem_list.find(
-				(p: ProblemInfo) => String(p.id) === String($methodSelection.selectedProblemId)
-			);
+			problem =
+				problem_list.find(
+					(p: ProblemInfo) => String(p.id) === String($methodSelection.selectedProblemId)
+				) ?? null;
 
 			if (problem) {
 				hasUtopiaMetadata = checkUtopiaMetadata(problem);
@@ -691,7 +686,7 @@
 		if (result.problem_id && problem && result.problem_id !== problem.id) {
 			const resp = await getProblemProblemProblemIdGet(result.problem_id);
 			if (resp.status === 200 && resp.data) {
-				problem = resp.data as typeof problem;
+				problem = resp.data;
 				hasUtopiaMetadata = checkUtopiaMetadata(problem);
 				hasSolutionDescription = !hasUtopiaMetadata && checkSolutionDescription(problem);
 				active_objective_symbols = new Set(problem.objectives.map((o) => o.symbol));
@@ -758,7 +753,7 @@
 {/if}
 
 {#if $errorMessage}
-	<Alert title="Error" message={$errorMessage} variant="destructive" />
+	<Alert title="Error" message={$errorMessage} variant="destructive" timeout={0} />
 {/if}
 
 {#if warning_message}
@@ -766,6 +761,7 @@
 		title="Warning"
 		message={warning_message}
 		variant="default"
+		timeout={0}
 		onClose={() => (warning_message = null)}
 	/>
 {/if}
@@ -788,7 +784,6 @@
 									filtered_problem
 								)}
 								externalSelectedIndexes={selected_iteration_index}
-								onSelectSolution={() => {}}
 							/>
 						</Resizable.Pane>
 
@@ -822,7 +817,7 @@
 			{#if problem && chosen_solutions.length > 0 && selected_iteration_index.length > 0}
 				<EndStateView
 					{problem}
-					tableData={[chosen_solutions[selected_iteration_index[0]] as any]}
+					tableData={[chosen_solutions[selected_iteration_index[0]] as unknown as TableData]}
 				/>
 			{/if}
 		{/snippet}
@@ -1035,7 +1030,7 @@
 					</Dialog.Description>
 				</Dialog.Header>
 				<div class="space-y-3 py-4">
-					{#each problem.objectives as objective}
+					{#each problem.objectives as objective (objective.symbol)}
 						{@const isActive = active_objective_symbols.has(objective.symbol)}
 						{@const isLast = active_objective_symbols.size === 1 && isActive}
 						{@const checkboxId = `obj-checkbox-${objective.symbol}`}
@@ -1045,10 +1040,11 @@
 								checked={isActive}
 								disabled={isLast}
 								onCheckedChange={(checked) => {
-									const next = new Set(active_objective_symbols);
-									if (checked) next.add(objective.symbol);
-									else next.delete(objective.symbol);
-									active_objective_symbols = next;
+									active_objective_symbols = new Set(
+										checked
+											? [...active_objective_symbols, objective.symbol]
+											: [...active_objective_symbols].filter((s) => s !== objective.symbol)
+									);
 								}}
 							/>
 							<label
@@ -1098,7 +1094,7 @@
 						class="rounded border px-2 py-1 text-sm"
 					/>
 				</div>
-				{#each AVAILABLE_MEASURES as measure}
+				{#each AVAILABLE_MEASURES as measure (measure.value)}
 					{@const isChecked = selected_measures.includes(measure.value)}
 					{@const checkboxId = `measure-checkbox-${measure.value}`}
 					<div class="flex items-center gap-3">
@@ -1186,7 +1182,7 @@
 									</tr>
 								</thead>
 								<tbody class="divide-y">
-									{#each constraint_obj_filter === 'active' ? problem.objectives.filter( (o) => active_objective_symbols.has(o.symbol) ) : problem.objectives as obj}
+									{#each constraint_obj_filter === 'active' ? problem.objectives.filter( (o) => active_objective_symbols.has(o.symbol) ) : problem.objectives as obj (obj.symbol)}
 										<tr class="align-top">
 											<td class="py-2 pr-3 font-mono text-xs">{obj.symbol}</td>
 											<td class="py-2 pr-3">
@@ -1235,7 +1231,7 @@
 												{constraint.type}
 											</Select.Trigger>
 											<Select.Content>
-												{#each CONSTRAINT_TYPES as ct}
+												{#each CONSTRAINT_TYPES as ct (ct)}
 													<Select.Item value={ct} class="text-xs">{ct}</Select.Item>
 												{/each}
 											</Select.Content>
@@ -1293,7 +1289,7 @@
 				</Dialog.Description>
 			</Dialog.Header>
 			<div class="space-y-3 py-4">
-				{#each AVAILABLE_SCALARIZATIONS as sf}
+				{#each AVAILABLE_SCALARIZATIONS as sf (sf.value)}
 					{@const isChecked = selected_scalarizations.includes(sf.value)}
 					{@const isLast = selected_scalarizations.length === 1 && isChecked}
 					{@const checkboxId = `sf-checkbox-${sf.value}`}

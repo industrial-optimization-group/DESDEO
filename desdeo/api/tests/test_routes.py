@@ -1684,6 +1684,40 @@ def test_cumulus_get_or_initialize(client: TestClient):
     assert result2.state_id == result1.state_id
 
 
+def test_cumulus_get_or_initialize_after_save(client: TestClient):
+    """Reopening after a save returns the solve the save was made from, not the save state."""
+    access_token = login(client)
+
+    init_request = CumulusInitializationRequest(problem_id=1)
+    init_response = post_json(client, "/method/cumulus/get-or-initialize", init_request.model_dump(), access_token)
+    init_result = CumulusInitializationResponse.model_validate(json.loads(init_response.content))
+    current_objectives = init_result.current_solutions[0].objective_values
+
+    solve_request = CumulusClassificationRequest(
+        problem_id=1,
+        preference=ReferencePoint(aspiration_levels={"f_1": max(current_objectives["f_1"] - 0.1, 0.01)}),
+        current_objectives=current_objectives,
+        scalarizations=["asf_partial"],
+        parent_state_id=init_result.state_id,
+    )
+    solve_response = post_json(client, "/method/cumulus/solve", solve_request.model_dump(), access_token)
+    solve_result = CumulusClassificationResponse.model_validate(json.loads(solve_response.content))
+
+    save_request = CumulusSaveRequest(
+        problem_id=1,
+        parent_state_id=solve_result.state_id,
+        solution_info=[SolutionInfo(state_id=solve_result.state_id, solution_index=0, name="Kept")],
+    )
+    assert post_json(client, "/method/cumulus/save", save_request.model_dump(), access_token).status_code == 200
+
+    response = post_json(client, "/method/cumulus/get-or-initialize", init_request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusClassificationResponse.model_validate(json.loads(response.content))
+    assert result.state_id == solve_result.state_id
+    assert len(result.current_solutions) == len(solve_result.current_solutions)
+    assert [s.name for s in result.saved_solutions] == ["Kept"]
+
+
 def test_cumulus_get_or_initialize_after_finalize(client: TestClient):
     """get-or-initialize should return a finalize response when the latest state is a final state."""
     access_token = login(client)
@@ -2708,6 +2742,7 @@ def test_cumulus_solve_warns_about_relaxed_soft_constraint(client: TestClient):
     assert len(relaxed) == 1
     assert "f_1 + 0.5 <= 0" in relaxed[0]
 
+
 def test_cumulus_get_objective_constraints_returns_active_list(client: TestClient):
     """The constraints in effect can be read back, so a reopened UI can show them."""
     access_token = login(client)
@@ -2726,6 +2761,52 @@ def test_cumulus_get_objective_constraints_returns_active_list(client: TestClien
         {k: _SOFT_CONSTRAINT[k] for k in ("name", "symbol", "cons_type", "func")},
         second,
     ]
+
+
+def test_cumulus_solve_explains_cumulonimbus_failing_under_soft_constraints(client: TestClient):
+    """Cumulonimbus returns nothing when its limits exclude the least-violating solutions, and says why."""
+    access_token = login(client)
+
+    init_request = CumulusInitializationRequest(problem_id=1)
+    init_response = post_json(client, "/method/cumulus/initialize", init_request.model_dump(), access_token)
+    init_result = CumulusInitializationResponse.model_validate(json.loads(init_response.content))
+
+    # Move to a Pareto optimal solution with f_1 well above zero.
+    move_request = CumulusClassificationRequest(
+        problem_id=1,
+        preference=ReferencePoint(aspiration_levels={"f_1": 0.25, "f_2": 0.55, "f_3": 0.8}),
+        current_objectives=init_result.current_solutions[0].objective_values,
+        scalarizations=["asf_partial"],
+        parent_state_id=init_result.state_id,
+    )
+    move_response = post_json(client, "/method/cumulus/solve", move_request.model_dump(), access_token)
+    move_result = CumulusClassificationResponse.model_validate(json.loads(move_response.content))
+    current = move_result.current_solutions[0].objective_values
+
+    # f_1 >= 0, so the least violation (0.5) needs f_1 = 0, which Cumulonimbus may not reach from here.
+    impossible = {"name": "f_1 + 0.5", "symbol": "oc_1", "cons_type": "<=", "func": ["Add", "f_1", 0.5]}
+    constraint_request = CumulusObjectiveConstraintRequest(
+        problem_id=1, parent_state_id=move_result.state_id, soft_constraints=[impossible]
+    )
+    post_json(client, "/method/cumulus/objective-constraint", constraint_request.model_dump(), access_token)
+
+    # Improve f_1 and f_2 while keeping f_3: only the current solution itself fits these limits.
+    solve_request = CumulusClassificationRequest(
+        problem_id=1,
+        preference=ReferencePoint(
+            aspiration_levels={"f_1": current["f_1"] - 0.05, "f_2": current["f_2"] - 0.05, "f_3": current["f_3"]}
+        ),
+        current_objectives=current,
+        scalarizations=["cumulonimbus"],
+        parent_state_id=move_result.state_id,
+    )
+    response = post_json(client, "/method/cumulus/solve", solve_request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusClassificationResponse.model_validate(json.loads(response.content))
+
+    assert result.current_solutions == []
+    assert any("Cumulonimbus found no solution" in w for w in result.warnings)
+
 
 def test_cumulus_objective_constraint_multiple_soft(client: TestClient):
     """Several soft constraints in one call are all persisted as distinct rows."""

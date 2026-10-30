@@ -1723,6 +1723,7 @@ export const AddProblemProblemAddPostQueryParams = zod.object({
 });
 
 export const addProblemProblemAddPostBodyOnePreferencePreferenceTypeDefault = `reference_point`;
+export const addProblemProblemAddPostBodyOneIncludePerturbedDefault = true;
 
 export const AddProblemProblemAddPostBody = zod.union([
 	zod
@@ -1751,7 +1752,13 @@ export const AddProblemProblemAddPostBody = zod.union([
 					aspiration_levels: zod.record(zod.string(), zod.number())
 				})
 				.optional()
-				.describe('Model for representing a reference point type of preference.')
+				.describe('Model for representing a reference point type of preference.'),
+			include_perturbed: zod
+				.boolean()
+				.default(addProblemProblemAddPostBodyOneIncludePerturbedDefault)
+				.describe(
+					'Whether to also return the k solutions found with perturbed reference points. If false, a single solution is returned.'
+				)
 		})
 		.describe('Model of the request to the reference point method.'),
 	zod
@@ -2490,6 +2497,7 @@ export const AddProblemJsonProblemAddJsonPostQueryParams = zod.object({
 });
 
 export const addProblemJsonProblemAddJsonPostBodyRequestOnePreferencePreferenceTypeDefault = `reference_point`;
+export const addProblemJsonProblemAddJsonPostBodyRequestOneIncludePerturbedDefault = true;
 
 export const AddProblemJsonProblemAddJsonPostBody = zod.object({
 	json_file: zod.instanceof(File),
@@ -2523,7 +2531,13 @@ export const AddProblemJsonProblemAddJsonPostBody = zod.object({
 							aspiration_levels: zod.record(zod.string(), zod.number())
 						})
 						.optional()
-						.describe('Model for representing a reference point type of preference.')
+						.describe('Model for representing a reference point type of preference.'),
+					include_perturbed: zod
+						.boolean()
+						.default(addProblemJsonProblemAddJsonPostBodyRequestOneIncludePerturbedDefault)
+						.describe(
+							'Whether to also return the k solutions found with perturbed reference points. If false, a single solution is returned.'
+						)
 				})
 				.describe('Model of the request to the reference point method.'),
 			zod
@@ -3644,6 +3658,7 @@ export const SolveSolutionsMethodRpmSolvePostQueryParams = zod.object({
 });
 
 export const solveSolutionsMethodRpmSolvePostBodyPreferencePreferenceTypeDefault = `reference_point`;
+export const solveSolutionsMethodRpmSolvePostBodyIncludePerturbedDefault = true;
 
 export const SolveSolutionsMethodRpmSolvePostBody = zod
 	.object({
@@ -3671,7 +3686,13 @@ export const SolveSolutionsMethodRpmSolvePostBody = zod
 				aspiration_levels: zod.record(zod.string(), zod.number())
 			})
 			.optional()
-			.describe('Model for representing a reference point type of preference.')
+			.describe('Model for representing a reference point type of preference.'),
+		include_perturbed: zod
+			.boolean()
+			.default(solveSolutionsMethodRpmSolvePostBodyIncludePerturbedDefault)
+			.describe(
+				'Whether to also return the k solutions found with perturbed reference points. If false, a single solution is returned.'
+			)
 	})
 	.describe('Model of the request to the reference point method.');
 
@@ -9952,6 +9973,14 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 									.optional()
 									.describe(
 										'Optional dictionary mapping cluster IDs to hover information for display in the visualization.\nIf None, no additional hover information is displayed. Defaults to None.'
+									),
+								cluster_extremes: zod
+									.record(
+										zod.string(),
+										zod.record(zod.string(), zod.tuple([zod.number(), zod.number()]))
+									)
+									.describe(
+										'Map cluster IDs to dictionaries of objective names and their corresponding extreme values (min, max).'
 									),
 								axis_positions: zod
 									.record(zod.string(), zod.number())

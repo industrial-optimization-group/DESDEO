@@ -51,6 +51,8 @@ export interface RPMSolveRequest {
 	solver?: string | null;
 	solver_options?: RPMSolveRequestSolverOptions;
 	preference?: ReferencePoint;
+	/** Whether to also return the k solutions found with perturbed reference points. If false, a single solution is returned. */
+	include_perturbed?: boolean;
 }
 
 /**
@@ -1396,6 +1398,13 @@ export type SCOREBandsResultClusterNames = { [key: string]: string } | null;
 export type SCOREBandsResultClusterHoverInfo = { [key: string]: string } | null;
 
 /**
+ * Map cluster IDs to dictionaries of objective names and their corresponding extreme values (min, max).
+ */
+export type SCOREBandsResultClusterExtremes = {
+	[key: string]: { [key: string]: [number, number] };
+};
+
+/**
  * Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
  * objective is at position 0.0, and the last objective is at position 1.0.
  */
@@ -1440,6 +1449,8 @@ export interface SCOREBandsResult {
 	 * If None, no additional hover information is displayed. Defaults to None.
 	 */
 	cluster_hover_info?: SCOREBandsResultClusterHoverInfo;
+	/** Map cluster IDs to dictionaries of objective names and their corresponding extreme values (min, max). */
+	cluster_extremes: SCOREBandsResultClusterExtremes;
 	/**
 	 * Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
 	 * objective is at position 0.0, and the last objective is at position 1.0.
