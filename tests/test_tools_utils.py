@@ -88,6 +88,7 @@ def test_payoff_dtlz2():
 
 
 @pytest.mark.utils
+@pytest.mark.githubskip(reason="Solver behaviour on unbounded problems differs on GitHub runners")
 @pytest.mark.parametrize("solver", [None, PyomoIpoptSolver, ScipyMinimizeSolver])
 def test_payoff_require_success_rejects_an_unbounded_objective(solver):
     """Without `require_success` an unbounded objective yields made-up ideal and nadir values."""
