@@ -381,6 +381,10 @@ def add_soft_constraint(
             # `desdeo.mcdm.cumulus` does after minimizing the total violation.
             ideal=0.0,
             nadir=1.0,
+            # A plain sum of slack variables.
+            is_linear=True,
+            is_convex=True,
+            is_twice_differentiable=True,
         )
         new_objectives = [*existing_objectives, violation_objective]
 

@@ -78,6 +78,8 @@ def test_add_soft_constraint_lte(simple_problem):
     vio_obj = next(o for o in new_problem.objectives if o.symbol == sym)
     assert vio_obj.maximize is False
     assert "_g1_lte_violation" in str(vio_obj.func)
+    # A sum of slack variables: flagging it otherwise would bar gradient-based solvers.
+    assert vio_obj.is_linear and vio_obj.is_convex and vio_obj.is_twice_differentiable
 
     # Original problem is unchanged
     assert len(simple_problem.variables) == 2

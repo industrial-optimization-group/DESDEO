@@ -3,6 +3,7 @@
 import logging
 from typing import Annotated, Any
 
+import numpy as np
 import polars as pl
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlmodel import Session, select
@@ -22,6 +23,7 @@ from desdeo.api.models import (
     UserSavedSolutionDB,
 )
 from desdeo.api.models.cumulus import (
+    CumulusActiveObjectiveConstraintsResponse,
     CumulusClassificationRequest,
     CumulusClassificationResponse,
     CumulusDeleteSaveRequest,
@@ -33,6 +35,7 @@ from desdeo.api.models.cumulus import (
     CumulusIntermediateSolutionResponse,
     CumulusModificationRequest,
     CumulusModificationResponse,
+    CumulusObjectiveConstraintInfo,
     CumulusObjectiveConstraintRequest,
     CumulusObjectiveConstraintResponse,
     CumulusSaveRequest,
@@ -52,13 +55,14 @@ from desdeo.mcdm.cumulus import (
     CumulusScalarization,
     _minimize_soft_constraint_violations,
     generate_starting_point,
+    soft_constraint_violations,
     solve_sub_problems,
 )
 from desdeo.mcdm.reference_point_method import rpm_intermediate_solutions
 from desdeo.problem import PolarsEvaluator, Problem, ScenarioModel
 from desdeo.problem.json_parser import FormatEnum, MathParser
-from desdeo.problem.schema import Constraint, ConstraintTypeEnum
-from desdeo.tools import SolverResults, guess_best_solver
+from desdeo.problem.schema import Constraint, ConstraintTypeEnum, TensorVariable
+from desdeo.tools import SolverResults, guess_best_solver, is_heuristic_solver
 from desdeo.tools.utils import payoff_table_method
 
 from .utils import (
@@ -213,12 +217,12 @@ def _get_objective_constraint_ids(
     problem_id: int,
     session_id: int | None,
     db_session: Session,
-) -> tuple[list[int], list[int]]:
-    """Return (hard_constraint_ids, soft_constraint_ids) from the latest objective-constraint state."""
+) -> list[int]:
+    """Return the soft constraint ids from the latest objective-constraint state."""
     for state in iter_states_of_kinds(problem_id, session_id, db_session, (StateKind.CUMULUS_OBJ_CONSTRAINT,)):
         if isinstance(state, CumulusObjectiveConstraintState):
-            return state.hard_constraint_ids, state.soft_constraint_ids
-    return [], []
+            return state.soft_constraint_ids
+    return []
 
 
 @router.post("/solve")
@@ -241,13 +245,9 @@ def solve_solutions(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
 
-    hard_ids, soft_ids = _get_objective_constraint_ids(
+    soft_ids = _get_objective_constraint_ids(
         problem_db.id, interactive_session.id if interactive_session else None, db_session
     )
-    hard_constraints = [
-        Constraint.model_validate(row, from_attributes=True)
-        for row in db_session.exec(select(ConstraintDB).where(ConstraintDB.id.in_(hard_ids))).all()
-    ] or None
     soft_constraints = [
         Constraint.model_validate(row, from_attributes=True)
         for row in db_session.exec(select(ConstraintDB).where(ConstraintDB.id.in_(soft_ids))).all()
@@ -265,7 +265,6 @@ def solve_solutions(
         scalarization_options=request.scalarization_options,
         solver=solver,
         solver_options=request.solver_options,
-        hard_constraints=hard_constraints,
         soft_constraints=soft_constraints,
         scenario_model=scenario_model,
     )
@@ -276,13 +275,26 @@ def solve_solutions(
     if (
         CumulusScalarization.CUMULONIMBUS in scalarizations
         and results_by_scalarization.get(CumulusScalarization.CUMULONIMBUS) is None
-        and (hard_ids or soft_ids)
+        and soft_ids
     ):
-        kinds = ([f"{len(hard_ids)} hard"] if hard_ids else []) + ([f"{len(soft_ids)} soft"] if soft_ids else [])
         warnings.append(
             f"Cumulonimbus scalarization failed to find a feasible solution. "
-            f"You have {' and '.join(kinds)} active objective constraint(s) that may conflict "
+            f"You have {len(soft_ids)} active soft objective constraint(s) that may conflict "
             f"with the current reference point. Consider loosening or removing the constraints."
+        )
+
+    # The largest relaxation of each soft constraint over the returned solutions.
+    violated: dict[str, float] = {}
+    for result in solver_results:
+        for symbol, amount in soft_constraint_violations(result, soft_constraints or []).items():
+            if amount > _CONSTRAINT_TOLERANCE:
+                violated[symbol] = max(violated.get(symbol, 0.0), amount)
+    if violated:
+        names = {c.symbol: f"{c.name} {c.cons_type.value} 0" for c in soft_constraints}
+        details = ", ".join(f"{names[symbol]} (by {amount:.4g})" for symbol, amount in violated.items())
+        warnings.append(
+            "Your soft objective constraints could not all be met, so they were relaxed as little as "
+            f"possible. Violated: {details}."
         )
 
     cumulus_state = CumulusClassificationState(
@@ -401,7 +413,7 @@ def initialize(
     saved_solutions = collect_saved_solutions(user, request.problem_id, db_session)
     all_solutions = collect_all_solutions(user, request.problem_id, db_session)
     session_id = interactive_session.id if interactive_session is not None else None
-    hard_ids, soft_ids = _get_objective_constraint_ids(problem_db.id, session_id, db_session)
+    soft_ids = _get_objective_constraint_ids(problem_db.id, session_id, db_session)
 
     return CumulusInitializationResponse(
         state_id=state.id,
@@ -409,7 +421,6 @@ def initialize(
         current_solutions=current_solutions,
         saved_solutions=saved_solutions,
         all_solutions=all_solutions,
-        hard_constraint_ids=hard_ids,
         soft_constraint_ids=soft_ids,
     )
 
@@ -570,13 +581,12 @@ def get_or_initialize(
 
         # CumulusInitializationState or CumulusSaveState
         _session_id = interactive_session.id if interactive_session is not None else user.active_session_id
-        hard_ids, soft_ids = _get_objective_constraint_ids(request.problem_id, _session_id, db_session)
+        soft_ids = _get_objective_constraint_ids(request.problem_id, _session_id, db_session)
         return CumulusInitializationResponse(
             state_id=latest_state.id,
             current_solutions=current_solutions,
             saved_solutions=saved_solutions,
             all_solutions=all_solutions,
-            hard_constraint_ids=hard_ids,
             soft_constraint_ids=soft_ids,
         )
 
@@ -910,6 +920,26 @@ def _fill_in_soft_constraint_properties(
         constraint_db.is_twice_differentiable = result.is_twice_differentiable
 
 
+@router.get("/objective-constraint")
+def get_objective_constraints(
+    context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).get)],
+) -> CumulusActiveObjectiveConstraintsResponse:
+    """Return the soft objective constraints in effect for the problem, so the UI can show them."""
+    db_session = context.db_session
+    session_id = context.interactive_session.id if context.interactive_session else None
+    soft_ids = _get_objective_constraint_ids(context.problem_db.id, session_id, db_session)
+    rows = db_session.exec(select(ConstraintDB).where(ConstraintDB.id.in_(soft_ids))).all()
+    by_id = {row.id: row for row in rows}
+    return CumulusActiveObjectiveConstraintsResponse(
+        soft_constraints=[
+            CumulusObjectiveConstraintInfo(
+                name=row.name, symbol=row.symbol, cons_type=str(row.cons_type), func=row.func
+            )
+            for row in (by_id[i] for i in soft_ids if i in by_id)
+        ]
+    )
+
+
 @router.post("/objective-constraint")
 def set_objective_constraints(
     request: CumulusObjectiveConstraintRequest,
@@ -920,32 +950,13 @@ def set_objective_constraints(
     Creates ConstraintDB rows in the database without adding them to the active problem.
     A new state records the IDs of the current constraint list.
 
-    Only soft constraints may be set here.  A hard bound shrinks the feasible region and
-    can exclude the current solution, after which every classification sub-problem is
-    infeasible: the classification constraints admit the current solution by
-    construction, which is what normally guarantees a sub-problem can be solved, and that
-    guarantee is worth nothing once the current solution is outside the feasible region.
-    Recovering needs a new starting point and fresh ideal and nadir points, which is what
-    ``/method/cumulus/modify-problem`` does.  Hard bounds are therefore rejected here and
-    must be applied through that endpoint.
+    Hard bounds change the feasible region and need the method reinitialized, so they go
+    through ``/method/cumulus/modify-problem`` instead.
     """
     db_session = context.db_session
     interactive_session = context.interactive_session
     parent_state = context.parent_state
     problem_db = context.problem_db
-
-    if request.hard_constraints:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                "Hard objective constraints cannot be set through this endpoint. A hard bound "
-                "changes the feasible region and may exclude the current solution, which would "
-                "leave every later classification sub-problem infeasible, so the method has to "
-                "be reinitialized against the new region. Apply hard bounds through "
-                "'/method/cumulus/modify-problem', which rebuilds the problem and recomputes "
-                "its ideal and nadir points. Soft constraints are accepted here."
-            ),
-        )
 
     soft_constraints: list[ConstraintDB] = []
     for raw in request.soft_constraints:
@@ -963,13 +974,11 @@ def set_objective_constraints(
         db_session.add(constraint_db)
 
     db_session.flush()
-    hard_constraint_ids: list[int] = []
     soft_constraint_ids = [c.id for c in soft_constraints]
 
     obj_constraint_state = CumulusObjectiveConstraintState(
         problem_id=problem_db.id,
         original_problem_id=request.original_problem_id,
-        hard_constraint_ids=hard_constraint_ids,
         soft_constraint_ids=soft_constraint_ids,
     )
 
@@ -987,163 +996,176 @@ def set_objective_constraints(
 
     return CumulusObjectiveConstraintResponse(
         state_id=state.id,
-        hard_constraint_ids=hard_constraint_ids,
         soft_constraint_ids=soft_constraint_ids,
     )
 
 
-def _reported_scalar_values(problem: Problem, results: SolverResults) -> dict[str, float]:
-    """The scalar values a solver reported for one solution, keyed by symbol.
+def _solution_satisfies(problem: Problem, results: SolverResults, constraints: list[Constraint]) -> bool:
+    """Whether one stored solution satisfies `constraints`; False also when that cannot be told.
 
-    Tensor-valued variables are left out: they cannot share a frame with scalars, and a bound
-    on the objectives never needs them.
+    The constraints are evaluated against the values the solver reported, and only failing that
+    against the problem re-evaluated at the stored decision vector: the evaluator cannot build a
+    frame for a combined scenario problem at all, so re-evaluating first would leave every bound on
+    such a problem undecided.
     """
-    scope: dict[str, float] = {}
-    for source in (
+    parser = MathParser(to_format=FormatEnum.polars)
+
+    def values_at(scope: dict[str, float]) -> list[float] | None:
+        frame = pl.DataFrame({symbol: [value] for symbol, value in scope.items()})
+        try:
+            return [float(frame.select(parser.parse(c.func).alias("_value")).row(0)[0]) for c in constraints]
+        except Exception:
+            return None
+
+    # Scalars only: tensor values cannot share a frame with them, and a bound never needs them.
+    reported = (
         results.optimal_variables,
         results.optimal_objectives,
         results.extra_func_values or {},
         results.scalarization_values or {},
-    ):
-        for symbol, value in source.items():
-            if isinstance(value, (int, float)):
-                scope[symbol] = float(value)
-
-    # Constraints may reference the always-minimized variant of an objective, as the evaluators
-    # also provide.
+    )
+    scope = {sym: float(val) for source in reported for sym, val in source.items() if isinstance(val, int | float)}
+    # Constraints may reference the always-minimized variant of an objective.
     for objective in problem.objectives:
         if objective.symbol in scope:
-            scope.setdefault(
-                f"{objective.symbol}_min",
-                -scope[objective.symbol] if objective.maximize else scope[objective.symbol],
-            )
-    return scope
-
-
-def _evaluated_at_stored_variables(problem: Problem, results: SolverResults) -> dict:
-    """Everything `problem` computes at the stored decision vector, or empty if it cannot.
-
-    Needed for results that carry decision variables without the function values that go with
-    them.
-
-    Vector-valued functions come back as a value per index, which the caller drops along with
-    anything else that is not a single number.
-    """
-    variables = results.optimal_variables
-    if not variables:
-        return {}
-    try:
-        # Only the problem's own variables, in its own order: a stored solution may also carry
-        # auxiliary variables (a CVaR `_alpha`, say) that the evaluators build no column for.
-        xs = {variable.symbol: [variables[variable.symbol]] for variable in problem.variables}
-    except KeyError:
-        return {}
-
-    try:
-        return PolarsEvaluator(problem).evaluate(xs).row(0, named=True)
-    except Exception as e:
-        logger.warning("Could not evaluate the problem at the stored solution: %s", e)
-        return {}
-
-
-def _constraint_values(constraints: list[Constraint], scope: dict[str, float]) -> list[float] | None:
-    """Each constraint's value at `scope`, or None if `scope` does not cover them all."""
-    parser = MathParser(to_format=FormatEnum.polars)
-    frame = pl.DataFrame({symbol: [value] for symbol, value in scope.items()})
-    try:
-        return [float(frame.select(parser.parse(c.func).alias("_value")).row(0)[0]) for c in constraints]
-    except Exception:
-        return None
-
-
-def _satisfies(constraint: Constraint, value: float) -> bool:
-    """Whether a constraint value counts as met. LTE is `func <= 0`; EQ is `func == 0`."""
-    if constraint.cons_type == ConstraintTypeEnum.EQ:
-        return abs(value) <= _CONSTRAINT_TOLERANCE
-    return value <= _CONSTRAINT_TOLERANCE
-
-
-def _current_solution_satisfies(
-    problem: Problem, parent_state, added_constraints: list[Constraint]
-) -> bool:
-    """Whether the solution current at `parent_state` still satisfies the added constraints.
-
-    Only the added ones are checked, for the same reason the background probe only considers
-    them: everything else was already satisfied before this modification.
-
-    They are evaluated against the values the solver reported for the solution, and only failing
-    that against the problem re-evaluated at its stored decision vector.  That order is the
-    point: re-evaluating first reported *every* bound on a combined scenario problem as
-    satisfied, however far outside it the solution sat, because the evaluator cannot build a
-    frame for such a problem at all and the failure read as "nothing to invalidate".
-
-    A missing or unusable parent solution is still reported as satisfied: there is nothing to
-    invalidate. Note that this also skips the background feasibility probe, which is gated on
-    this answer.
-    """
-    checkable = [c for c in added_constraints if c.func is not None]
-    if parent_state is None or not checkable:
-        return True
-    try:
-        results = get_solver_results_at(parent_state.state, 0)
-    except (AttributeError, IndexError, KeyError, TypeError):
-        return True
-
-    scope = _reported_scalar_values(problem, results)
-    values = _constraint_values(checkable, scope)
+            value = scope[objective.symbol]
+            scope.setdefault(f"{objective.symbol}_min", -value if objective.maximize else value)
+    values = values_at(scope)
 
     if values is None:
-        # A symbol the reported values do not carry; work it out from the decision vector.
-        evaluated = _evaluated_at_stored_variables(problem, results)
-        scope = {
-            **{sym: float(val) for sym, val in evaluated.items() if isinstance(val, (int, float))},
-            **scope,
-        }
-        values = _constraint_values(checkable, scope)
+        # A symbol the reported values lack.  Only the problem's own variables are passed: a stored
+        # solution may also carry auxiliary ones (a CVaR `_alpha`, say) with no evaluator column.
+        try:
+            xs = {variable.symbol: [results.optimal_variables[variable.symbol]] for variable in problem.variables}
+            evaluated = PolarsEvaluator(problem).evaluate(xs).row(0, named=True)
+        except Exception:
+            evaluated = {}
+        evaluated = {sym: float(val) for sym, val in evaluated.items() if isinstance(val, int | float)}
+        values = values_at({**evaluated, **scope})
 
     if values is None:
         logger.warning(
-            "Could not tell whether the current solution satisfies the added constraints (%s);"
-            " reporting it as satisfied.",
-            ", ".join(c.symbol for c in checkable),
+            "Could not tell whether a current solution satisfies the changed constraints (%s).",
+            ", ".join(c.symbol for c in constraints),
         )
-        return True
+        return False
 
-    return all(_satisfies(c, v) for c, v in zip(checkable, values, strict=True))
+    # LTE is `func <= 0`; EQ is `func == 0`.
+    return all(
+        (abs(v) if c.cons_type == ConstraintTypeEnum.EQ else v) <= _CONSTRAINT_TOLERANCE
+        for c, v in zip(constraints, values, strict=True)
+    )
+
+
+def _some_current_solution_satisfies(problem: Problem, parent_state, changed_constraints: list[Constraint]) -> bool:
+    """Whether some solution current at `parent_state` satisfies the changed constraints.
+
+    Such a solution proves the modified problem feasible without a solve.  Only meaningful when
+    the modification changed nothing but constraints: then the others were already satisfied
+    before it.
+    """
+    if not changed_constraints:
+        return True
+    # A simulator or surrogate constraint has no function to evaluate at a stored solution.
+    if any(c.func is None for c in changed_constraints):
+        return False
+    try:
+        num_solutions = parent_state.state.num_solutions
+    except (AttributeError, NotImplementedError):
+        return False
+
+    for index in range(num_solutions):
+        try:
+            results = get_solver_results_at(parent_state.state, index)
+        except (AttributeError, IndexError, KeyError, TypeError):
+            continue
+        if _solution_satisfies(problem, results, changed_constraints):
+            return True
+    return False
+
+
+def _all_variables_bounded(problem: Problem) -> bool:
+    """Whether every variable, tensor elements included, has finite lower and upper bounds."""
+    scalars = [s for v in problem.variables for s in (v.to_variables() if isinstance(v, TensorVariable) else [v])]
+    return all(bound is not None and np.isfinite(bound) for s in scalars for bound in (s.lowerbound, s.upperbound))
+
+
+def _changed_by_modification(old: Problem, new: Problem) -> tuple[list[Constraint], bool]:
+    """Which constraints of `new` the modification may have made unsatisfiable.
+
+    Returns:
+        (constraints, only_constraints_changed).  When only constraints were added or replaced,
+        those are the ones returned; the rest held before and still do.  When anything a
+        constraint can depend on changed (variables, constants, objectives, extra functions),
+        every constraint of `new` is returned.
+    """
+
+    def by_symbol(elements) -> dict:
+        return {e.symbol: e.model_dump() for e in elements or []}
+
+    others_changed = any(
+        by_symbol(getattr(old, field)) != by_symbol(getattr(new, field))
+        for field in ("variables", "constants", "objectives", "extra_funcs")
+    )
+    if others_changed:
+        return list(new.constraints or []), False
+
+    old_constraints = by_symbol(old.constraints)
+    changed = [c for c in new.constraints or [] if old_constraints.get(c.symbol) != c.model_dump()]
+    return changed, True
 
 
 def _probe_new_problem_feasibility(
-    old_problem: Problem, added_constraints: list[Constraint], solver_class, solver_options=None
-) -> tuple[bool, float, str | None]:
-    """Is the modified problem feasible? Decided with one solve on the *old* problem.
+    base_problem: Problem, constraints: list[Constraint], solver_class, solver_options=None
+) -> tuple[bool | None, float, str | None]:
+    """Is `base_problem` with `constraints` added feasible? Decided with one solve.
 
-    The added constraints are attached to the old problem as soft ones and the total violation is
-    minimised.  A minimum of zero means some point satisfies all of them at once, so the modified
-    problem is feasible; anything larger is the amount by which they cannot jointly be met.
+    The constraints are attached to `base_problem` as soft ones and the total violation is
+    minimised.  A minimum of zero means some point satisfies all of them at once, so the problem
+    is feasible; anything larger is the amount by which they cannot jointly be met.  The
+    constraints already in `base_problem` stay hard, so they must be known to be satisfiable.
 
-    Solving on the old problem is deliberate: the modified problem may exclude the current
-    solution, and this way the probe never has to distinguish "the bound is unreachable" from "the
-    formulation excluded itself".  Minimising violation rather than projecting a reference point
-    also covers constraints over several objectives at once, which a reference point cannot
-    express.
+    Minimising violation rather than projecting a reference point also covers constraints over
+    several objectives at once, which a reference point cannot express.
 
     Returns:
-        (feasible, minimum total violation, error message or None).
+        (feasible, minimum total violation, message or None).  `feasible` is None when the solve
+        failed, or when a heuristic solver found a positive violation, so feasibility is
+        undetermined rather than refuted; the caller rejects both.
     """
-    if not added_constraints:
+    if not constraints:
         return True, 0.0, None
     try:
         _, _, violation = _minimize_soft_constraint_violations(
-            old_problem, None, added_constraints, solver_class, solver_options
+            base_problem, None, constraints, solver_class, solver_options
         )
     except Exception as e:
-        return False, float("nan"), f"Could not determine whether the modified problem is feasible: {e}"
+        return (
+            None,
+            float("nan"),
+            (f"Could not determine whether the modified problem is feasible ({e}), so the modification was discarded."),
+        )
     if violation > _CONSTRAINT_TOLERANCE:
-        symbols = ", ".join(c.symbol for c in added_constraints)
-        return False, violation, (
-            "The modified problem has no feasible solution. The added constraints "
-            f"({symbols}) cannot all be satisfied at once; the smallest total violation "
-            f"achievable is {violation:.6g}. The modification was discarded."
+        symbols = ", ".join(c.symbol for c in constraints)
+        if is_heuristic_solver(solver_class):
+            return (
+                None,
+                violation,
+                (
+                    "Could not determine whether the modified problem is feasible. The smallest total "
+                    f"violation of the constraints ({symbols}) found was {violation:.6g}, but the "
+                    f"solver ({solver_class.__name__}) is a heuristic one, so a better solution may "
+                    "exist. The modification was discarded."
+                ),
+            )
+        return (
+            False,
+            violation,
+            (
+                "The modified problem has no feasible solution. The constraints "
+                f"({symbols}) cannot all be satisfied at once; the smallest total violation "
+                f"achievable is {violation:.6g}. The modification was discarded."
+            ),
         )
     return True, violation, None
 
@@ -1152,15 +1174,37 @@ def _run_modification_checks_background(
     new_problem_id: int,
     cumulus_state_id: int,
     solver_class,
-    old_problem_id: int,
-    added_constraint_symbols: list[str],
+    probe_constraint_symbols: list[str],
+    feasibility_witnessed: bool,
 ) -> None:
-    """Background: confirm the modified problem is feasible, then refresh its ideal and nadir.
+    """Background: confirm the modified problem is feasible and bounded, and refresh its ideal and nadir.
 
     Feasibility is settled first because it costs one solve, where the payoff table costs one per
-    objective.  An infeasible modification is discarded outright: its ProblemDB row is deleted,
-    which cascades to the states and metadata created alongside it, and the decision maker stays
-    on the problem they were already using.
+    objective.  The constraints in `probe_constraint_symbols` are softened and the rest kept hard.
+    The probe is skipped when `feasibility_witnessed`, i.e. a current solution already satisfies
+    the modified problem.  The payoff table then runs for every modification: optimizing each
+    objective on its own is also what reveals one left unbounded, e.g. by a removed constraint.
+
+    A modification that fails either check, or whose checks cannot be completed, is discarded
+    outright: its ProblemDB row is deleted, which cascades to the metadata created alongside it,
+    and the decision maker stays on the problem they were already using.  The modification state
+    is moved to the parent problem first, so the status endpoint can still report the reason.
+
+    The checks are deliberately conservative: a modification that cannot be shown feasible and
+    bounded is discarded even when it might be fine.  In particular:
+
+    - The probe uses the same solver as the modified problem.  When that is a heuristic one (e.g.
+      Nevergrad for non-smooth objectives), any positive violation it finds is treated as
+      undetermined and discarded, so most probed modifications of such problems are rejected.
+    - A probe over a simulator or surrogate constraint (no `func`) cannot be built, so it is
+      discarded.  Changing variables, constants, objectives or extra functions probes every
+      constraint, so on problems with such constraints these modifications are always rejected.
+    - A positive violation from a local solver (Ipopt, Bonmin, SLSQP) on non-convex constraints
+      is reported as infeasibility, though it only shows the solver found no feasible point.
+    - With a heuristic solver the payoff table cannot reveal unboundedness, so the modification is
+      discarded unless every variable has finite bounds.
+
+    Other routes for modifying or defining problems remain for the cases rejected here.
     """
     try:
         with Session(engine) as session:
@@ -1169,50 +1213,66 @@ def _run_modification_checks_background(
             if problem_db is None or mod_state is None:
                 return
 
+            def discard(message: str) -> None:
+                # Move the state to the parent problem so the cascade spares it and the status
+                # endpoint can still report why the modification was discarded.
+                mod_state.is_ready = True
+                mod_state.error = message
+                mod_state.problem_deleted = True
+                session.add(mod_state)
+                state_db = session.get(StateDB, cumulus_state_id)
+                if state_db is not None:
+                    state_db.problem_id = problem_db.parent_problem_id
+                    session.add(state_db)
+                session.commit()
+                session.delete(problem_db)
+                session.commit()
+
             problem = Problem.from_problemdb(problem_db)
             effective_solver = solver_class if solver_class is not None else guess_best_solver(problem)
 
-            error_msg = None
-            # Only the constraints this modification added can turn the problem infeasible; the
-            # ones already there were satisfied before it.
-            if added_constraint_symbols and not mod_state.current_solution_feasible:
-                old_problem_db = session.get(ProblemDB, old_problem_id)
-                if old_problem_db is not None:
-                    old_problem = Problem.from_problemdb(old_problem_db)
-                    added = [c for c in (problem.constraints or []) if c.symbol in set(added_constraint_symbols)]
-                    feasible, _, probe_error = _probe_new_problem_feasibility(
-                        old_problem, added, effective_solver
-                    )
-                    if not feasible:
-                        # Discard the modification entirely.  The cascade takes the state with it,
-                        # so record the outcome on the parent problem's behalf before deleting.
-                        mod_state.is_ready = True
-                        mod_state.error = probe_error
-                        mod_state.problem_deleted = True
-                        session.add(mod_state)
-                        session.commit()
-                        session.delete(problem_db)
-                        session.commit()
-                        return
+            if probe_constraint_symbols and not feasibility_witnessed:
+                soft = [c for c in problem.constraints or [] if c.symbol in set(probe_constraint_symbols)]
+                hard = [c for c in problem.constraints or [] if c.symbol not in set(probe_constraint_symbols)]
+                base_problem = problem.model_copy(update={"constraints": hard or None})
+                feasible, _, probe_message = _probe_new_problem_feasibility(base_problem, soft, effective_solver)
+                if not feasible:
+                    discard(probe_message)
+                    return
+
+            # A heuristic solver reports success whatever it finds, so its payoff table cannot reveal
+            # an unbounded objective; only a fully bounded box of variables rules one out.
+            if is_heuristic_solver(effective_solver) and not _all_variables_bounded(problem):
+                discard(
+                    f"The solver ({effective_solver.__name__}) is a heuristic one, so it cannot tell whether "
+                    "the modified problem is bounded when some variable lacks a finite lower or upper "
+                    "bound. The modification was discarded."
+                )
+                return
 
             try:
-                estimated_ideal, estimated_nadir = payoff_table_method(problem, solver=effective_solver)
-                for obj_db in problem_db.objectives:
-                    if obj_db.symbol in estimated_ideal:
-                        obj_db.ideal = estimated_ideal[obj_db.symbol]
-                    if obj_db.symbol in estimated_nadir:
-                        obj_db.nadir = estimated_nadir[obj_db.symbol]
-                    session.add(obj_db)
+                estimated_ideal, estimated_nadir = payoff_table_method(
+                    problem, solver=effective_solver, require_success=True
+                )
             except Exception as e:
-                error_msg = str(e)
+                discard(
+                    f"Could not compute the ideal and nadir points of the modified problem: {e} "
+                    "The modification was discarded."
+                )
+                return
 
-            if error_msg is None:
-                # The modification survived: it is a real problem now, not a provisional one.
-                problem_db.is_temporary = False
-                session.add(problem_db)
+            for obj_db in problem_db.objectives:
+                if obj_db.symbol in estimated_ideal:
+                    obj_db.ideal = estimated_ideal[obj_db.symbol]
+                if obj_db.symbol in estimated_nadir:
+                    obj_db.nadir = estimated_nadir[obj_db.symbol]
+                session.add(obj_db)
 
+            # The modification survived: it is a real problem now, not a provisional one.
+            problem_db.is_temporary = False
+            session.add(problem_db)
             mod_state.is_ready = True
-            mod_state.error = error_msg
+            mod_state.error = None
             session.add(mod_state)
             session.commit()
     except Exception:  # noqa: S110
@@ -1236,16 +1296,19 @@ def modify_problem(
     problem = Problem.from_problemdb(problem_db)
     modified_problem = apply_problem_modifications(problem, request.modifications, db_session)
 
-    # Which constraints this modification introduced; only these can make the problem infeasible.
-    existing_constraint_symbols = {c.symbol for c in (problem.constraints or [])}
-    added_constraint_symbols = [
-        c.symbol for c in (modified_problem.constraints or []) if c.symbol not in existing_constraint_symbols
-    ]
+    changed_constraints, only_constraints_changed = _changed_by_modification(problem, modified_problem)
 
-    # Cheap and synchronous: does the solution the decision maker is on survive the modification?
-    # The expensive questions are left to the background task.
-    added_constraints = [c for c in (modified_problem.constraints or []) if c.symbol in set(added_constraint_symbols)]
-    current_solution_feasible = _current_solution_satisfies(modified_problem, parent_state, added_constraints)
+    # Cheap and synchronous: a current solution that satisfies the changed constraints proves the
+    # modified problem feasible, and spares the probe.  Only a constraints-only modification can be
+    # judged this way: once variables, objectives or the like change, the stored values no longer
+    # describe the problem.
+    # The stored solutions must belong to this problem, or they need not satisfy its constraints.
+    current_solution_feasible = (
+        only_constraints_changed
+        and parent_state is not None
+        and parent_state.problem_id == problem_db.id
+        and _some_current_solution_satisfies(modified_problem, parent_state, changed_constraints)
+    )
 
     # Save the modified problem immediately (ideal/nadir will be updated by the background task).
     # It stays temporary until the background check confirms it is feasible.
@@ -1296,8 +1359,8 @@ def modify_problem(
         new_problem_db.id,
         state.base_state.id,
         solver_class,
-        problem_db.id,
-        added_constraint_symbols,
+        [c.symbol for c in changed_constraints],
+        current_solution_feasible,
     )
 
     return CumulusModificationResponse(

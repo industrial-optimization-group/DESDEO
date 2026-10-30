@@ -11,8 +11,7 @@ import {
 	solveIntermediateMethodCumulusIntermediatePost,
 	getUtopiaDataUtopiaPost,
 	setObjectiveConstraintsMethodCumulusObjectiveConstraintPost,
-	modifyProblemMethodCumulusModifyProblemPost,
-	modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGet,
+	getObjectiveConstraintsMethodCumulusObjectiveConstraintGet,
 	getSolutionDescriptionSolutionDescriptionGetPost,
 	getScenarioAvailabilityMethodCumulusScenarioAvailabilityGet,
 	applyScenarioMeasuresMethodCumulusApplyScenarioMeasuresPost
@@ -26,8 +25,6 @@ import type {
 	IntermediateSolutionRequest,
 	SolutionInfo,
 	CumulusObjectiveConstraintRequest,
-	CumulusModificationRequest,
-	CumulusModificationResponse,
 	CumulusScenarioAvailabilityResponse,
 	SolutionDescriptionRequest,
 	ConstraintTypeEnum,
@@ -519,9 +516,9 @@ export async function apply_scenario_measures(
 	}
 }
 
-type UIConstraintType = '<=0' | '=0' | '<=0 (soft)' | '=0 (soft)';
+type UIConstraintType = '<=0' | '=0';
 
-interface UIConstraint {
+export interface UIConstraint {
 	func: string;
 	type: UIConstraintType;
 }
@@ -529,28 +526,8 @@ interface UIConstraint {
 export interface ObjectiveConstraintResult {
 	/** The objective-constraint state holding the soft list now in effect. */
 	state_id: number;
-	hard_constraint_ids: number[];
 	soft_constraint_ids: number[];
-	/**
-	 * Set when hard bounds rebuilt the problem. Solving and the solution archive are scoped by
-	 * problem id, so the session has to switch to this problem; the old one stays intact.
-	 */
-	new_problem_id: number | null;
-	/**
-	 * True when the rebuilt problem excludes the solution the decision maker was on, so the
-	 * method cannot continue from it and restarts from a fresh starting point.
-	 */
-	current_solution_excluded: boolean;
 }
-
-/** Objective constraints are named `oc_1`, `oc_2`, … */
-const OBJECTIVE_CONSTRAINT_SYMBOL = /^oc_(\d+)$/;
-
-/** Poll cadence and give-up point for the background modify-problem checks. */
-const MODIFICATION_POLL_INTERVAL_MS = 1000;
-const MODIFICATION_POLL_TIMEOUT_MS = 10 * 60 * 1000;
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** FastAPI reports an HTTPException as a plain string detail, validation errors as a list. */
 function errorDetail(data: unknown): string | null {
@@ -559,243 +536,69 @@ function errorDetail(data: unknown): string | null {
 }
 
 /**
- * First unused `oc_` index in `problem`.
+ * Fetches the soft objective constraints in effect, in the form the dialog edits them.
  *
- * Hard bounds become real constraints of the rebuilt problem, and /modify-problem replaces any
- * element whose symbol already exists. Numbering past what the problem already carries is what
- * keeps a second hard bound from silently overwriting the first.
+ * The dialog stores the expression the decision maker typed as the constraint's name, so that
+ * is what is shown again.
  */
-function nextConstraintIndex(problem: ProblemInfo): number {
-	let highest = 0;
-	for (const constraint of problem.constraints ?? []) {
-		const match = OBJECTIVE_CONSTRAINT_SYMBOL.exec(constraint.symbol);
-		if (match) highest = Math.max(highest, Number(match[1]));
-	}
-	return highest + 1;
-}
+export async function get_objective_constraints(
+	problem_id: number
+): Promise<UIConstraint[] | null> {
+	try {
+		const response = await getObjectiveConstraintsMethodCumulusObjectiveConstraintGet({
+			problem_id
+		});
+		if (response.status !== 200) return null;
 
-function toConstraintDB(constraints: UIConstraint[], soft: boolean, first_index: number) {
-	return constraints
-		.filter((c) => c.type.includes('soft') === soft)
-		.map((c, i) => ({
-			name: c.func,
-			symbol: `oc_${first_index + i}`,
-			func: c.func,
-			cons_type: (c.type.startsWith('<=') ? '<=' : '=') as ConstraintTypeEnum
+		return response.data.soft_constraints.map((c) => ({
+			func: c.name,
+			type: c.cons_type === '<=' ? '<=0' : '=0'
 		}));
-}
-
-const DISCARDED_MESSAGE =
-	'The bounded problem could not be used and was discarded. No constraints were applied.';
-
-export type ModificationOutcome =
-	/** The background checks passed and the modified problem is ready to be used. */
-	| { kind: 'accepted'; response: CumulusModificationResponse }
-	/** The bounds were refused and the modified problem discarded. */
-	| { kind: 'rejected'; reason: string }
-	/** Neither could be established: polling itself failed or ran out of time. */
-	| { kind: 'failed' };
-
-/**
- * Polls /modify-problem/status until the background feasibility check settles.
- *
- * `is_ready` only means the check has finished, so a ready response still has to be read for
- * the verdict — hence the three outcomes rather than a bare response.
- */
-export async function poll_modification_status(
-	state_id: number,
-	{
-		interval_ms = MODIFICATION_POLL_INTERVAL_MS,
-		timeout_ms = MODIFICATION_POLL_TIMEOUT_MS
-	}: { interval_ms?: number; timeout_ms?: number } = {}
-): Promise<ModificationOutcome> {
-	const deadline = Date.now() + timeout_ms;
-
-	for (;;) {
-		const response = await modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGet(state_id);
-
-		// The generated union only knows the documented statuses, but 404 is reachable — see
-		// below. Widening is confined to this check so that `response.status` still narrows
-		// `response.data` afterwards.
-		if ((response.status as number) === 404) {
-			// Discarding an infeasible modification deletes the problem it created, and the state
-			// meant to report that outcome belongs to that problem, so it is deleted along with
-			// it. A state that has gone missing since the request is therefore the rejection,
-			// reported without the detail the deleted row was carrying.
-			return { kind: 'rejected', reason: DISCARDED_MESSAGE };
-		}
-
-		if (response.status !== 200) {
-			errorMessage.set(
-				errorDetail(response.data) ??
-					`Checking the modified problem failed with status ${response.status}`
-			);
-			return { kind: 'failed' };
-		}
-
-		if (response.data.is_ready) {
-			if (response.data.problem_deleted || response.data.error) {
-				return { kind: 'rejected', reason: response.data.error ?? DISCARDED_MESSAGE };
-			}
-			return { kind: 'accepted', response: response.data };
-		}
-
-		if (Date.now() >= deadline) {
-			errorMessage.set(
-				'Checking the modified problem is taking longer than expected. The constraints have ' +
-					'not been applied to this session; try again in a moment.'
-			);
-			return { kind: 'failed' };
-		}
-
-		await sleep(interval_ms);
-	}
-}
-
-interface HardConstraintOutcome {
-	/** The modification state that the new problem's later states hang off. */
-	state_id: number;
-	/** The problem the bounds produced. */
-	problem_id: number;
-	/** The bounds exclude the solution the decision maker was on. */
-	current_solution_excluded: boolean;
-}
-
-/**
- * Applies hard objective bounds through /modify-problem and waits for the background checks.
- *
- * The endpoint returns as soon as it has built the new problem and settles feasibility
- * afterwards, so its immediate response says nothing about whether the bounds hold — but it is
- * where the identifiers and the (synchronously decided) current-solution verdict come from. The
- * poll only decides whether the modification is accepted. A rejected one deletes the problem it
- * created server-side, leaving the decision maker on the one they were already using.
- */
-async function apply_hard_constraints(
-	problem: ProblemInfo,
-	parent_state_id: number | null,
-	hard: ReturnType<typeof toConstraintDB>,
-	on_progress: (message: string) => void
-): Promise<HardConstraintOutcome | null> {
-	const request: CumulusModificationRequest = {
-		problem_id: problem.id,
-		parent_state_id: parent_state_id ?? null,
-		modifications: { constraints: hard }
-	};
-
-	const response = await modifyProblemMethodCumulusModifyProblemPost(request);
-
-	if (response.status !== 200) {
-		errorMessage.set(
-			errorDetail(response.data) ??
-				`Applying hard objective constraints failed with status ${response.status}`
+	} catch (error) {
+		console.error(
+			'Error in get_objective_constraints:',
+			error instanceof Error ? error.message : error
 		);
 		return null;
 	}
-
-	// Whether the current solution survives the bounds is known without solving, so it can be
-	// reported while the more expensive feasibility check is still running.
-	on_progress(
-		response.data.current_solution_feasible === false
-			? 'The solution you are on is outside the new bounds. Checking whether the bounded ' +
-					'problem has any solutions at all…'
-			: 'Checking that the bounded problem still has solutions…'
-	);
-
-	const outcome = await poll_modification_status(response.data.state_id);
-
-	if (outcome.kind !== 'accepted') {
-		if (outcome.kind === 'rejected') errorMessage.set(outcome.reason);
-		return null;
-	}
-
-	return {
-		state_id: response.data.state_id,
-		problem_id: response.data.problem_id,
-		current_solution_excluded: response.data.current_solution_feasible === false
-	};
 }
 
 /**
- * Applies the decision maker's objective constraint list.
- *
- * The two kinds take different routes: soft constraints are stored alongside the current
- * problem, while hard bounds rebuild it into a new problem through /modify-problem. Hard ones
- * go first, because the soft list has to be stored against whichever problem ends up in effect
- * — storing it first would attach it to a problem a rejected bound then leaves behind. A
- * rejected bound therefore applies nothing at all.
+ * Sets the soft objective constraints of the current session, replacing any earlier list.
  */
 export async function set_objective_constraints(
 	problem: ProblemInfo,
 	parent_state_id: number | null,
-	constraints: UIConstraint[],
-	on_progress: (message: string) => void = () => {}
+	constraints: UIConstraint[]
 ): Promise<ObjectiveConstraintResult | null> {
 	isLoading.set(true);
 	errorMessage.set(null);
 
-	// Symbols continue past the problem's existing objective constraints so that neither the
-	// hard bounds nor the soft list collide with what is already there.
-	const first_index = nextConstraintIndex(problem);
-	const hard = toConstraintDB(constraints, false, first_index);
-	const soft = toConstraintDB(constraints, true, first_index + hard.length);
+	// Sent even when empty: the endpoint replaces the stored list, which is how the decision
+	// maker clears soft constraints they have removed from the dialog.
+	const request: CumulusObjectiveConstraintRequest = {
+		problem_id: problem.id,
+		parent_state_id: parent_state_id ?? null,
+		soft_constraints: constraints.map((c, i) => ({
+			name: c.func,
+			symbol: `oc_${i + 1}`,
+			func: c.func,
+			cons_type: (c.type === '<=0' ? '<=' : '=') as ConstraintTypeEnum
+		}))
+	};
 
 	try {
-		let target_problem_id = problem.id;
-		let target_parent_state_id = parent_state_id;
-		let new_problem_id: number | null = null;
-		let current_solution_excluded = false;
-
-		if (hard.length > 0) {
-			const modification = await apply_hard_constraints(
-				problem,
-				parent_state_id,
-				hard,
-				on_progress
-			);
-			if (modification === null) return null;
-
-			new_problem_id = modification.problem_id;
-			target_problem_id = modification.problem_id;
-			target_parent_state_id = modification.state_id;
-			current_solution_excluded = modification.current_solution_excluded;
-
-			on_progress('Applying soft constraints…');
-		}
-
-		// Sent even when empty: the endpoint replaces the stored list, which is how the decision
-		// maker clears soft constraints they have removed from the dialog.
-		const request: CumulusObjectiveConstraintRequest = {
-			problem_id: target_problem_id,
-			parent_state_id: target_parent_state_id ?? null,
-			hard_constraints: [],
-			soft_constraints: soft
-		};
-
 		const response = await setObjectiveConstraintsMethodCumulusObjectiveConstraintPost(request);
 
 		if (response.status !== 200) {
-			const reason =
-				errorDetail(response.data) ??
-				`Setting objective constraints failed with status ${response.status}`;
-			// The bounded problem was built and kept, but without the soft list it is not what the
-			// decision maker asked for. Staying on the current problem leaves them somewhere
-			// coherent, and the bounded problem remains selectable later.
 			errorMessage.set(
-				new_problem_id === null
-					? reason
-					: `${reason} The hard bounds produced a new problem, but this session stayed on the ` +
-							'current one because the soft constraints could not be applied to it.'
+				errorDetail(response.data) ??
+					`Setting objective constraints failed with status ${response.status}`
 			);
 			return null;
 		}
 
-		return {
-			state_id: response.data.state_id,
-			hard_constraint_ids: response.data.hard_constraint_ids,
-			soft_constraint_ids: response.data.soft_constraint_ids,
-			new_problem_id,
-			current_solution_excluded
-		};
+		return response.data;
 	} catch (error) {
 		const msg = error instanceof Error ? error.message : 'Unknown error';
 		errorMessage.set(msg);

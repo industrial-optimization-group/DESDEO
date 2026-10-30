@@ -384,10 +384,8 @@ class CumulusModificationState(ResultInterface, SQLModel, table=True):
     current_solution_feasible: bool = Field(
         default=True,
         description=(
-            "Whether the solution current when the modification was requested still satisfies the "
-            "modified problem's constraints. When False a new starting point has to be found, "
-            "because the classification sub-problems are only guaranteed solvable while the "
-            "current solution lies inside the feasible region."
+            "Whether some solution current when the modification was requested is known to "
+            "satisfy the modified problem, which proves it feasible."
         ),
     )
     problem_deleted: bool = Field(
@@ -412,11 +410,6 @@ class CumulusObjectiveConstraintState(ResultInterface, SQLModel, table=True):
 
     problem_id: int | None = Field(default=None, description="Problem these constraints are associated with.")
     original_problem_id: int | None = Field(default=None)
-    hard_constraint_ids: list[int] = Field(
-        sa_column=Column(JSON),
-        default_factory=list,
-        description="DB ids of the hard ConstraintDB rows in the current objective constraint list.",
-    )
     soft_constraint_ids: list[int] = Field(
         sa_column=Column(JSON),
         default_factory=list,

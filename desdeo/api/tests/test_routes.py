@@ -3,6 +3,7 @@
 import json
 import time
 
+import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
@@ -65,6 +66,7 @@ from desdeo.api.models.nimbus import (
     NIMBUSMultiplierResponse,
 )
 from desdeo.api.models.problem import ConstraintDB, ProblemMetaDataDB
+from desdeo.api.routers import cumulus as cumulus_router
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.emo.options.algorithms import rvea_options
 from desdeo.emo.options.templates import ReferencePointOptions
@@ -72,6 +74,7 @@ from desdeo.gdm.score_bands import SCOREBandsGDMConfig
 from desdeo.problem import Problem
 from desdeo.problem.testproblems import dtlz2, simple_knapsack_vectors
 from desdeo.problem.testproblems.simple_problem import simple_scenario_model
+from desdeo.tools import NevergradGenericSolver
 from desdeo.tools.score_bands import KMeansOptions, SCOREBandsConfig
 from desdeo.tools.utils import available_solvers
 
@@ -2030,9 +2033,189 @@ def test_cumulus_modify_problem_reports_current_solution_feasibility(client: Tes
     assert response.status_code == status.HTTP_200_OK
     result = CumulusModificationResponse.model_validate(json.loads(response.content))
 
-    # No previous solution and no added constraints, so nothing can have been invalidated.
-    assert result.current_solution_feasible is True
+    # The variables changed, so stored solutions cannot vouch for the modified problem.
+    assert result.current_solution_feasible is False
     assert result.problem_deleted is False
+
+
+def _modify(
+    client: TestClient, modifications: dict, access_token: str, problem_id: int = 1
+) -> CumulusModificationResponse:
+    request = CumulusModificationRequest(problem_id=problem_id, original_problem_id=1, modifications=modifications)
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    return CumulusModificationResponse.model_validate(json.loads(response.content))
+
+
+def _modify_with_bound(
+    client: TestClient, func: str, access_token: str, problem_id: int = 1
+) -> CumulusModificationResponse:
+    bound = {"name": "bound", "symbol": "g_bound", "func": func, "cons_type": "<="}
+    return _modify(client, {"constraints": [bound]}, access_token, problem_id)
+
+
+def _modification_status(client: TestClient, state_id: int, access_token: str):
+    return client.get(
+        f"/method/cumulus/modify-problem/status/{state_id}", headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+
+def _assert_discarded(response, reason: str) -> CumulusModificationResponse:
+    """The status of a discarded modification survives the deletion of its problem."""
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(response.content))
+    assert result.is_ready is True
+    assert result.problem_deleted is True, reason
+    assert "discarded" in result.error
+    return result
+
+
+@pytest.mark.cumulus
+def test_cumulus_modify_problem_probes_without_a_parent_state(client: TestClient, session_and_user, monkeypatch):
+    """Without a parent state no current solution vouches for the bound, so it is probed.
+
+    An infeasible bound is discarded; a feasible one is kept.  The background task opens its own
+    session, so it is pointed at the test database.
+    """
+    monkeypatch.setattr(cumulus_router, "engine", session_and_user["session"].get_bind())
+    access_token = login(client)
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    # DTLZ2 objectives are non-negative, so f_1 <= -1 cannot be met.
+    infeasible = _modify_with_bound(client, "f_1 + 1", access_token)
+    assert infeasible.current_solution_feasible is False
+    status_response = client.get(f"/method/cumulus/modify-problem/status/{infeasible.state_id}", headers=headers)
+    _assert_discarded(status_response, "the infeasible modification must be discarded")
+
+    feasible = _modify_with_bound(client, "f_1 - 10", access_token)
+    status_response = client.get(f"/method/cumulus/modify-problem/status/{feasible.state_id}", headers=headers)
+    assert status_response.status_code == status.HTTP_200_OK
+    result = CumulusModificationResponse.model_validate(json.loads(status_response.content))
+    assert result.is_ready is True
+    assert result.problem_deleted is False
+
+
+@pytest.mark.cumulus
+def test_cumulus_modify_problem_probes_a_replaced_constraint(client: TestClient, session_and_user, monkeypatch):
+    """Tightening an existing constraint under its own symbol is probed like a new one."""
+    monkeypatch.setattr(cumulus_router, "engine", session_and_user["session"].get_bind())
+    access_token = login(client)
+
+    bounded = _modify_with_bound(client, "f_1 - 10", access_token)
+    assert _modification_status(client, bounded.state_id, access_token).status_code == status.HTTP_200_OK
+
+    # DTLZ2 objectives are non-negative, so f_1 <= -1 cannot be met.
+    tightened = _modify_with_bound(client, "f_1 + 1", access_token, problem_id=bounded.problem_id)
+    response = _modification_status(client, tightened.state_id, access_token)
+    _assert_discarded(response, "the infeasible replacement must be discarded")
+
+
+@pytest.mark.cumulus
+def test_cumulus_modify_problem_probes_changed_variable_bounds(client: TestClient, session_and_user, monkeypatch):
+    """New variable bounds can make an unchanged constraint unsatisfiable, so all constraints are probed."""
+    monkeypatch.setattr(cumulus_router, "engine", session_and_user["session"].get_bind())
+    access_token = login(client)
+
+    bounded = _modify_with_bound(client, "x_1 - 0.5", access_token)
+    assert _modification_status(client, bounded.state_id, access_token).status_code == status.HTTP_200_OK
+
+    # x_1 >= 0.8 leaves no room for x_1 <= 0.5.
+    narrowed = _modify(
+        client,
+        {
+            "variables": [
+                {"name": "x_1", "symbol": "x_1", "variable_type": "real", "lowerbound": 0.8, "upperbound": 1.0}
+            ]
+        },
+        access_token,
+        problem_id=bounded.problem_id,
+    )
+    assert narrowed.current_solution_feasible is False
+    response = _modification_status(client, narrowed.state_id, access_token)
+    _assert_discarded(response, "the infeasible variable bounds must be discarded")
+
+
+@pytest.mark.cumulus
+def test_cumulus_modify_problem_rejects_removal_that_leaves_an_objective_unbounded(
+    client: TestClient, session_and_user, monkeypatch
+):
+    """Removing a constraint cannot make the problem infeasible, but it can make it unbounded."""
+    monkeypatch.setattr(cumulus_router, "engine", session_and_user["session"].get_bind())
+    access_token = login(client)
+
+    # f_z = z has no lower bound but g_z, which keeps z >= 0.
+    bounded = _modify(
+        client,
+        {
+            "variables": [{"name": "z", "symbol": "z", "variable_type": "real", "initial_value": 0.5}],
+            "objectives": [
+                {
+                    "name": "f_z",
+                    "symbol": "f_z",
+                    "func": ["Multiply", 1, "z"],
+                    "is_linear": True,
+                    "is_convex": True,
+                    "is_twice_differentiable": True,
+                }
+            ],
+            "constraints": [{"name": "z lower", "symbol": "g_z", "func": ["Negate", "z"], "cons_type": "<="}],
+        },
+        access_token,
+    )
+    assert _modification_status(client, bounded.state_id, access_token).status_code == status.HTTP_200_OK
+
+    unbounded = _modify(client, {"remove": ["g_z"]}, access_token, problem_id=bounded.problem_id)
+    response = _modification_status(client, unbounded.state_id, access_token)
+    _assert_discarded(response, "the unbounded problem must be discarded")
+    session = session_and_user["session"]
+    session.expire_all()
+    assert session.get(ProblemDB, unbounded.problem_id) is None
+
+
+@pytest.mark.cumulus
+def test_cumulus_modify_problem_rejects_unbounded_variable_with_heuristic_solver(
+    client: TestClient, session_and_user, monkeypatch
+):
+    """A heuristic solver's payoff table cannot reveal unboundedness, so an unbounded variable is refused."""
+    monkeypatch.setattr(cumulus_router, "engine", session_and_user["session"].get_bind())
+    monkeypatch.setattr(cumulus_router, "check_solver", lambda **_: NevergradGenericSolver)
+    access_token = login(client)
+
+    unbounded = _modify(
+        client,
+        {"variables": [{"name": "z", "symbol": "z", "variable_type": "real", "lowerbound": 0.0}]},
+        access_token,
+    )
+    result = _assert_discarded(
+        _modification_status(client, unbounded.state_id, access_token), "the unbounded variable must be refused"
+    )
+    assert "heuristic" in result.error
+
+
+@pytest.mark.cumulus
+def test_cumulus_modify_problem_ignores_solutions_of_another_problem(client: TestClient):
+    """Only solutions of the problem being modified can vouch for its new constraints."""
+    access_token = login(client)
+
+    init_request = CumulusInitializationRequest(problem_id=1)
+    init_response = post_json(client, "/method/cumulus/initialize", init_request.model_dump(), access_token)
+    init_state_id = CumulusInitializationResponse.model_validate(json.loads(init_response.content)).state_id
+
+    bound = {"name": "bound", "symbol": "g_bound", "func": "f_1 - 10", "cons_type": "<="}
+    request = CumulusModificationRequest(
+        problem_id=1, parent_state_id=init_state_id, modifications={"constraints": [bound]}
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+    first = CumulusModificationResponse.model_validate(json.loads(response.content))
+    assert first.current_solution_feasible is True
+
+    looser = {"name": "looser", "symbol": "g_looser", "func": "f_1 - 20", "cons_type": "<="}
+    request = CumulusModificationRequest(
+        problem_id=first.problem_id, parent_state_id=init_state_id, modifications={"constraints": [looser]}
+    )
+    response = post_json(client, "/method/cumulus/modify-problem", request.model_dump(), access_token)
+    second = CumulusModificationResponse.model_validate(json.loads(response.content))
+    assert second.current_solution_feasible is False
 
 
 def test_cumulus_modify_problem_status(client: TestClient):
@@ -2421,53 +2604,12 @@ def test_cumulus_modify_problem_inherits_metadata(client: TestClient, session_an
 # func is MathJSON; cons_type "<=" means func(x) <= 0.
 # ---------------------------------------------------------------------------
 
-_HARD_CONSTRAINT = {
-    "name": "f1 upper bound",
-    "symbol": "oc_hard_1",
-    "cons_type": "<=",
-    "func": ["Subtract", "f_1", 0.5],
-}
 _SOFT_CONSTRAINT = {
     "name": "f2 upper bound",
     "symbol": "oc_soft_1",
     "cons_type": "<=",
     "func": ["Subtract", "f_2", 0.6],
 }
-
-
-def test_cumulus_objective_constraint_rejects_hard(client: TestClient):
-    """Hard constraints are refused here: they need the method reinitialized.
-
-    A hard bound can exclude the current solution, and the classification sub-problems
-    are only guaranteed solvable because they admit the current solution.  Hard bounds go
-    through '/method/cumulus/modify-problem', which rebuilds the problem and recomputes
-    its ideal and nadir points.
-    """
-    access_token = login(client)
-
-    request = CumulusObjectiveConstraintRequest(
-        problem_id=1,
-        hard_constraints=[_HARD_CONSTRAINT],
-    )
-    response = post_json(client, "/method/cumulus/objective-constraint", request.model_dump(), access_token)
-
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-    # the error must say where hard bounds belong, not merely that they are refused
-    assert "modify-problem" in json.loads(response.content)["detail"]
-
-
-def test_cumulus_objective_constraint_rejects_hard_alongside_soft(client: TestClient):
-    """A hard constraint is refused even when soft ones are sent in the same call."""
-    access_token = login(client)
-
-    request = CumulusObjectiveConstraintRequest(
-        problem_id=1,
-        hard_constraints=[_HARD_CONSTRAINT],
-        soft_constraints=[_SOFT_CONSTRAINT],
-    )
-    response = post_json(client, "/method/cumulus/objective-constraint", request.model_dump(), access_token)
-
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 def test_cumulus_objective_constraint_soft_only(client: TestClient):
@@ -2483,9 +2625,61 @@ def test_cumulus_objective_constraint_soft_only(client: TestClient):
     assert response.status_code == status.HTTP_200_OK
     result = CumulusObjectiveConstraintResponse.model_validate(json.loads(response.content))
 
-    assert len(result.hard_constraint_ids) == 0
     assert len(result.soft_constraint_ids) == 1
 
+
+def test_cumulus_solve_warns_about_relaxed_soft_constraint(client: TestClient):
+    """A soft constraint no solution can meet is relaxed, and the solve says by how much."""
+    access_token = login(client)
+
+    init_request = CumulusInitializationRequest(problem_id=1)
+    init_response = post_json(client, "/method/cumulus/initialize", init_request.model_dump(), access_token)
+    init_result = CumulusInitializationResponse.model_validate(json.loads(init_response.content))
+    current_objectives = init_result.current_solutions[0].objective_values
+
+    # DTLZ2 objectives are non-negative, so f_1 <= -0.5 is violated by at least 0.5.
+    impossible = {"name": "f_1 + 0.5", "symbol": "oc_1", "cons_type": "<=", "func": ["Add", "f_1", 0.5]}
+    constraint_request = CumulusObjectiveConstraintRequest(
+        problem_id=1, parent_state_id=init_result.state_id, soft_constraints=[impossible]
+    )
+    constraint_response = post_json(
+        client, "/method/cumulus/objective-constraint", constraint_request.model_dump(), access_token
+    )
+    constraint_result = CumulusObjectiveConstraintResponse.model_validate(json.loads(constraint_response.content))
+
+    solve_request = CumulusClassificationRequest(
+        problem_id=1,
+        preference=ReferencePoint(aspiration_levels={"f_2": current_objectives["f_2"]}),
+        current_objectives=current_objectives,
+        scalarizations=["asf_partial"],
+        parent_state_id=constraint_result.state_id,
+    )
+    response = post_json(client, "/method/cumulus/solve", solve_request.model_dump(), access_token)
+    assert response.status_code == status.HTTP_200_OK
+    result = CumulusClassificationResponse.model_validate(json.loads(response.content))
+
+    relaxed = [w for w in result.warnings or [] if "relaxed" in w]
+    assert len(relaxed) == 1
+    assert "f_1 + 0.5 <= 0" in relaxed[0]
+
+def test_cumulus_get_objective_constraints_returns_active_list(client: TestClient):
+    """The constraints in effect can be read back, so a reopened UI can show them."""
+    access_token = login(client)
+
+    empty = get_json(client, "/method/cumulus/objective-constraint?problem_id=1", access_token)
+    assert empty.status_code == status.HTTP_200_OK
+    assert empty.json()["soft_constraints"] == []
+
+    second = {"name": "f_1 - 0.5", "symbol": "oc_2", "cons_type": "=", "func": ["Subtract", "f_1", 0.5]}
+    request = CumulusObjectiveConstraintRequest(problem_id=1, soft_constraints=[_SOFT_CONSTRAINT, second])
+    post_json(client, "/method/cumulus/objective-constraint", request.model_dump(), access_token)
+
+    response = get_json(client, "/method/cumulus/objective-constraint?problem_id=1", access_token)
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["soft_constraints"] == [
+        {k: _SOFT_CONSTRAINT[k] for k in ("name", "symbol", "cons_type", "func")},
+        second,
+    ]
 
 def test_cumulus_objective_constraint_multiple_soft(client: TestClient):
     """Several soft constraints in one call are all persisted as distinct rows."""
@@ -2500,7 +2694,6 @@ def test_cumulus_objective_constraint_multiple_soft(client: TestClient):
     assert response.status_code == status.HTTP_200_OK
     result = CumulusObjectiveConstraintResponse.model_validate(json.loads(response.content))
 
-    assert result.hard_constraint_ids == []
     assert len(result.soft_constraint_ids) == 2
     assert result.soft_constraint_ids[0] != result.soft_constraint_ids[1]
 
@@ -2516,7 +2709,6 @@ def test_cumulus_objective_constraint_empty_lists(client: TestClient):
     result = CumulusObjectiveConstraintResponse.model_validate(json.loads(response.content))
 
     assert result.state_id is not None
-    assert result.hard_constraint_ids == []
     assert result.soft_constraint_ids == []
 
 
@@ -2542,8 +2734,6 @@ def test_cumulus_objective_constraint_replace_semantics(client: TestClient):
 
     # A new state is created for each call
     assert result2.state_id != result1.state_id
-    # Second call has no hard and one soft
-    assert result2.hard_constraint_ids == []
     assert len(result2.soft_constraint_ids) == 1
 
 
@@ -2564,7 +2754,6 @@ def test_cumulus_initialize_includes_constraint_ids_after_set(client: TestClient
     assert init_response.status_code == status.HTTP_200_OK
     init_result = CumulusInitializationResponse.model_validate(json.loads(init_response.content))
 
-    assert init_result.hard_constraint_ids == []
     assert len(init_result.soft_constraint_ids) == 1
 
 
@@ -2585,7 +2774,6 @@ def test_cumulus_get_or_initialize_includes_constraint_ids(client: TestClient):
     assert response.status_code == status.HTTP_200_OK
     result = CumulusInitializationResponse.model_validate(json.loads(response.content))
 
-    assert result.hard_constraint_ids == []
     assert len(result.soft_constraint_ids) == 1
 
     # get-or-initialize (second call — returns existing init state) should also carry the IDs
@@ -2593,7 +2781,6 @@ def test_cumulus_get_or_initialize_includes_constraint_ids(client: TestClient):
     assert response2.status_code == status.HTTP_200_OK
     result2 = CumulusInitializationResponse.model_validate(json.loads(response2.content))
 
-    assert result2.hard_constraint_ids == []
     assert len(result2.soft_constraint_ids) == 1
 
 
@@ -2606,5 +2793,4 @@ def test_cumulus_initialize_no_constraints_returns_empty_ids(client: TestClient)
     assert response.status_code == status.HTTP_200_OK
     result = CumulusInitializationResponse.model_validate(json.loads(response.content))
 
-    assert result.hard_constraint_ids == []
     assert result.soft_constraint_ids == []
