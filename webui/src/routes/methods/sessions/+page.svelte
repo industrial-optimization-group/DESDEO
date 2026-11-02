@@ -17,16 +17,14 @@
 	import { auth } from '../../../stores/auth';
 	import Check from '@lucide/svelte/icons/check';
 
-	import { create_session, delete_session, fetch_sessions } from './handler';
+	import { activate_session, create_session, delete_session, fetch_sessions } from './handler';
 
 	let sessions = $state<InteractiveSessionBase[]>([]);
 	let newInfo = $state<string>('');
 	let deletingId = $state<number | null>(null);
 	let dms = $state<UserPublic[]>([]);
 
-	const isAnalystOrAdmin = $derived(
-		$auth.user?.role === 'analyst' || $auth.user?.role === 'admin'
-	);
+	const isAnalystOrAdmin = $derived($auth.user?.role === 'analyst' || $auth.user?.role === 'admin');
 	const ownerMap = $derived(Object.fromEntries(dms.map((u: UserPublic) => [u.id, u.username])));
 
 	function getOwnerLabel(userId: number | null | undefined): string {
@@ -87,6 +85,9 @@
 				return;
 			}
 
+			// Creating a session for oneself also makes it the active one.
+			if (targetUserId == null) methodSelection.setSession(created.id, created.info ?? null);
+
 			newInfo = '';
 			await refresh();
 		} catch (err) {
@@ -97,9 +98,21 @@
 		}
 	}
 
+	/** Activates the session in the backend, where methods read it, then mirrors it locally. */
+	async function selectSession(sessionId: number | null, info: string | null = null) {
+		errorMessage.set(null);
+		if (!(await activate_session(sessionId))) {
+			errorMessage.set('Failed to select session.');
+			return;
+		}
+		if (sessionId === null) methodSelection.clearSession();
+		else methodSelection.setSession(sessionId, info);
+		goto('/methods/initialize');
+	}
+
 	async function handleDelete(sessionId: number | null) {
 		try {
-            if (sessionId === null) return;
+			if (sessionId === null) return;
 			deletingId = sessionId;
 			isLoading.set(true);
 			errorMessage.set(null);
@@ -153,16 +166,7 @@
 				<RefreshCw class="mr-2 size-4" />
 				Refresh
 			</Button>
-			<Button
-				variant="outline"
-				size="sm"
-				onclick={() => {
-					methodSelection.clearSession();
-					goto('/methods/initialize');
-				}}
-			>
-				None
-			</Button>
+			<Button variant="outline" size="sm" onclick={() => selectSession(null)}>None</Button>
 		</div>
 	</div>
 
@@ -181,7 +185,9 @@
 						onValueChange={(v) => (selectedTargetDmId = v)}
 					>
 						<Select.Trigger id="create-for" class="w-48">
-							{selectedTargetDmId ? getOwnerLabel(Number(selectedTargetDmId)) : ($auth.user?.username ?? 'Myself')}
+							{selectedTargetDmId
+								? getOwnerLabel(Number(selectedTargetDmId))
+								: ($auth.user?.username ?? 'Myself')}
 						</Select.Trigger>
 						<Select.Content>
 							<Select.Item value="">{$auth.user?.username ?? 'Myself'}</Select.Item>
@@ -194,7 +200,7 @@
 			{/if}
 			<form class="flex flex-col gap-3 sm:flex-row sm:items-center" onsubmit={handleCreate}>
 				<input
-					class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+					class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
 					placeholder="Session info (optional)"
 					bind:value={newInfo}
 				/>
@@ -263,17 +269,17 @@
 
 								<Table.Cell class="text-right">
 									<div class="flex justify-end gap-1">
-										<Button
-											variant="ghost"
-											size="icon"
-											onclick={() => {
-												methodSelection.setSession(s.id, s.info ?? null);
-												goto('/methods/initialize');
-											}}
-											title="Select session"
-										>
-											<Check class="size-4" />
-										</Button>
+										{#if s.user_id === $auth.user?.id}
+											<!-- Others' sessions can be viewed but not entered. -->
+											<Button
+												variant="ghost"
+												size="icon"
+												onclick={() => selectSession(s.id, s.info ?? null)}
+												title="Select session"
+											>
+												<Check class="size-4" />
+											</Button>
+										{/if}
 
 										<Button
 											variant="ghost"

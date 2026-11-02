@@ -26,7 +26,8 @@ export const GetDmUsersUsersDmsGetResponseItem = zod
 		username: zod.string(),
 		id: zod.number(),
 		role: zod.enum(['guest', 'dm', 'analyst', 'admin']).describe('Possible user roles.'),
-		group_ids: zod.union([zod.array(zod.number()), zod.null()])
+		group_ids: zod.union([zod.array(zod.number()), zod.null()]),
+		active_session_id: zod.union([zod.number(), zod.null()]).optional()
 	})
 	.describe('The object to handle public user information.');
 export const GetDmUsersUsersDmsGetResponse = zod.array(GetDmUsersUsersDmsGetResponseItem);
@@ -46,7 +47,8 @@ export const GetCurrentUserInfoUserInfoGetResponse = zod
 		username: zod.string(),
 		id: zod.number(),
 		role: zod.enum(['guest', 'dm', 'analyst', 'admin']).describe('Possible user roles.'),
-		group_ids: zod.union([zod.array(zod.number()), zod.null()])
+		group_ids: zod.union([zod.array(zod.number()), zod.null()]),
+		active_session_id: zod.union([zod.number(), zod.null()]).optional()
 	})
 	.describe('The object to handle public user information.');
 
@@ -3584,6 +3586,33 @@ export const CreateNewSessionSessionNewPostResponse = zod
 		info: zod.union([zod.string(), zod.null()])
 	})
 	.describe('The base model for representing interactive sessions.');
+
+/**
+ * Make one of the user's own sessions the active one, or clear it with `session_id=None`.
+ *
+ * Methods resume and record their states in the active session. Analysts and admins can see
+ * other users' sessions but not activate them, so their own work never lands in someone else's.
+ * @summary Activate Session
+ */
+export const ActivateSessionSessionActivatePostBody = zod
+	.object({
+		session_id: zod
+			.union([zod.number(), zod.null()])
+			.optional()
+			.describe("One of the user's own sessions, or None for none.")
+	})
+	.describe("Model of the request to change the user's active session.");
+
+export const ActivateSessionSessionActivatePostResponse = zod.union([
+	zod
+		.object({
+			id: zod.union([zod.number(), zod.null()]),
+			user_id: zod.union([zod.number(), zod.null()]),
+			info: zod.union([zod.string(), zod.null()])
+		})
+		.describe('The base model for representing interactive sessions.'),
+	zod.null()
+]);
 
 /**
  * Return an interactive session. Analysts and admins may access any session.

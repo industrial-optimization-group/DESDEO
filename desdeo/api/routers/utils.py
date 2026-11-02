@@ -10,7 +10,7 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from numpy import allclose
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from desdeo.api.db import get_session
 from desdeo.api.models import (
@@ -811,10 +811,19 @@ def filter_duplicates(solutions: list[SavedSolutionReference]) -> list[SavedSolu
 
 
 def collect_saved_solutions(user: User, problem_id: int, session: Session) -> list[SavedSolutionReference]:
-    """Collects all saved solutions for the user and problem."""
+    """Collects the user's saved solutions for the problem in their active session.
+
+    A save belongs to the session of the state that saved it, or else of the state it came from.
+    """
     user_saved_solutions = session.exec(
-        select(UserSavedSolutionDB).where(
-            UserSavedSolutionDB.problem_id == problem_id, UserSavedSolutionDB.user_id == user.id
+        select(UserSavedSolutionDB)
+        .join(
+            StateDB, StateDB.id == func.coalesce(UserSavedSolutionDB.save_state_id, UserSavedSolutionDB.origin_state_id)
+        )
+        .where(
+            UserSavedSolutionDB.problem_id == problem_id,
+            UserSavedSolutionDB.user_id == user.id,
+            StateDB.session_id == user.active_session_id,
         )
     ).all()
 

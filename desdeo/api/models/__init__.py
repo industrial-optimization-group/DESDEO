@@ -6,6 +6,7 @@ __all__ = [  # noqa: RUF022
     "ConstrainedVariantResponse",
     "ConstantDB",
     "ConstraintDB",
+    "ActivateSessionRequest",
     "CreateSessionRequest",
     "DiscreteRepresentationDB",
     "EMOSaveState",
@@ -337,6 +338,7 @@ from .problem import (
 from .reference_point_method import RPMSolveRequest
 from .scenario import ScenarioModelDB, ScenarioModelInfo
 from .session import (
+    ActivateSessionRequest,
     CreateSessionRequest,
     InteractiveSessionBase,
     InteractiveSessionDB,
