@@ -48,7 +48,7 @@
     "valibot": "^1.2.0",
     "vaul-svelte": "^1.0.0-next.7",
     "vite": "^8.0.16",
-    "zod": "^4.1.12"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^4.1.1",
