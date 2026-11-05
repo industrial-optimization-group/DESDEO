@@ -259,3 +259,95 @@ def test_owner_and_analyst_keep_access_to_session_and_state(client: TestClient, 
 
     response = _rpm_solve(client, analyst_token, dm_problem, session_id=dm_session, parent_state_id=first_state.id)
     assert response.status_code == status.HTTP_200_OK
+
+
+def test_activate_own_session_and_clear(client: TestClient):
+    """A user can activate one of their sessions, see it in /user_info, and clear it."""
+    token = login(client)
+    first = _create_session(client, token, "first")
+    second = _create_session(client, token, "second")
+    assert get_json(client, "/user_info", token).json()["active_session_id"] == second
+
+    response = post_json(client, "/session/activate", {"session_id": first}, token)
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["id"] == first
+    assert get_json(client, "/user_info", token).json()["active_session_id"] == first
+
+    response = post_json(client, "/session/activate", {"session_id": None}, token)
+    assert response.status_code == status.HTTP_200_OK
+    assert get_json(client, "/user_info", token).json()["active_session_id"] is None
+
+
+def test_analyst_cannot_activate_dm_session(client: TestClient):
+    """Analysts can see a DM's session but not make it their active one."""
+    analyst_token = login(client)
+    _add_dm(client, analyst_token, "dm_act", "dm_act")
+    dm_token = login(client, username="dm_act", password="dm_act")  # noqa: S106
+    dm_session_id = _create_session(client, dm_token)
+
+    response = post_json(client, "/session/activate", {"session_id": dm_session_id}, analyst_token)
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert get_json(client, "/user_info", analyst_token).json()["active_session_id"] != dm_session_id
+
+
+def test_deleting_active_session_clears_it(client: TestClient):
+    """Deleting the active session leaves no dangling active session id."""
+    token = login(client)
+    session_id = _create_session(client, token)
+
+    response = client.delete(f"/session/{session_id}", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    assert get_json(client, "/user_info", token).json()["active_session_id"] is None
+
+
+def test_switching_back_resumes_the_earlier_cumulus_run(client: TestClient):
+    """After a new session, activating the old one resumes its CUMULUS run."""
+    token = login(client)
+    first = _create_session(client, token, "first")
+    request = {"problem_id": 1}
+    first_state = post_json(client, "/method/cumulus/get-or-initialize", request, token).json()["state_id"]
+
+    _create_session(client, token, "second")
+    second_state = post_json(client, "/method/cumulus/get-or-initialize", request, token).json()["state_id"]
+    assert second_state != first_state
+
+    assert post_json(client, "/session/activate", {"session_id": first}, token).status_code == status.HTTP_200_OK
+    resumed = post_json(client, "/method/cumulus/get-or-initialize", request, token).json()["state_id"]
+    assert resumed == first_state
+
+
+def test_saved_solutions_are_per_session(client: TestClient):
+    """A new session doesn't list the solutions saved in an earlier one."""
+    token = login(client)
+    _create_session(client, token, "first")
+    init = post_json(client, "/method/cumulus/initialize", {"problem_id": 1}, token).json()
+    current_objectives = init["current_solutions"][0]["objective_values"]
+    solve = post_json(
+        client,
+        "/method/cumulus/solve",
+        {
+            "problem_id": 1,
+            "preference": {
+                "preference_type": "reference_point",
+                "aspiration_levels": {"f_1": max(current_objectives["f_1"] - 0.1, 0.01)},
+            },
+            "current_objectives": current_objectives,
+            "scalarizations": ["asf_partial"],
+            "parent_state_id": init["state_id"],
+        },
+        token,
+    ).json()
+    save = {
+        "problem_id": 1,
+        "parent_state_id": solve["state_id"],
+        "solution_info": [{"state_id": solve["state_id"], "solution_index": 0, "name": "Kept"}],
+    }
+    assert post_json(client, "/method/cumulus/save", save, token).status_code == status.HTTP_200_OK
+    again = post_json(client, "/method/cumulus/initialize", {"problem_id": 1}, token).json()
+    assert [s["name"] for s in again["saved_solutions"]] == ["Kept"]
+
+    _create_session(client, token, "second")
+    fresh = post_json(client, "/method/cumulus/initialize", {"problem_id": 1}, token).json()
+    assert fresh["saved_solutions"] == []

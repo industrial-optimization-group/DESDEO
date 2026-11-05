@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 
 from desdeo.api.db import get_session as get_db_session
 from desdeo.api.models import (
+    ActivateSessionRequest,
     CreateSessionRequest,
     InteractiveSessionDB,
     InteractiveSessionInfo,
@@ -70,6 +71,37 @@ def create_new_session(
     return InteractiveSessionInfo.model_validate(interactive_session)
 
 
+@router.post("/activate")
+def activate_session(
+    request: ActivateSessionRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> InteractiveSessionInfo | None:
+    """Make one of the user's own sessions the active one, or clear it with `session_id=None`.
+
+    Methods resume and record their states in the active session. Analysts and admins can see
+    other users' sessions but not activate them, so their own work never lands in someone else's.
+    """
+    interactive_session = None
+    if request.session_id is not None:
+        interactive_session = session.exec(
+            select(InteractiveSessionDB).where(
+                InteractiveSessionDB.id == request.session_id, InteractiveSessionDB.user_id == user.id
+            )
+        ).first()
+        if interactive_session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"You have no interactive session with id={request.session_id}.",
+            )
+
+    user.active_session_id = request.session_id
+    session.add(user)
+    session.commit()
+
+    return InteractiveSessionInfo.model_validate(interactive_session) if interactive_session else None
+
+
 @router.get("/get/{session_id}")
 def get_session(
     session_id: int,
@@ -112,6 +144,10 @@ def delete_session(
     )  # raises 404 if not found
 
     try:
+        owner = session.get(User, interactive_session.user_id)
+        if owner is not None and owner.active_session_id == session_id:
+            owner.active_session_id = None
+            session.add(owner)
         session.delete(interactive_session)
         session.commit()
     except Exception as exc:

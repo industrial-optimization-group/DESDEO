@@ -1,4 +1,7 @@
-import type { CreateSessionRequest, InteractiveSessionBase } from '$lib/gen/endpoints/DESDEOFastAPI';
+import type {
+	CreateSessionRequest,
+	InteractiveSessionBase
+} from '$lib/gen/endpoints/DESDEOFastAPI';
 import type {
 	createNewSessionSessionNewPostResponse,
 	deleteSessionSessionSessionIdDeleteResponse,
@@ -6,6 +9,7 @@ import type {
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 import {
+	activateSessionSessionActivatePost,
 	createNewSessionSessionNewPost,
 	deleteSessionSessionSessionIdDelete,
 	getAllSessionsSessionGetAllGet
@@ -40,12 +44,23 @@ export async function create_session(
 	return response.data;
 }
 
-export async function delete_session(session_id: number): Promise<boolean> {
-  const response = await deleteSessionSessionSessionIdDelete(session_id);
+/** Makes one of the user's own sessions the active one in the backend, or clears it with null. */
+export async function activate_session(session_id: number | null): Promise<boolean> {
+	const response = await activateSessionSessionActivatePost({ session_id });
 
-  if (response.status < 200 || response.status >= 300) {
-    console.error('delete_session failed.', response.status);
-    return false;
-  }
-  return true;
+	if (response.status !== 200) {
+		console.error('activate_session failed.', response.status);
+		return false;
+	}
+	return true;
+}
+
+export async function delete_session(session_id: number): Promise<boolean> {
+	const response = await deleteSessionSessionSessionIdDelete(session_id);
+
+	if (response.status < 200 || response.status >= 300) {
+		console.error('delete_session failed.', response.status);
+		return false;
+	}
+	return true;
 }

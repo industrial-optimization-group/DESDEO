@@ -6,6 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 import { customFetch } from '../../api/new-client';
+/**
+ * Model of the request to change the user's active session.
+ */
+export interface ActivateSessionRequest {
+	/** One of the user's own sessions, or None for none. */
+	session_id?: number | null;
+}
+
 export interface BodyAddNewAnalystAddNewAnalystPost {
 	grant_type?: string | null;
 	username: string;
@@ -2386,6 +2394,7 @@ export interface UserPublic {
 	id: number;
 	role: UserRole;
 	group_ids: number[] | null;
+	active_session_id?: number | null;
 }
 
 /**
@@ -4010,6 +4019,55 @@ export const createNewSessionSessionNewPost = async (
  * Return an interactive session. Analysts and admins may access any session.
  * @summary Get Session
  */
+export type activateSessionSessionActivatePostResponse200 = {
+	data: InteractiveSessionBase | null;
+	status: 200;
+};
+
+export type activateSessionSessionActivatePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type activateSessionSessionActivatePostResponseSuccess =
+	activateSessionSessionActivatePostResponse200 & {
+		headers: Headers;
+	};
+export type activateSessionSessionActivatePostResponseError =
+	activateSessionSessionActivatePostResponse422 & {
+		headers: Headers;
+	};
+
+export type activateSessionSessionActivatePostResponse =
+	| activateSessionSessionActivatePostResponseSuccess
+	| activateSessionSessionActivatePostResponseError;
+
+export const getActivateSessionSessionActivatePostUrl = () => {
+	return `http://localhost:8000/session/activate`;
+};
+
+/**
+ * Make one of the user's own sessions the active one, or clear it with `session_id=None`.
+ *
+ * Methods resume and record their states in the active session. Analysts and admins can see
+ * other users' sessions but not activate them, so their own work never lands in someone else's.
+ * @summary Activate Session
+ */
+export const activateSessionSessionActivatePost = async (
+	activateSessionRequest: ActivateSessionRequest,
+	options?: RequestInit
+): Promise<activateSessionSessionActivatePostResponse> => {
+	return customFetch<activateSessionSessionActivatePostResponse>(
+		getActivateSessionSessionActivatePostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(activateSessionRequest)
+		}
+	);
+};
+
 export type getSessionSessionGetSessionIdGetResponse200 = {
 	data: InteractiveSessionBase;
 	status: 200;
