@@ -43,7 +43,7 @@ spec:
           value: "http://desdeo-api:8080"
         # ORIGIN is required by SvelteKit for CSRF protection when behind a proxy.
         - name: ORIGIN
-          value: "https://gialmisi-desdeo-webui.rahtiapp.fi"
+          value: "https://master-desdeo-webui.rahtiapp.fi"
         resources:
           requests:
             memory: "128Mi"
@@ -87,7 +87,7 @@ metadata:
   labels:
     app: desdeo-webui
 spec:
-  host: gialmisi-desdeo-webui.rahtiapp.fi
+  host: master-desdeo-webui.rahtiapp.fi
   to:
     kind: Service
     name: desdeo-webui
