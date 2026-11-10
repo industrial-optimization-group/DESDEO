@@ -18,6 +18,7 @@ from desdeo.emo.operators.selection import (
     ParameterAdaptationStrategy,
     ReferenceVectorOptions,
     RVEASelector,
+    SingleObjectiveConstrainedRankingSelector,
     SMSEMOASelector,
     SPEA2Selector,
 )
@@ -240,6 +241,59 @@ class MOEADSelectorOptions(BaseModel):
     """The penalty `theta` of the PBI aggregation function. Only used with `aggregation="pbi"`."""
 
 
+class SingleObjectiveConstrainedRankingSelectorOptions(BaseModel):
+    """Options for the single-objective constrained ranking selection."""
+
+    name: Literal["SingleObjectiveConstrainedRankingSelector"] = Field(
+        default="SingleObjectiveConstrainedRankingSelector",
+        frozen=True,
+        description="The name of the selection operator.",
+    )
+    """The name of the selection operator."""
+    population_size: int = Field(gt=0, description="The population size.")
+    """The population size."""
+    target_objective_symbol: str = Field(description="The symbol of the objective to be optimized.")
+    """The symbol of the objective to be optimized."""
+    constraints: dict[str, float] = Field(
+        description="The relaxation threshold of each constraint, by constraint symbol."
+    )
+    """The relaxation threshold of each constraint, by constraint symbol. Ignored in the 'baseline' mode."""
+    mode: Literal["baseline", "relaxed", "ranking", "hypervolume", "joint"] = Field(
+        default="baseline",
+        description=(
+            "The mode of the operator: 'baseline' (feasibility-first lexicographic), 'relaxed' "
+            "(per-constraint round-robin pools), 'ranking' (rank vectors with non-dominated sorting "
+            "and niching), 'hypervolume' (greedy hypervolume-contribution ranking of the shadow front), or "
+            "'joint' (round robin between the strict pool and one pool with all constraints relaxed at once)."
+        ),
+    )
+    """The operator mode: 'baseline', 'relaxed', 'ranking', 'hypervolume', or 'joint'."""
+    niching: Literal["crowding", "knearest", "kth"] = Field(
+        default="crowding",
+        description=(
+            "Niching mechanism used in 'ranking' mode to break ties within a non-dominated front. "
+            "'crowding' uses NSGA-II crowding distance, 'knearest' the mean Euclidean distance to the k "
+            "nearest neighbours in rank-vector space, and 'kth' the distance to the k-th nearest neighbour."
+        ),
+    )
+    """Niching mechanism used in 'ranking' mode: 'crowding', 'knearest', or 'kth'."""
+    niching_k: int = Field(
+        default=3,
+        gt=0,
+        description="Number of nearest neighbours considered when niching is 'knearest' or 'kth'. Defaults to 3.",
+    )
+    """Number of nearest neighbours considered when niching is 'knearest' or 'kth'. Defaults to 3."""
+    hv_eps: float = Field(
+        default=0.01,
+        ge=0.0,
+        description=(
+            "Fractional outward expansion of the online hypervolume reference point on each axis, "
+            "used only in the 'hypervolume' mode. Defaults to 0.01."
+        ),
+    )
+    """Fractional outward expansion of the hypervolume reference point, used in 'hypervolume' mode."""
+
+
 SelectorOptions = (
     RVEASelectorOptions
     | NSGA2SelectorOptions
@@ -250,6 +304,7 @@ SelectorOptions = (
     | AGEMOEA2SelectorOptions
     | HypESelectorOptions
     | ModifiedWASFGASelectorOptions
+    | SingleObjectiveConstrainedRankingSelectorOptions
 )
 
 
@@ -282,6 +337,7 @@ def selection_constructor(
         "AGEMOEA2Selector": AGEMOEA2Selector,
         "HypESelector": HypESelector,
         "ModifiedWASFGASelector": ModifiedWASFGASelector,
+        "SingleObjectiveConstrainedRankingSelector": SingleObjectiveConstrainedRankingSelector,
     }
     options: dict = options.model_dump()
     name = options.pop("name")

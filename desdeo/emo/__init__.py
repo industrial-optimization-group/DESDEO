@@ -87,6 +87,7 @@ from .options.selection import (
     NSGA3SelectorOptions,
     ReferenceVectorOptions,
     RVEASelectorOptions,
+    SingleObjectiveConstrainedRankingSelectorOptions,
     SMSEMOASelectorOptions,
     SPEA2SelectorOptions,
 )
@@ -154,6 +155,7 @@ selection = SimpleNamespace(
     AGEMOEA2SelectorOptions=AGEMOEA2SelectorOptions,
     HypESelectorOptions=HypESelectorOptions,
     ModifiedWASFGASelectorOptions=ModifiedWASFGASelectorOptions,
+    SingleObjectiveConstrainedRankingSelectorOptions=SingleObjectiveConstrainedRankingSelectorOptions,
 )
 
 other = SimpleNamespace(

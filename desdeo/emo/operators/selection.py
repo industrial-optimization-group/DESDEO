@@ -17,6 +17,7 @@ from moocore import hv_contributions
 from numba import njit
 from pydantic import BaseModel, ConfigDict, Field
 from scipy.linalg import LinAlgWarning, lu_factor, lu_solve
+from scipy.spatial import cKDTree
 from scipy.spatial.distance import cdist
 from scipy.special import comb
 from scipy.stats.qmc import LatinHypercube
@@ -1703,6 +1704,66 @@ def _nsga2_crowding_distance_assignment(
     return crowding_distances
 
 
+def _knn_distance_assignment(
+    non_dominated_front: np.ndarray,
+    f_mins: np.ndarray,
+    f_maxs: np.ndarray,
+    k: int = 3,
+    reduction: str = "mean",
+) -> np.ndarray:
+    """Euclidean-distance-to-nearest-neighbours niching score.
+
+    Distances are computed in normalized rank-vector space (per-axis min-max scaling
+    using the full-population extents) so dimensions are comparable. Boundary points
+    (those with the minimum or maximum value in any dimension) are assigned
+    `np.inf` so they always survive truncation, but they still participate in the
+    distance computation for the other points.
+
+    Args:
+        non_dominated_front (np.ndarray): 2-D array (n x m) of rank vectors in one front.
+        f_mins (np.ndarray): 1-D array of minimum values per dimension over the full population.
+        f_maxs (np.ndarray): 1-D array of maximum values per dimension over the full population.
+        k (int): Number of nearest neighbours considered. Defaults to 3.
+        reduction (str): 'mean' averages the k nearest distances (gentler clustering penalty);
+            'kth' uses only the distance to the k-th nearest neighbour (SPEA2-style density).
+            Defaults to 'mean'.
+
+    Returns:
+        np.ndarray: 1-D array of size n with niching scores. Higher = less crowded = better.
+    """
+    n = non_dominated_front.shape[0]
+    if n == 0:
+        return np.zeros(0)
+    if n == 1:
+        return np.array([np.inf])
+
+    ranges = f_maxs - f_mins
+    ranges_safe = np.where(ranges == 0.0, 1.0, ranges)
+    normed = (non_dominated_front - f_mins) / ranges_safe
+
+    # Boundary mask: point is boundary if it holds the min or max value in any dimension
+    boundary = np.zeros(n, dtype=bool)
+    for m in range(non_dominated_front.shape[1]):
+        col = non_dominated_front[:, m]
+        boundary |= (col == col.min()) | (col == col.max())
+
+    tree = cKDTree(normed)
+    k_eff = min(k, n - 1)
+    # query k_eff + 1 since the point itself will appear with distance 0
+    dists, _ = tree.query(normed, k=k_eff + 1)
+    nn_dists = dists[:, 1:]  # drop self-match
+
+    if reduction == "mean":
+        scores = nn_dists.mean(axis=1)
+    elif reduction == "kth":
+        scores = nn_dists[:, -1]
+    else:
+        raise ValueError(f"Unknown reduction '{reduction}'. Expected 'mean' or 'kth'.")
+
+    scores[boundary] = np.inf
+    return scores
+
+
 class NSGA2Selector(_FitnessPublishingSelector):
     """Implements the selection operator defined for NSGA2.
 
@@ -3338,3 +3399,587 @@ class HypESelector(_FitnessPublishingSelector):
                     floor * 0.5 * (1.0 - selected_violations[infeasible] / (2.0 * selected_violations.max()))
                 )
         return self._finish(solutions, outputs, chosen, fitness)
+
+
+class SingleObjectiveConstrainedRankingSelector(_FitnessPublishingSelector):
+    """Single-objective selector for constrained problems.
+
+    Implements a selector suitable for single-objective optimization of constrained problems.
+    Supports five modes:
+
+    1.  Baseline: in the baseline mode, selection first happens based on the
+        objective function value of feasible solutions (all constraint violations
+        are 0 or less). If this is not enough to form a new population, then
+        solutions are picked based on the number of violated constraints. If
+        multiple solutions breach the same number, then these are ranked based on
+        their total constraint violation until a large enough population is formed.
+        Total constraint violation is computed as the sum of the constraint
+        violations of all breached constraints, where each value is first normalized
+        to reside between 0 and 1 (based on the minimum and maximum value of the
+        constraint in the current population).
+    2.  Relaxed: in the relaxed mode, each solution is ranked c+1 times, where
+        c is the number of constraints. These ranking are collected into pools.
+        The first pool will always contain rankings based on the same selection
+        scheme as in the baseline mode. In the remaining c pools, a selection
+        scheme similar to the baseline is also applied, but now a constraint
+        is relaxed based on a supplied threshold value before ranking solutions
+        based on it. After all the pools are formed, a new population is created
+        by picking alternatively from each pool the currently best ranked solution
+        (after picking, that solution is removed from all the pools). Picking
+        is follows a round robin scheme, where we first pick from pool 1, then
+        pool 2, and so forth until pool c+1. After that, picking starts again from
+        pool 1. A constraint with a zero threshold is not relaxed and gets no pool of
+        its own (it would duplicate the strict pool); it is enforced in all pools.
+    3.  Ranking: solutions are ranked as done in the relaxed mode, but now these
+        ranking are considered as pseudo-objectives. Therefore, each solution will
+        be represented by an objective vector, where each element corresponds to the
+        ranking given to it in each of the pools. These vectors are then sorted
+        based on non-dominated sorting and their crowding distances are computed
+        (like in NSGA-II). After that, utilizing the non-dominated ranking and the
+        distances, each solution is ranked and a new population is created based on
+        these rankings.
+    4.  Hypervolume: threshold-feasible solutions (every constraint within its
+        threshold) are mapped to the points (objective, relaxation used on each
+        constraint), normalized and all minimized, and sorted into non-dominated
+        fronts. Front by front, they are ordered greedily by their hypervolume
+        contribution within the front (repeatedly removing the least-contributing
+        solution, as in SMS-EMOA) with respect to the population nadir expanded
+        by ``hv_eps`` on every axis. The best threshold-feasible and the best
+        strictly feasible solution lie on the first front and are removed from it
+        last. Solutions beyond a threshold
+        follow, ordered as in the baseline mode by how far they lie beyond it.
+    5.  Joint: as the relaxed mode, but with two pools only. The first pool is
+        the baseline ranking with the original constraints, the second the same
+        ranking with every constraint relaxed to its threshold at the same time.
+        The new population is picked from the two pools alternately, as in the
+        relaxed mode. With a single constraint, the joint and relaxed modes
+        coincide.
+
+    In every mode, duplicate solutions (identical decision variable vectors) are
+    removed before ranking. The fitness published for mating selection is
+    higher-is-better: the selected solutions, in order, receive the values N, N - 1,
+    ..., 1, so a tournament on this fitness prefers the better-ranked solution.
+    """
+
+    def __init__(
+        self,
+        *,
+        problem: Problem,
+        verbosity: int,
+        publisher: Publisher,
+        population_size: int,
+        target_objective_symbol: str,
+        mode: str = "baseline",
+        constraints: dict[str, float] | None = None,
+        seed: int = 0,
+        niching: str = "crowding",
+        niching_k: int = 3,
+        hv_eps: float = 0.01,
+    ):
+        """Initializes the operator.
+
+        Args:
+            problem (Problem): the problem to be solved.
+            verbosity (int): verbosity level.
+            publisher (Publisher): publisher the operator subscribes to.
+            population_size (int): the population size. This will be the size of the newly created population.
+            target_objective_symbol (str): the symbol of the objective function that should be optimized.
+            mode (str, optional): the operator mode: 'baseline', 'relaxed', 'ranking',
+                'hypervolume', or 'joint'. Defaults to "baseline".
+            constraints (dict[str, float] | None, optional): A dict that
+                provides threshold values for each constraint present in `Problem`.
+                The keys should match the constraint symbols in `Problem`. Ignored
+                in the 'baseline' mode. Defaults to None.
+            seed (int, optional): the seed of the random number generator (currently not used). Defaults to 0.
+            niching (str, optional): niching mechanism for 'ranking' mode: 'crowding' (NSGA-II crowding
+                distance), 'knearest' (mean Euclidean distance to the k nearest neighbours), or 'kth' (distance
+                to the k-th nearest neighbour). Defaults to 'crowding'.
+            niching_k (int, optional): number of nearest neighbours used when niching is 'knearest' or 'kth'.
+                Defaults to 3.
+            hv_eps (float, optional): fractional outward expansion of the online hypervolume reference
+                point on each axis, used only in the 'hypervolume' mode. Defaults to 0.01.
+        """
+        super().__init__(
+            problem=problem,
+            verbosity=verbosity,
+            publisher=publisher,
+            population_size=int(population_size),
+            seed=seed,
+        )
+        self.mode = mode
+        self.target_objective_symbol = target_objective_symbol
+        self.niching = niching
+        self.niching_k = int(niching_k)
+        self.hv_eps = float(hv_eps)
+
+        # constraints: dict symbol -> threshold
+        self.constraint_dict = dict(constraints) if constraints is not None else {}
+        self.constraint_symbols = list(self.constraint_dict.keys())
+        self.constraint_thresholds = np.asarray(list(self.constraint_dict.values()), dtype=float)
+
+    @staticmethod
+    def _normalize_minmax(v: np.ndarray) -> np.ndarray:
+        """Min-max normalize per column. v shape (N, K). Returns (N, K)."""
+        vmin = v.min(axis=0)
+        vmax = v.max(axis=0)
+        denom = vmax - vmin
+        denom_safe = np.where(denom == 0.0, 1.0, denom)
+        out = (v - vmin) / denom_safe
+        out[:, denom == 0.0] = 0.0
+        return out
+
+    @staticmethod
+    def _breach_count(v: np.ndarray) -> np.ndarray:
+        """Count breached constraints per row. v is nonnegative violation matrix (N, K)."""
+        return (v > 0.0).sum(axis=1)
+
+    @staticmethod
+    def _objective_unique_mask(target_arr: np.ndarray, tol: float = 1e-8) -> np.ndarray:
+        """Return boolean mask for indices that are the first occurrence of each rounded objective value."""
+        rounded = np.round(target_arr / tol) * tol
+        _, first_idx = np.unique(rounded, return_index=True)
+        mask = np.zeros(target_arr.shape[0], dtype=bool)
+        mask[first_idx] = True
+        return mask
+
+    @staticmethod
+    def _decision_unique_mask(dec_mat: np.ndarray) -> np.ndarray:
+        """Boolean mask keeping the first occurrence of each unique decision vector.
+
+        Deduplication is done in decision (variable) space, so that solutions which are
+        identical in the objective but distinct in the decision variables (or vice versa)
+        are treated correctly. Used by every mode.
+        """
+        n = dec_mat.shape[0]
+        if n == 0:
+            return np.zeros(0, dtype=bool)
+        _, first_idx = np.unique(dec_mat, axis=0, return_index=True)
+        mask = np.zeros(n, dtype=bool)
+        mask[first_idx] = True
+        return mask
+
+    def _build_violation_all_original(self, c: np.ndarray) -> np.ndarray:
+        """Original violation for all constraints: max(0, constraint violation value)."""
+        return np.maximum(0.0, c)
+
+    def _build_violation_single_threshold(self, cj: np.ndarray, thr: float) -> np.ndarray:
+        """Thresholded violation for one constraint: max(0, constraint violation value - threshold)."""
+        return np.maximum(0.0, cj - thr)
+
+    def _build_violation_with_single_relaxation(self, c_mat: np.ndarray, j: int, thr_j: float) -> np.ndarray:
+        """Violation matrix enforcing all constraints, but relaxing column j by thr_j.
+
+        All columns use max(0, c), column j uses max(0, c_j - thr_j).
+        np.maximum(0.0, c_mat) creates a copy, so mutating column j is safe.
+        """
+        v = np.maximum(0.0, c_mat)
+        v[:, j] = np.maximum(0.0, c_mat[:, j] - thr_j)
+        return v
+
+    def _order_by_objective_then_violation(
+        self,
+        target_arr: np.ndarray,
+        violation: np.ndarray,
+    ) -> np.ndarray:
+        """Create an ordering for a set of constraints represented by a violation matrix.
+
+        Rules:
+          - feasible (no breach) ranked first by objective
+          - infeasible ranked by (breach_count, sum(normalized_violation)), then objective
+        """
+        v = violation[:, None] if violation.ndim == 1 else violation
+
+        breach = self._breach_count(v)
+        feas_mask = breach == 0
+
+        # rank feasible solutions
+        feas_idx = np.where(feas_mask)[0]
+        feas_sorted = feas_idx[np.argsort(target_arr[feas_idx], kind="mergesort")]
+
+        # infeasible: by (breach_count, sum_norm_violation), then objective
+        infeas_idx = np.where(~feas_mask)[0]
+        if infeas_idx.size == 0:
+            # no breaches
+            return feas_sorted.astype(int)
+
+        # rank infeasible solutions first by breach count, then sum of normalized violation, and then objective value
+        v_infeas = v[infeas_idx, :]
+        vn_infeas = self._normalize_minmax(v_infeas)
+        sum_vn = vn_infeas.sum(axis=1)
+        breach_infeas = breach[infeas_idx]
+
+        keys = (target_arr[infeas_idx], sum_vn, breach_infeas)
+        infeas_sorted = infeas_idx[np.lexsort(keys)]
+
+        return np.concatenate([feas_sorted, infeas_sorted]).astype(int)
+
+    def _round_robin_from_pools(self, pool_orders: list[np.ndarray], m: int) -> np.ndarray:
+        """Round-robin pick across pool orderings, removing chosen indices from each pool."""
+        if not pool_orders:
+            return np.array([], dtype=int)
+
+        n = pool_orders[0].shape[0]
+
+        # keeps track of already chosen solutions
+        chosen = np.zeros(n, dtype=bool)
+
+        # pointer for each pool, points to elements in each pool
+        cursors = [0] * len(pool_orders)
+
+        out = np.ones(m, dtype=int) * -1
+
+        # keep track of populated pools
+        active = [True] * len(pool_orders)
+
+        p = 0  # pool 0 is always the feasible pool, start from it
+        i = 0
+        while i < m:
+            # iterate until population is full or all pools are exhausted
+            if not any(active):
+                # no more populated pools
+                break
+
+            # find next active pool
+            tries = 0
+            while tries < len(pool_orders) and not active[p]:
+                p = (p + 1) % len(pool_orders)
+                tries += 1
+            if tries == len(pool_orders) and not active[p]:
+                break
+
+            order = pool_orders[p]
+            k = cursors[p]
+            while k < len(order) and chosen[order[k]]:
+                k += 1
+            cursors[p] = k
+
+            if k >= len(order):
+                active[p] = False
+                p = (p + 1) % len(pool_orders)
+                continue
+
+            idx = int(order[k])
+            out[i] = idx
+            chosen[idx] = True
+            cursors[p] += 1
+
+            p = (p + 1) % len(pool_orders)
+            i += 1
+
+        return out[out >= 0]
+
+    def _compute_niching_scores(
+        self,
+        fronts: list[np.ndarray],
+        rank_vectors: np.ndarray,
+        f_mins: np.ndarray,
+        f_maxs: np.ndarray,
+    ) -> list[np.ndarray]:
+        """Compute per-front niching scores using the configured `self.niching` mechanism."""
+        if self.niching == "crowding":
+            return [_nsga2_crowding_distance_assignment(rank_vectors[front], f_mins, f_maxs) for front in fronts]
+        if self.niching in ("knearest", "kth"):
+            reduction = "mean" if self.niching == "knearest" else "kth"
+            return [
+                _knn_distance_assignment(rank_vectors[front], f_mins, f_maxs, k=self.niching_k, reduction=reduction)
+                for front in fronts
+            ]
+        raise ValueError(f"Unsupported niching '{self.niching}'. Expected one of: 'crowding', 'knearest', 'kth'.")
+
+    def _hypervolume_order(self, target_arr: np.ndarray, c_mat: np.ndarray, eps: float | None = None) -> np.ndarray:
+        """Order solutions by their hypervolume contribution to the shadow front (mode 'hypervolume').
+
+        Solutions inside the relaxation box (threshold-feasible on every
+        constraint) are mapped into a normalized shadow-front space: the
+        objective on one axis and the relaxation used on each constraint on the
+        others, all to be minimized. As in SMS-EMOA, these are first sorted into
+        non-dominated fronts, and the fronts are kept in order. Within each
+        front, solutions are ranked by their greedy hypervolume contribution to
+        that front (repeatedly dropping the least-contributing solution) with
+        respect to an online reference point (the per-population nadir,
+        expanded by ``eps`` on every axis). Without the fronts, every dominated
+        solution would contribute zero and be ordered by its objective alone.
+        The two end points of the shadow front lie on the first front and are
+        dropped from it last. Fronts are ranked only until the population is
+        full. Solutions outside the box follow, ordered by how far they lie
+        beyond the thresholds. The reference point is recomputed each call.
+
+        Args:
+            target_arr (np.ndarray): objective values to minimize, shape ``(n,)``.
+            c_mat (np.ndarray): constraint value matrix, shape ``(n, k)`` with ``k >= 1``.
+            eps (float | None): fractional outward expansion of the reference point on each axis;
+                defaults to ``self.hv_eps``.
+
+        Returns:
+            np.ndarray: indices ordered best to worst, truncated to ``self.population_size``.
+        """
+        if eps is None:
+            eps = self.hv_eps
+        t = self.constraint_thresholds  # (k,), aligned with c_mat columns
+
+        # Threshold-feasible (inside the relaxation box) vs. beyond-threshold.
+        inside = np.all(c_mat <= t[None, :], axis=1)
+        idx_in = np.where(inside)[0]
+        idx_out = np.where(~inside)[0]
+
+        # Beyond-threshold solutions: ordered by how far they lie outside the box (existing rule).
+        if idx_out.size > 0:
+            v_beyond = np.maximum(0.0, c_mat[idx_out] - t[None, :])
+            out_order = idx_out[self._order_by_objective_then_violation(target_arr[idx_out], v_beyond)]
+        else:
+            out_order = np.empty(0, dtype=int)
+
+        if idx_in.size == 0:
+            return out_order[: self.population_size].astype(int)
+
+        # Map the in-box solutions into normalized shadow-front space (all axes minimized).
+        f = target_arr[idx_in]
+        f_range = f.max() - f.min()
+        f_norm = (f - f.min()) / f_range if f_range > 0 else np.zeros_like(f)
+
+        r = np.maximum(0.0, c_mat[idx_in])  # relaxation used per constraint, (|in|, k)
+        t_safe = np.where(t > 0.0, t, 1.0)
+        r_norm = r / t_safe[None, :]
+        r_norm[:, t <= 0.0] = 0.0
+
+        pts = np.column_stack([f_norm, r_norm])  # (|in|, k + 1)
+        ref = np.full(pts.shape[1], 1.0 + eps)
+
+        # The shadow-front endpoints define the shadow price, but hypervolume under-weights extreme
+        # points; protect them from removal until last: the best objective in the box (threshold-
+        # optimum end) and the best strictly-feasible objective (strict-optimum end). They are taken
+        # from the first front's members: with ties in the objective, the first minimizer over the
+        # whole box can be dominated by a tied solution that uses less relaxation.
+        strict = np.all(c_mat[idx_in] <= 0.0, axis=1)
+        in_local: list[int] = []
+        for front_index, front in enumerate(fast_non_dominated_sort(pts)):
+            if len(in_local) >= self.population_size:
+                # The population is full; later fronts would be truncated anyway.
+                break
+            members = np.where(front)[0]
+            front_protect: set[int] = set()
+            if front_index == 0:
+                front_protect.add(int(np.argmin(f[members])))
+                strict_pos = np.where(strict[members])[0]
+                if strict_pos.size > 0:
+                    front_protect.add(int(strict_pos[int(np.argmin(f[members][strict_pos]))]))
+            peel = self._greedy_hv_peel(pts[members], ref, front_protect, f[members])
+            in_local.extend(members[peel].tolist())
+        in_order = idx_in[np.asarray(in_local, dtype=int)]
+
+        return np.concatenate([in_order, out_order])[: self.population_size].astype(int)
+
+    @staticmethod
+    def _greedy_hv_peel(pts: np.ndarray, ref: np.ndarray, protect: set[int], tiebreak: np.ndarray) -> np.ndarray:
+        """Greedy SMS-EMOA-inspired ordering by hypervolume contribution.
+
+        Repeatedly removes the least-contributing point, recomputing all
+        contributions after each removal, so the survival order reflects each
+        point's marginal value to the shrinking set rather than a single static
+        score. Points in ``protect`` are removed only once nothing else remains.
+        Ties in contribution are broken by ``tiebreak`` (smaller value survives
+        longer).
+
+        Args:
+            pts (np.ndarray): points in the normalized objective space, shape ``(m, d)``.
+            ref (np.ndarray): reference point, shape ``(d,)``.
+            protect (set[int]): local indices to remove last (the shadow-front endpoints).
+            tiebreak (np.ndarray): per-point tie-break key, shape ``(m,)``; smaller is better.
+
+        Returns:
+            np.ndarray: local indices ordered best to worst.
+        """
+        m = pts.shape[0]
+        if m == 1:
+            return np.zeros(1, dtype=int)
+        alive = np.ones(m, dtype=bool)
+        removed_worst_first: list[int] = []
+        n_alive = m
+        while n_alive > 1:
+            ia = np.where(alive)[0]
+            contribs = np.asarray(hv_contributions(pts[ia], ref=ref), dtype=float)
+            # Worst first: least contribution, ties broken by larger tiebreak (worse objective).
+            for pos in np.lexsort((-tiebreak[ia], contribs)):
+                gi = int(ia[pos])
+                if gi not in protect or n_alive <= len(protect):
+                    removed_worst_first.append(gi)
+                    alive[gi] = False
+                    n_alive -= 1
+                    break
+        removed_worst_first.append(int(np.where(alive)[0][0]))
+        return np.array(removed_worst_first[::-1], dtype=int)
+
+    def compute_order(self, target_arr: np.ndarray, c_mat: np.ndarray) -> np.ndarray:
+        """Compute the selection order (best to worst) for given objective and constraint values.
+
+        This is the core ranking logic shared by every mode, factored out of ``do`` so it can
+        be reused to rank an arbitrary set of solutions (e.g. for analysis and plotting).
+
+        Args:
+            target_arr (np.ndarray): the (already de-duplicated) objective values to minimize, shape ``(n,)``.
+            c_mat (np.ndarray): the constraint value matrix, shape ``(n, k)``; use an ``(n, 0)`` array
+                when the problem has no constraints.
+
+        Raises:
+            ValueError: unsupported ``mode``.
+
+        Returns:
+            np.ndarray: indices of the selected solutions, ordered best to worst and truncated to
+                ``self.population_size``.
+        """
+        n = target_arr.shape[0]
+
+        if self.mode == "baseline":
+            # Full ordering: feasible-by-objective first, then infeasible by (breach count, sum normalized violation)
+            if c_mat.shape[1] == 0:
+                order_full = np.argsort(target_arr, kind="mergesort")
+            else:
+                v0 = self._build_violation_all_original(c_mat)  # (n, k)
+                order_full = self._order_by_objective_then_violation(target_arr, v0)
+
+            order = order_full[: self.population_size]
+
+        elif self.mode == "relaxed":
+            # first pool, ignores thresholds
+            pool_orders: list[np.ndarray] = []
+            if c_mat.shape[1] == 0:
+                # no constraints
+                pool0 = np.argsort(target_arr, kind="mergesort")
+                pool_orders.append(pool0.astype(int))
+            else:
+                # one or more constraints
+                v0 = self._build_violation_all_original(c_mat)
+                pool0 = self._order_by_objective_then_violation(target_arr, v0)
+                pool_orders.append(pool0)
+
+            # rest of pools, per-constraint threshold with all constraints enforced. A constraint
+            # with a zero threshold is not relaxed: its pool would duplicate the strict one.
+            for j in range(c_mat.shape[1]):
+                thr = float(self.constraint_thresholds[j])
+                if thr <= 0.0:
+                    continue
+                vj = self._build_violation_with_single_relaxation(c_mat, j, thr)
+                poolj = self._order_by_objective_then_violation(target_arr, vj)
+                pool_orders.append(poolj)
+
+            order = self._round_robin_from_pools(pool_orders, self.population_size)
+
+        elif self.mode == "joint":
+            v0 = self._build_violation_all_original(c_mat)
+            pool_orders = [self._order_by_objective_then_violation(target_arr, v0)]
+            if c_mat.shape[1] > 0:
+                # Every constraint relaxed to its threshold at the same time.
+                v_joint = np.maximum(0.0, c_mat - self.constraint_thresholds[None, :])
+                pool_orders.append(self._order_by_objective_then_violation(target_arr, v_joint))
+            order = self._round_robin_from_pools(pool_orders, self.population_size)
+
+        elif self.mode == "ranking":
+            if c_mat.shape[1] == 0:
+                order = np.argsort(target_arr, kind="mergesort")[: self.population_size]
+            else:
+                # c + 1 rankings (orderings)
+                orderings: list[np.ndarray] = []
+
+                # First ranking with original constraints
+                v0 = self._build_violation_all_original(c_mat)
+                ord0 = self._order_by_objective_then_violation(target_arr, v0)
+                orderings.append(ord0)
+
+                # Remaining ranking, each constraint with its threshold (all constraints enforced, one
+                # relaxed). A constraint with a zero threshold is not relaxed: its ranking would
+                # duplicate the strict one.
+                for j in range(c_mat.shape[1]):
+                    thr = float(self.constraint_thresholds[j])
+                    if thr <= 0.0:
+                        continue
+                    vj = self._build_violation_with_single_relaxation(c_mat, j, thr)
+                    orderings.append(self._order_by_objective_then_violation(target_arr, vj))
+
+                # Convert to rank vectors (pseudo objective vectors)
+                rank_vectors = np.empty((n, len(orderings)), dtype=float)
+                for k, ordk in enumerate(orderings):
+                    r = np.empty(n, dtype=float)
+                    r[ordk] = np.arange(n, dtype=float)
+                    rank_vectors[:, k] = r
+
+                # Non-dominated sorting + niching within each front
+                fronts = fast_non_dominated_sort(rank_vectors)
+
+                front_ranks = [[i] * np.sum(row) for i, row in enumerate(fronts)]
+
+                f_mins = rank_vectors.min(axis=0)
+                f_maxs = rank_vectors.max(axis=0)
+                distances_raw = self._compute_niching_scores(fronts, rank_vectors, f_mins, f_maxs)
+
+                distance_ranks = [
+                    1
+                    - ((unique_vals_and_inv := np.unique(front_distances, return_inverse=True))[1] + 1)
+                    / (len(unique_vals_and_inv[0]) + 1)
+                    for front_distances in distances_raw
+                ]
+
+                fitness_combined = np.inf * np.ones(n)
+                for i, front in enumerate(fronts):
+                    fitness_combined[front] = front_ranks[i] + distance_ranks[i]
+
+                order = fitness_combined.argsort(kind="mergesort")[: self.population_size]
+
+        elif self.mode == "hypervolume":
+            if c_mat.shape[1] == 0:
+                # No constraints: no relaxation axis exists, fall back to objective ordering.
+                order = np.argsort(target_arr, kind="mergesort")[: self.population_size]
+            else:
+                order = self._hypervolume_order(target_arr, c_mat)
+
+        else:
+            raise ValueError(
+                f"Unsupported mode '{self.mode}'. Expected one of: baseline, relaxed, ranking, hypervolume, joint."
+            )
+
+        return np.atleast_1d(order).astype(int)
+
+    def do(
+        self, parents: tuple[SolutionType, pl.DataFrame], offsprings: tuple[SolutionType, pl.DataFrame]
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Run the operator.
+
+        Args:
+            parents (tuple[SolutionType, pl.DataFrame]): parent population.
+            offsprings (tuple[SolutionType, pl.DataFrame]): offspring population.
+
+        Raises:
+            ValueError: unsupported `mode`.
+
+        Returns:
+            tuple[SolutionType, pl.DataFrame]: a new population selected from the parent and offspring populations.
+        """
+        target_col = self.target_objective_symbol + "_min"
+
+        solutions = parents[0].vstack(offsprings[0])
+        population = parents[1].vstack(offsprings[1])
+
+        target_arr = population[target_col].to_numpy()
+        n = population.shape[0]
+
+        # Constraints matrix (n, k). If no constraints, treat as empty.
+        if len(self.constraint_symbols) > 0:
+            c_mat = population.select(self.constraint_symbols).to_numpy()
+        else:
+            c_mat = np.zeros((n, 0), dtype=float)
+
+        # Remove duplicates in decision space before any ranking
+        dec_mat = solutions.select(self.variable_symbols).to_numpy()
+        unique_mask = self._decision_unique_mask(dec_mat)
+        unique_idx = np.where(unique_mask)[0].tolist()
+        solutions = solutions[unique_idx]
+        population = population[unique_idx]
+        target_arr = target_arr[unique_mask]
+        if c_mat.shape[1] > 0:
+            c_mat = c_mat[unique_mask]
+
+        order = self.compute_order(target_arr, c_mat)
+        # SELECTED_FITNESS is read as higher-is-better by the mating tournament: the best-ranked
+        # selected solution gets len(order), the worst gets 1.
+        fitness = (len(order) - np.arange(len(order))).astype(float)
+
+        return self._finish(solutions, population, order.tolist(), fitness)
