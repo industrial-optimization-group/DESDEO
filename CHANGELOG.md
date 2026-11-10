@@ -54,6 +54,410 @@ This project follows **Keep a Changelog** and **Semantic Versioning**:
 
 ---
 
+## [2.9.0] - 10.11.2026
+
+### Highlights
+
+This release adds several evolutionary algorithms (SPEA2, AGE-MOEA-II,
+Modified WASF-GA) and `SingleObjectiveConstrainedRankingSelector` for
+single-objective constrained problems, and extends CUMULUS with uncertainty
+measures and feasibility checks of problem modifications. In the Web GUI, it
+fixes a cross-site scripting vulnerability in the math input (mathlive). Some
+changes break existing code or change results:
+
+- `Constraint.is_linear` now defaults to `False`, and `is_linear=True` forces
+  `is_convex` and `is_twice_differentiable` to `True`. This can change which
+  solver is picked for problems that do not state their constraints'
+  linearity.
+- The CUMULUS endpoints no longer accept `hard_constraints`, and their
+  solution lists no longer carry `variable_values`. `CumulusModificationState`
+  gains two columns and `CumulusObjectiveConstraintState` loses
+  `hard_constraint_ids`, so existing databases need a migration or a rebuild.
+- `solver_options` was added to the NAUTILUS and NAUTILI functions ahead of
+  existing parameters, so `nautilus_step` and `nautili_step` calls that pass
+  `points` or `group_improvement_direction` positionally break.
+- Scenario aggregation now raises `ValueError` for a symbol missing from some
+  leaf scenarios, and the scenario symbol maps no longer list leaves that do
+  not carry an element.
+- Results change for STOM with maximized objectives, for `add_asf_nondiff`
+  with `reference_in_aug=True`, for CVaR of maximized objectives, and for EA
+  runs that hit the clip repair defect.
+
+### Core logic
+
+#### Added
+
+- Added SPEA2 (Zitzler, Laumanns and Thiele 2001): `SPEA2Selector`,
+  `SPEA2SelectorOptions`, `spea2_options` and `spea2_mixed_integer_options`. The
+  archive size is the selector's `population_size` and the population size is
+  the mating tournament's `winner_size`, both 100 in `spea2_options`. On
+  constrained problems the strengths and raw fitness use constrained domination,
+  which is DESDEO's addition.
+- Added AGE-MOEA-II (Panichella 2022): `AGEMOEA2Selector`,
+  `AGEMOEA2SelectorOptions`, `agemoea2_options` and
+  `agemoea2_mixed_integer_options`. The environmental selection is ported from
+  the author's replication package (the code PlatEMO 4.15 ships), follows that
+  code where it departs from the 2019 and 2022 papers, and gives the same
+  survivors, scores and curvature as the MATLAB code run in Octave. It does not
+  round the objectives to 12 decimals as the author's code does.
+  `agemoea2_options` starts from a Latin hypercube sample instead of the paper's
+  random population. On 3-objective DTLZ4 this reached the whole front on 10 of
+  20 seeds, against 4 of 20.
+- Added Modified WASF-GA, the evolutionary part of IRA-EMO (Saborido, Ruiz,
+  Luque and Miettinen 2019): `ModifiedWASFGASelector`,
+  `ModifiedWASFGASelectorOptions`, `modified_wasfga_options` and
+  `modified_wasfga_mixed_integer_options`. Parents and offspring are sorted into
+  fronts by an achievement scalarizing function with two reference points, an
+  aspiration point and a reservation point. They are given as a
+  `DesirableRangesOptions` preference with the new method `"Modified WASF-GA"`;
+  without a preference they are the ideal and nadir points estimated during the
+  run, as in Global WASF-GA. The defaults follow the authors' reference code
+  (population and weight vectors 100, 200 generations, `rho` 0.001, a dominance
+  tournament). Where DESDEO departs from that code (normalization of the
+  reservation ASF, weights for three or more objectives, constraint handling) is
+  documented in the class docstring.
+- Added `SingleObjectiveConstrainedRankingSelector` with
+  `SingleObjectiveConstrainedRankingSelectorOptions`, an environmental
+  selection operator for single-objective constrained problems. Besides the
+  constrained optimum it records what relaxing the constraints up to given
+  thresholds would gain, in five modes: `baseline`, `relaxed`, `joint`,
+  `ranking` and `hypervolume`.
+- Added MOEA/D (Zhang and Li 2007) and MOEA/D-DE (Li and Zhang 2009), shipped
+  disabled: `MOEADSelector` (Tchebycheff, PBI and weighted-sum aggregation),
+  `MOEADSelectorOptions`, `moead_scalarize`, the template `template_moead` with
+  `TemplateMOEADOptions`, and the factories `moead_options`, `moead_de_options`
+  and `moead_mixed_integer_options` are public, but constructing
+  `MOEADSelector` raises `NotImplementedError` until the implementation has
+  been checked.
+- Added HypE (Bader and Zitzler 2011), shipped disabled: `HypESelector`,
+  `HypESelectorOptions`, `hype_options` and `hype_mixed_integer_options` are
+  public, but constructing `HypESelector` raises `NotImplementedError`.
+- Added `comparison` to `TournamentSelection` and
+  `TournamentSelectionOptions`. `"dominance"` draws the winner uniformly from
+  the members that no other member dominates under constrained domination, and
+  ignores the published fitness. Defaults to `"fitness"`, which keeps every
+  existing algorithm's behaviour. `RouletteWheelSelectionOptions` accepts only
+  `"fitness"`. `scalar_selector_constructor` takes a new optional `problem`
+  argument, which a dominance tournament needs and `emo_constructor` passes.
+- Added `base_vector` to `DifferentialEvolutionCrossover` and
+  `DifferentialEvolutionCrossoverOptions`. `"target"` adds the scaled difference
+  to the target itself, `x_i + F * (x_r2 - x_r3)`, as MOEA/D-DE does (Li and
+  Zhang 2009). Defaults to `"random"` (DE/rand/1), which gives the same
+  offspring as before.
+- Added `dominance_matrix`, the pairwise Pareto dominance relation of a
+  population, and `constrained_fronts`, non-dominated sorting under the
+  constrained domination of Deb et al. (2002), to
+  `desdeo.tools.non_dominated_sorting`.
+- Exported `Template3Options` and `SMSEMOASelectorOptions` from `desdeo.emo`
+  (in `templates` and `selection`), and added `sms_emoa_options` to the
+  `__all__` of `desdeo.emo.options.algorithms`.
+- Added the serialized templates `spea2`, `spea2_mixed_integer`, `agemoea2`
+  and `agemoea2_mixed_integer` to `datasets/emoTemplates`, and the new options
+  to `emoOptionsSchema.json`.
+- Added `determine_problem_properties` and `determine_function_properties` to
+  `desdeo.problem.utils`, also exported from `desdeo.problem`. They derive the
+  `is_linear`, `is_convex` and `is_twice_differentiable` flags of a problem's
+  analytical functions (objectives, constraints, extra and scalarization
+  functions) from their expressions. Linearity and convexity are checked with
+  cvxpy's DCP rules. Twice differentiability is ruled out by any `Abs`, `Max`,
+  `Min`, `Ceil` or `Floor`, including in referenced functions. The checks are
+  conservative: a convex function may be reported as not convex, but not the
+  reverse. An equality constraint counts as convex only when it is affine.
+  `determine_function_properties` updates one function by symbol and leaves
+  the other flags untouched (#610).
+- Added `is_heuristic_solver`, exported from `desdeo.tools`, and a `heuristic`
+  key on every entry of `available_solvers` (`True` for `scipy_de` and
+  `nevergrad`), to mark solvers whose results are not guaranteed optimal
+  (#610).
+- Added a keyword-only `require_success` to `payoff_table_method`. When it is
+  set, a failed solve or a non-finite objective value, e.g. from an unbounded
+  objective, raises `ValueError` instead of entering the table. Defaults to
+  `False` (#610).
+- Added `soft_constraint_violations` to `desdeo.mcdm.cumulus`. It returns how
+  much each soft constraint was relaxed in a `SolverResults`, by reading the
+  slack variables that `add_soft_constraint` adds (#610).
+- Added a `solver_options` parameter to `nautilus_init`, `nautilus_step`,
+  `nautili_init`, `nautili_step`, `nautili_all_steps`, NAUTILI's
+  `solve_reachable_bounds` and NAUTILUS's `solve_reachable_solution`. As in the
+  other methods, the options are passed to `solver` and ignored when `solver`
+  is `None`. Defaults to `None` (#589).
+- Added a `scenario_model` parameter to CUMULUS's `generate_starting_point`.
+  When it is given, the worst-case epigraph variables in the starting point are
+  tightened to the true worst case over the leaf scenarios, as
+  `solve_sub_problems` already does. Defaults to `None` (#589).
+- Added the how-to guide "How to add a solution description to a problem"
+  (`docs/howtoguides/solution_descriptions.md`), which explains how to define a
+  `SolutionDescriptionMetaData` and attach it to a problem. The web-GUI guide
+  now links to it (#619).
+
+#### Changed
+
+- `Constraint.is_linear` now defaults to `False` instead of `True`, so a
+  constraint is no longer assumed linear unless it says so. This can change
+  which solver `guess_best_solver` picks for problems whose constraints do not
+  state their linearity (#610).
+- Setting `is_linear=True` on an `Objective`, `Constraint`, `ExtraFunction` or
+  `ScalarizationFunction` now also sets `is_convex` and
+  `is_twice_differentiable` to `True`, whatever they were given as (#610).
+- An element of a problem may now reference earlier elements of its own kind:
+  an objective an earlier objective, an extra function, scalarization function
+  or constraint an earlier one of the same kind. This works in
+  `PolarsEvaluator`, `SympyEvaluator`, `CVXPYEvaluator` and
+  `GurobipyEvaluator`. Kinds are evaluated in the order extra functions,
+  objectives, scalarization functions, constraints. A constraint may therefore
+  reference a scalarization function, but nothing may reference a constraint
+  (#589).
+- `SympyEvaluator` now raises `SympyEvaluatorError` when an expression still
+  contains a symbol after substitution, typically a reference to an element
+  declared later. Previously such an expression was silently compiled into a
+  function that did not return a number. A scalarization function that
+  references a constraint is now rejected too (#589).
+- `build_combined_scenario_problem` now combines elements in the order they
+  are declared, and the kinds in evaluation order. Previously the order was not
+  deterministic. A per-leaf element may reference earlier per-leaf elements of
+  its own kind. `ScenarioModel` keeps the declaration order of the scenario
+  tree, which sets the order of the leaf scenarios (#589).
+- The symbol maps returned by `build_combined_scenario_problem` and
+  `build_scenario_symbol_maps` no longer list a leaf that does not carry an
+  element. Previously such a leaf was mapped to the original symbol.
+  `build_scenario_symbol_maps` now collects symbols from the leaf scenario
+  problems, so elements introduced only by a scenario are included (#589).
+- `add_expected_value`, `add_conditional_value_at_risk`,
+  `add_worst_case_robust`, `add_single_objective_worst_case_regret` and
+  `add_weighted_scenarios` now raise `ValueError` when the aggregated symbol is
+  not defined in every leaf scenario. Previously they aggregated over the subset
+  of scenarios that defined it. They also raise `ValueError` when an aggregated
+  constraint references an element that is evaluated after the aggregate
+  (#589).
+- CUMULUS's `generate_starting_point` now uses an augmentation coefficient
+  `rho` of 0.01 unless `scalarization_options` sets one. Previously the
+  scalarization's default of 1e-6 was used, so starting points may differ
+  (#589).
+- CUMULUS now warns when worst-case epigraph variables cannot be tightened
+  (no constraint values in the solver results, or no per-leaf bound
+  constraint), and when a `_t_` variable does not match a known epigraph name.
+  Tightening now works for any aggregate prefix (#589).
+- The violation objective added by `add_soft_constraint` is now flagged as
+  linear, convex and twice differentiable, with `ideal` 0 and a placeholder
+  `nadir` of 1. CUMULUS raises the nadir to the minimum total violation once
+  that is known, so the scalarizations are scaled over the actual range. This
+  also lets Ipopt solve soft-constrained smooth problems, which it refused
+  before (#610).
+- CUMULUS solutions computed with soft constraints no longer include the
+  internal violation objective in `optimal_objectives`. Its slack variables
+  are still in `optimal_variables` (#610).
+- `CVXPYSolver`, `ScipyMinimizeSolver` and `ScipyDeSolver` now accept
+  `options=None` and fall back to their default options (#589).
+- `template2` now raises `TypeError` unless its selector publishes the fitness
+  that the mating selection picks parents by, that is, unless it derives from
+  `_FitnessPublishingSelector` (IBEA, NSGA-II, SPEA2, AGE-MOEA-II, Modified
+  WASF-GA and `SingleObjectiveConstrainedRankingSelector`). All shipped
+  configurations satisfy this.
+- `IBEASelector` and `NSGA2Selector` now share their message handling with the
+  new selectors. Final populations are bit-identical to before. The
+  `selected_individuals` of IBEA's `STATE` message are now always row
+  positions in parents and offspring; before, the indicator branch gave a
+  boolean mask, taken over the feasible solutions only on constrained problems.
+  `IBEASelector` now accepts only polars DataFrames; its list path did not work
+  before either.
+- `SimulatorEvaluator` now builds its `PolarsEvaluator` once and reuses it,
+  instead of parsing every function of the problem on every call, and
+  `PolarsEvaluator` selects the variables in one operation when the problem has
+  no tensor variables. Evaluating one solution at a time is faster (1.85 to
+  1.48 ms on DTLZ2, 6.0 to 4.1 ms on a 30-variable LZ09 problem); outputs are
+  unchanged.
+
+#### Fixed
+
+- Fixed NAUTILUS and NAUTILI ignoring solver options (#589).
+- Fixed `CVXPYEvaluator` raising `AttributeError` for a scalar variable with
+  only a lower or only an upper bound. It used `cp.inf`, which does not exist
+  (#613).
+- Fixed `add_conditional_value_at_risk` being unbounded for maximized
+  objectives. For maximized objectives, CVaR now penalizes the lower tail
+  (`z_s >= eta - f_s`, CVaR = `eta - 1/(1-alpha) * sum p_s z_s`) and stays
+  maximized. Non-objective elements keep the minimization form (#613).
+- Fixed `add_stom_sf_diff` and `add_stom_sf_nondiff` dividing the augmentation
+  term by the uncorrected reference point. For maximized objectives this gave
+  wrong, possibly negative, augmentation weights, which could select a weakly
+  Pareto optimal solution. Results for problems with maximized objectives may
+  change (#613).
+- Fixed `add_asf_nondiff` with `reference_in_aug=True` appending a literal "1"
+  to the reference value of each minimized objective in the augmentation term
+  (10 became 101). Results with this option change (#613).
+- Fixed `build_combined_scenario_problem` giving variables added only through
+  scenario pools a single symbol shared by all leaves that carry them, and
+  leaving them out of `symbol_maps["variables"]`. They are now renamed per leaf
+  under the same `anticipation_stop` rules as base problem variables (#613).
+- Fixed `Extract` and `Exclude` in the polars evaluator returning list-typed
+  columns for one-dimensional tensors. They now return fixed-shape arrays, as
+  a plain tensor reference does, so arithmetic that mixes them with other
+  tensors works (#610).
+- Fixed clip repair (`desdeo.tools.utils.repair`, used by `ClipRepairOptions`)
+  transposing the offspring whenever there were as many offspring as decision
+  variables, e.g. 100 solutions on a 100-variable problem, and pairing a
+  variable with another variable's bounds when the bounds dictionaries listed
+  the variables in a different order than the offspring columns. Runs that hit
+  either case give different results now.
+- Fixed `IBEASelector` with a population seeded with fewer solutions than
+  `population_size`, as in the later rounds of interactive SCORE bands
+  sessions. It returned the short population unchanged without a fitness, so
+  the mating tournament raised "The fitness is not set". It now keeps parents
+  and offspring until the population is full.
+- Fixed `plot_score` drawing every SCORE band nearly black: the colors were
+  written as `rgba()` with matplotlib's 0 to 1 fractions, which Plotly reads on
+  a 0 to 255 scale.
+
+### Web API
+
+#### Added
+
+- Added `POST /session/activate` with `ActivateSessionRequest`
+  (`session_id`, default `None`). It makes one of the user's own interactive
+  sessions the active one, or clears the active session when `session_id` is
+  `None`, and returns the session's `InteractiveSessionInfo` or `null`.
+  Analysts and admins cannot activate other users' sessions; such a request
+  gets 404 (#625).
+- Added `active_session_id` to `UserPublic` (returned by `GET /user_info`),
+  default `None` (#625).
+- Added `GET /method/cumulus/scenario-availability`, which returns a
+  `CumulusScenarioAvailabilityResponse` (`available`, `base_problem_id`,
+  `scenario_model_id`, `objective_symbols`, `applied_measures`). It tells
+  whether a problem, or the problem it was combined from, has a scenario
+  model, and which uncertainty measures are already applied (#610).
+- Added `POST /method/cumulus/apply-scenario-measures`. It takes a
+  `CumulusInitializationRequest` with non-empty `uncertainty_measures`,
+  always builds a new combined scenario problem from the base problem, and
+  starts CUMULUS on it, even when CUMULUS has already been initialized. It
+  returns a `CumulusInitializationResponse` (#610).
+- Added `GET /method/cumulus/objective-constraint`, which returns the soft
+  objective constraints in effect as a
+  `CumulusActiveObjectiveConstraintsResponse` (a list of
+  `CumulusObjectiveConstraintInfo`: `name`, `symbol`, `cons_type`, `func`)
+  (#610).
+- Added `current_solution_feasible` (default `True`) and `problem_deleted`
+  (default `False`) to `CumulusModificationResponse` and
+  `CumulusModificationState`, returned by `POST /method/cumulus/modify-problem`
+  and `GET /method/cumulus/modify-problem/status/{state_id}` (#610).
+- Added `SolutionReferenceResponseLite`, which is `SolutionReferenceResponse`
+  without `variable_values` (#610).
+- `POST /method/cumulus/solve` now warns which soft objective constraints
+  could not be met and by how much they were relaxed (#610).
+
+#### Changed
+
+- The saved solutions returned by the NIMBUS, XNIMBUS and CUMULUS endpoints
+  now contain only those saved in the user's active session. A save belongs to
+  the session of the state that saved it, or else of the state it came from.
+  Previously all of the user's saves for the problem were listed (#625).
+- `POST /solution-description/get` now describes saved CUMULUS solutions
+  (`CumulusSaveState`) in the same way as saved NIMBUS solutions; previously it
+  returned `available=false`. For both, the saved objective values are now
+  available to the description along with the variables, and
+  `solution.solution_index` selects the saved solution. Previously the first
+  one was always used (#619).
+- `POST /method/cumulus/modify-problem` now checks in the background that the
+  modified problem is feasible and bounded, and discards it otherwise. It
+  first looks for a current solution that satisfies the changed constraints,
+  then tries one solve that minimizes the violation of the changed
+  constraints, then runs the payoff table with `require_success=True`. A
+  modification that fails, or whose checks cannot be completed, has its
+  problem deleted, and the status endpoint reports `problem_deleted` and the
+  reason in `error`. The checks are conservative. With a heuristic solver, any
+  positive violation, or any variable without finite bounds, gets the
+  modification rejected. Changing variables, constants, objectives or extra
+  functions of a problem with simulator or surrogate constraints is always
+  rejected. The modified problem stays `is_temporary` until it passes.
+  Previously, a payoff table failure was only reported in `error` and the
+  problem was kept (#610).
+- Objective constraints in CUMULUS are now only soft. Hard bounds go through
+  `POST /method/cumulus/modify-problem`.
+  `POST /method/cumulus/objective-constraint` no longer takes
+  `hard_constraints`. `hard_constraint_ids` is removed from
+  `CumulusObjectiveConstraintRequest`, `CumulusObjectiveConstraintResponse`,
+  `CumulusInitializationResponse` and `CumulusObjectiveConstraintState`
+  (#610).
+- The `current_solutions`, `saved_solutions` and `all_solutions` lists of the
+  CUMULUS responses (`CumulusClassificationResponse`,
+  `CumulusInitializationResponse`, `CumulusIntermediateSolutionResponse`, and
+  `saved_solutions` and `all_solutions` of `CumulusFinalizeResponse`) are now
+  `SolutionReferenceResponseLite` and no longer carry `variable_values`. This
+  keeps responses small. `CumulusFinalizeResponse.final_solution` still
+  carries them (#610).
+- Constraints sent to `POST /method/cumulus/objective-constraint` or added
+  through `ProblemModification` that state none of `is_linear`, `is_convex`
+  and `is_twice_differentiable` now get those flags derived from their
+  expression, against the problem they are added to. Before, they all
+  defaulted to `False`, which could push the whole problem onto a
+  non-differentiable solver. Flags stated in the request are kept (#610).
+- The Cumulonimbus failure warning of `POST /method/cumulus/solve` now
+  explains that the reference point keeps some objectives from getting worse
+  (#610).
+
+#### Fixed
+
+- Fixed `POST /method/cumulus/get-or-initialize` returning the saved solutions
+  as the current ones when the latest CUMULUS state was a save (#610).
+- Fixed deleting a session that is its owner's active session leaving a
+  dangling `active_session_id`; the active session is now cleared (#625).
+- Fixed `ScenarioModelDB` round-trips scrambling scenario pools: indices into
+  pools that mix scalar and tensor constants or variables now resolve to the
+  same elements after reload, and pool relationships are loaded in insertion
+  order (#613).
+
+### Web GUI
+
+#### Added
+
+- Added the "Add uncertainty measures" action to the CUMULUS menu. It is
+  enabled when the problem has scenarios, and builds or rebuilds the combined
+  scenario problem with a new set of measures at any point in the method. The
+  measures already applied are preselected (#610).
+- Added a `required` option to the input dialog, which disables confirming a
+  blank value. Saving a CUMULUS solution now requires a name (#610).
+
+#### Changed
+
+- Selecting a session (or "None") on the Sessions page now activates it in the
+  backend, so methods resume and record their states in it. Previously only a
+  browser-side store changed. Creating a session for oneself also selects it,
+  and only one's own sessions can be selected (#625).
+- The CUMULUS objective constraint dialog now offers only soft `<=0` and `=0`
+  constraints. The hard options are gone. The dialog opens on the constraints
+  in effect, loaded from the backend, and applying an empty list clears them
+  (#610).
+- CUMULUS error and warning alerts no longer disappear after five seconds.
+  Alerts now have a close button whenever closing has an effect, and keep the
+  line breaks of their message (#610).
+- Updated `sveltekit-superforms` to 3.1.0 and `formsnap` to 2.1.0, which need
+  Svelte 5.57 or later, and the patch and minor versions of the other
+  dependencies. `webui/package-lock.json` is in sync with `package.json` again,
+  so `npm ci` works.
+
+#### Removed
+
+- Removed the inactive "Modify problem" item from the CUMULUS menu (#610).
+
+#### Fixed
+
+- Fixed the problems page hiding problems shared with non-analyst users
+  through a group. The owner filter now applies only to analysts and admins
+  (#613).
+- Fixed the validated text box in the preferences sidebar overwriting the
+  value while it was being typed with the parent's formatted echo (e.g. `2`
+  becoming `2.00`) (#610).
+
+#### Security
+
+- Updated `mathlive` to 0.110.0, which fixes a cross-site scripting
+  vulnerability: LaTeX text-mode content (`\text{}`, `\mbox{}`) was inserted
+  into the rendered HTML and MathML without escaping, so input such as
+  `\text{<img src=x onerror=...>}` could run JavaScript. mathlive now brings
+  its own `@cortex-js/compute-engine` 0.58.0; the web GUI's own use of the
+  compute engine stays on 0.30.2.
+
+---
+
 ## [2.8.0] - 13.10.2026
 
 ### Highlights

@@ -952,8 +952,8 @@ class Constraint(BaseModel):
         " not assumed.",
         default=False,
     )
-    """Whether the constraint is linear or not. Defaults to True, e.g., a linear
-    constraint is assumed. Defaults to `True`."""
+    """Whether the constraint is linear or not. Defaults to `False`, e.g., the
+    linearity of a constraint is not assumed."""
     is_convex: bool = Field(
         description="Whether the function expression is convex or not (non-convex). Defaults to `False`.", default=False
     )

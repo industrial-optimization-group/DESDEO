@@ -63,8 +63,10 @@ def test_relaxed_zero_threshold_gets_no_pool():
 @pytest.mark.ea
 @pytest.mark.parametrize("mode", ["relaxed", "ranking"])
 def test_zero_threshold_constraint_adds_no_ranking(mode):
-    """A constraint with a zero threshold gets no ranking of its own: the mode builds the strict ranking
-    and one ranking per constraint with a positive threshold."""
+    """A constraint with a zero threshold gets no ranking of its own.
+
+    The mode builds the strict ranking and one ranking per constraint with a positive threshold.
+    """
     rng = np.random.default_rng(3)
     f = rng.normal(size=30)
     c = rng.normal(size=(30, 3)) * 0.5

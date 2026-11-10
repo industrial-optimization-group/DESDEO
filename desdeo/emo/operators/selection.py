@@ -3809,7 +3809,7 @@ class SingleObjectiveConstrainedRankingSelector(_FitnessPublishingSelector):
         removed_worst_first.append(int(np.where(alive)[0][0]))
         return np.array(removed_worst_first[::-1], dtype=int)
 
-    def compute_order(self, target_arr: np.ndarray, c_mat: np.ndarray) -> np.ndarray:
+    def compute_order(self, target_arr: np.ndarray, c_mat: np.ndarray) -> np.ndarray:  # noqa: C901
         """Compute the selection order (best to worst) for given objective and constraint values.
 
         This is the core ranking logic shared by every mode, factored out of ``do`` so it can
