@@ -75,7 +75,7 @@
     "@types/leaflet": "^1.9.21",
     "@types/node": "^24.7.1",
     "@vitest/browser": "^4.1.11",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^5.1.0",
     "clsx": "^2.1.1",
     "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.1.8",
