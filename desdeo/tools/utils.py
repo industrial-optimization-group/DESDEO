@@ -39,42 +39,63 @@ available_solvers = {
     "scipy_minimize": {
         "constructor": ScipyMinimizeSolver,
         "options": ScipyMinimizeOptions,
+        "heuristic": False,
     },
     "scipy_de": {
         "constructor": ScipyDeSolver,
         "options": ScipyDeOptions,
+        "heuristic": True,
     },
     "proximal": {
         "constructor": ProximalSolver,
         "options": None,
+        "heuristic": False,
     },
-    "nevergrad": {"constructor": NevergradGenericSolver, "options": NevergradGenericOptions},
+    "nevergrad": {
+        "constructor": NevergradGenericSolver,
+        "options": NevergradGenericOptions,
+        "heuristic": True,
+    },
     "pyomo_bonmin": {
         "constructor": PyomoBonminSolver,
         "options": BonminOptions,
+        "heuristic": False,
     },
     "pyomo_cbc": {
         "constructor": PyomoCBCSolver,
         "options": CbcOptions,
+        "heuristic": False,
     },
     "pyomo_ipopt": {
         "constructor": PyomoIpoptSolver,
         "options": IpoptOptions,
+        "heuristic": False,
     },
-    "pyomo_gurobi": {"constructor": PyomoGurobiSolver, "options": None},
+    "pyomo_gurobi": {"constructor": PyomoGurobiSolver, "options": None, "heuristic": False},
     "gurobipy": {
         "constructor": GurobipySolver,
         "options": None,
+        "heuristic": False,
     },
     "gurobipy_persistent": {
         "constructor": PersistentGurobipySolver,
         "options": None,
+        "heuristic": False,
     },
     "cvxpy": {
         "constructor": CVXPYSolver,
         "options": CVXPYSolverOptions,
+        "heuristic": False,
     },
 }
+"""Solvers by name. `heuristic` marks stochastic ones, whose results are not guaranteed optimal."""
+
+
+def is_heuristic_solver(solver) -> bool:
+    """Whether `solver` (a solver class) is one of the heuristic solvers in `available_solvers`."""
+    return isinstance(solver, type) and any(
+        issubclass(solver, entry["constructor"]) for entry in available_solvers.values() if entry["heuristic"]
+    )
 
 
 def find_compatible_solvers(problem: Problem) -> list[BaseSolver]:
@@ -344,12 +365,19 @@ def flip_maximized_objective_values(problem: Problem, objective_values: dict[str
     }
 
 
-def payoff_table_method(problem: Problem, solver: BaseSolver = None) -> tuple[dict[str, float], dict[str, float]]:
+def payoff_table_method(
+    problem: Problem, solver: BaseSolver = None, *, require_success: bool = False
+) -> tuple[dict[str, float], dict[str, float]]:
     """Solves a representation for the ideal and nadir points for a multiobjective optimization problem.
 
     Args:
         problem (Problem): The problem for which the ideal and nadir are solved.
         solver (BaseSolver): The solver to be used in solving the points. Defaults to None.
+        require_success (bool): raise instead of using the result when a solve is unsuccessful or
+            yields non-finite objective values, e.g. because an objective is unbounded. Defaults to False.
+
+    Raises:
+        ValueError: `require_success` is set and a solve failed.
 
     Returns:
         tuple[dict[str, float], dict[str, float]]: The estimated ideal and nadir points.
@@ -361,7 +389,14 @@ def payoff_table_method(problem: Problem, solver: BaseSolver = None) -> tuple[di
     po_table = np.zeros((k, k))
 
     for i in range(k):
-        res = solver.solve(f"{problem.objectives[i].symbol}_min")
+        symbol = problem.objectives[i].symbol
+        res = solver.solve(f"{symbol}_min")
+        values = [res.optimal_objectives.get(obj.symbol) for obj in problem.objectives]
+        if require_success and (
+            not res.success or not all(isinstance(v, int | float) and np.isfinite(v) for v in values)
+        ):
+            msg = f"Optimizing objective '{symbol}' failed ({res.message}); it may be unbounded."
+            raise ValueError(msg)
         for j in range(k):
             po_table[i][j] = res.optimal_objectives[problem.objectives[j].symbol]
 

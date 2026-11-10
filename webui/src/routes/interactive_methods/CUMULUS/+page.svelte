@@ -40,11 +40,13 @@
 
 	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
 	import type { Response, MapState } from './types';
+	import type { PageProps } from './$types';
+	import type { TableData } from '../GNIMBUS/types';
 
 	let current_state: Response = $state({} as Response);
 
 	let problem: ProblemInfo | null = $state(null);
-	const { data } = $props<{ data: ProblemInfo[] }>();
+	const { data }: PageProps = $props();
 	let problem_list = $derived(data.problems ?? []);
 
 	let selected_type_solutions = $state('current');
@@ -108,20 +110,25 @@
 	let warning_message: string | null = $state(null);
 
 	// Objective constraint dialog state
-	type ConstraintType = '<=0' | '=0' | '<=0 (soft)' | '=0 (soft)';
+	type ConstraintType = '<=0' | '=0';
 	interface ObjectiveConstraint {
 		id: number;
 		func: string;
 		type: ConstraintType;
 	}
-	const CONSTRAINT_TYPES: ConstraintType[] = ['<=0', '=0', '<=0 (soft)', '=0 (soft)'];
+	const CONSTRAINT_TYPES: ConstraintType[] = ['<=0', '=0'];
 	let show_constraint_dialog = $state(false);
 	let constraint_obj_filter: 'active' | 'all' = $state('active');
 	let pending_constraints: ObjectiveConstraint[] = $state([]);
+	// The list in effect on the backend; the dialog opens on a copy of it.
+	let applied_constraints: ObjectiveConstraint[] = $state([]);
 	let next_constraint_id = $state(0);
 
 	function add_constraint() {
-		pending_constraints = [...pending_constraints, { id: next_constraint_id++, func: '', type: '<=0' }];
+		pending_constraints = [
+			...pending_constraints,
+			{ id: next_constraint_id++, func: '', type: '<=0' }
+		];
 	}
 
 	function remove_constraint(id: number) {
@@ -130,31 +137,76 @@
 
 	async function apply_constraints() {
 		if (!problem) return;
+
 		const result = await setObjectiveConstraintsRequest(
 			problem,
 			current_state.state_id ?? null,
 			pending_constraints
 		);
-		if (result) show_constraint_dialog = false;
+		if (!result) return;
+		applied_constraints = pending_constraints.map((c) => ({ ...c }));
+		show_constraint_dialog = false;
+	}
+
+	async function load_constraints() {
+		if (!problem) return;
+		const constraints = await getObjectiveConstraintsRequest(problem.id);
+		if (!constraints) return;
+		applied_constraints = constraints.map((c) => ({ id: next_constraint_id++, ...c }));
+	}
+
+	function open_constraint_dialog() {
+		pending_constraints = applied_constraints.map((c) => ({ ...c }));
+		show_constraint_dialog = true;
 	}
 
 	function cancel_constraints() {
-		pending_constraints = [];
 		show_constraint_dialog = false;
 	}
 
 	// Scenario setup dialog state
 	let show_scenario_setup_dialog = $state(false);
+	// 'initial': shown automatically on first load of a scenario-bearing problem.
+	// 'reopen': opened later from the "Add uncertainty measures" menu action, either to add
+	// measures that were declined initially, or to rebuild the combined problem with different ones.
+	let scenario_setup_mode: 'initial' | 'reopen' = $state('initial');
 	let pending_scenario_model_id = $state(0);
 	let pending_objective_symbols: string[] = $state([]);
 	const AVAILABLE_MEASURES: { value: MeasureType; label: string }[] = [
 		{ value: 'expected_value', label: 'Expected value (E_)' },
 		{ value: 'worst_case_robust', label: 'Worst-case robust (robust_)' },
-		{ value: 'conditional_value_at_risk', label: 'Conditional Value at Risk (CVaR, α = 95%)' },
+		{ value: 'conditional_value_at_risk', label: 'Conditional Value at Risk (CVaR, α = 95%)' }
 	];
 	let selected_measures: MeasureType[] = $state(['expected_value']);
 	let cvar_alpha = $state(0.95);
 	let combined_problem_name = $state('');
+
+	// Whether the current problem (or the base problem it was combined from) has scenarios at
+	// all — gates whether "Add uncertainty measures" is enabled in the hamburger menu.
+	let scenario_availability: CumulusScenarioAvailabilityResponse | null = $state(null);
+
+	async function refresh_scenario_availability() {
+		if (!problem) {
+			scenario_availability = null;
+			return;
+		}
+		scenario_availability = await checkScenarioAvailabilityRequest(problem.id);
+	}
+
+	function open_add_uncertainty_measures() {
+		if (!problem || !scenario_availability?.available) return;
+		pending_scenario_model_id = scenario_availability.scenario_model_id!;
+		pending_objective_symbols = scenario_availability.objective_symbols ?? [];
+		const applied = scenario_availability.applied_measures ?? [];
+		selected_measures =
+			applied.length > 0
+				? [...(applied as MeasureType[])]
+				: ['expected_value', 'worst_case_robust'];
+		cvar_alpha = 0.95;
+		combined_problem_name = `${problem.name} (combined)`;
+		scenario_setup_mode = 'reopen';
+		show_scenario_setup_dialog = true;
+	}
 
 	$effect(() => {
 		if (problem && active_objective_symbols.size === 0) {
@@ -242,37 +294,58 @@
 
 	async function confirm_scenario_setup() {
 		show_scenario_setup_dialog = false;
+		if (!problem) return;
 		if (selected_measures.length === 0) {
-			// No measures chosen — treat as "use plain problem"
-			const plainResult = await initializeCumulusStateRequest(problem?.id!, true);
-			if (plainResult) await apply_initialization_result(plainResult);
+			// No measures chosen — treat as "use plain problem". Only meaningful on first load;
+			// reopening from the menu with nothing selected is just a no-op cancel.
+			if (scenario_setup_mode === 'initial') {
+				const plainResult = await initializeCumulusStateRequest(problem.id, true);
+				if (plainResult) await apply_initialization_result(plainResult);
+				await refresh_scenario_availability();
+			}
 			return;
 		}
 		const measure_options: MeasureOptions = { cvar_alpha };
-		const scenarioResult = await initializeCumulusStateWithScenariosRequest(
-			problem?.id!,
-			pending_scenario_model_id,
-			pending_objective_symbols,
-			selected_measures,
-			measure_options,
-			combined_problem_name.trim() || undefined
-		);
+		const scenarioResult =
+			scenario_setup_mode === 'initial'
+				? await initializeCumulusStateWithScenariosRequest(
+						problem.id,
+						pending_scenario_model_id,
+						pending_objective_symbols,
+						selected_measures,
+						measure_options,
+						combined_problem_name.trim() ? combined_problem_name.trim() : undefined
+					)
+				: await applyScenarioMeasuresRequest(
+						problem.id,
+						pending_scenario_model_id,
+						pending_objective_symbols,
+						selected_measures,
+						measure_options,
+						combined_problem_name.trim() ? combined_problem_name.trim() : undefined
+					);
 		if (scenarioResult) {
 			await apply_initialization_result(scenarioResult);
 			show_objectives_dialog = true;
+			await refresh_scenario_availability();
 		}
 	}
 
 	async function cancel_scenario_setup() {
 		show_scenario_setup_dialog = false;
-		const plainResult = await initializeCumulusStateRequest(problem?.id!, true);
-		if (plainResult) await apply_initialization_result(plainResult);
+		if (!problem) return;
+		if (scenario_setup_mode === 'initial') {
+			const plainResult = await initializeCumulusStateRequest(problem.id, true);
+			if (plainResult) await apply_initialization_result(plainResult);
+			await refresh_scenario_availability();
+		}
 	}
 
 	function confirm_finish() {
 		const selectedSolution = chosen_solutions[selectedIndexes[0]];
 		const final_solution = { ...selectedSolution };
-		const solutionName = selectedSolution.name || `Solution #${selectedIndexes[0] + 1}`;
+		const solutionName =
+			blankToNull(selectedSolution.name) ?? `Solution #${selectedIndexes[0] + 1}`;
 
 		openConfirmDialog({
 			title: 'Confirm Final Choice',
@@ -280,7 +353,7 @@
 			confirmText: 'Yes, Proceed',
 			cancelText: 'Cancel',
 			confirmVariant: 'destructive',
-			onConfirm: () => handle_finish(final_solution, selectedIndexes[0])
+			onConfirm: () => void handle_finish(final_solution, selectedIndexes[0])
 		});
 	}
 
@@ -289,7 +362,7 @@
 			console.error('No previous preference values found for finishing.');
 			return;
 		}
-		const response = await handleFinishRequest(problem, final_solution, current_state.previous_preference);
+		const response = await handleFinishRequest(problem, final_solution);
 		if (response) {
 			selected_iteration_index = [index];
 			mode = 'final';
@@ -299,6 +372,7 @@
 	import {
 		handle_intermediate as handleIntermediateRequest,
 		handle_iterate as handleIterateRequest,
+		blankToNull,
 		handle_save as handleSaveRequest,
 		handle_remove_saved as handleRemoveSavedRequest,
 		handle_finish as handleFinishRequest,
@@ -306,11 +380,15 @@
 		get_solution_description as getSolutionDescriptionRequest,
 		initialize_cumulus_state as initializeCumulusStateRequest,
 		initialize_cumulus_state_with_scenarios as initializeCumulusStateWithScenariosRequest,
+		check_scenario_availability as checkScenarioAvailabilityRequest,
+		apply_scenario_measures as applyScenarioMeasuresRequest,
 		set_objective_constraints as setObjectiveConstraintsRequest,
+		get_objective_constraints as getObjectiveConstraintsRequest,
 		type MeasureType,
 		type MeasureOptions
 	} from './handlers';
 	import { getProblemProblemProblemIdGet } from '$lib/gen/endpoints/DESDEOFastAPI';
+	import type { CumulusScenarioAvailabilityResponse } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import EndStateView from '../GNIMBUS/components/EndStateView.svelte';
 
 	async function handle_intermediate() {
@@ -340,14 +418,15 @@
 			description: 'Enter a name for this solution.',
 			confirmText: 'Save',
 			cancelText: 'Cancel',
-			initialValue: solution.name || '',
+			initialValue: solution.name ?? '',
 			placeholder: 'Solution name',
-			onConfirm: (name) => handle_save(solution, name)
+			required: true,
+			onConfirm: (name) => void handle_save(solution, name.trim())
 		});
 	}
 
 	async function handle_save(solution: Solution, name: string | undefined) {
-		const solutionToSave = { ...solution, name: name || null };
+		const solutionToSave = { ...solution, name: blankToNull(name) };
 
 		const success = await handleSaveRequest(problem, solution, name);
 
@@ -368,7 +447,7 @@
 				updatedSavedSolutions = [...current_state.saved_solutions];
 				updatedSavedSolutions[existingIndex] = {
 					...updatedSavedSolutions[existingIndex],
-					name: name || null
+					name: blankToNull(name)
 				};
 			} else {
 				updatedSavedSolutions = [...current_state.saved_solutions, solutionToSave];
@@ -386,10 +465,10 @@
 	function confirm_remove_saved(solution: Solution) {
 		openConfirmDialog({
 			title: 'Remove Saved Solution',
-			description: `Are you sure you want to remove ${solution.name || 'this solution'} from saved solutions?`,
+			description: `Are you sure you want to remove ${blankToNull(solution.name) ?? 'this solution'} from saved solutions?`,
 			confirmText: 'Remove',
 			cancelText: 'Cancel',
-			onConfirm: () => handle_remove_saved(solution)
+			onConfirm: () => void handle_remove_saved(solution)
 		});
 	}
 
@@ -411,12 +490,7 @@
 		}
 	}
 
-	async function handle_iterate(_data: {
-		numSolutions: number;
-		typePreferences: string;
-		preferenceValues: number[];
-		objectiveValues: number[];
-	}) {
+	async function handle_iterate() {
 		if (!problem) {
 			console.error('No problem selected');
 			return;
@@ -444,7 +518,9 @@
 
 			if (current_state.current_solutions.length === 0) {
 				current_state = { ...current_state, current_solutions: prev_current_solutions };
-				const base = result.warnings?.length ? result.warnings.join('\n') : 'No feasible solutions were found.';
+				const base = result.warnings?.length
+					? result.warnings.join('\n')
+					: 'No feasible solutions were found.';
 				warning_message = base + '\nPrevious solutions are still shown.';
 			} else {
 				warning_message = result.warnings?.length ? result.warnings.join('\n') : null;
@@ -485,19 +561,12 @@
 					mapDescription: data.description
 				};
 
-				for (let year of newMapState.yearlist) {
-					if (data.options[year]?.tooltip?.formatterEnabled) {
-						data.options[year].tooltip.formatter = function (params: any) {
-							return `${params.name}`;
-						};
-					}
-				}
-
+				// get_maps has already set up the tooltip formatters.
 				newMapState.mapOptions = {
-					period1: data.options[newMapState.yearlist[0]] || {},
-					period2: data.options[newMapState.yearlist[1]] || {},
-					period3: data.options[newMapState.yearlist[2]] || {}
-				} as Record<PeriodKey, Record<string, any>>;
+					period1: data.options[newMapState.yearlist[0]] ?? {},
+					period2: data.options[newMapState.yearlist[1]] ?? {},
+					period3: data.options[newMapState.yearlist[2]] ?? {}
+				};
 
 				mapStates[solutionIndex] = newMapState;
 				if (solutionIndex === selected_iteration_index[0]) {
@@ -511,9 +580,9 @@
 
 	$effect(() => {
 		if (hasUtopiaMetadata && chosen_solutions.length > 0) {
-			mapStates = new Array(chosen_solutions.length);
+			mapStates = new Array<MapState>(chosen_solutions.length);
 			chosen_solutions.forEach((solution, index) => {
-				get_maps(solution, index);
+				void get_maps(solution, index);
 			});
 		}
 	});
@@ -528,14 +597,18 @@
 		}
 
 		const selectedSolution = chosen_solutions[selected_iteration_index[0]];
-		selected_iteration_objectives = selectedSolution.objective_values || {};
+		selected_iteration_objectives = selectedSolution.objective_values ?? {};
 
-		if (hasUtopiaMetadata && selected_iteration_index[0] >= 0 && mapStates[selected_iteration_index[0]]) {
+		if (
+			hasUtopiaMetadata &&
+			selected_iteration_index[0] >= 0 &&
+			mapStates[selected_iteration_index[0]]
+		) {
 			mapState = { ...mapStates[selected_iteration_index[0]] };
 		}
 
 		if (hasSolutionDescription && problem) {
-			getSolutionDescriptionRequest(problem, selectedSolution).then((desc) => {
+			void getSolutionDescriptionRequest(problem, selectedSolution).then((desc) => {
 				solutionDescription = desc;
 			});
 		}
@@ -543,7 +616,10 @@
 
 	function update_preferences_from_state(state: Response | null) {
 		if (!problem) return;
-		current_preference = updatePreferencesFromState(state as any, problem);
+		current_preference = updatePreferencesFromState(
+			state as unknown as Parameters<typeof updatePreferencesFromState>[0],
+			problem
+		);
 		last_iterated_preference = [...current_preference];
 	}
 
@@ -571,9 +647,10 @@
 
 	onMount(async () => {
 		if ($methodSelection.selectedProblemId) {
-			problem = problem_list.find(
-				(p: ProblemInfo) => String(p.id) === String($methodSelection.selectedProblemId)
-			);
+			problem =
+				problem_list.find(
+					(p: ProblemInfo) => String(p.id) === String($methodSelection.selectedProblemId)
+				) ?? null;
 
 			if (problem) {
 				hasUtopiaMetadata = checkUtopiaMetadata(problem);
@@ -594,11 +671,13 @@
 			selected_measures = ['expected_value', 'worst_case_robust'];
 			cvar_alpha = 0.95;
 			combined_problem_name = problem ? `${problem.name} (combined)` : '';
+			scenario_setup_mode = 'initial';
 			show_scenario_setup_dialog = true;
 			return;
 		}
 
 		await apply_initialization_result(result);
+		await refresh_scenario_availability();
 	}
 
 	async function apply_initialization_result(result: Response) {
@@ -607,7 +686,7 @@
 		if (result.problem_id && problem && result.problem_id !== problem.id) {
 			const resp = await getProblemProblemProblemIdGet(result.problem_id);
 			if (resp.status === 200 && resp.data) {
-				problem = resp.data as typeof problem;
+				problem = resp.data;
 				hasUtopiaMetadata = checkUtopiaMetadata(problem);
 				hasSolutionDescription = !hasUtopiaMetadata && checkSolutionDescription(problem);
 				active_objective_symbols = new Set(problem.objectives.map((o) => o.symbol));
@@ -638,6 +717,7 @@
 		if (current_state.response_type === 'cumulus.finalize') {
 			mode = 'final';
 		}
+		await load_constraints();
 	}
 
 	let type_preferences = $state(PREFERENCE_TYPES.ReferencePoint);
@@ -662,7 +742,10 @@
 
 <svelte:head>
 	<title>CUMULUS | DESDEO</title>
-	<meta name="description" content="This page implements the CUMULUS interactive multiobjective optimization method in DESDEO" />
+	<meta
+		name="description"
+		content="This page implements the CUMULUS interactive multiobjective optimization method in DESDEO"
+	/>
 </svelte:head>
 
 {#if $isLoading}
@@ -670,18 +753,15 @@
 {/if}
 
 {#if $errorMessage}
-	<Alert
-		title="Error"
-		message={$errorMessage}
-		variant='destructive'
-	/>
+	<Alert title="Error" message={$errorMessage} variant="destructive" timeout={0} />
 {/if}
 
 {#if warning_message}
 	<Alert
 		title="Warning"
 		message={warning_message}
-		variant='default'
+		variant="default"
+		timeout={0}
 		onClose={() => (warning_message = null)}
 	/>
 {/if}
@@ -704,7 +784,6 @@
 									filtered_problem
 								)}
 								externalSelectedIndexes={selected_iteration_index}
-								onSelectSolution={() => {}}
 							/>
 						</Resizable.Pane>
 
@@ -736,7 +815,10 @@
 		{/snippet}
 		{#snippet numericalValues()}
 			{#if problem && chosen_solutions.length > 0 && selected_iteration_index.length > 0}
-				<EndStateView {problem} tableData={[chosen_solutions[selected_iteration_index[0]] as any]} />
+				<EndStateView
+					{problem}
+					tableData={[chosen_solutions[selected_iteration_index[0]] as unknown as TableData]}
+				/>
 			{/if}
 		{/snippet}
 	</BaseLayout>
@@ -748,18 +830,10 @@
 	>
 		{#snippet leftSidebar()}
 			{#snippet footerButtons()}
-				<Button
-					variant="outline"
-					size="sm"
-					onclick={() => (show_objectives_dialog = true)}
-				>
+				<Button variant="outline" size="sm" onclick={() => (show_objectives_dialog = true)}>
 					Choose Objectives
 				</Button>
-				<Button
-					variant="outline"
-					size="sm"
-					onclick={() => (show_scalarizations_dialog = true)}
-				>
+				<Button variant="outline" size="sm" onclick={() => (show_scalarizations_dialog = true)}>
 					Scalarizations: {selected_scalarizations.length}
 				</Button>
 			{/snippet}
@@ -831,7 +905,17 @@
 				<DropdownMenu.Trigger>
 					{#snippet child({ props })}
 						<Button {...props} variant="outline" class="ml-2 px-2">
-							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
 								<line x1="4" y1="6" x2="20" y2="6" />
 								<line x1="4" y1="12" x2="20" y2="12" />
 								<line x1="4" y1="18" x2="20" y2="18" />
@@ -840,9 +924,15 @@
 					{/snippet}
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content align="end">
-					<DropdownMenu.Item onclick={() => (show_constraint_dialog = true)}>Add objective constraint</DropdownMenu.Item>
-					<DropdownMenu.Item>Add uncertainty measures</DropdownMenu.Item>
-					<DropdownMenu.Item>Modify problem</DropdownMenu.Item>
+					<DropdownMenu.Item onclick={open_constraint_dialog}
+						>Add objective constraint</DropdownMenu.Item
+					>
+					<DropdownMenu.Item
+						disabled={!scenario_availability?.available}
+						onclick={open_add_uncertainty_measures}
+					>
+						Add uncertainty measures
+					</DropdownMenu.Item>
 				</DropdownMenu.Content>
 			</DropdownMenu.Root>
 		{/snippet}
@@ -858,7 +948,10 @@
 								currentPreferenceValues={filtered_preference}
 								previousPreferenceType={type_preferences}
 								currentPreferenceType={type_preferences}
-								solutionsObjectiveValues={mapSolutionsToObjectiveValues(chosen_solutions, filtered_problem)}
+								solutionsObjectiveValues={mapSolutionsToObjectiveValues(
+									chosen_solutions,
+									filtered_problem
+								)}
 								previousObjectiveValues={selected_type_solutions === 'current'
 									? processPreviousObjectiveValues(current_state, filtered_problem)
 									: []}
@@ -937,7 +1030,7 @@
 					</Dialog.Description>
 				</Dialog.Header>
 				<div class="space-y-3 py-4">
-					{#each problem.objectives as objective}
+					{#each problem.objectives as objective (objective.symbol)}
 						{@const isActive = active_objective_symbols.has(objective.symbol)}
 						{@const isLast = active_objective_symbols.size === 1 && isActive}
 						{@const checkboxId = `obj-checkbox-${objective.symbol}`}
@@ -947,13 +1040,17 @@
 								checked={isActive}
 								disabled={isLast}
 								onCheckedChange={(checked) => {
-									const next = new Set(active_objective_symbols);
-									if (checked) next.add(objective.symbol);
-									else next.delete(objective.symbol);
-									active_objective_symbols = next;
+									active_objective_symbols = new Set(
+										checked
+											? [...active_objective_symbols, objective.symbol]
+											: [...active_objective_symbols].filter((s) => s !== objective.symbol)
+									);
 								}}
 							/>
-							<label for={checkboxId} class="cursor-pointer text-sm {isLast ? 'text-gray-400' : ''}">
+							<label
+								for={checkboxId}
+								class="cursor-pointer text-sm {isLast ? 'text-gray-400' : ''}"
+							>
 								{objective.name}
 								<span class="text-gray-500">({objective.maximize ? 'max' : 'min'})</span>
 							</label>
@@ -976,10 +1073,15 @@
 		<Dialog.Overlay />
 		<Dialog.Content class="max-w-sm">
 			<Dialog.Header>
-				<Dialog.Title>Scenario-based Problem Detected</Dialog.Title>
+				<Dialog.Title>
+					{scenario_setup_mode === 'initial'
+						? 'Scenario-based Problem Detected'
+						: 'Add Uncertainty Measures'}
+				</Dialog.Title>
 				<Dialog.Description>
-					This problem has associated scenarios. Select which uncertainty measures to include in the
-					combined problem. At least one measure is recommended.
+					{scenario_setup_mode === 'initial'
+						? 'This problem has associated scenarios. Select which uncertainty measures to include in the combined problem. At least one measure is recommended.'
+						: 'Select which uncertainty measures to include. Rebuilding replaces the current combined problem and restarts the method against it; your earlier solutions stay available under the previous problem.'}
 				</Dialog.Description>
 			</Dialog.Header>
 			<div class="space-y-3 py-4">
@@ -992,7 +1094,7 @@
 						class="rounded border px-2 py-1 text-sm"
 					/>
 				</div>
-				{#each AVAILABLE_MEASURES as measure}
+				{#each AVAILABLE_MEASURES as measure (measure.value)}
 					{@const isChecked = selected_measures.includes(measure.value)}
 					{@const checkboxId = `measure-checkbox-${measure.value}`}
 					<div class="flex items-center gap-3">
@@ -1010,7 +1112,9 @@
 				{/each}
 				{#if selected_measures.includes('conditional_value_at_risk')}
 					<div class="flex items-center gap-3 pl-7">
-						<label for="cvar-alpha-input" class="text-sm text-muted-foreground">CVaR confidence level (α)</label>
+						<label for="cvar-alpha-input" class="text-muted-foreground text-sm"
+							>CVaR confidence level (α)</label
+						>
 						<input
 							id="cvar-alpha-input"
 							type="number"
@@ -1024,8 +1128,14 @@
 				{/if}
 			</div>
 			<Dialog.Footer>
-				<Button variant="outline" onclick={cancel_scenario_setup}>Use problem as-is</Button>
-				<Button variant="default" onclick={confirm_scenario_setup}>Build combined problem</Button>
+				<Button variant="outline" onclick={cancel_scenario_setup}>
+					{scenario_setup_mode === 'initial' ? 'Use problem as-is' : 'Cancel'}
+				</Button>
+				<Button variant="default" onclick={confirm_scenario_setup}>
+					{scenario_setup_mode === 'initial'
+						? 'Build combined problem'
+						: 'Rebuild combined problem'}
+				</Button>
 			</Dialog.Footer>
 		</Dialog.Content>
 	</Dialog.Portal>
@@ -1036,11 +1146,15 @@
 	<Dialog.Root bind:open={show_constraint_dialog}>
 		<Dialog.Portal>
 			<Dialog.Overlay />
-			<Dialog.Content class="flex max-h-[85vh] w-[95vw] max-w-[95vw] sm:max-w-[95vw] flex-col gap-0 p-0">
+			<Dialog.Content
+				class="flex max-h-[85vh] w-[95vw] max-w-[95vw] flex-col gap-0 p-0 sm:max-w-[95vw]"
+			>
 				<Dialog.Header class="shrink-0 border-b px-6 py-4">
 					<Dialog.Title>Add Objective Constraints</Dialog.Title>
 					<Dialog.Description>
-						Define constraints on the objective functions. Changes take effect only when you press Apply.
+						Define constraints on the objective functions. Changes take effect only when you press
+						Apply. The constraints are soft: they are met whenever they can be, and when they
+						cannot, they are relaxed as little as possible.
 					</Dialog.Description>
 				</Dialog.Header>
 
@@ -1048,7 +1162,7 @@
 					<!-- Left: objectives list -->
 					<div class="flex flex-col overflow-hidden">
 						<div class="flex shrink-0 items-center justify-between border-b px-4 py-2">
-							<p class="text-sm font-medium text-muted-foreground">Objectives</p>
+							<p class="text-muted-foreground text-sm font-medium">Objectives</p>
 							<SegmentedControl
 								bind:value={constraint_obj_filter}
 								options={[
@@ -1060,21 +1174,21 @@
 						<div class="overflow-y-auto p-4">
 							<table class="w-full text-sm">
 								<thead>
-									<tr class="border-b text-left text-xs text-muted-foreground">
-										<th class="pb-2 pr-3 font-medium">Symbol</th>
-										<th class="pb-2 pr-3 font-medium">Name</th>
-										<th class="pb-2 pr-3 font-medium">Ideal</th>
+									<tr class="text-muted-foreground border-b text-left text-xs">
+										<th class="pr-3 pb-2 font-medium">Symbol</th>
+										<th class="pr-3 pb-2 font-medium">Name</th>
+										<th class="pr-3 pb-2 font-medium">Ideal</th>
 										<th class="pb-2 font-medium">Nadir</th>
 									</tr>
 								</thead>
 								<tbody class="divide-y">
-									{#each (constraint_obj_filter === 'active' ? problem.objectives.filter((o) => active_objective_symbols.has(o.symbol)) : problem.objectives) as obj}
+									{#each constraint_obj_filter === 'active' ? problem.objectives.filter( (o) => active_objective_symbols.has(o.symbol) ) : problem.objectives as obj (obj.symbol)}
 										<tr class="align-top">
 											<td class="py-2 pr-3 font-mono text-xs">{obj.symbol}</td>
 											<td class="py-2 pr-3">
 												<p class="font-medium">{obj.name}</p>
 												{#if obj.description}
-													<p class="mt-0.5 text-xs text-muted-foreground">{obj.description}</p>
+													<p class="text-muted-foreground mt-0.5 text-xs">{obj.description}</p>
 												{/if}
 											</td>
 											<td class="py-2 pr-3 text-xs">
@@ -1092,10 +1206,12 @@
 
 					<!-- Right: constraints list -->
 					<div class="flex flex-col overflow-hidden">
-						<p class="shrink-0 border-b px-4 py-2 text-sm font-medium text-muted-foreground">Constraints</p>
+						<p class="text-muted-foreground shrink-0 border-b px-4 py-2 text-sm font-medium">
+							Constraints
+						</p>
 						<div class="flex-1 overflow-y-auto p-4">
 							{#if pending_constraints.length === 0}
-								<p class="text-sm text-muted-foreground">No constraints added yet.</p>
+								<p class="text-muted-foreground text-sm">No constraints added yet.</p>
 							{/if}
 							<div class="flex flex-col gap-3">
 								{#each pending_constraints as constraint (constraint.id)}
@@ -1115,7 +1231,7 @@
 												{constraint.type}
 											</Select.Trigger>
 											<Select.Content>
-												{#each CONSTRAINT_TYPES as ct}
+												{#each CONSTRAINT_TYPES as ct (ct)}
 													<Select.Item value={ct} class="text-xs">{ct}</Select.Item>
 												{/each}
 											</Select.Content>
@@ -1123,11 +1239,23 @@
 										<Button
 											variant="ghost"
 											size="icon"
-											class="shrink-0 text-destructive hover:text-destructive"
+											class="text-destructive hover:text-destructive shrink-0"
 											onclick={() => remove_constraint(constraint.id)}
 										>
-											<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												width="14"
+												height="14"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+											>
+												<path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path
+													d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+												/>
 											</svg>
 										</Button>
 									</div>
@@ -1161,7 +1289,7 @@
 				</Dialog.Description>
 			</Dialog.Header>
 			<div class="space-y-3 py-4">
-				{#each AVAILABLE_SCALARIZATIONS as sf}
+				{#each AVAILABLE_SCALARIZATIONS as sf (sf.value)}
 					{@const isChecked = selected_scalarizations.includes(sf.value)}
 					{@const isLast = selected_scalarizations.length === 1 && isChecked}
 					{@const checkboxId = `sf-checkbox-${sf.value}`}

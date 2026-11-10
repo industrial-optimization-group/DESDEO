@@ -693,6 +693,48 @@ def test_is_linear_problem():
     assert not problem.is_linear
 
 
+@pytest.mark.schema
+@pytest.mark.parametrize(
+    ("model_cls", "kwargs"),
+    [
+        (Objective, {"name": "f", "symbol": "f", "func": "x_1 + 1", "maximize": False}),
+        (Constraint, {"name": "g", "symbol": "g", "func": "x_1 - 1", "cons_type": ConstraintTypeEnum.LTE}),
+        (ExtraFunction, {"name": "e", "symbol": "e", "func": "x_1 + 1"}),
+        (ScalarizationFunction, {"name": "s", "symbol": "s", "func": "x_1 + 1"}),
+    ],
+)
+def test_is_linear_implies_convex_and_twice_differentiable(model_cls, kwargs):
+    """Declaring a function linear forces it to also be convex and twice differentiable.
+
+    This holds regardless of what is_convex/is_twice_differentiable were otherwise given
+    as, since a linear (affine) function is always both.
+    """
+    instance = model_cls(**kwargs, is_linear=True, is_convex=False, is_twice_differentiable=False)
+
+    assert instance.is_linear
+    assert instance.is_convex
+    assert instance.is_twice_differentiable
+
+
+@pytest.mark.schema
+@pytest.mark.parametrize(
+    ("model_cls", "kwargs"),
+    [
+        (Objective, {"name": "f", "symbol": "f", "func": "Abs(x_1)", "maximize": False}),
+        (Constraint, {"name": "g", "symbol": "g", "func": "Abs(x_1)", "cons_type": ConstraintTypeEnum.LTE}),
+        (ExtraFunction, {"name": "e", "symbol": "e", "func": "Abs(x_1)"}),
+        (ScalarizationFunction, {"name": "s", "symbol": "s", "func": "Abs(x_1)"}),
+    ],
+)
+def test_is_linear_false_leaves_other_flags_untouched(model_cls, kwargs):
+    """When is_linear is not set to True, is_convex/is_twice_differentiable are left as given."""
+    instance = model_cls(**kwargs, is_linear=False, is_convex=True, is_twice_differentiable=False)
+
+    assert not instance.is_linear
+    assert instance.is_convex
+    assert not instance.is_twice_differentiable
+
+
 def test_save_and_load_json(tmp_path):
     """Test that a problem model is saved and loaded correctly to/from a JSON file."""
     problems = [

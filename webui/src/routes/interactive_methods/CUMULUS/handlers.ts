@@ -1,8 +1,5 @@
 /**
  * CUMULUS API Client-Side Handlers
- *
- * NOTE: The Orval-generated functions used here require running
- * `npm run generate:client` after the backend endpoints are available.
  */
 
 import {
@@ -14,7 +11,10 @@ import {
 	solveIntermediateMethodCumulusIntermediatePost,
 	getUtopiaDataUtopiaPost,
 	setObjectiveConstraintsMethodCumulusObjectiveConstraintPost,
-	getSolutionDescriptionSolutionDescriptionGetPost
+	getObjectiveConstraintsMethodCumulusObjectiveConstraintGet,
+	getSolutionDescriptionSolutionDescriptionGetPost,
+	getScenarioAvailabilityMethodCumulusScenarioAvailabilityGet,
+	applyScenarioMeasuresMethodCumulusApplyScenarioMeasuresPost
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type {
 	CumulusClassificationRequest,
@@ -25,14 +25,21 @@ import type {
 	IntermediateSolutionRequest,
 	SolutionInfo,
 	CumulusObjectiveConstraintRequest,
+	CumulusScenarioAvailabilityResponse,
 	SolutionDescriptionRequest,
 	ConstraintTypeEnum,
 	ProblemInfo,
 	SolutionReferenceResponse as Solution,
 	ReferencePoint
 } from '$lib/gen/endpoints/DESDEOFastAPI';
-import type { Response } from './types';
+import type { MapOptions, Response } from './types';
 import { errorMessage, isLoading } from '../../../stores/uiState';
+
+/** `value`, or null when it is missing or empty. */
+export function blankToNull(value: string | null | undefined): string | null {
+	if (!value) return null;
+	return value;
+}
 
 /** Convert a Solution to a SolutionInfo for API requests. */
 function toSolutionInfo(solution: Solution, name?: string | null): SolutionInfo {
@@ -224,8 +231,7 @@ export async function handle_remove_saved(
  */
 export async function handle_finish(
 	problem: ProblemInfo | null,
-	solution: Solution,
-	_preferences: ReferencePoint
+	solution: Solution
 ): Promise<boolean> {
 	if (!problem) {
 		errorMessage.set('No problem selected');
@@ -267,11 +273,10 @@ export async function get_maps(
 	solution: Solution
 ): Promise<{
 	years: string[];
-	options: Record<string, any>;
+	options: Record<string, MapOptions>;
 	map_json: object;
 	map_name: string;
 	description: string;
-	compensation: number;
 } | null> {
 	isLoading.set(true);
 	errorMessage.set(null);
@@ -287,19 +292,16 @@ export async function get_maps(
 			return null;
 		}
 
-		const result = response.data as any;
-
-		if (result) {
-			for (const year of result.years) {
-				if (result.options[year].tooltip.formatterEnabled) {
-					result.options[year].tooltip.formatter = function (params: any) {
-						return `${params.name}`;
-					};
-				}
+		const result = response.data;
+		const options = result.options as Record<string, MapOptions>;
+		for (const year of result.years) {
+			const tooltip = options[year]?.tooltip;
+			if (tooltip?.formatterEnabled) {
+				tooltip.formatter = (params) => params.name;
 			}
 		}
 
-		return result;
+		return { ...result, options };
 	} catch (error) {
 		const msg = error instanceof Error ? error.message : 'Unknown error';
 		errorMessage.set(msg);
@@ -345,12 +347,11 @@ export async function initialize_cumulus_state(
 	errorMessage.set(null);
 
 	try {
-		// uncertainty_measures will appear in the generated client after `npm run generate:client`.
-		const request = {
+		const request: CumulusInitializationRequest = {
 			problem_id: problem_id,
 			// An empty array signals "skip scenario detection"; null triggers it.
 			uncertainty_measures: skip_scenarios ? [] : null
-		} as CumulusInitializationRequest;
+		};
 
 		const response = await getOrInitializeMethodCumulusGetOrInitializePost(request);
 
@@ -370,10 +371,36 @@ export async function initialize_cumulus_state(
 	}
 }
 
-export type MeasureType = 'expected_value' | 'worst_case_robust' | 'conditional_value_at_risk' | 'weighted_scenarios';
+export type MeasureType =
+	| 'expected_value'
+	| 'worst_case_robust'
+	| 'conditional_value_at_risk'
+	| 'weighted_scenarios';
 
 export interface MeasureOptions {
 	cvar_alpha?: number;
+}
+
+function build_uncertainty_measures_request(
+	problem_id: number,
+	scenario_model_id: number,
+	objective_symbols: string[],
+	selected_measures: MeasureType[],
+	measure_options: MeasureOptions,
+	name?: string
+): CumulusInitializationRequest {
+	return {
+		problem_id: problem_id,
+		name: blankToNull(name),
+		uncertainty_measures: selected_measures.map((measure_type) => ({
+			measure_type,
+			scenario_model_id,
+			symbols: objective_symbols,
+			...(measure_type === 'conditional_value_at_risk' && {
+				alpha: measure_options.cvar_alpha ?? 0.95
+			})
+		}))
+	};
 }
 
 /**
@@ -392,16 +419,14 @@ export async function initialize_cumulus_state_with_scenarios(
 	errorMessage.set(null);
 
 	try {
-		const request = {
-			problem_id: problem_id,
-			name: name || null,
-			uncertainty_measures: selected_measures.map((measure_type) => ({
-				measure_type,
-				scenario_model_id,
-				symbols: objective_symbols,
-				...(measure_type === 'conditional_value_at_risk' && { alpha: measure_options.cvar_alpha ?? 0.95 })
-			}))
-		} as CumulusInitializationRequest;
+		const request = build_uncertainty_measures_request(
+			problem_id,
+			scenario_model_id,
+			objective_symbols,
+			selected_measures,
+			measure_options,
+			name
+		);
 
 		const response = await getOrInitializeMethodCumulusGetOrInitializePost(request);
 
@@ -421,30 +446,127 @@ export async function initialize_cumulus_state_with_scenarios(
 	}
 }
 
-type UIConstraintType = '<=0' | '=0' | '<=0 (soft)' | '=0 (soft)';
+/**
+ * Checks whether a problem (or the base problem it was combined from) has an associated
+ * scenario model, so the "Add uncertainty measures" action can be shown or hidden accordingly.
+ */
+export async function check_scenario_availability(
+	problem_id: number
+): Promise<CumulusScenarioAvailabilityResponse | null> {
+	try {
+		const response = await getScenarioAvailabilityMethodCumulusScenarioAvailabilityGet({
+			problem_id
+		});
 
-interface UIConstraint {
+		if (response.status !== 200) {
+			return null;
+		}
+
+		return response.data as unknown as CumulusScenarioAvailabilityResponse;
+	} catch (error) {
+		console.error(
+			'Error in check_scenario_availability:',
+			error instanceof Error ? error.message : error
+		);
+		return null;
+	}
+}
+
+/**
+ * Builds (or rebuilds) a combined scenario problem with the given uncertainty measures,
+ * regardless of whether CUMULUS has already been initialized for the current problem.
+ * Used by the "Add uncertainty measures" menu action, which can be used both before the
+ * method has started and later, to change which measures are included.
+ */
+export async function apply_scenario_measures(
+	problem_id: number,
+	scenario_model_id: number,
+	objective_symbols: string[],
+	selected_measures: MeasureType[],
+	measure_options: MeasureOptions = {},
+	name?: string
+): Promise<Response | null> {
+	isLoading.set(true);
+	errorMessage.set(null);
+
+	try {
+		const request = build_uncertainty_measures_request(
+			problem_id,
+			scenario_model_id,
+			objective_symbols,
+			selected_measures,
+			measure_options,
+			name
+		);
+
+		const response = await applyScenarioMeasuresMethodCumulusApplyScenarioMeasuresPost(request);
+
+		if (response.status !== 200) {
+			errorMessage.set(`Applying uncertainty measures failed with status ${response.status}`);
+			return null;
+		}
+
+		return response.data as unknown as Response;
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : 'Unknown error';
+		errorMessage.set(msg);
+		console.error('Error in apply_scenario_measures:', msg);
+		return null;
+	} finally {
+		isLoading.set(false);
+	}
+}
+
+type UIConstraintType = '<=0' | '=0';
+
+export interface UIConstraint {
 	func: string;
 	type: UIConstraintType;
 }
 
-interface ObjectiveConstraintResult {
+export interface ObjectiveConstraintResult {
+	/** The objective-constraint state holding the soft list now in effect. */
 	state_id: number;
-	hard_constraint_ids: number[];
 	soft_constraint_ids: number[];
 }
 
-function toConstraintDB(constraints: UIConstraint[], soft: boolean, offset: number) {
-	return constraints
-		.filter((c) => c.type.includes('soft') === soft)
-		.map((c, i) => ({
-			name: c.func,
-			symbol: `oc_${offset + i + 1}`,
-			func: c.func,
-			cons_type: (c.type.startsWith('<=') ? '<=' : '=') as ConstraintTypeEnum
-		}));
+/** FastAPI reports an HTTPException as a plain string detail, validation errors as a list. */
+function errorDetail(data: unknown): string | null {
+	const detail = (data as { detail?: unknown } | null)?.detail;
+	return typeof detail === 'string' ? detail : null;
 }
 
+/**
+ * Fetches the soft objective constraints in effect, in the form the dialog edits them.
+ *
+ * The dialog stores the expression the decision maker typed as the constraint's name, so that
+ * is what is shown again.
+ */
+export async function get_objective_constraints(
+	problem_id: number
+): Promise<UIConstraint[] | null> {
+	try {
+		const response = await getObjectiveConstraintsMethodCumulusObjectiveConstraintGet({
+			problem_id
+		});
+		if (response.status !== 200) return null;
+
+		return response.data.soft_constraints.map((c) => ({
+			func: c.name,
+			type: c.cons_type === '<=' ? '<=0' : '=0'
+		}));
+	} catch (error) {
+		console.error(
+			'Error in get_objective_constraints:',
+			error instanceof Error ? error.message : error
+		);
+		return null;
+	}
+}
+
+/**
+ * Sets the soft objective constraints of the current session, replacing any earlier list.
+ */
 export async function set_objective_constraints(
 	problem: ProblemInfo,
 	parent_state_id: number | null,
@@ -453,22 +575,27 @@ export async function set_objective_constraints(
 	isLoading.set(true);
 	errorMessage.set(null);
 
-	const hard = toConstraintDB(constraints, false, 0);
-	const soft = toConstraintDB(constraints, true, hard.length);
-
+	// Sent even when empty: the endpoint replaces the stored list, which is how the decision
+	// maker clears soft constraints they have removed from the dialog.
 	const request: CumulusObjectiveConstraintRequest = {
 		problem_id: problem.id,
 		parent_state_id: parent_state_id ?? null,
-		hard_constraints: hard,
-		soft_constraints: soft
+		soft_constraints: constraints.map((c, i) => ({
+			name: c.func,
+			symbol: `oc_${i + 1}`,
+			func: c.func,
+			cons_type: (c.type === '<=0' ? '<=' : '=') as ConstraintTypeEnum
+		}))
 	};
 
 	try {
 		const response = await setObjectiveConstraintsMethodCumulusObjectiveConstraintPost(request);
 
 		if (response.status !== 200) {
-			const detail = (response.data as unknown as { detail?: string })?.detail;
-			errorMessage.set(detail ?? `Setting objective constraints failed with status ${response.status}`);
+			errorMessage.set(
+				errorDetail(response.data) ??
+					`Setting objective constraints failed with status ${response.status}`
+			);
 			return null;
 		}
 

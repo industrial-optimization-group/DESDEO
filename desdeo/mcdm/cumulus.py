@@ -315,11 +315,25 @@ def _solve_with_constraints(
                 symbol="_violation_budget",
                 cons_type=ConstraintTypeEnum.LTE,
                 func=["Subtract", f"{violation_symbol}_min", optimal_violation],
+                # The violation is a plain sum of slack variables.
+                is_linear=True,
+                is_convex=True,
+                is_twice_differentiable=True,
             )
         ]
     )
 
-    return {sf: solve_one(relaxed_problem, sf) for sf in scalarizations}
+    # The violation objective is internal to the relaxation; the results keep only the problem's
+    # own objectives. Its slack variables stay, `soft_constraint_violations` reads them.
+    results = {sf: solve_one(relaxed_problem, sf) for sf in scalarizations}
+    return {
+        sf: r.model_copy(
+            update={"optimal_objectives": {k: v for k, v in r.optimal_objectives.items() if k != violation_symbol}}
+        )
+        if r is not None
+        else None
+        for sf, r in results.items()
+    }
 
 
 def _minimize_soft_constraint_violations(
@@ -370,7 +384,31 @@ def _minimize_soft_constraint_violations(
         raise CumulusError(msg)
     optimal_violation: float = viol_result.optimal_objectives[violation_symbol]
 
+    # `add_soft_constraint` gives the violation objective a placeholder nadir of one,
+    # since the largest attainable violation is not known without a solve of its own.
+    # Now that one is known, raise the nadir to it if it falls short, so the
+    # scalarizations that follow scale the objective over a range that actually contains
+    # its values.  The budget constraint caps the violation at `optimal_violation`, so no
+    # solution built on the relaxed problem can exceed the nadir set here.
+    violation_obj = next(obj for obj in relaxed_problem.objectives if obj.symbol == violation_symbol)
+    if violation_obj.nadir is None or optimal_violation > violation_obj.nadir:
+        relaxed_problem = relaxed_problem.update_ideal_and_nadir(new_nadir={violation_symbol: optimal_violation})
+
     return relaxed_problem, violation_symbol, optimal_violation
+
+
+def soft_constraint_violations(result: SolverResults, soft_constraints: list[Constraint]) -> dict[str, float]:
+    """Return how much each soft constraint was relaxed in `result`, keyed by symbol.
+
+    Reads the slack variables `add_soft_constraint` gives each relaxed constraint.  A result
+    solved without relaxation has no slack variables, and every violation is zero.
+    """
+    variables = result.optimal_variables
+    return {
+        c.symbol: float(variables.get(f"_{c.symbol}_lte_violation", 0.0))
+        + float(variables.get(f"_{c.symbol}_gte_violation", 0.0))
+        for c in soft_constraints
+    }
 
 
 def _fix_worst_case_epigraphs(

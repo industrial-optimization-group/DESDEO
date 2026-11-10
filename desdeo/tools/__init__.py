@@ -67,6 +67,7 @@ __all__ = [
     "flip_maximized_objective_values",
     "get_corrected_ideal_and_nadir",
     "guess_best_solver",
+    "is_heuristic_solver",
     "payoff_table_method",
     "solve_all_scenarios",
     "solve_scenario",
@@ -146,5 +147,6 @@ from desdeo.tools.utils import (
     flip_maximized_objective_values,
     get_corrected_ideal_and_nadir,
     guess_best_solver,
+    is_heuristic_solver,
     payoff_table_method,
 )

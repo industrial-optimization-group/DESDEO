@@ -5,16 +5,19 @@ import shutil
 import pytest
 from fixtures import dtlz2_5x_3f_data_based  # noqa: F401
 
+from desdeo.problem import Objective, Problem, Variable, VariableTypeEnum
 from desdeo.problem.testproblems import (
     dtlz2,
     re21,
     river_pollution_problem,
     simple_constrained_quadratic_tensor_test_problem,
 )
+from desdeo.tools import NevergradGenericSolver, PyomoIpoptSolver, ScipyDeSolver, ScipyMinimizeSolver
 from desdeo.tools.utils import (
     available_solvers,
     find_compatible_solvers,
     guess_best_solver,
+    is_heuristic_solver,
     payoff_table_method,
 )
 
@@ -82,3 +85,43 @@ def test_payoff_dtlz2():
     problem = dtlz2(6, 4)
 
     ideal, nadir = payoff_table_method(problem)  # noqa: RUF059
+
+
+@pytest.mark.utils
+@pytest.mark.githubskip(reason="Solver behaviour on unbounded problems differs on GitHub runners")
+@pytest.mark.parametrize("solver", [None, PyomoIpoptSolver, ScipyMinimizeSolver])
+def test_payoff_require_success_rejects_an_unbounded_objective(solver):
+    """Without `require_success` an unbounded objective yields made-up ideal and nadir values."""
+    linear = {"is_linear": True, "is_convex": True, "is_twice_differentiable": True}
+    problem = Problem(
+        name="unbounded",
+        description="f_1 has no lower bound.",
+        variables=[
+            Variable(name="x", symbol="x", variable_type=VariableTypeEnum.real, initial_value=0.0),
+            Variable(
+                name="y", symbol="y", variable_type=VariableTypeEnum.real, lowerbound=0, upperbound=1, initial_value=0.5
+            ),
+        ],
+        objectives=[
+            Objective(name="f_1", symbol="f_1", func="x + y", **linear),
+            Objective(name="f_2", symbol="f_2", func="y - x", **linear),
+        ],
+    )
+
+    with pytest.raises(ValueError, match="f_1"):
+        payoff_table_method(problem, solver, require_success=True)
+
+
+@pytest.mark.utils
+def test_is_heuristic_solver():
+    """Stochastic solvers, and subclasses of them, are heuristic; the others and non-classes are not."""
+
+    class _CustomNevergrad(NevergradGenericSolver):
+        pass
+
+    assert is_heuristic_solver(NevergradGenericSolver)
+    assert is_heuristic_solver(ScipyDeSolver)
+    assert is_heuristic_solver(_CustomNevergrad)
+    assert not is_heuristic_solver(PyomoIpoptSolver)
+    assert not is_heuristic_solver(ScipyMinimizeSolver)
+    assert not is_heuristic_solver(None)

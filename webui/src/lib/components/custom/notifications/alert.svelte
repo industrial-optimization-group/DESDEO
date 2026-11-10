@@ -9,7 +9,8 @@
 	 * This component displays a dismissible error alert as a notification at the top of the page.
 	 * It can get its message from the global `errorMessage` store or from a `message` prop.
 	 * It can show both error and info messages, with configurable styling and timeout.
-	 * The alert automatically dismisses after a timeout and can also be closed manually.
+	 * The alert automatically dismisses after a timeout and can also be closed manually with its
+	 * close button, shown whenever closing has an effect (destructive alerts, or an `onClose`).
 	 *
 	 * @props
 	 * @property {string | undefined} - The title of the alert.
@@ -30,6 +31,7 @@
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import { errorMessage } from '../../../../stores/uiState';
 	import { onMount } from 'svelte';
+	import XIcon from '@lucide/svelte/icons/x';
 
 	export let title: string | undefined = undefined;
 	export let variant: 'default' | 'destructive' = 'default';
@@ -39,6 +41,9 @@
 
 	// Use the message prop if provided, otherwise fall back to the store's value.
     $: displayMessage = message ?? (variant === 'destructive' ? $errorMessage : null);
+
+	// Closing clears the error store or calls onClose; without either it would do nothing.
+	$: closable = variant === 'destructive' || onClose !== undefined;
 
 	function handleClose() {
 		if (variant === 'destructive') {
@@ -60,9 +65,19 @@
 
 {#if displayMessage}
 	<div class="alert-container">
-		<Alert {variant}>
+		<Alert {variant} class={closable ? 'pr-10' : ''}>
 			{#if title}<AlertTitle>{title}</AlertTitle>{/if}
-			<AlertDescription>{displayMessage}</AlertDescription>
+			<AlertDescription class="whitespace-pre-line">{displayMessage}</AlertDescription>
+			{#if closable}
+				<button
+					type="button"
+					class="absolute top-2 right-2 rounded p-1 opacity-70 hover:opacity-100"
+					aria-label="Close"
+					on:click={handleClose}
+				>
+					<XIcon class="size-4" />
+				</button>
+			{/if}
 		</Alert>
 	</div>
 {/if}

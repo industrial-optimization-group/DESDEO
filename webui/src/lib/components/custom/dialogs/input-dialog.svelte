@@ -21,6 +21,7 @@
 	 * @property {string} cancelText - Text for the cancel button (default: "Cancel")
 	 * @property {string} initialValue - Initial value for the input field
 	 * @property {string} placeholder - Placeholder text for the input field
+	 * @property {boolean} required - Disallow confirming a blank value (default: false)
 	 * @property {Function} onConfirm - Callback function invoked with input value when confirmed
 	 * @property {Function} onCancel - Callback function invoked when canceled
 	 *
@@ -51,6 +52,7 @@
 		placeholder = "Enter text",
 		confirmVariant = "default" as "default" | "destructive" | "outline" | "secondary" | "ghost" | "link",
 		requiredValue = undefined as string | undefined,
+		required = false,
 		onConfirm,
 		onCancel
 	} = $props<{
@@ -63,14 +65,18 @@
 		placeholder?: string;
 		confirmVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
 		requiredValue?: string;
+		required?: boolean;
 		onConfirm?: (value: string) => void;
 		onCancel?: () => void;
 	}>();
 
-	let confirmDisabled = $derived(requiredValue !== undefined && inputValue !== requiredValue);
-
 	// Local state for the input field — re-sync when prop changes
 	let inputValue = $state("");
+
+	let confirmDisabled = $derived(
+		(requiredValue !== undefined && inputValue !== requiredValue) ||
+			(required && inputValue.trim() === "")
+	);
 	$effect(() => { inputValue = initialValue || ""; });
 
 	function handleConfirm() {
