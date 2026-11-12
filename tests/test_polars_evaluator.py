@@ -394,3 +394,30 @@ def test_discrete_mode_scalarization_may_reference_earlier_scalarization():
     # All three kinds are evaluated in a single pass each on this path.
     for first, second in (("e_1", "e_2"), ("s_1", "s_2"), ("c_1", "c_2")):
         npt.assert_allclose(result[second].to_list(), [2 * v for v in result[first].to_list()])
+
+
+@pytest.mark.polars
+def test_evaluate_matches_dataframe_columns_by_name():
+    """A DataFrame whose columns are not in variable order is evaluated by column name."""
+    problem = Problem(
+        name="Column order",
+        description="Scalar and tensor variables.",
+        variables=[
+            Variable(name="x", symbol="x", variable_type=VariableTypeEnum.real),
+            Variable(name="y", symbol="y", variable_type=VariableTypeEnum.real),
+            TensorVariable(name="X", symbol="X", shape=[2], variable_type=VariableTypeEnum.real),
+        ],
+        objectives=[
+            Objective(name="f_1", symbol="f_1", func="x - 2*y"),
+            Objective(name="f_2", symbol="f_2", func=["Sum", "X"]),
+        ],
+    )
+    values = {"x": [1.0, 2.0], "y": [5.0, 0.5], "X": [[3.0, 4.0], [1.0, -1.0]]}
+    in_order = pl.DataFrame(values, schema={"x": pl.Float64, "y": pl.Float64, "X": pl.Array(pl.Float64, 2)})
+    reversed_order = in_order.select(["X", "y", "x"])
+
+    evaluator = PolarsEvaluator(problem)
+    for xs in (values, in_order, reversed_order):
+        result = evaluator.evaluate(xs)
+        npt.assert_allclose(result["f_1"].to_list(), [-9.0, 1.0])
+        npt.assert_allclose(result["f_2"].to_list(), [7.0, 0.0])
