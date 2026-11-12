@@ -354,6 +354,11 @@ class PolarsEvaluator:
         Note:
             At least `self.objective_expressions` must be defined before calling this method.
         """
+        # Polars applies a schema to a DataFrame's columns by position, not by name.
+        symbols = [var.symbol for var in self.problem.variables]
+        if isinstance(xs, pl.DataFrame) and set(xs.columns) == set(symbols):
+            xs = xs.select(symbols)
+
         # An aggregate dataframe to store intermediate evaluation results.
         # agg_df = pl.DataFrame({key: np.array(value) for key, value in xs.items()})
         agg_df = pl.DataFrame(
