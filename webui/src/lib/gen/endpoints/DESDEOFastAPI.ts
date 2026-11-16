@@ -2118,6 +2118,11 @@ export interface JinaIterateRequest {
 }
 
 /**
+ * Whether each objective of the scenario model is maximised.
+ */
+export type JinaScenarioModelInfoMaximize = { [key: string]: boolean };
+
+/**
  * A scenario model of a problem.
  */
 export interface JinaScenarioModelInfo {
@@ -2131,6 +2136,8 @@ export interface JinaScenarioModelInfo {
 	default_design_variables: string[];
 	/** Symbols of the objectives of the scenario model. */
 	objectives: string[];
+	/** Whether each objective of the scenario model is maximised. */
+	maximize: JinaScenarioModelInfoMaximize;
 }
 
 /**

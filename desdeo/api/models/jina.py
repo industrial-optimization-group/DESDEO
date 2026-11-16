@@ -123,6 +123,7 @@ class JinaScenarioModelInfo(BaseModel):
     root_variables: list[str] = Field(description="Variables shared by all scenarios, the candidate design variables.")
     default_design_variables: list[str] = Field(description="The design variables a setup defaults to.")
     objectives: list[str] = Field(description="Symbols of the objectives of the scenario model.")
+    maximize: dict[str, bool] = Field(description="Whether each objective of the scenario model is maximised.")
 
 
 class JinaDesign(BaseModel):

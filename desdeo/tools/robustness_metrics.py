@@ -24,6 +24,9 @@ MissingPolicy = Literal["worst", "skip"]
 # Improvements within this tolerance of zero count as neither gains nor losses.
 _TOL = 1e-9
 
+# Relative tolerance of the domain-criterion threshold comparisons.
+THRESHOLD_RTOL = 1e-6
+
 
 class DomainCriterion(BaseModel):
     """Per-design domain-criterion counts."""
@@ -179,7 +182,9 @@ def domain_criterion(
 
     For each design and each objective in ``thresholds``, counts the leaves where the outcome meets the
     threshold (value <= threshold for minimised, value >= threshold for maximised objectives). Missing
-    entries, such as infeasible leaves, count as not meeting the threshold.
+    entries, such as infeasible leaves, count as not meeting the threshold. A value within
+    ``THRESHOLD_RTOL * max(1, |threshold|)`` of the threshold on the wrong side still meets it, so solver
+    round-off at a threshold does not count as failing.
 
     ``all_count`` counts the leaves where every thresholded objective present in the leaf meets its
     threshold and at least one is present; a leaf a design lacks entirely is not counted. Presence is
@@ -205,6 +210,7 @@ def domain_criterion(
     design_ids, _leaves, objectives, arr = _to_min_array(outcomes, maximize)
     obj_idx = [objectives.index(obj) for obj in thresholds]
     min_thresholds = np.array([-t if maximize[obj] else t for obj, t in thresholds.items()])
+    min_thresholds = min_thresholds + THRESHOLD_RTOL * np.maximum(1.0, np.abs(min_thresholds))
 
     result: dict[DesignId, DomainCriterion] = {}
     for di, design_id in enumerate(design_ids):

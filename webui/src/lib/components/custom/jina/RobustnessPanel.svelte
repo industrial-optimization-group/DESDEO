@@ -100,9 +100,11 @@
 		const symbols = chartProblem.objectives.map((o) => o.symbol);
 		const leafObjectives = evaluatedLeafObjectives(outcomes);
 		const { thresholds } = evaluation.result;
-		const maximize = Object.fromEntries(
-			[...problem.objectives, ...chartProblem.objectives].map((o) => [o.symbol, !!o.maximize])
-		);
+		const maximize =
+			model?.maximize ??
+			Object.fromEntries(
+				[...problem.objectives, ...chartProblem.objectives].map((o) => [o.symbol, !!o.maximize])
+			);
 		const lines = thresholdLines(
 			scenarioLines(
 				plotId === null ? [] : [plotId],

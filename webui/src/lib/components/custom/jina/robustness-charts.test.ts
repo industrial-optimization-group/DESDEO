@@ -91,6 +91,13 @@ describe('meetsAllThresholds', () => {
 		expect(meetsAllThresholds({ f: 3 }, { f: 2, g: 5 }, { f: false, g: true })).toBe(false);
 	});
 
+	it('allows a relative tolerance at the threshold', () => {
+		expect(meetsAllThresholds({ f: 4 + 1e-9 }, { f: 4 }, { f: false })).toBe(true);
+		expect(meetsAllThresholds({ f: 4.01 }, { f: 4 }, { f: false })).toBe(false);
+		expect(meetsAllThresholds({ g: 6 - 1e-9 }, { g: 6 }, { g: true })).toBe(true);
+		expect(meetsAllThresholds({ g: 5.99 }, { g: 6 }, { g: true })).toBe(false);
+	});
+
 	it('is false when no thresholded objective is present', () => {
 		expect(meetsAllThresholds({ h: 1 }, { f: 2 }, { f: false })).toBe(false);
 		expect(meetsAllThresholds({ f: 1 }, {}, {})).toBe(false);

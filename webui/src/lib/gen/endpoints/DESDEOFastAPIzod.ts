@@ -7962,7 +7962,12 @@ export const GetScenarioModelsMethodJinaScenarioModelsGetResponseItem = zod
 		default_design_variables: zod
 			.array(zod.string())
 			.describe('The design variables a setup defaults to.'),
-		objectives: zod.array(zod.string()).describe('Symbols of the objectives of the scenario model.')
+		objectives: zod
+			.array(zod.string())
+			.describe('Symbols of the objectives of the scenario model.'),
+		maximize: zod
+			.record(zod.string(), zod.boolean())
+			.describe('Whether each objective of the scenario model is maximised.')
 	})
 	.describe('A scenario model of a problem.');
 export const GetScenarioModelsMethodJinaScenarioModelsGetResponse = zod.array(

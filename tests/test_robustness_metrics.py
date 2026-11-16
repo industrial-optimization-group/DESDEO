@@ -65,6 +65,19 @@ def test_domain_criterion_all_count_maximised():
     assert res["B"].all_count == 1
 
 
+def test_domain_criterion_tolerance():
+    """Values within the relative tolerance of a threshold meet it; values beyond it do not."""
+    outcomes = {
+        "A": {"l1": {"f": 4 + 1e-9, "h": 6 - 1e-9}},
+        "B": {"l1": {"f": 4.01, "h": 5.99}},
+    }
+    res = domain_criterion(outcomes, {"f": False, "h": True}, {"f": 4.0, "h": 6.0})
+    assert res["A"].counts == {"f": 1, "h": 1}
+    assert res["A"].all_count == 1
+    assert res["B"].counts == {"f": 0, "h": 0}
+    assert res["B"].all_count == 0
+
+
 def test_domain_criterion_all_count_missing():
     """A sparse leaf is judged on the objectives it has; a leaf the design lacks is not counted."""
     outcomes = {

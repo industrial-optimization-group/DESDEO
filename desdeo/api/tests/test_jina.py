@@ -171,6 +171,7 @@ def test_scenario_models(client: TestClient, session_and_user: dict, monkeypatch
             "root_variables": ["x_1"],
             "default_design_variables": ["x_1"],
             "objectives": ["f_3", "f_1", "f_2"],
+            "maximize": {"f_1": False, "f_2": False, "f_3": False},
         },
         {
             "id": seeded["stress_id"],
@@ -180,6 +181,7 @@ def test_scenario_models(client: TestClient, session_and_user: dict, monkeypatch
             "root_variables": ["x_1"],
             "default_design_variables": ["x_1"],
             "objectives": ["f_3", "f_1", "f_2"],
+            "maximize": {"f_1": False, "f_2": False, "f_3": False},
         },
     ]
 

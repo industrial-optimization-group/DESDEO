@@ -481,6 +481,7 @@ def get_scenario_models(
                     objectives=list(
                         dict.fromkeys(obj.symbol for obj in [*model.base_problem.objectives, *model.objectives])
                     ),
+                    maximize={obj.symbol: obj.maximize for obj in [*model.objectives, *model.base_problem.objectives]},
                 )
             )
         except Exception:

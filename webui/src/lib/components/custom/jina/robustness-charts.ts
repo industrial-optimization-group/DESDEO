@@ -72,9 +72,16 @@ function heatmap(
 	};
 }
 
-/** Whether a value meets a threshold: at most it for a minimised, at least it for a maximised objective. */
+/** Relative tolerance of the threshold comparisons, as in the backend domain criterion. */
+export const THRESHOLD_RTOL = 1e-6;
+
+/**
+ * Whether a value meets a threshold: at most it for a minimised, at least it for a maximised
+ * objective, within `THRESHOLD_RTOL * max(1, |threshold|)`.
+ */
 export function meetsThreshold(value: number, threshold: number, maximize: boolean): boolean {
-	return maximize ? value >= threshold : value <= threshold;
+	const tol = THRESHOLD_RTOL * Math.max(1, Math.abs(threshold));
+	return maximize ? value >= threshold - tol : value <= threshold + tol;
 }
 
 /**
