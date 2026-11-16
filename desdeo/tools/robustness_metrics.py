@@ -1,7 +1,7 @@
 """Robustness and antifragility metrics for comparing designs evaluated across scenarios.
 
-Outcomes are given per design, per scenario leaf and per objective. Provides max regret and the domain
-criterion (Shavazipour et al., Eq. 2 and 3) and an upside-downside antifragility index with
+Outcomes are given per design, per scenario leaf and per objective. Provides the domain criterion
+(Shavazipour et al., Eq. 3) and an upside-downside antifragility index with
 fragile/robust/antifragile classes (Taleb, *Antifragile*, 2012).
 
 A design that is infeasible (or failed to solve) in a leaf should be passed with that leaf, or the affected
@@ -25,17 +25,6 @@ MissingPolicy = Literal["worst", "skip"]
 _TOL = 1e-9
 
 
-class MaxRegret(BaseModel):
-    """Per-design maximum regret summary."""
-
-    model_config = ConfigDict(frozen=True)
-
-    regret: dict[str, float | None]
-    """Per-objective maximum regret across leaves (None if no leaf has a value)."""
-    mean_regret: float | None
-    """Mean over objectives with a non-None regret; None if none."""
-
-
 class DomainCriterion(BaseModel):
     """Per-design domain-criterion counts."""
 
@@ -45,6 +34,8 @@ class DomainCriterion(BaseModel):
     """Number of leaves meeting the threshold, per objective that has one."""
     mean_count: float | None
     """Mean of counts; None if no thresholds."""
+    all_count: int
+    """Number of leaves where every thresholded objective present in the leaf meets its threshold."""
 
 
 class Deviation(BaseModel):
@@ -179,64 +170,6 @@ def _leaf_best_and_spread(arr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return best, worst - best
 
 
-def max_regret(
-    outcomes: Outcomes,
-    maximize: Mapping[str, bool],
-    *,
-    normalize: bool = True,
-    missing: MissingPolicy = "worst",
-) -> dict[DesignId, MaxRegret]:
-    """Compute the max regret of each design (Shavazipour et al., Eq. 2).
-
-    In each leaf, the regret of a design is its gap to the best design in that leaf, divided by the spread
-    (worst - best) over the designs in that leaf; leaves where all designs tie give regret 0. The max regret
-    of an objective is the largest regret over the leaves where the design has a value. Regret is relative
-    to the compared set of designs: adding or removing designs changes the per-leaf best and spread, and
-    therefore the regret.
-
-    Pass infeasible leaves as missing outcomes. With ``missing="worst"``, a design missing a leaf and objective
-    that other designs have gets the worst value among them, i.e. regret 1 (the full spread when not
-    normalised) unless all designs with a value tie. With ``missing="skip"``, the leaf is left out of that
-    design's max. Leaves and objectives where no design has a value are skipped in both modes.
-
-    Args:
-        outcomes: design -> leaf -> objective -> value.
-        maximize: objective -> True if the objective is maximised.
-        normalize: if True, divide the gap by the per-leaf spread; otherwise report the raw gap.
-        missing: how to treat missing outcomes: ``"worst"`` or ``"skip"``.
-
-    Returns:
-        Mapping from each design id to its ``MaxRegret``.
-
-    Raises:
-        ValueError: If an outcome mentions an objective not in ``maximize``, or ``missing`` is not "worst" or
-            "skip".
-    """
-    design_ids, _leaves, objectives, arr = _to_min_array(outcomes, maximize)
-    arr = _fill_missing(arr, missing)
-    best, spread = _leaf_best_and_spread(arr)
-
-    gap = arr - best
-    if normalize:
-        with np.errstate(divide="ignore", invalid="ignore"):
-            regret = np.where(spread > 0, gap / spread, 0.0)
-        # Missing outcomes stay missing instead of counting as zero regret.
-        regret[np.isnan(arr)] = np.nan
-    else:
-        regret = gap
-
-    result: dict[DesignId, MaxRegret] = {}
-    for di, design_id in enumerate(design_ids):
-        per_obj: dict[str, float | None] = {}
-        for oi, obj in enumerate(objectives):
-            vals = regret[di, :, oi]
-            per_obj[obj] = float(np.nanmax(vals)) if not np.isnan(vals).all() else None
-        present = [v for v in per_obj.values() if v is not None]
-        result[design_id] = MaxRegret(regret=per_obj, mean_regret=float(np.mean(present)) if present else None)
-
-    return result
-
-
 def domain_criterion(
     outcomes: Outcomes,
     maximize: Mapping[str, bool],
@@ -247,6 +180,11 @@ def domain_criterion(
     For each design and each objective in ``thresholds``, counts the leaves where the outcome meets the
     threshold (value <= threshold for minimised, value >= threshold for maximised objectives). Missing
     entries, such as infeasible leaves, count as not meeting the threshold.
+
+    ``all_count`` counts the leaves where every thresholded objective present in the leaf meets its
+    threshold and at least one is present; a leaf a design lacks entirely is not counted. Presence is
+    judged per design: an objective missing from one design's leaf is not applicable for that design's
+    ``all_count``, though it still counts as not meeting in ``counts``.
 
     Args:
         outcomes: design -> leaf -> objective -> value.
@@ -265,17 +203,19 @@ def domain_criterion(
             raise ValueError(f"Threshold key '{key}' not in maximize mapping.")
 
     design_ids, _leaves, objectives, arr = _to_min_array(outcomes, maximize)
+    obj_idx = [objectives.index(obj) for obj in thresholds]
+    min_thresholds = np.array([-t if maximize[obj] else t for obj, t in thresholds.items()])
 
     result: dict[DesignId, DomainCriterion] = {}
     for di, design_id in enumerate(design_ids):
-        counts: dict[str, int] = {}
-        for obj, threshold in thresholds.items():
-            vals = arr[di, :, objectives.index(obj)]
-            min_threshold = -threshold if maximize[obj] else threshold
-            # NaN comparisons are False, so missing entries are not counted.
-            counts[obj] = int(np.sum(vals <= min_threshold))
+        vals = arr[di][:, obj_idx]
+        present = ~np.isnan(vals)
+        # NaN comparisons are False, so missing entries are not counted.
+        met = vals <= min_thresholds
+        counts = {obj: int(np.sum(met[:, i])) for i, obj in enumerate(thresholds)}
+        all_count = int(np.sum(present.any(axis=1) & (met | ~present).all(axis=1)))
         mean_count = float(np.mean(list(counts.values()))) if counts else None
-        result[design_id] = DomainCriterion(counts=counts, mean_count=mean_count)
+        result[design_id] = DomainCriterion(counts=counts, mean_count=mean_count, all_count=all_count)
 
     return result
 

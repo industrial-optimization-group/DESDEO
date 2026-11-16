@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, BeforeValidator, Field
 
 from desdeo.mcdm.jina import Measure, Target, View
-from desdeo.tools.robustness_metrics import Antifragility, DomainCriterion, MaxRegret
+from desdeo.tools.robustness_metrics import Antifragility, DomainCriterion
 from desdeo.tools.scenario_designs import LeafOutcome
 
 from .generic_states import StateKind
@@ -236,7 +236,6 @@ class JinaGetOrInitializeResponse(BaseModel):
 class JinaAnalysisResponse(BaseModel):
     """Robustness metrics of evaluated designs, by design id."""
 
-    max_regret: dict[int, MaxRegret]
     domain_criterion: dict[int, DomainCriterion]
     antifragility: dict[int, Antifragility] | None = Field(
         default=None, description="None when the setup has no baseline leaf in the evaluated outcomes."

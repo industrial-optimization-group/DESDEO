@@ -7,11 +7,13 @@ from pathlib import Path
 import pytest
 
 from desdeo.mcdm.jina import (
+    Target,
     aggregate_outcomes,
     build_jina_problem,
     leaf_ranges,
     leaf_reference_points,
     match_pool,
+    objective_ranges,
     score_designs,
     shift_reference_point,
     solve_variants,
@@ -491,6 +493,26 @@ def test_leaf_reference_points_and_evaluate_design(sparse_model):
     assert set(outcomes["s_2"].objectives) == {"f_1", "f_2", "f_3", "f_4"}
 
 
+def test_objective_ranges():
+    """Per-leaf target ranges combine to the best ideal and the worst nadir of each objective."""
+    targets = [
+        Target(symbol="s1_f_1", objective="f_1", leaf="s1", leaves=("s1",), maximize=False),
+        Target(symbol="s2_f_1", objective="f_1", leaf="s2", leaves=("s2",), maximize=False),
+        Target(symbol="s1_f_3", objective="f_3", leaf="s1", leaves=("s1",), maximize=True),
+        Target(symbol="s2_f_3", objective="f_3", leaf="s2", leaves=("s2",), maximize=True),
+        Target(symbol="robust_f_2", objective="f_2", leaf=None, leaves=("s1", "s2"), maximize=False),
+        Target(symbol="s1_f_4", objective="f_4", leaf="s1", leaves=("s1",), maximize=False),
+    ]
+    ranges = {
+        "s1_f_1": (0.0, 10.0),
+        "s2_f_1": (-2.0, 8.0),
+        "s1_f_3": (10.0, 0.0),
+        "s2_f_3": (12.0, 1.0),
+        "robust_f_2": (1.0, 5.0),
+    }
+    assert objective_ranges(targets, ranges) == {"f_1": (-2.0, 10.0), "f_3": (12.0, 0.0), "f_2": (1.0, 5.0)}
+
+
 @pytest.mark.slow
 @pytest.mark.gurobipy
 @pytest.mark.githubskip
@@ -505,7 +527,7 @@ def test_solve_variants_summer_cabin():
     assert [r.name for r in results] == ["balanced", "emphasis_f_1", "emphasis_f_2", "emphasis_f_3"]
     for r in results:
         assert r.success, r.message
-        assert set(r.design) == {"y", "E", "n"}
+        assert set(r.design) == {"y", "E", "n", "c_s1", "d_s1", "soc_s1", "buy_s1", "sell_s1"}
         if round(r.design["y"]) == 1:
             assert r.design["E"] >= 14 - 1e-6
 

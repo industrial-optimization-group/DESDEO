@@ -6,12 +6,10 @@ from desdeo.tools.robustness_metrics import (
     antifragile_objectives,
     antifragility,
     domain_criterion,
-    max_regret,
 )
 
 pytestmark = pytest.mark.scenario
 
-# Leaf "a": best 1, spread 4. Leaf "b": best 2, spread 2.
 MIN_OUTCOMES = {
     "A": {"a": {"f": 1.0}, "b": {"f": 4.0}},
     "B": {"a": {"f": 3.0}, "b": {"f": 2.0}},
@@ -19,69 +17,10 @@ MIN_OUTCOMES = {
 }
 
 
-def _negated(outcomes, old, new):
-    """Rename objective old to new and negate its values."""
-    return {d: {leaf: {new: -objs[old]} for leaf, objs in leaves.items()} for d, leaves in outcomes.items()}
-
-
-def test_max_regret_minimised():
-    """Max regret is the worst normalised gap to the per-leaf best."""
-    res = max_regret(MIN_OUTCOMES, {"f": False})
-    assert res["A"].regret["f"] == pytest.approx(1.0)
-    assert res["B"].regret["f"] == pytest.approx(0.5)
-    assert res["C"].regret["f"] == pytest.approx(1.0)
-    assert res["B"].mean_regret == pytest.approx(0.5)
-
-
-def test_max_regret_maximised_matches_negated_minimised():
-    """A maximised objective gives the same regrets as its negated minimised twin."""
-    res = max_regret(_negated(MIN_OUTCOMES, "f", "g"), {"g": True})
-    assert res["A"].regret["g"] == pytest.approx(1.0)
-    assert res["B"].regret["g"] == pytest.approx(0.5)
-    assert res["C"].regret["g"] == pytest.approx(1.0)
-
-
-def test_max_regret_unnormalised():
-    """Without normalisation the raw gap is reported."""
-    res = max_regret(MIN_OUTCOMES, {"f": False}, normalize=False)
-    assert res["A"].regret["f"] == pytest.approx(2.0)
-    assert res["B"].regret["f"] == pytest.approx(2.0)
-    assert res["C"].regret["f"] == pytest.approx(4.0)
-
-
-def test_max_regret_zero_spread():
-    """A leaf where all designs tie contributes zero regret."""
-    outcomes = {"A": {"a": {"f": 2.0}, "b": {"f": 1.0}}, "B": {"a": {"f": 2.0}, "b": {"f": 3.0}}}
-    res = max_regret(outcomes, {"f": False})
-    # Leaf "a" has zero spread, so it contributes regret 0.
-    assert res["A"].regret["f"] == 0.0
-    assert res["B"].regret["f"] == pytest.approx(1.0)
-
-
-def test_max_regret_missing_entries():
-    """With missing="skip", missing leaves and objectives are skipped, not counted as zero regret."""
-    outcomes = {
-        "A": {"a": {"f": 1.0, "h": 5.0}, "b": {"f": 4.0}},
-        "B": {"a": {"f": 3.0, "h": 1.0}},
-        "C": {"a": {"f": 5.0}, "b": {"f": 2.0}},
-    }
-    res = max_regret(outcomes, {"f": False, "h": False}, missing="skip")
-    # Leaf "b" spread is over A and C only (2..4).
-    assert res["A"].regret["f"] == pytest.approx(1.0)
-    assert res["B"].regret["f"] == pytest.approx(0.5)
-    assert res["C"].regret["f"] == pytest.approx(1.0)
-    # h only exists in leaf "a" for A and B.
-    assert res["A"].regret["h"] == pytest.approx(1.0)
-    assert res["B"].regret["h"] == pytest.approx(0.0)
-    assert res["C"].regret["h"] is None
-    assert res["C"].mean_regret == pytest.approx(1.0)
-    assert res["A"].mean_regret == pytest.approx(1.0)
-
-
 def test_unknown_objective_raises():
     """Objectives without a direction are rejected."""
     with pytest.raises(ValueError):
-        max_regret(MIN_OUTCOMES, {"g": False})
+        domain_criterion(MIN_OUTCOMES, {"g": False}, {})
 
 
 def test_domain_criterion_directions_and_missing():
@@ -108,6 +47,41 @@ def test_domain_criterion_partial_and_empty_thresholds():
     assert empty["A"].mean_count is None
     with pytest.raises(ValueError):
         domain_criterion(MIN_OUTCOMES, {"f": False}, {"x": 1.0})
+
+
+def test_domain_criterion_all_count():
+    """all_count counts the leaves where every thresholded objective meets its threshold."""
+    outcomes = {"A": {"l1": {"f": 1.0, "g": 1.0}, "l2": {"f": 3.0, "g": 1.0}, "l3": {"f": 2.0, "g": 2.0}}}
+    res = domain_criterion(outcomes, {"f": False, "g": False}, {"f": 2.0, "g": 2.0})
+    assert res["A"].counts == {"f": 2, "g": 3}
+    assert res["A"].all_count == 2
+
+
+def test_domain_criterion_all_count_maximised():
+    """A maximised objective meets its threshold at or above it."""
+    outcomes = {"A": {"l1": {"h": 4.9}}, "B": {"l1": {"h": 5.0}}}
+    res = domain_criterion(outcomes, {"h": True}, {"h": 5.0})
+    assert res["A"].all_count == 0
+    assert res["B"].all_count == 1
+
+
+def test_domain_criterion_all_count_missing():
+    """A sparse leaf is judged on the objectives it has; a leaf the design lacks is not counted."""
+    outcomes = {
+        "A": {"l1": {"f": 1.0}, "l2": {"f": 1.0, "g": 1.0}},
+        "B": {"l1": {"f": 1.0, "g": 1.0}},
+    }
+    res = domain_criterion(outcomes, {"f": False, "g": False}, {"f": 2.0, "g": 2.0})
+    assert res["A"].counts == {"f": 2, "g": 1}
+    assert res["A"].all_count == 2
+    assert res["B"].all_count == 1
+
+
+def test_domain_criterion_all_count_empty_thresholds():
+    """Without thresholds no leaf is counted."""
+    res = domain_criterion(MIN_OUTCOMES, {"f": False}, {})
+    assert res["A"].all_count == 0
+    assert res["A"].mean_count is None
 
 
 # f is minimised, g is maximised. Per-leaf spreads (over A and B):
@@ -329,21 +303,12 @@ def test_parity_with_reference_formulas():
     }
     maximize = {"f": False, "k": False}
     # Per-leaf best/spread: f: b0 2/4, s1 2/4, s2 1/2; k: b0 8/2, s1 6/3, s2 8/4.
-    regret = max_regret(outcomes, maximize)
-    # A: f max(0, .5, 0) = .5, k max(1, 0, 1) = 1
-    # B: f max(.25, 0, 1) = 1, k max(0, 1, 0) = 1
-    # C: f max(1, 1, .5) = 1, k max(.5, 1/3, .5) = .5
-    expected_regret = {"A": (0.5, 1.0), "B": (1.0, 1.0), "C": (1.0, 0.5)}
-    for d, (rf, rk) in expected_regret.items():
-        assert regret[d].regret["f"] == pytest.approx(rf)
-        assert regret[d].regret["k"] == pytest.approx(rk)
-        assert regret[d].mean_regret == pytest.approx((rf + rk) / 2)
-
     domain = domain_criterion(outcomes, maximize, {"f": 3.0, "k": 9.0})
     assert domain["A"].counts == {"f": 2, "k": 1}
     assert domain["B"].counts == {"f": 3, "k": 3}
     assert domain["C"].counts == {"f": 1, "k": 2}
     assert domain["C"].mean_count == pytest.approx(1.5)
+    assert (domain["A"].all_count, domain["B"].all_count, domain["C"].all_count) == (0, 3, 0)
 
     af = antifragility(outcomes, maximize, "b0", absolute_floors={"f": 5.0}, loss_floors={"k": 2.5})
     # A f: s1 d = (2-4)/4 = -.5, s2 d = (2-1)/2 = .5 -> U .5, D .5, AF 0
@@ -370,38 +335,6 @@ def test_parity_with_reference_formulas():
     assert c_k.antifragility == pytest.approx((2 / 3 - 0.25) / (2 / 3 + 0.25))
     assert c_k.downside_raw == pytest.approx(1.0)
     assert c_k.taleb_class == "antifragile"
-
-
-def test_max_regret_missing_worst():
-    """B missing leaf-b/f and C missing leaf-a/h each get regret 1 (normalized) or full spread (raw)."""
-    outcomes = {
-        "A": {"a": {"f": 1.0, "h": 5.0}, "b": {"f": 4.0}},
-        "B": {"a": {"f": 3.0, "h": 1.0}},
-        "C": {"a": {"f": 5.0}, "b": {"f": 2.0}},
-    }
-    maximize = {"f": False, "h": False}
-    # B missing leaf-b f: worst fill = 4.0, best = 2.0, spread = 2.0 -> regret 1.0 (norm) / 2.0 (raw)
-    # C missing leaf-a h: worst fill = 5.0, best = 1.0, spread = 4.0 -> regret 1.0 (norm) / 4.0 (raw)
-    res = max_regret(outcomes, maximize)
-    assert res["B"].regret["f"] == pytest.approx(1.0)
-    assert res["C"].regret["h"] == pytest.approx(1.0)
-    res_raw = max_regret(outcomes, maximize, normalize=False)
-    assert res_raw["B"].regret["f"] == pytest.approx(2.0)
-    assert res_raw["C"].regret["h"] == pytest.approx(4.0)
-
-
-def test_max_regret_missing_worst_maximised():
-    """For a maximised objective, B missing leaf-b gets the minimum (worst) value, yielding regret 1."""
-    outcomes = {
-        "A": {"a": {"g": 10.0}, "b": {"g": 20.0}},
-        "B": {"a": {"g": 12.0}},
-        "C": {"a": {"g": 8.0}, "b": {"g": 15.0}},
-    }
-    maximize = {"g": True}
-    # B is best in leaf a. Leaf b: B gets the worst value 15; best 20, spread 5, so regret 1.
-    res = max_regret(outcomes, maximize)
-    assert res["B"].regret["g"] == pytest.approx(1.0)
-    assert max_regret(outcomes, maximize, missing="skip")["B"].regret["g"] == pytest.approx(0.0)
 
 
 def test_antifragility_missing_worst():
@@ -446,10 +379,8 @@ def test_antifragility_missing_worst_baseline():
 
 
 def test_missing_policy_invalid():
-    """missing='drop' raises ValueError in both max_regret and antifragility."""
+    """missing='drop' raises ValueError in antifragility."""
     outcomes = {"A": {"a": {"f": 1.0}}}
     maximize = {"f": False}
-    with pytest.raises(ValueError, match="missing must be"):
-        max_regret(outcomes, maximize, missing="drop")
     with pytest.raises(ValueError, match="missing must be"):
         antifragility(outcomes, maximize, baseline_leaf="a", missing="drop")

@@ -360,7 +360,7 @@ def test_jina_flow(client: TestClient, session_and_user: dict):
     response = post_json(client, f"{URL}/analysis", analysis_request, token)
     assert response.status_code == status.HTTP_200_OK, response.text
     analysis = response.json()
-    assert set(analysis["max_regret"]) == {"1", "2", "3"}
+    assert set(analysis["domain_criterion"]) == {"1", "2", "3"}
     assert set(analysis["domain_criterion"]["1"]["counts"]) == {"f_1"}
     assert analysis["antifragility"] is None
     assert analysis["antifragile_objectives"] is None
@@ -393,7 +393,7 @@ def test_analysis_with_baseline(client: TestClient, session_and_user: dict):
     response = post_json(client, f"{URL}/analysis", request | {"evaluate_state_id": evaluate_id}, token)
     assert response.status_code == status.HTTP_200_OK, response.text
     analysis = response.json()
-    assert set(analysis["antifragility"]) == set(analysis["max_regret"])
+    assert set(analysis["antifragility"]) == set(analysis["domain_criterion"])
     assert set(analysis["antifragility"]["1"]["objectives"]) == {"f_1", "f_2", "f_3"}
     assert isinstance(analysis["antifragile_objectives"], list)
     assert all(
@@ -751,4 +751,5 @@ def test_summer_cabin_smoke(client: TestClient, session_and_user: dict):
     request = {"problem_id": problem_db.id, "setup_state_id": setup["state_id"], "reference_point": rp}
     result = _post_ready(client, token, "iterate", request)["result"]
     assert all(r["success"] for r in result["results"]), [r["message"] for r in result["results"]]
-    assert all(set(d["values"]) == {"y", "E", "n"} for d in result["designs"])
+    root = {"y", "E", "n", "c_s1", "d_s1", "soc_s1", "buy_s1", "sell_s1"}
+    assert all(set(d["values"]) == root for d in result["designs"])

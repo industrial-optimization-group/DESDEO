@@ -52,7 +52,7 @@ from desdeo.mcdm.jina import (
 from desdeo.problem import ScenarioModel, TensorVariable
 from desdeo.tools import guess_best_solver
 from desdeo.tools.generics import BaseSolver
-from desdeo.tools.robustness_metrics import antifragile_objectives, antifragility, domain_criterion, max_regret
+from desdeo.tools.robustness_metrics import antifragile_objectives, antifragility, domain_criterion
 from desdeo.tools.scenario_designs import (
     LeafOutcome,
     default_design_variables,
@@ -791,7 +791,7 @@ def analysis(
     request: JinaAnalysisRequest,
     context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
 ) -> JinaAnalysisResponse:
-    """Compute max regret, the domain criterion and, with a baseline leaf, antifragility of evaluated designs.
+    """Compute the domain criterion and, with a baseline leaf, antifragility of evaluated designs.
 
     The thresholds are those of the domain criterion; the absolute and loss floors set the Taleb classes of
     the antifragility.
@@ -823,7 +823,6 @@ def analysis(
 
     fragility = None
     try:
-        regret = max_regret(values, maximize)
         domain = domain_criterion(values, maximize, request.thresholds)
         if setup.baseline_leaf is not None and any(setup.baseline_leaf in leaves for leaves in values.values()):
             fragility = antifragility(
@@ -836,7 +835,6 @@ def analysis(
     except ValueError as e:
         raise _unprocessable(str(e)) from e
     return JinaAnalysisResponse(
-        max_regret=regret,
         domain_criterion=domain,
         antifragility=fragility,
         antifragile_objectives=antifragile_objectives(fragility) if fragility is not None else None,

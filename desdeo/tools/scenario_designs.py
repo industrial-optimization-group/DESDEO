@@ -33,11 +33,6 @@ class LeafOutcome(BaseModel):
     variables: dict[str, float | list] = Field(default={}, description="Variable values in the leaf.")
 
 
-def _all_variables(model: ScenarioModel) -> dict[str, Variable | TensorVariable]:
-    """Return the base-problem and pool variables of a model by symbol."""
-    return {var.symbol: var for var in model.variables} | {var.symbol: var for var in model.base_problem.variables}
-
-
 def root_variables(model: ScenarioModel) -> list[str]:
     """Return the variables shared by all scenarios (anticipation_stop["ROOT"]) in base-problem order.
 
@@ -53,7 +48,7 @@ def root_variables(model: ScenarioModel) -> list[str]:
 
 
 def default_design_variables(model: ScenarioModel) -> list[str]:
-    """Return the scalar root variables, or all root variables if none of them is scalar.
+    """Return all root variables (anticipation_stop["ROOT"]), in the same order as `root_variables`.
 
     Args:
         model: the scenario model.
@@ -67,8 +62,7 @@ def default_design_variables(model: ScenarioModel) -> list[str]:
     root = root_variables(model)
     if not root:
         raise ValueError("The scenario model has no variables in anticipation_stop['ROOT'].")
-    variables = _all_variables(model)
-    return [sym for sym in root if isinstance(variables[sym], Variable)] or root
+    return root
 
 
 def _bounds(var: Variable | TensorVariable) -> tuple[np.ndarray, np.ndarray]:

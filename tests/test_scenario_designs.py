@@ -170,14 +170,14 @@ def pool_variable_model_fixture() -> ScenarioModel:
 
 
 def test_root_and_default_design_variables(model):
-    """The simple model has x_1 at ROOT; the summer cabin has scalar y, E, n plus tensors."""
+    """The simple model has x_1 at ROOT; the summer cabin has scalar y, E, n plus tensors, all defaulted."""
     assert root_variables(model) == ["x_1"]
     assert default_design_variables(model) == ["x_1"]
 
     cabin = summer_cabin_battery_problem_split_scenario()
-    assert root_variables(cabin)[:3] == ["y", "E", "n"]
-    assert len(root_variables(cabin)) > 3
-    assert default_design_variables(cabin) == ["y", "E", "n"]
+    root = ["y", "E", "n", "c_s1", "d_s1", "soc_s1", "buy_s1", "sell_s1"]
+    assert root_variables(cabin) == root
+    assert default_design_variables(cabin) == root
 
 
 def test_default_design_variables_without_root(model):

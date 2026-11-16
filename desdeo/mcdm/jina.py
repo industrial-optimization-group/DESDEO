@@ -539,6 +539,32 @@ def leaf_ranges(
     return _per_leaf(targets, ranges)
 
 
+def objective_ranges(targets: list[Target], ranges: dict[str, tuple[float, float]]) -> dict[str, tuple[float, float]]:
+    """Combine target ranges into one range per objective.
+
+    The ideal is the best of the objective's target ideals and the nadir the worst of their nadirs, in
+    the objective's original direction.  The result can be passed to `evaluate_design` as ``ranges``.
+
+    Args:
+        targets: the targets.
+        ranges: ``(ideal, nadir)`` by target symbol; targets missing from it or mapped to None are skipped.
+
+    Returns:
+        ``{objective: (ideal, nadir)}``.
+    """
+    combined: dict[str, tuple[float, float]] = {}
+    for t in targets:
+        if ranges.get(t.symbol) is None:
+            continue
+        ideal, nadir = ranges[t.symbol]
+        if t.objective in combined:
+            best, worst = (max, min) if t.maximize else (min, max)
+            ideal = best(ideal, combined[t.objective][0])
+            nadir = worst(nadir, combined[t.objective][1])
+        combined[t.objective] = (ideal, nadir)
+    return combined
+
+
 def _per_leaf(targets: list[Target], values: dict) -> dict[str, dict]:
     """Give each target's value to its objective in every leaf the target covers."""
     per_leaf: dict[str, dict] = {}
