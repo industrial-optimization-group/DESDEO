@@ -40,7 +40,7 @@ class JinaSetupRequest(JinaSessionRequest):
         default=None, description="DB id of the ScenarioModelDB. Defaults to the problem's first scenario model."
     )
     design_variables: list[str] | None = Field(
-        default=None, description="Root variables forming a design. Defaults to the scalar root variables."
+        default=None, description="Root variables forming a design. Defaults to all root variables."
     )
     measure: Measure = Field(default="worst_case", description="The aggregation of the aggregated view.")
     cvar_alpha: FiniteFloat = Field(default=0.9, gt=0, lt=1, description="The CVaR confidence level.")
@@ -81,12 +81,11 @@ class JinaEvaluateRequest(JinaSessionRequest):
         default=None, description="Scenario model to evaluate in. Defaults to the setup's scenario model."
     )
     design_ids: list[int] | None = Field(default=None, description="Designs to evaluate. Defaults to all.")
-    reference_point: dict[str, FiniteFloat] | None = Field(
-        default=None,
+    thresholds: dict[str, FiniteFloat] = Field(
         description=(
-            "Aspiration levels by original objective symbol for leaves a design's own reference point does not "
-            "cover; overrides the reference point of imported designs."
-        ),
+            "Domain-criterion thresholds by objective, original direction; the reference point every leaf is "
+            "re-solved at."
+        )
     )
 
 
@@ -98,15 +97,12 @@ class JinaSelectRequest(JinaSessionRequest):
     final_design_id: int | None = Field(default=None)
 
 
-class JinaAnalysisRequest(JinaSessionRequest):
-    """Request model for the JINA robustness analysis endpoint."""
+class JinaAntifragilityRequest(JinaSessionRequest):
+    """Request model for the JINA antifragility endpoint."""
 
     setup_state_id: int
     evaluate_state_id: int = Field(description="The StateDB id of the evaluate state whose outcomes are analysed.")
     design_ids: list[int] | None = Field(default=None, description="Designs to compare. Defaults to all evaluated.")
-    thresholds: dict[str, FiniteFloat] = Field(
-        default_factory=dict, description="Domain-criterion thresholds by objective, original direction."
-    )
     absolute_floors: dict[str, FiniteFloat] | None = Field(
         default=None,
         description="Worst acceptable outcome by objective for the antifragility classes, original direction.",
@@ -201,8 +197,11 @@ class JinaEvaluateResult(BaseModel):
     setup_state_id: int
     scenario_model_id: int
     design_ids: list[int]
-    reference_point: dict[str, float] | None
+    thresholds: dict[str, float]
     outcomes: dict[int, dict[str, LeafOutcome]]
+    domain_criterion: dict[int, DomainCriterion] | None = Field(
+        default=None, description="Domain criterion of each design at the thresholds; None until ready."
+    )
 
 
 class JinaSelectResult(BaseModel):
@@ -233,11 +232,8 @@ class JinaGetOrInitializeResponse(BaseModel):
     states: list[JinaStateResponse]
 
 
-class JinaAnalysisResponse(BaseModel):
-    """Robustness metrics of evaluated designs, by design id."""
+class JinaAntifragilityResponse(BaseModel):
+    """Antifragility of evaluated designs relative to the setup's baseline leaf, by design id."""
 
-    domain_criterion: dict[int, DomainCriterion]
-    antifragility: dict[int, Antifragility] | None = Field(
-        default=None, description="None when the setup has no baseline leaf in the evaluated outcomes."
-    )
-    antifragile_objectives: list[str] | None = None
+    antifragility: dict[int, Antifragility]
+    antifragile_objectives: list[str]

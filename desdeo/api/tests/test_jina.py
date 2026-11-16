@@ -23,11 +23,12 @@ from desdeo.api.routers import jina as jina_router
 from desdeo.api.routers.user_authentication import get_password_hash
 from desdeo.api.tests.conftest import get_json, login, post_json
 from desdeo.api.tests.test_routes import _setup_simple_scenario
-from desdeo.mcdm.jina import Target, leaf_ranges, leaf_reference_points
+from desdeo.mcdm.jina import Target, objective_ranges
 from desdeo.problem import Constant
 from desdeo.problem.scenario import ScenarioModel
 from desdeo.problem.testproblems import simple_scenario_model, summer_cabin_battery_problem_split_scenario
 from desdeo.tools import GurobipySolver
+from desdeo.tools.robustness_metrics import domain_criterion
 from desdeo.tools.scenario_designs import evaluate_design
 
 pytestmark = [pytest.mark.api, pytest.mark.scenario]
@@ -128,6 +129,32 @@ def _setup(client: TestClient, token: str, problem_id: int, **kwargs) -> dict:
     return _post_ready(client, token, "setup", {"problem_id": problem_id, **kwargs})
 
 
+def _objective_ranges(setup_result: dict) -> dict[str, tuple[float, float]]:
+    """Return the setup's per-scenario target ranges combined per objective."""
+    targets = [Target.model_validate(t) for t in setup_result["targets"]["per_scenario"]]
+    return objective_ranges(targets, {sym: tuple(r) for sym, r in setup_result["ranges"]["per_scenario"].items()})
+
+
+def _assert_oracle(evaluated: dict, model: ScenarioModel, designs: dict, ranges: dict) -> None:
+    """Assert that an evaluate state matches a direct evaluation at its thresholds and stores its domain criterion."""
+    thresholds = evaluated["thresholds"]
+    for design_id, leaves in evaluated["outcomes"].items():
+        direct = evaluate_design(
+            model, designs[int(design_id)]["values"], GurobipySolver, reference_point=thresholds, ranges=ranges
+        )
+        assert set(leaves) == set(direct)
+        for leaf, outcome in direct.items():
+            assert leaves[leaf]["status"] == outcome.status
+            assert leaves[leaf]["objectives"] == pytest.approx(outcome.objectives, abs=1e-6)
+    values = {
+        design_id: {leaf: outcome["objectives"] for leaf, outcome in leaves.items() if outcome["status"]}
+        for design_id, leaves in evaluated["outcomes"].items()
+    }
+    maximize = {obj.symbol: obj.maximize for obj in [*model.objectives, *model.base_problem.objectives]}
+    expected = domain_criterion(values, maximize, thresholds)
+    assert evaluated["domain_criterion"] == {design_id: dc.model_dump() for design_id, dc in expected.items()}
+
+
 def test_scenario_models(client: TestClient, session_and_user: dict, monkeypatch: pytest.MonkeyPatch):
     """The scenario models of a problem are listed with their leaves, and their ids are on the problem info."""
     seeded = _seed(session_and_user)
@@ -178,7 +205,7 @@ def test_scenario_models(client: TestClient, session_and_user: dict, monkeypatch
 
 @pytest.mark.gurobipy
 def test_jina_flow(client: TestClient, session_and_user: dict):
-    """Setup, solve in both views, pool, import, evaluate, stress test, select, analysis and designs listing."""
+    """Setup, solve in both views, pool, import, evaluate, stress test, select, antifragility and designs listing."""
     seeded = _seed(session_and_user)
     problem_id = seeded["problem_id"]
     token = login(client)
@@ -254,81 +281,41 @@ def test_jina_flow(client: TestClient, session_and_user: dict):
     assert "s_2" in imported["results"][3]["message"]
     imported_id = new_ids[0]
 
-    # A design solved at a reference point of only s_1's targets has no reference point for s_2 and s_3.
-    s_1_rp = {sym: value for sym, value in per_scenario_rp.items() if sym.startswith("s_1_")}
-    partial = _post_ready(client, token, "iterate", request | {"view": "per_scenario", "reference_point": s_1_rp})[
-        "result"
-    ]
-    partial_ids = partial["new_design_ids"]
-    assert partial_ids
-
     designs_url = f"{URL}/designs?problem_id={problem_id}&setup_state_id={setup_id}"
     designs = {d["id"]: d for d in get_json(client, designs_url, token).json()}
     assert sorted(designs) == list(range(1, len(designs) + 1))
     assert all(set(d["target_values"]) == {"aggregated", "per_scenario"} for d in designs.values())
     assert set(designs[1]["target_values"]["aggregated"]) == {"robust_f_3", "robust_f_1", "robust_f_2"}
 
-    # Evaluate at each design's stored effective reference point, or an imported design's import point.
+    # Evaluate every design in every leaf at the thresholds, with the design variables fixed.
+    ranges = _objective_ranges(result)
+    thresholds = _midpoint(ranges)
     evaluate_request = {"problem_id": problem_id, "setup_state_id": setup_id}
+    for bad, named in [({"f_1": 0.0, "f_2": 0.0}, "f_3"), (thresholds | {"nope": 0.0}, "nope")]:
+        response = post_json(client, f"{URL}/evaluate", evaluate_request | {"thresholds": bad}, token)
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert named in response.json()["detail"]
     response = post_json(client, f"{URL}/evaluate", evaluate_request, token)
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-    assert str(partial_ids) in response.json()["detail"]
 
-    per_scenario_targets = [Target.model_validate(t) for t in result["targets"]["per_scenario"]]
-    per_scenario_ranges = {sym: tuple(r) for sym, r in result["ranges"]["per_scenario"].items()}
-    only_imported = _post_ready(client, token, "evaluate", evaluate_request | {"design_ids": [imported_id]})
-    direct = evaluate_design(
-        simple_scenario_model(),
-        designs[imported_id]["values"],
-        GurobipySolver,
-        import_rp,
-        leaf_ranges=leaf_ranges(per_scenario_targets, per_scenario_ranges),
-    )
-    for leaf, outcome in direct.items():
-        objectives = only_imported["result"]["outcomes"][str(imported_id)][leaf]["objectives"]
-        assert objectives == pytest.approx(outcome.objectives, abs=1e-6)
-
-    evaluated = _post_ready(client, token, "evaluate", evaluate_request | {"reference_point": import_rp})
+    evaluated = _post_ready(client, token, "evaluate", evaluate_request | {"thresholds": thresholds})
     evaluate_id = evaluated["state_id"]
-    outcomes = evaluated["result"]["outcomes"]
-    assert set(outcomes) == {str(i) for i in designs}
+    assert evaluated["result"]["thresholds"] == thresholds
+    assert set(evaluated["result"]["outcomes"]) == {str(i) for i in designs}
+    assert not all(outcome["status"] for outcome in evaluated["result"]["outcomes"][str(new_ids[2])].values())
+    _assert_oracle(evaluated["result"], simple_scenario_model(), designs, ranges)
 
-    model = simple_scenario_model()
-    targets = [Target.model_validate(t) for t in result["targets"]["aggregated"]]
-    ranges = {sym: tuple(r) for sym, r in result["ranges"]["aggregated"].items()}
-    design = designs[1]
-    direct = evaluate_design(
-        model,
-        design["values"],
-        GurobipySolver,
-        {},
-        leaf_reference_points=leaf_reference_points(targets, design["effective_reference_point"]),
-        leaf_ranges=leaf_ranges(targets, ranges),
-    )
-    for leaf, outcome in direct.items():
-        assert outcomes["1"][leaf]["status"]
-        assert outcomes["1"][leaf]["objectives"] == pytest.approx(outcome.objectives, abs=1e-6)
-
-    # Stress test in the second scenario model: the aggregated targets give the reference point.
+    # Stress test in the second scenario model at the same thresholds.
     stress = _post_ready(
         client,
         token,
         "evaluate",
         evaluate_request
-        | {"scenario_model_id": seeded["stress_id"], "design_ids": [1, imported_id], "reference_point": import_rp},
+        | {"scenario_model_id": seeded["stress_id"], "design_ids": [1, imported_id], "thresholds": thresholds},
     )["result"]
     assert stress["scenario_model_id"] == seeded["stress_id"]
     assert set(stress["outcomes"]["1"]) == {"t_1", "t_2"}
-    shared_rp = {t.objective: design["effective_reference_point"][t.symbol] for t in targets}
-    direct = evaluate_design(
-        _stress_model(),
-        design["values"],
-        GurobipySolver,
-        shared_rp,
-        ranges={t.objective: ranges[t.symbol] for t in targets},
-    )
-    for leaf, outcome in direct.items():
-        assert stress["outcomes"]["1"][leaf]["objectives"] == pytest.approx(outcome.objectives, abs=1e-6)
+    _assert_oracle(stress, _stress_model(), designs, ranges)
 
     # Select.
     selected = _post_ready(
@@ -349,23 +336,18 @@ def test_jina_flow(client: TestClient, session_and_user: dict):
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
-    # Analysis without a baseline leaf.
-    analysis_request = {
+    # Antifragility needs a baseline leaf, and the analysis endpoint is gone.
+    antifragility_request = {
         "problem_id": problem_id,
         "setup_state_id": setup_id,
         "evaluate_state_id": evaluate_id,
         "design_ids": [1, 2, 3],
-        "thresholds": {"f_1": 10.0},
     }
-    response = post_json(client, f"{URL}/analysis", analysis_request, token)
-    assert response.status_code == status.HTTP_200_OK, response.text
-    analysis = response.json()
-    assert set(analysis["domain_criterion"]) == {"1", "2", "3"}
-    assert set(analysis["domain_criterion"]["1"]["counts"]) == {"f_1"}
-    assert analysis["antifragility"] is None
-    assert analysis["antifragile_objectives"] is None
-    response = post_json(client, f"{URL}/analysis", analysis_request | {"thresholds": {"nope": 1.0}}, token)
+    response = post_json(client, f"{URL}/antifragility", antifragility_request, token)
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert "baseline" in response.json()["detail"]
+    response = post_json(client, f"{URL}/analysis", antifragility_request, token)
+    assert response.status_code in (status.HTTP_404_NOT_FOUND, status.HTTP_405_METHOD_NOT_ALLOWED)
 
     # Restoring the session returns the setup and its later states in order.
     restored = post_json(client, f"{URL}/get-or-initialize", {"problem_id": problem_id}, token).json()
@@ -377,8 +359,8 @@ def test_jina_flow(client: TestClient, session_and_user: dict):
 
 
 @pytest.mark.gurobipy
-def test_analysis_with_baseline(client: TestClient, session_and_user: dict):
-    """With a baseline leaf, the analysis includes antifragility."""
+def test_antifragility_with_baseline(client: TestClient, session_and_user: dict):
+    """With a baseline leaf, the antifragility of evaluated designs is computed."""
     seeded = _seed(session_and_user)
     problem_id = seeded["problem_id"]
     token = login(client)
@@ -388,12 +370,14 @@ def test_analysis_with_baseline(client: TestClient, session_and_user: dict):
     request = {"problem_id": problem_id, "setup_state_id": setup["state_id"]}
     rp = _midpoint(setup["result"]["ranges"]["aggregated"])
     _post_ready(client, token, "iterate", request | {"reference_point": rp})
-    evaluate_id = _post_ready(client, token, "evaluate", request)["state_id"]
+    thresholds = _midpoint(_objective_ranges(setup["result"]))
+    evaluated = _post_ready(client, token, "evaluate", request | {"thresholds": thresholds})
+    evaluate_id = evaluated["state_id"]
 
-    response = post_json(client, f"{URL}/analysis", request | {"evaluate_state_id": evaluate_id}, token)
+    response = post_json(client, f"{URL}/antifragility", request | {"evaluate_state_id": evaluate_id}, token)
     assert response.status_code == status.HTTP_200_OK, response.text
     analysis = response.json()
-    assert set(analysis["antifragility"]) == set(analysis["domain_criterion"])
+    assert set(analysis["antifragility"]) == set(evaluated["result"]["outcomes"])
     assert set(analysis["antifragility"]["1"]["objectives"]) == {"f_1", "f_2", "f_3"}
     assert isinstance(analysis["antifragile_objectives"], list)
     assert all(
@@ -402,7 +386,7 @@ def test_analysis_with_baseline(client: TestClient, session_and_user: dict):
         for summary in result["objectives"].values()
     )
 
-    # Thresholds alone set no classes; all objectives are minimised, so loose absolute floors breach nothing.
+    # All objectives are minimised, so loose absolute floors breach nothing.
     summaries = {
         (design_id, obj): summary
         for design_id, result in analysis["antifragility"].items()
@@ -412,16 +396,8 @@ def test_analysis_with_baseline(client: TestClient, session_and_user: dict):
         obj: max(s["worst_outcome"] for (_, o), s in summaries.items() if o == obj) + 1.0
         for obj in ("f_1", "f_2", "f_3")
     }
-    analysis_request = request | {"evaluate_state_id": evaluate_id, "thresholds": loose}
-    response = post_json(client, f"{URL}/analysis", analysis_request, token)
-    assert response.status_code == status.HTTP_200_OK, response.text
-    assert all(
-        summary["taleb_class"] is None
-        for result in response.json()["antifragility"].values()
-        for summary in result["objectives"].values()
-    )
     analysis_request = request | {"evaluate_state_id": evaluate_id, "absolute_floors": loose}
-    response = post_json(client, f"{URL}/analysis", analysis_request, token)
+    response = post_json(client, f"{URL}/antifragility", analysis_request, token)
     assert response.status_code == status.HTTP_200_OK, response.text
     floored = response.json()["antifragility"]
     for (design_id, obj), summary in summaries.items():
@@ -431,13 +407,24 @@ def test_analysis_with_baseline(client: TestClient, session_and_user: dict):
     # A loss floor below a design's largest loss makes it fragile in that objective.
     (design_id, obj), summary = next(((key, s) for key, s in summaries.items() if s["max_loss_raw"] > 0))
     loss_floors = {obj: summary["max_loss_raw"] / 2}
-    response = post_json(client, f"{URL}/analysis", analysis_request | {"loss_floors": loss_floors}, token)
+    response = post_json(client, f"{URL}/antifragility", analysis_request | {"loss_floors": loss_floors}, token)
     assert response.status_code == status.HTTP_200_OK, response.text
     assert response.json()["antifragility"][design_id]["objectives"][obj]["taleb_class"] == "fragile"
 
     for floors in ("absolute_floors", "loss_floors"):
-        response = post_json(client, f"{URL}/analysis", analysis_request | {floors: {"nope": 1.0}}, token)
+        response = post_json(client, f"{URL}/antifragility", analysis_request | {floors: {"nope": 1.0}}, token)
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    # The leaves of the stress model do not include the baseline leaf.
+    stress = _post_ready(
+        client,
+        token,
+        "evaluate",
+        request | {"scenario_model_id": seeded["stress_id"], "thresholds": thresholds},
+    )
+    response = post_json(client, f"{URL}/antifragility", request | {"evaluate_state_id": stress["state_id"]}, token)
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert "baseline" in response.json()["detail"]
 
 
 def _add_dm(session: Session, username: str) -> User:
@@ -649,12 +636,10 @@ def test_invalid_inputs(client: TestClient, session_and_user: dict):
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
         assert response.status_code == 422, body
-    analysis = (
-        f'{{"problem_id": {problem_id}, "setup_state_id": 1, "evaluate_state_id": 2, "thresholds": {{"f_1": NaN}}}}'
-    )
+    evaluate = f'{{"problem_id": {problem_id}, "setup_state_id": 1, "thresholds": {{"f_1": NaN}}}}'
     response = client.post(
-        f"{URL}/analysis",
-        content=analysis,
+        f"{URL}/evaluate",
+        content=evaluate,
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
     )
     assert response.status_code == 422
@@ -719,9 +704,12 @@ def test_invalid_iterations(client: TestClient, session_and_user: dict):
     bad_rp = import_request | {"representative_set_id": seeded["solutions_id"], "reference_point": {"g": 0.0}}
     assert post_json(client, f"{URL}/import", bad_rp, token).status_code == 422
 
-    assert post_json(client, f"{URL}/evaluate", request | {"design_ids": [999]}, token).status_code == 422
+    evaluate_request = request | {"thresholds": {"f_1": 0.0, "f_2": 0.0, "f_3": 0.0}}
+    response = post_json(client, f"{URL}/evaluate", evaluate_request | {"design_ids": [999]}, token)
+    assert response.status_code == 422
+    assert "999" in response.json()["detail"]
     _, foreign_id = _setup_simple_scenario(session_and_user)
-    response = post_json(client, f"{URL}/evaluate", request | {"scenario_model_id": foreign_id}, token)
+    response = post_json(client, f"{URL}/evaluate", evaluate_request | {"scenario_model_id": foreign_id}, token)
     assert response.status_code == 422
 
 

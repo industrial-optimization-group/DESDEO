@@ -470,9 +470,12 @@ class JinaEvaluateState(ResultInterface, SQLModel, table=True):
     setup_state_id: int = Field(index=True, description="The StateDB id of the JINA setup state.")
     scenario_model_id: int = Field(description="DB id of the ScenarioModelDB the designs were evaluated in.")
     design_ids: list[int] = Field(sa_column=Column(JSON), default_factory=list)
-    reference_point: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
+    thresholds: dict[str, float] = Field(sa_column=Column(JSON), default_factory=dict)
     outcomes: dict[str, dict[str, dict]] = Field(
         sa_column=Column(JSON), default_factory=dict, description="`LeafOutcome` dumps by design id and leaf."
+    )
+    domain_criterion: dict[str, dict] | None = Field(
+        sa_column=Column(JSON), default=None, description="`DomainCriterion` dumps by design id."
     )
     is_ready: bool = Field(default=False)
     error: str | None = Field(default=None)

@@ -14,8 +14,8 @@ from desdeo.api.db import get_session
 from desdeo.api.models import ProblemDB, StateDB, User
 from desdeo.api.models.generic_states import StateKind
 from desdeo.api.models.jina import (
-    JinaAnalysisRequest,
-    JinaAnalysisResponse,
+    JinaAntifragilityRequest,
+    JinaAntifragilityResponse,
     JinaDesign,
     JinaDesignInfo,
     JinaEvaluateRequest,
@@ -43,8 +43,8 @@ from desdeo.mcdm.jina import (
     View,
     build_jina_problem,
     leaf_ranges,
-    leaf_reference_points,
     match_pool,
+    objective_ranges,
     solve_variants,
     target_ranges,
     target_values,
@@ -270,49 +270,9 @@ def _create_state(context: SessionContext, sub: SQLModel, parent_id: int | None)
     return state
 
 
-def _shared_reference_point(design: JinaDesign, setup: JinaSetupResult) -> dict[str, float]:
-    """Return a solved design's effective reference point for targets over all leaves, by objective."""
-    erp = design.effective_reference_point
-    if erp is None:
-        return {}
-    return {t.objective: erp[t.symbol] for t in setup.targets[design.view] if t.leaf is None and t.symbol in erp}
-
-
-def _evaluation_point(
-    design: JinaDesign, setup: JinaSetupResult, reference_point: dict[str, float] | None, *, same_model: bool
-) -> dict:
-    """Return the reference point and range arguments of `evaluate_design` for a design.
-
-    ``reference_point``, or for an imported design its import reference point, is the fallback for
-    leaves the design's own reference point does not cover.  In the setup's scenario model, a solved
-    design is evaluated at its effective reference point split per leaf with `leaf_reference_points`,
-    with ranges from the targets of the view it was found in; an imported design uses the
-    per-scenario target ranges.  In another scenario model, per-leaf targets do not correspond to its
-    leaves, so only the targets over all leaves (aggregated or shared objectives) of the design's view
-    are used, with their ranges, and the fallback gives the other objectives.
-    """
-    fallback = reference_point if reference_point is not None else design.import_reference_point or {}
-    view = design.view or "per_scenario"
-    targets, ranges = setup.targets[view], setup.ranges[view]
-    if same_model:
-        point = {"reference_point": fallback, "leaf_ranges": leaf_ranges(targets, ranges)}
-        if design.effective_reference_point is not None:
-            point["leaf_reference_points"] = leaf_reference_points(targets, design.effective_reference_point)
-        return point
-    return {
-        "reference_point": fallback | _shared_reference_point(design, setup),
-        "ranges": {t.objective: ranges[t.symbol] for t in targets if t.leaf is None},
-    }
-
-
-def _uncovered_leaves(point: dict, leaf_objectives: dict[str, set[str]]) -> list[str]:
-    """Return the leaves where an evaluation point has no objective of the leaf."""
-    leaf_points = point.get("leaf_reference_points", {})
-    return [
-        leaf
-        for leaf, objectives in leaf_objectives.items()
-        if not objectives & set(leaf_points.get(leaf, point["reference_point"]))
-    ]
+def _uncovered_leaves(reference_point: dict[str, float], leaf_objectives: dict[str, set[str]]) -> list[str]:
+    """Return the leaves where a reference point has no objective of the leaf."""
+    return [leaf for leaf, objectives in leaf_objectives.items() if not objectives & set(reference_point)]
 
 
 def _fail(session: Session, table: type[SQLModel], sub_id: int, error: Exception) -> None:
@@ -421,12 +381,12 @@ def _run_import(
             row_ids, first_rows, _ = _register(rows, registry, model, setup.design_rtol, next_id)
 
             solver = solver or _leaf_solver(model)
+            ranges = leaf_ranges(setup.targets["per_scenario"], setup.ranges["per_scenario"])
             evaluated = []
             statuses = dict.fromkeys(row_ids, (True, "The design is already in the registry."))
             for row in first_rows:
                 design = row.model_copy(update={"import_reference_point": import_rp})
-                point = _evaluation_point(design, setup, None, same_model=True)
-                outcomes = evaluate_design(model, design.values, solver, **point)
+                outcomes = evaluate_design(model, design.values, solver, reference_point=import_rp, leaf_ranges=ranges)
                 failed = [leaf for leaf, outcome in outcomes.items() if not outcome.status]
                 statuses[design.id] = (not failed, f"Evaluation failed in leaves {failed}." if failed else "Evaluated.")
                 leaf_objectives = {leaf: outcome.objectives for leaf, outcome in outcomes.items() if outcome.status}
@@ -455,31 +415,44 @@ def _run_import(
 
 
 def _run_evaluate(bind: Engine, setup_id: int, evaluate_id: int, solver: type[BaseSolver] | None) -> None:
-    """Background task: evaluate designs of the registry in the leaves of a scenario model."""
+    """Background task: evaluate designs of the registry in the leaves of a scenario model at the thresholds.
+
+    Each leaf is re-solved with the design variables fixed, at the thresholds as reference point, with
+    ASF weights from the setup's per-scenario target ranges combined per objective.  The domain
+    criterion is computed from the leaves that were solved.
+    """
     with Session(bind) as session:
         try:
             setup = _snapshot(session.get(JinaSetupState, setup_id))
             evaluate = session.get(JinaEvaluateState, evaluate_id)
             scenario_model_id, design_ids = evaluate.scenario_model_id, list(evaluate.design_ids)
-            reference_point = evaluate.reference_point
+            thresholds = dict(evaluate.thresholds)
             model = load_scenario_model(scenario_model_id, session)
             registry = {design.id: design for _, design in _registry(_iterate_states(evaluate.setup_state_id, session))}
             session.commit()
 
             solver = solver or _leaf_solver(model)
-            same_model = scenario_model_id == setup.scenario_model_id
-            outcomes = {}
+            objectives = _objective_symbols(model)
+            ranges = {
+                obj: r
+                for obj, r in objective_ranges(setup.targets["per_scenario"], setup.ranges["per_scenario"]).items()
+                if obj in objectives
+            }
+            outcomes, values = {}, {}
             for design_id in design_ids:
                 design = registry[design_id]
-                point = _evaluation_point(design, setup, reference_point, same_model=same_model)
                 try:
-                    result = evaluate_design(model, design.values, solver, **point)
+                    result = evaluate_design(model, design.values, solver, reference_point=thresholds, ranges=ranges)
                 except ValueError as e:
                     result = {leaf: LeafOutcome(status=False, message=str(e)) for leaf in model.leaf_scenarios}
                 outcomes[str(design_id)] = {leaf: outcome.model_dump() for leaf, outcome in result.items()}
+                values[design_id] = {leaf: outcome.objectives for leaf, outcome in result.items() if outcome.status}
+            maximize = {obj.symbol: obj.maximize for obj in [*model.objectives, *model.base_problem.objectives]}
+            domain = domain_criterion(values, maximize, thresholds)
 
             evaluate = session.get(JinaEvaluateState, evaluate_id)
             evaluate.outcomes, evaluate.is_ready = outcomes, True
+            evaluate.domain_criterion = {str(design_id): dc.model_dump() for design_id, dc in domain.items()}
             session.add(evaluate)
             session.commit()
         except Exception as e:
@@ -681,7 +654,7 @@ def import_designs(
         raise _unprocessable(
             f"The reference point must have objectives of {sorted(objectives)}; got {sorted(request.reference_point)}."
         )
-    if uncovered := _uncovered_leaves({"reference_point": request.reference_point}, _leaf_objectives(model)):
+    if uncovered := _uncovered_leaves(request.reference_point, _leaf_objectives(model)):
         raise _unprocessable(f"The reference point has no objectives of leaves {uncovered}.")
 
     sub = JinaIterateState(setup_state_id=setup_state.id, mode="import", reference_point=request.reference_point)
@@ -705,8 +678,9 @@ def evaluate(
 ) -> JinaStateResponse:
     """Evaluate designs in the leaves of the setup's or another scenario model of the problem in the background.
 
-    See `_evaluation_point` for the reference point each design is evaluated at.  Every leaf must
-    get an objective from it; otherwise ``reference_point`` must supply one.
+    Every leaf is re-solved at the thresholds with the design variables fixed, and the domain criterion
+    of each design at the thresholds is stored with the outcomes.  The thresholds must cover exactly
+    the objectives of the scenario model.
     """
     setup_state, setup = _get_setup(request.setup_state_id, context)
     scenario_model_id = request.scenario_model_id if request.scenario_model_id is not None else setup.scenario_model_id
@@ -715,38 +689,24 @@ def evaluate(
         raise _unprocessable(
             f"Design variables {missing} are not root variables of scenario model {scenario_model_id}."
         )
-    if request.reference_point is not None and (
-        unknown := sorted(set(request.reference_point) - _objective_symbols(model))
-    ):
-        raise _unprocessable(f"Objectives {unknown} are not objectives of scenario model {scenario_model_id}.")
+    objectives = _objective_symbols(model)
+    if set(request.thresholds) != objectives:
+        raise _unprocessable(
+            f"Thresholds must cover exactly the objectives of scenario model {scenario_model_id}; "
+            f"missing {sorted(objectives - set(request.thresholds))}, "
+            f"unknown {sorted(set(request.thresholds) - objectives)}."
+        )
 
     registry = {design.id: design for _, design in _registry(_iterate_states(setup_state.id, context.db_session))}
     design_ids = list(registry) if request.design_ids is None else request.design_ids
     if not design_ids or not set(design_ids) <= set(registry):
         raise _unprocessable(f"Designs to evaluate must be a nonempty subset of {sorted(registry)}; got {design_ids}.")
-    same_model = scenario_model_id == setup.scenario_model_id
-    leaf_objectives = _leaf_objectives(model)
-    uncovered = {
-        design_id: leaves
-        for design_id in design_ids
-        if (
-            leaves := _uncovered_leaves(
-                _evaluation_point(registry[design_id], setup, request.reference_point, same_model=same_model),
-                leaf_objectives,
-            )
-        )
-    }
-    if uncovered:
-        raise _unprocessable(
-            f"The reference points of designs {sorted(uncovered)} have no objectives of leaves {uncovered}; "
-            "give a reference_point with objectives of those leaves."
-        )
 
     sub = JinaEvaluateState(
         setup_state_id=setup_state.id,
         scenario_model_id=scenario_model_id,
         design_ids=design_ids,
-        reference_point=request.reference_point,
+        thresholds=request.thresholds,
     )
     state = _create_state(context, sub, _parent_id(request, setup_state.id))
     background_tasks.add_task(
@@ -786,18 +746,16 @@ def select_designs(
     return _state_response(_create_state(context, sub, _parent_id(request, setup_state.id)))
 
 
-@router.post("/analysis")
-def analysis(
-    request: JinaAnalysisRequest,
+@router.post("/antifragility")
+def antifragility_analysis(
+    request: JinaAntifragilityRequest,
     context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
-) -> JinaAnalysisResponse:
-    """Compute the domain criterion and, with a baseline leaf, antifragility of evaluated designs.
+) -> JinaAntifragilityResponse:
+    """Compute the antifragility of evaluated designs relative to the setup's baseline leaf.
 
-    The thresholds are those of the domain criterion; the absolute and loss floors set the Taleb classes of
-    the antifragility.
-
-    Leaves where a design failed are missing outcomes, treated by the metrics' default policy.  The
-    antifragility is None when the setup has no baseline leaf or no design has an outcome in it.
+    The absolute and loss floors set the Taleb classes.  Leaves where a design failed are missing
+    outcomes, treated by the metric's default policy.  Raises 422 if the setup has no baseline leaf
+    or no selected design has an outcome in it.
     """
     setup_state, setup = _get_setup(request.setup_state_id, context, ready=False)
     evaluated = _problem_state(request.evaluate_state_id, StateKind.JINA_EVALUATE, context).state
@@ -818,27 +776,24 @@ def analysis(
         design_id: {leaf: outcome.objectives for leaf, outcome in outcomes[design_id].items() if outcome.status}
         for design_id in design_ids
     }
+    if setup.baseline_leaf is None:
+        raise _unprocessable("The setup has no baseline leaf for the antifragility analysis.")
+    if not any(setup.baseline_leaf in leaves for leaves in values.values()):
+        raise _unprocessable(f"No selected design has an outcome in the baseline leaf '{setup.baseline_leaf}'.")
     model = load_scenario_model(evaluated.scenario_model_id, context.db_session)
     maximize = {obj.symbol: obj.maximize for obj in [*model.objectives, *model.base_problem.objectives]}
 
-    fragility = None
     try:
-        domain = domain_criterion(values, maximize, request.thresholds)
-        if setup.baseline_leaf is not None and any(setup.baseline_leaf in leaves for leaves in values.values()):
-            fragility = antifragility(
-                values,
-                maximize,
-                setup.baseline_leaf,
-                absolute_floors=request.absolute_floors,
-                loss_floors=request.loss_floors,
-            )
+        fragility = antifragility(
+            values,
+            maximize,
+            setup.baseline_leaf,
+            absolute_floors=request.absolute_floors,
+            loss_floors=request.loss_floors,
+        )
     except ValueError as e:
         raise _unprocessable(str(e)) from e
-    return JinaAnalysisResponse(
-        domain_criterion=domain,
-        antifragility=fragility,
-        antifragile_objectives=antifragile_objectives(fragility) if fragility is not None else None,
-    )
+    return JinaAntifragilityResponse(antifragility=fragility, antifragile_objectives=antifragile_objectives(fragility))
 
 
 @router.get("/designs")
