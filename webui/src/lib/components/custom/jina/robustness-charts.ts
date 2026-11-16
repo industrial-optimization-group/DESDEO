@@ -3,6 +3,7 @@
 import type { EChartsOption } from 'echarts';
 import type { Antifragility, DomainCriterion, LeafOutcome } from '$lib/gen/endpoints/DESDEOFastAPI';
 import { formatNumber } from './labels';
+import type { ChartLines } from './scenario-chart';
 
 /** Outcomes of an evaluation by design id (as a string) and leaf. */
 export type Outcomes = Record<string, Record<string, LeafOutcome>>;
@@ -74,6 +75,55 @@ function heatmap(
 /** Whether a value meets a threshold: at most it for a minimised, at least it for a maximised objective. */
 export function meetsThreshold(value: number, threshold: number, maximize: boolean): boolean {
 	return maximize ? value >= threshold : value <= threshold;
+}
+
+/**
+ * Whether every thresholded objective present in `values` meets its threshold, and at least one is
+ * present. Objectives absent from `maximize` are minimised.
+ */
+export function meetsAllThresholds(
+	values: Record<string, number>,
+	thresholds: Record<string, number>,
+	maximize: Record<string, boolean>
+): boolean {
+	const present = Object.keys(thresholds).filter((obj) => Number.isFinite(values[obj]));
+	return (
+		present.length > 0 &&
+		present.every((obj) => meetsThreshold(values[obj], thresholds[obj], maximize[obj] ?? false))
+	);
+}
+
+/** Colour of scenario lines failing a threshold. */
+export const FAILING_LINE_COLOR = '#9ca3af';
+
+/**
+ * The scenario lines with those whose scenario values fail the thresholds gray and placed first, so
+ * they are drawn beneath the others. Lines without a scenario, or whose scenario has no values in
+ * `leafObjectives`, keep their colour.
+ */
+export function thresholdLines(
+	lines: ChartLines,
+	leafObjectives: Record<number, Record<string, Record<string, number>> | undefined>,
+	thresholds: Record<string, number>,
+	maximize: Record<string, boolean>
+): ChartLines {
+	const fails = lines.designIds.map((id, i) => {
+		const leaf = lines.leaves[i];
+		const values = leaf === null ? undefined : leafObjectives[id]?.[leaf];
+		return values !== undefined && !meetsAllThresholds(values, thresholds, maximize);
+	});
+	const indexes = lines.designIds.map((_, i) => i);
+	const order = [...indexes.filter((i) => fails[i]), ...indexes.filter((i) => !fails[i])];
+	return {
+		designIds: order.map((i) => lines.designIds[i]),
+		leaves: order.map((i) => lines.leaves[i]),
+		labels: order.map((i) => lines.labels[i]),
+		values: order.map((i) => lines.values[i]),
+		colors: Object.fromEntries(
+			order.map((i, j) => [String(j), fails[i] ? FAILING_LINE_COLOR : lines.colors[String(i)]])
+		),
+		selected: lines.selected.map((i) => order.indexOf(i))
+	};
 }
 
 /**

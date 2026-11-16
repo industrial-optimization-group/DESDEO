@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Antifragility, DomainCriterion } from '$lib/gen/endpoints/DESDEOFastAPI';
+import { scenarioLines } from './scenario-chart';
 import {
 	antifragilityHeatmap,
 	domainCriterionShares,
@@ -7,7 +8,10 @@ import {
 	evaluatedLeafObjectives,
 	evaluatedLeaves,
 	evaluatedObjectives,
+	FAILING_LINE_COLOR,
+	meetsAllThresholds,
 	meetsThreshold,
+	thresholdLines,
 	upsideDownside,
 	type Outcomes
 } from './robustness-charts';
@@ -68,6 +72,39 @@ describe('meetsThreshold', () => {
 		expect(meetsThreshold(5, 5, false)).toBe(true);
 		expect(meetsThreshold(6, 5, false)).toBe(false);
 		expect(meetsThreshold(6, 5, true)).toBe(true);
+	});
+});
+
+describe('meetsAllThresholds', () => {
+	it('compares minimised objectives with at most the threshold', () => {
+		expect(meetsAllThresholds({ f: 2 }, { f: 2 }, { f: false })).toBe(true);
+		expect(meetsAllThresholds({ f: 2.1 }, { f: 2 }, { f: false })).toBe(false);
+	});
+
+	it('compares maximised objectives with at least the threshold', () => {
+		expect(meetsAllThresholds({ g: 5 }, { g: 5 }, { g: true })).toBe(true);
+		expect(meetsAllThresholds({ g: 4.9 }, { g: 5 }, { g: true })).toBe(false);
+	});
+
+	it('ignores objectives absent from the values', () => {
+		expect(meetsAllThresholds({ f: 1 }, { f: 2, g: 5 }, { f: false, g: true })).toBe(true);
+		expect(meetsAllThresholds({ f: 3 }, { f: 2, g: 5 }, { f: false, g: true })).toBe(false);
+	});
+
+	it('is false when no thresholded objective is present', () => {
+		expect(meetsAllThresholds({ h: 1 }, { f: 2 }, { f: false })).toBe(false);
+		expect(meetsAllThresholds({ f: 1 }, {}, {})).toBe(false);
+	});
+});
+
+describe('thresholdLines', () => {
+	it('grays failing lines and draws them first', () => {
+		const leafObjectives = { 1: { a: { f: 1 }, b: { f: 3 } } };
+		const lines = scenarioLines([1], leafObjectives, ['a', 'b'], ['a', 'b'], ['f'], null);
+		const result = thresholdLines(lines, leafObjectives, { f: 2 }, { f: false });
+		expect(result.leaves).toEqual(['b', 'a']);
+		expect(result.colors).toEqual({ '0': FAILING_LINE_COLOR, '1': lines.colors['0'] });
+		expect(result.values).toEqual([[3], [1]]);
 	});
 });
 

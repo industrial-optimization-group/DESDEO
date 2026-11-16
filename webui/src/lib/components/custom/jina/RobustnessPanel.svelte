@@ -5,6 +5,7 @@
 	 * Scrolls vertically inside the tab.
 	 */
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
+	import * as Select from '$lib/components/ui/select/index.js';
 	import { PREFERENCE_TYPES } from '$lib/constants';
 	import type {
 		JinaDesignInfo,
@@ -20,7 +21,8 @@
 	import {
 		evaluatedLeafObjectives,
 		evaluatedLeaves,
-		evaluatedObjectives
+		evaluatedObjectives,
+		thresholdLines
 	} from './robustness-charts';
 	import { scenarioColor, scenarioLines, scenarioProblem } from './scenario-chart';
 	import type { EvaluateState, SetupState } from './types';
@@ -77,6 +79,13 @@
 	let leaves = $derived(baselineFirst(model?.leaves ?? evaluatedLeaves(outcomes), baselineLeaf));
 	let leafColors = $derived(Object.fromEntries(leaves.map((l, i) => [l, scenarioColor(i)])));
 	let checkedLeaves = $derived(evaluation ? (checked[evaluation.state_id] ?? leaves) : []);
+	let evaluatedIds = $derived([...(evaluation?.result.design_ids ?? [])].sort((a, b) => a - b));
+	// The plotted design: the selected one if evaluated, else the first.
+	let plotId = $derived(
+		selectedId !== null && evaluatedIds.includes(selectedId)
+			? selectedId
+			: (evaluatedIds[0] ?? null)
+	);
 
 	// Objective axes over the evaluated objectives; the setup's ranges apply only in its own model.
 	let chart = $derived.by(() => {
@@ -88,20 +97,29 @@
 			sameModel ? ((setup.result.ranges?.per_scenario ?? {}) as Record<string, Range>) : {},
 			checkedLeaves
 		);
-		const lines = scenarioLines(
-			[...evaluation.result.design_ids].sort((a, b) => a - b),
-			evaluatedLeafObjectives(outcomes),
-			checkedLeaves,
-			leaves,
-			chartProblem.objectives.map((o) => o.symbol),
-			selectedId
+		const symbols = chartProblem.objectives.map((o) => o.symbol);
+		const leafObjectives = evaluatedLeafObjectives(outcomes);
+		const { thresholds } = evaluation.result;
+		const maximize = Object.fromEntries(
+			[...problem.objectives, ...chartProblem.objectives].map((o) => [o.symbol, !!o.maximize])
 		);
-		return { problem: chartProblem, lines };
+		const lines = thresholdLines(
+			scenarioLines(
+				plotId === null ? [] : [plotId],
+				leafObjectives,
+				checkedLeaves,
+				leaves,
+				symbols,
+				null
+			),
+			leafObjectives,
+			thresholds,
+			maximize
+		);
+		return { problem: chartProblem, lines, thresholds: symbols.map((o) => thresholds[o]) };
 	});
 
-	let selectedOutcomes = $derived(
-		evaluation && selectedId !== null ? outcomes[String(selectedId)] : undefined
-	);
+	let selectedOutcomes = $derived(plotId !== null ? outcomes[String(plotId)] : undefined);
 
 	function statusOf(e: EvaluateState): string {
 		if (!e.is_ready) return 'running…';
@@ -172,9 +190,24 @@
 
 		{#if evaluation && chart}
 			<section class="rounded border bg-white p-3">
-				<h3 class="text-sm font-semibold">
-					Outcomes of evaluation {evaluation.state_id} by scenario
-				</h3>
+				<div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+					<h3 class="text-sm font-semibold">
+						Outcomes of evaluation {evaluation.state_id} by scenario
+					</h3>
+					<Select.Root
+						type="single"
+						bind:value={() => String(plotId ?? ''), (v: string) => (selectedId = Number(v))}
+					>
+						<Select.Trigger class="w-40" aria-label="Design">
+							{plotId === null ? 'No design' : `Design #${plotId}`}
+						</Select.Trigger>
+						<Select.Content>
+							{#each evaluatedIds as id (id)}
+								<Select.Item value={String(id)}>Design #{id}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
 				<div class="grid gap-3 @3xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
 					<div class="h-80 min-w-0">
 						{#if chart.lines.designIds.length > 0}
@@ -183,14 +216,13 @@
 								solutionsObjectiveValues={chart.lines.values}
 								previousPreferenceType={PREFERENCE_TYPES.ReferencePoint}
 								currentPreferenceType={PREFERENCE_TYPES.ReferencePoint}
-								externalSelectedIndexes={chart.lines.selected}
-								onSelectSolution={(index: number) => {
-									selectedId = chart?.lines.designIds[index] ?? selectedId;
-								}}
+								currentPreferenceValues={chart.thresholds}
+								referenceDataLabels={{ currentRefLabel: 'Thresholds' }}
 								lineLabels={Object.fromEntries(
 									chart.lines.labels.map((label, i) => [String(i), label])
 								)}
 								colorByIndex={chart.lines.colors}
+								externalSelectedIndexes={[]}
 								showHeader={false}
 								verticalAxisLabels
 								compactTickLabels
@@ -214,7 +246,7 @@
 						/>
 						{#if selectedOutcomes}
 							<div class="border-t pt-2">
-								<h4 class="mb-1 text-sm font-semibold">Design #{selectedId} by scenario</h4>
+								<h4 class="mb-1 text-sm font-semibold">Design #{plotId} by scenario</h4>
 								<ScenarioBreakdown
 									{problem}
 									{baselineLeaf}
