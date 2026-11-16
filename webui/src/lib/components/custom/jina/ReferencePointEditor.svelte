@@ -33,6 +33,7 @@
 		scopedTargets
 	} from './fill';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { HorizontalBar } from '$lib/components/visualizations/horizontal-bar';
 
 	let {
@@ -197,17 +198,18 @@
 			{/if}
 		</label>
 		<div class="flex items-center gap-2">
-			<input
+			<Input
 				id="rp-{target.symbol}"
 				aria-label={targetLabel(problem, target)}
 				type="number"
 				step="any"
-				class="w-28 rounded border px-2 py-1 text-sm"
+				class="h-8 w-28 border-gray-400 px-2 text-sm"
 				min={mode === 'percent' ? 0 : undefined}
 				max={mode === 'percent' ? 100 : undefined}
 				value={drafts[target.symbol] ?? shown(target)}
 				onfocus={() => focused(target)}
-				oninput={(e) => typed(target, e.currentTarget.value)}
+				oninput={(e: Event & { currentTarget: HTMLInputElement }) =>
+					typed(target, e.currentTarget.value)}
 				onblur={() => left(target)}
 			/>
 			{#if mode !== 'raw'}
@@ -320,16 +322,17 @@
 						<label class="sr-only" for="fill-{group.objective}">
 							Fill {objectiveLabel(problem, group.objective)}
 						</label>
-						<input
+						<Input
 							id="fill-{group.objective}"
 							type="number"
 							step="any"
 							placeholder="Fill"
-							class="w-28 rounded border px-2 py-1 text-sm"
+							class="h-8 w-28 border-gray-400 px-2 text-sm"
 							min={mode === 'percent' ? 0 : undefined}
 							max={mode === 'percent' ? 100 : undefined}
 							value={fills[group.objective] ?? ''}
-							oninput={(e) => (fills = { ...fills, [group.objective]: e.currentTarget.value })}
+							oninput={(e: Event & { currentTarget: HTMLInputElement }) =>
+								(fills = { ...fills, [group.objective]: e.currentTarget.value })}
 						/>
 						<Button
 							size="sm"

@@ -1,6 +1,7 @@
 <script lang="ts">
 	/** One number input per objective; an emptied input holds null. */
 	import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
+	import { Input } from '$lib/components/ui/input';
 	import { objectiveLabel } from './labels';
 
 	let {
@@ -19,11 +20,11 @@
 {#each objectives as obj (obj)}
 	<div class="flex items-center justify-between gap-2">
 		<label for="{idPrefix}-{obj}" class="text-sm">{objectiveLabel(problem, obj)}</label>
-		<input
+		<Input
 			id="{idPrefix}-{obj}"
 			type="number"
 			step="any"
-			class="w-28 rounded border px-2 py-1 text-sm"
+			class="h-8 w-28 border-gray-400 px-2 text-sm"
 			bind:value={values[obj]}
 		/>
 	</div>
