@@ -775,6 +775,7 @@ export type DomainCriterionCounts = { [key: string]: number };
 export interface DomainCriterion {
 	counts: DomainCriterionCounts;
 	mean_count: number | null;
+	all_count: number;
 }
 
 /**
@@ -1689,24 +1690,19 @@ export interface IntermediateSolutionRequest {
 }
 
 /**
- * Domain-criterion thresholds by objective, original direction.
- */
-export type JinaAnalysisRequestThresholds = { [key: string]: number };
-
-/**
  * Worst acceptable outcome by objective for the antifragility classes, original direction.
  */
-export type JinaAnalysisRequestAbsoluteFloors = { [key: string]: number } | null;
+export type JinaAntifragilityRequestAbsoluteFloors = { [key: string]: number } | null;
 
 /**
  * Largest acceptable loss relative to the baseline leaf by objective, in original units.
  */
-export type JinaAnalysisRequestLossFloors = { [key: string]: number } | null;
+export type JinaAntifragilityRequestLossFloors = { [key: string]: number } | null;
 
 /**
- * Request model for the JINA robustness analysis endpoint.
+ * Request model for the JINA antifragility endpoint.
  */
-export interface JinaAnalysisRequest {
+export interface JinaAntifragilityRequest {
 	problem_id: number;
 	session_id?: number | null;
 	parent_state_id?: number | null;
@@ -1715,42 +1711,20 @@ export interface JinaAnalysisRequest {
 	evaluate_state_id: number;
 	/** Designs to compare. Defaults to all evaluated. */
 	design_ids?: number[] | null;
-	/** Domain-criterion thresholds by objective, original direction. */
-	thresholds?: JinaAnalysisRequestThresholds;
 	/** Worst acceptable outcome by objective for the antifragility classes, original direction. */
-	absolute_floors?: JinaAnalysisRequestAbsoluteFloors;
+	absolute_floors?: JinaAntifragilityRequestAbsoluteFloors;
 	/** Largest acceptable loss relative to the baseline leaf by objective, in original units. */
-	loss_floors?: JinaAnalysisRequestLossFloors;
+	loss_floors?: JinaAntifragilityRequestLossFloors;
 }
 
-export type MaxRegretRegret = { [key: string]: number | null };
+export type JinaAntifragilityResponseAntifragility = { [key: string]: Antifragility };
 
 /**
- * Per-design maximum regret summary.
+ * Antifragility of evaluated designs relative to the setup's baseline leaf, by design id.
  */
-export interface MaxRegret {
-	regret: MaxRegretRegret;
-	mean_regret: number | null;
-}
-
-export type JinaAnalysisResponseMaxRegret = { [key: string]: MaxRegret };
-
-export type JinaAnalysisResponseDomainCriterion = { [key: string]: DomainCriterion };
-
-/**
- * None when the setup has no baseline leaf in the evaluated outcomes.
- */
-export type JinaAnalysisResponseAntifragility = { [key: string]: Antifragility } | null;
-
-/**
- * Robustness metrics of evaluated designs, by design id.
- */
-export interface JinaAnalysisResponse {
-	max_regret: JinaAnalysisResponseMaxRegret;
-	domain_criterion: JinaAnalysisResponseDomainCriterion;
-	/** None when the setup has no baseline leaf in the evaluated outcomes. */
-	antifragility?: JinaAnalysisResponseAntifragility;
-	antifragile_objectives?: string[] | null;
+export interface JinaAntifragilityResponse {
+	antifragility: JinaAntifragilityResponseAntifragility;
+	antifragile_objectives: string[];
 }
 
 /**
@@ -1857,9 +1831,9 @@ export interface JinaDesignInfo {
 }
 
 /**
- * Aspiration levels by original objective symbol for leaves a design's own reference point does not cover; overrides the reference point of imported designs.
+ * Domain-criterion thresholds by objective, original direction; the reference point every leaf is re-solved at.
  */
-export type JinaEvaluateRequestReferencePoint = { [key: string]: number } | null;
+export type JinaEvaluateRequestThresholds = { [key: string]: number };
 
 /**
  * Request model for the JINA evaluate endpoint.
@@ -1873,11 +1847,11 @@ export interface JinaEvaluateRequest {
 	scenario_model_id?: number | null;
 	/** Designs to evaluate. Defaults to all. */
 	design_ids?: number[] | null;
-	/** Aspiration levels by original objective symbol for leaves a design's own reference point does not cover; overrides the reference point of imported designs. */
-	reference_point?: JinaEvaluateRequestReferencePoint;
+	/** Domain-criterion thresholds by objective, original direction; the reference point every leaf is re-solved at. */
+	thresholds: JinaEvaluateRequestThresholds;
 }
 
-export type JinaEvaluateResultReferencePoint = { [key: string]: number } | null;
+export type JinaEvaluateResultThresholds = { [key: string]: number };
 
 /**
  * Objective values in the leaf, in their original direction.
@@ -1906,6 +1880,11 @@ export interface LeafOutcome {
 export type JinaEvaluateResultOutcomes = { [key: string]: { [key: string]: LeafOutcome } };
 
 /**
+ * Domain criterion of each design at the thresholds; None until ready.
+ */
+export type JinaEvaluateResultDomainCriterion = { [key: string]: DomainCriterion } | null;
+
+/**
  * Contents of a JINA evaluate state.
  */
 export interface JinaEvaluateResult {
@@ -1913,8 +1892,10 @@ export interface JinaEvaluateResult {
 	setup_state_id: number;
 	scenario_model_id: number;
 	design_ids: number[];
-	reference_point: JinaEvaluateResultReferencePoint;
+	thresholds: JinaEvaluateResultThresholds;
 	outcomes: JinaEvaluateResultOutcomes;
+	/** Domain criterion of each design at the thresholds; None until ready. */
+	domain_criterion?: JinaEvaluateResultDomainCriterion;
 }
 
 /**
@@ -3221,7 +3202,7 @@ export type SelectDesignsMethodJinaSelectPostParams = {
 	problem_id?: number | null;
 };
 
-export type AnalysisMethodJinaAnalysisPostParams = {
+export type AntifragilityAnalysisMethodJinaAntifragilityPostParams = {
 	problem_id?: number | null;
 };
 
@@ -6728,8 +6709,9 @@ export const importDesignsMethodJinaImportPost = async (
 /**
  * Evaluate designs in the leaves of the setup's or another scenario model of the problem in the background.
 
-See `_evaluation_point` for the reference point each design is evaluated at.  Every leaf must
-get an objective from it; otherwise ``reference_point`` must supply one.
+Every leaf is re-solved at the thresholds with the design variables fixed, and the domain criterion
+of each design at the thresholds is stored with the outcomes.  The thresholds must cover exactly
+the objectives of the scenario model.
  * @summary Evaluate
  */
 export type evaluateMethodJinaEvaluatePostResponse200 = {
@@ -6895,40 +6877,38 @@ export const selectDesignsMethodJinaSelectPost = async (
 };
 
 /**
- * Compute max regret, the domain criterion and, with a baseline leaf, antifragility of evaluated designs.
+ * Compute the antifragility of evaluated designs relative to the setup's baseline leaf.
 
-The thresholds are those of the domain criterion; the absolute and loss floors set the Taleb classes of
-the antifragility.
-
-Leaves where a design failed are missing outcomes, treated by the metrics' default policy.  The
-antifragility is None when the setup has no baseline leaf or no design has an outcome in it.
- * @summary Analysis
+The absolute and loss floors set the Taleb classes.  Leaves where a design failed are missing
+outcomes, treated by the metric's default policy.  Raises 422 if the setup has no baseline leaf
+or no selected design has an outcome in it.
+ * @summary Antifragility Analysis
  */
-export type analysisMethodJinaAnalysisPostResponse200 = {
-	data: JinaAnalysisResponse;
+export type antifragilityAnalysisMethodJinaAntifragilityPostResponse200 = {
+	data: JinaAntifragilityResponse;
 	status: 200;
 };
 
-export type analysisMethodJinaAnalysisPostResponse422 = {
+export type antifragilityAnalysisMethodJinaAntifragilityPostResponse422 = {
 	data: HTTPValidationError;
 	status: 422;
 };
 
-export type analysisMethodJinaAnalysisPostResponseSuccess =
-	analysisMethodJinaAnalysisPostResponse200 & {
+export type antifragilityAnalysisMethodJinaAntifragilityPostResponseSuccess =
+	antifragilityAnalysisMethodJinaAntifragilityPostResponse200 & {
 		headers: Headers;
 	};
-export type analysisMethodJinaAnalysisPostResponseError =
-	analysisMethodJinaAnalysisPostResponse422 & {
+export type antifragilityAnalysisMethodJinaAntifragilityPostResponseError =
+	antifragilityAnalysisMethodJinaAntifragilityPostResponse422 & {
 		headers: Headers;
 	};
 
-export type analysisMethodJinaAnalysisPostResponse =
-	| analysisMethodJinaAnalysisPostResponseSuccess
-	| analysisMethodJinaAnalysisPostResponseError;
+export type antifragilityAnalysisMethodJinaAntifragilityPostResponse =
+	| antifragilityAnalysisMethodJinaAntifragilityPostResponseSuccess
+	| antifragilityAnalysisMethodJinaAntifragilityPostResponseError;
 
-export const getAnalysisMethodJinaAnalysisPostUrl = (
-	params?: AnalysisMethodJinaAnalysisPostParams
+export const getAntifragilityAnalysisMethodJinaAntifragilityPostUrl = (
+	params?: AntifragilityAnalysisMethodJinaAntifragilityPostParams
 ) => {
 	const normalizedParams = new URLSearchParams();
 
@@ -6941,22 +6921,22 @@ export const getAnalysisMethodJinaAnalysisPostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `http://localhost:8000/method/jina/analysis?${stringifiedParams}`
-		: `http://localhost:8000/method/jina/analysis`;
+		? `http://localhost:8000/method/jina/antifragility?${stringifiedParams}`
+		: `http://localhost:8000/method/jina/antifragility`;
 };
 
-export const analysisMethodJinaAnalysisPost = async (
-	jinaAnalysisRequest: JinaAnalysisRequest,
-	params?: AnalysisMethodJinaAnalysisPostParams,
+export const antifragilityAnalysisMethodJinaAntifragilityPost = async (
+	jinaAntifragilityRequest: JinaAntifragilityRequest,
+	params?: AntifragilityAnalysisMethodJinaAntifragilityPostParams,
 	options?: RequestInit
-): Promise<analysisMethodJinaAnalysisPostResponse> => {
-	return customFetch<analysisMethodJinaAnalysisPostResponse>(
-		getAnalysisMethodJinaAnalysisPostUrl(params),
+): Promise<antifragilityAnalysisMethodJinaAntifragilityPostResponse> => {
+	return customFetch<antifragilityAnalysisMethodJinaAntifragilityPostResponse>(
+		getAntifragilityAnalysisMethodJinaAntifragilityPostUrl(params),
 		{
 			...options,
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(jinaAnalysisRequest)
+			body: JSON.stringify(jinaAntifragilityRequest)
 		}
 	);
 };

@@ -1,9 +1,8 @@
 <script lang="ts">
 	/**
 	 * Evaluates designs in the leaves of a scenario model of the problem: the setup's own model,
-	 * or another one as a stress test. For another model a fallback reference point over that
-	 * model's objectives is sent for the objectives a design's own reference point does not cover;
-	 * empty entries are left out.
+	 * or another one as a stress test. Every leaf is re-solved at the domain-criterion thresholds,
+	 * one per objective of the model, so evaluating needs a threshold for each.
 	 */
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Button } from '$lib/components/ui/button';
@@ -25,6 +24,9 @@
 		designs,
 		wishlist,
 		objectiveRanges,
+		modelId = $bindable(''),
+		chosen = $bindable([]),
+		thresholds = $bindable({}),
 		onEvaluate
 	}: {
 		problem: ProblemInfo;
@@ -33,26 +35,25 @@
 		designs: JinaDesignInfo[];
 		wishlist: number[];
 		objectiveRanges: Record<string, Range>;
+		modelId?: string;
+		chosen?: number[];
+		thresholds?: Record<string, number | null>;
 		onEvaluate: (request: {
 			scenario_model_id: number;
 			design_ids: number[];
-			reference_point: Record<string, number> | null;
+			thresholds: Record<string, number>;
 		}) => void;
 	} = $props();
-
-	let modelId = $state('');
-	let chosen = $state<number[]>([]);
-	let fallback = $state<Record<string, number | null>>({});
 
 	$effect(() => {
 		if (!modelId) modelId = String(setupModelId);
 	});
 	// Prefills each objective of the chosen model once, with the midpoint of its range if known.
 	$effect(() => {
-		const missing = (model?.objectives ?? []).filter((obj) => !(obj in fallback));
+		const missing = (model?.objectives ?? []).filter((obj) => !(obj in thresholds));
 		if (missing.length === 0) return;
-		fallback = {
-			...fallback,
+		thresholds = {
+			...thresholds,
 			...midpointPrefill(missing, objectiveRanges)
 		};
 	});
@@ -62,20 +63,17 @@
 		if (kept.length !== chosen.length) chosen = kept;
 	});
 
-	let isOtherModel = $derived(modelId !== String(setupModelId));
 	let model = $derived(scenarioModels.find((m) => String(m.id) === modelId));
+	let used = $derived(finitePoint(thresholds, model?.objectives ?? []));
+	let complete = $derived(!!model && Object.keys(used).length === model.objectives.length);
 
 	function label(m: JinaScenarioModelInfo, full = false): string {
 		return m.id === setupModelId ? `${modelLabel(m, full)} (setup)` : modelLabel(m, full);
 	}
 
 	function run() {
-		if (!model) return;
-		onEvaluate({
-			scenario_model_id: model.id,
-			design_ids: chosen,
-			reference_point: isOtherModel ? finitePoint(fallback, model.objectives) : null
-		});
+		if (!model || !complete) return;
+		onEvaluate({ scenario_model_id: model.id, design_ids: chosen, thresholds: used });
 	}
 </script>
 
@@ -131,20 +129,22 @@
 		</div>
 	</div>
 
-	{#if isOtherModel}
-		<div class="grid grid-cols-[minmax(0,1fr)] gap-1">
-			<span class="text-sm font-medium">Fallback reference point</span>
-			<p class="text-xs text-gray-500">
-				Used for objectives a design's own reference point does not cover in this model.
-			</p>
-			<ObjectivePointInputs
-				{problem}
-				objectives={model?.objectives ?? []}
-				idPrefix="fallback"
-				bind:values={fallback}
-			/>
-		</div>
-	{/if}
+	<div class="grid grid-cols-[minmax(0,1fr)] gap-1">
+		<span class="text-sm font-medium">Thresholds</span>
+		<p class="text-xs text-gray-500">
+			Every scenario is re-solved at these with the design variables fixed, and the scenarios
+			meeting each are counted.
+		</p>
+		<ObjectivePointInputs
+			{problem}
+			objectives={model?.objectives ?? []}
+			idPrefix="threshold"
+			bind:values={thresholds}
+		/>
+		{#if model && !complete}
+			<p class="text-xs text-red-700">Give a threshold for every objective.</p>
+		{/if}
+	</div>
 
-	<Button size="sm" disabled={!model || chosen.length === 0} onclick={run}>Evaluate</Button>
+	<Button size="sm" disabled={!complete || chosen.length === 0} onclick={run}>Evaluate</Button>
 </div>

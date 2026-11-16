@@ -1,14 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import type { Antifragility, MaxRegret } from '$lib/gen/endpoints/DESDEOFastAPI';
+import type { Antifragility, DomainCriterion } from '$lib/gen/endpoints/DESDEOFastAPI';
 import {
 	antifragilityHeatmap,
-	domainShares,
+	domainCriterionShares,
 	evaluatedDesigns,
 	evaluatedLeafObjectives,
 	evaluatedLeaves,
 	evaluatedObjectives,
 	meetsThreshold,
-	regretHeatmap,
 	upsideDownside,
 	type Outcomes
 } from './robustness-charts';
@@ -39,51 +38,32 @@ describe('evaluated outcomes', () => {
 	});
 });
 
-describe('regretHeatmap', () => {
-	it('gives a cell per design and objective and each design worst regret', () => {
-		const regret: Record<string, MaxRegret> = {
-			'10': { regret: { f: 0.5, g: null }, mean_regret: 0.5 },
-			'2': { regret: { f: 0, g: 1 }, mean_regret: 0.5 }
+describe('domainCriterionShares', () => {
+	it('gives the share of scenarios meeting all and each threshold', () => {
+		const domain: Record<string, DomainCriterion> = {
+			'7': { counts: { f: 2, g: 4 }, mean_count: 3, all_count: 3 },
+			'1': { counts: { f: 0 }, mean_count: 0, all_count: 0 }
 		};
-		expect(regretHeatmap(regret, ['f', 'g'])).toEqual({
-			rows: [2, 10],
-			columns: ['f', 'g'],
-			cells: [
-				[0, 0, 0],
-				[1, 0, 1],
-				[0, 1, 0.5],
-				[1, 1, null]
-			],
-			worst: [1, 0.5]
-		});
-	});
-});
-
-describe('domainShares', () => {
-	const leafObjectives = evaluatedLeafObjectives(outcomes);
-
-	it('counts scenarios meeting all and each threshold, direction-aware, missing as not met', () => {
-		// f minimised at most 3, g maximised at least 6.
-		const shares = domainShares(
-			leafObjectives,
-			[2, 10],
-			['a', 'b'],
-			{ f: 3, g: 6 },
-			{ f: false, g: true }
-		);
-		expect(shares.all).toEqual([0.5, 0.5]);
+		const shares = domainCriterionShares(domain, ['f', 'g'], 4);
+		expect(shares.all).toEqual([0, 0.75]);
+		expect(shares.perObjective.rows).toEqual([1, 7]);
 		expect(shares.perObjective.cells).toEqual([
-			[0, 0, 0.5],
-			[1, 0, 0.5],
+			[0, 0, 0],
+			[1, 0, null],
 			[0, 1, 0.5],
-			[1, 1, 0.5]
+			[1, 1, 1]
 		]);
 	});
 
-	it('gives no overall share without thresholds', () => {
-		expect(domainShares(leafObjectives, [2], ['a'], {}, {}).all).toEqual([null]);
+	it('gives no shares without leaves', () => {
+		const domain = { '1': { counts: { f: 0 }, mean_count: 0, all_count: 0 } };
+		const shares = domainCriterionShares(domain, ['f'], 0);
+		expect(shares.all).toEqual([null]);
+		expect(shares.perObjective.cells).toEqual([[0, 0, null]]);
 	});
+});
 
+describe('meetsThreshold', () => {
 	it('compares in the objective direction', () => {
 		expect(meetsThreshold(5, 5, false)).toBe(true);
 		expect(meetsThreshold(6, 5, false)).toBe(false);

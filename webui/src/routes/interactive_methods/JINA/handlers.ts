@@ -12,7 +12,7 @@ import {
 	importDesignsMethodJinaImportPost,
 	evaluateMethodJinaEvaluatePost,
 	selectDesignsMethodJinaSelectPost,
-	analysisMethodJinaAnalysisPost,
+	antifragilityAnalysisMethodJinaAntifragilityPost,
 	getDesignsMethodJinaDesignsGet
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type {
@@ -21,8 +21,8 @@ import type {
 	JinaImportRequest,
 	JinaEvaluateRequest,
 	JinaSelectRequest,
-	JinaAnalysisRequest,
-	JinaAnalysisResponse,
+	JinaAntifragilityRequest,
+	JinaAntifragilityResponse,
 	JinaDesignInfo,
 	JinaGetOrInitializeResponse,
 	JinaScenarioModelInfo,
@@ -95,8 +95,8 @@ export const evaluate = (request: JinaEvaluateRequest) =>
 export const select = (request: JinaSelectRequest) =>
 	call<JinaStateResponse>(() => selectDesignsMethodJinaSelectPost(request));
 
-export const analyse = (request: JinaAnalysisRequest) =>
-	call<JinaAnalysisResponse>(() => analysisMethodJinaAnalysisPost(request));
+export const analyseAntifragility = (request: JinaAntifragilityRequest) =>
+	call<JinaAntifragilityResponse>(() => antifragilityAnalysisMethodJinaAntifragilityPost(request));
 
 export const fetchDesigns = (problem_id: number, setup_state_id: number) =>
 	call<JinaDesignInfo[]>(

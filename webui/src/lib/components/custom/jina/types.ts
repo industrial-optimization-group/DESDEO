@@ -1,7 +1,7 @@
 /* JINA states with their result kind narrowed. */
 
 import type {
-	JinaAnalysisResponse,
+	JinaAntifragilityResponse,
 	JinaStateResponse,
 	JinaSetupResult,
 	JinaIterateStateResult,
@@ -17,19 +17,15 @@ export type IterateState = JinaStateResponse & { result: JinaIterateStateResult 
 export type EvaluateState = JinaStateResponse & { result: JinaEvaluateResult };
 export type SelectState = JinaStateResponse & { result: JinaSelectResult };
 
-/** A robustness analysis with the evaluation, objectives and thresholds it was computed for. */
-export interface AnalysisResult {
+/** An antifragility analysis with the evaluation and objectives it was computed for. */
+export interface AntifragilityResult {
 	evaluateStateId: number;
-	scenarioModelId: number;
-	analysis: JinaAnalysisResponse;
+	analysis: JinaAntifragilityResponse;
 	objectives: string[];
-	thresholds: Record<string, number>;
-	nLeaves: number;
 }
 
-/** The analysis entries of an evaluation; an emptied entry holds null. */
-export interface AnalysisInputs {
-	thresholds: Record<string, number | null>;
+/** The floor entries of an evaluation; an emptied entry holds null. */
+export interface AntifragilityInputs {
 	absoluteFloors: Record<string, number | null>;
 	lossFloors: Record<string, number | null>;
 }

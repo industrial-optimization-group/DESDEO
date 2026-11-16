@@ -19,8 +19,8 @@
 	import ScenarioBreakdown from '$lib/components/custom/jina/ScenarioBreakdown.svelte';
 	import WishlistPanel from '$lib/components/custom/jina/WishlistPanel.svelte';
 	import RobustnessPanel from '$lib/components/custom/jina/RobustnessPanel.svelte';
-	import AnalysisTables from '$lib/components/custom/jina/AnalysisTables.svelte';
-	import type { AnalysisInputs, AnalysisResult } from '$lib/components/custom/jina/types';
+	import AntifragilityPanel from '$lib/components/custom/jina/AntifragilityPanel.svelte';
+	import type { AntifragilityInputs, AntifragilityResult } from '$lib/components/custom/jina/types';
 	import JobStatus from '$lib/components/custom/jina/JobStatus.svelte';
 	import {
 		midpoint,
@@ -62,7 +62,7 @@
 		View
 	} from './types';
 	import {
-		analyse,
+		analyseAntifragility,
 		evaluate,
 		fetchDesigns,
 		loadSession,
@@ -75,12 +75,13 @@
 	const { data } = $props<{ data: { problems: ProblemInfo[] } }>();
 	let problemList = $derived(data.problems ?? []);
 
-	type Tab = View | 'pool' | 'robustness';
+	type Tab = View | 'pool' | 'robustness' | 'antifragility';
 	const TABS: { value: Tab; label: string }[] = [
 		{ value: 'aggregated', label: 'Aggregated' },
 		{ value: 'per_scenario', label: 'Per-scenario' },
 		{ value: 'pool', label: 'Pool' },
-		{ value: 'robustness', label: 'Robustness' }
+		{ value: 'robustness', label: 'Robustness' },
+		{ value: 'antifragility', label: 'Antifragility' }
 	];
 	const VIEW_OPTIONS: { value: View; label: string }[] = [
 		{ value: 'aggregated', label: 'Aggregated' },
@@ -104,7 +105,8 @@
 		aggregated: '',
 		per_scenario: '',
 		pool: '',
-		robustness: ''
+		robustness: '',
+		antifragility: ''
 	});
 	let referencePoints = $state<Record<View, Record<string, number>>>({
 		aggregated: {},
@@ -112,8 +114,9 @@
 	});
 
 	let ready = $derived(!!setup && setup.is_ready && !setup.error && !!setup.result.ranges);
-	// The Robustness tab edits no reference point; its view is only a placeholder.
-	let view = $derived<View>(tab === 'pool' ? poolView : tab === 'robustness' ? 'aggregated' : tab);
+	// The Robustness and Antifragility tabs edit no reference point; their view is only a placeholder.
+	let analysisTab = $derived(tab === 'robustness' || tab === 'antifragility');
+	let view = $derived<View>(tab === 'pool' ? poolView : analysisTab ? 'aggregated' : (tab as View));
 	let targets = $derived<Target[]>(setup?.result.targets?.[view] ?? []);
 	let ranges = $derived<Record<string, Range>>(
 		(setup?.result.ranges?.[view] ?? {}) as Record<string, Range>
@@ -209,13 +212,29 @@
 		designs = [];
 		selectedDesignId = null;
 		referencePoints = { aggregated: {}, per_scenario: {} };
-		shownIteration = { aggregated: '', per_scenario: '', pool: '', robustness: '' };
+		shownIteration = {
+			aggregated: '',
+			per_scenario: '',
+			pool: '',
+			robustness: '',
+			antifragility: ''
+		};
 		chartSelections = { aggregated: null, per_scenario: null };
 		hiddenDesigns = [];
 		collapsedGroups = [];
-		analysisResult = null;
-		analysisInputs = {};
-		chartIterationIds = { aggregated: [], per_scenario: [], pool: [], robustness: [] };
+		evaluationId = null;
+		evaluateModelId = '';
+		evaluateDesignIds = [];
+		thresholds = {};
+		antifragilityResult = null;
+		antifragilityInputs = {};
+		chartIterationIds = {
+			aggregated: [],
+			per_scenario: [],
+			pool: [],
+			robustness: [],
+			antifragility: []
+		};
 		pending = children
 			.filter((s) => !s.is_ready)
 			.map((s) => ({ id: s.state_id, label: jobLabel(s) }));
@@ -310,7 +329,7 @@
 	async function runEvaluate(request: {
 		scenario_model_id: number;
 		design_ids: number[];
-		reference_point: Record<string, number> | null;
+		thresholds: Record<string, number>;
 	}) {
 		if (!problem || !setup) return;
 		const state = await evaluate({
@@ -321,16 +340,15 @@
 		if (state) track(state);
 	}
 
-	function runAnalysis(
+	function runAntifragility(
 		evaluateStateId: number,
 		request: {
-			thresholds: Record<string, number>;
 			absolute_floors: Record<string, number> | null;
 			loss_floors: Record<string, number> | null;
 		}
 	) {
 		if (!problem || !setup) return Promise.resolve(null);
-		return analyse({
+		return analyseAntifragility({
 			problem_id: problem.id,
 			setup_state_id: setup.state_id,
 			evaluate_state_id: evaluateStateId,
@@ -364,17 +382,24 @@
 		per_scenario: null
 	});
 	let hiddenDesigns = $state<number[]>([]);
-	// The latest robustness analysis, for the Robustness tab's charts and tables.
-	let analysisResult = $state<AnalysisResult | null>(null);
-	// The analysis entries of each evaluation, kept across tab switches.
-	let analysisInputs = $state<Record<number, AnalysisInputs>>({});
+	// The evaluation chosen in the Robustness and Antifragility tabs (null: the latest).
+	let evaluationId = $state<number | null>(null);
+	// The Robustness tab's evaluate inputs: scenario model, designs and thresholds.
+	let evaluateModelId = $state('');
+	let evaluateDesignIds = $state<number[]>([]);
+	let thresholds = $state<Record<string, number | null>>({});
+	// The latest antifragility analysis, for the Antifragility tab's charts and table.
+	let antifragilityResult = $state<AntifragilityResult | null>(null);
+	// The floor entries of each evaluation, kept across tab switches.
+	let antifragilityInputs = $state<Record<number, AntifragilityInputs>>({});
 	// Objective groups collapsed in the reference-point editor.
 	let collapsedGroups = $state<string[]>([]);
 	let chartIterationIds = $state<Record<Tab, number[]>>({
 		aggregated: [],
 		per_scenario: [],
 		pool: [],
-		robustness: []
+		robustness: [],
+		antifragility: []
 	});
 
 	let leafOrder = $derived(
@@ -568,11 +593,8 @@
 	showRightSidebar={ready}
 	leftSidebarWidth="20rem"
 	rightSidebarWidth="24rem"
-	bottomPanelTitle={tab === 'pool'
-		? 'Pool picks'
-		: tab === 'robustness'
-			? 'Robustness tables'
-			: 'Iteration results'}
+	bottomPanelTitle={tab === 'pool' ? 'Pool picks' : 'Iteration results'}
+	showNumericalValues={!analysisTab}
 >
 	{#snippet leftSidebar()}
 		<!-- At most the viewport's height: the editor scrolls and the solve button stays visible. -->
@@ -603,7 +625,7 @@
 				/>
 			{/if}
 
-			{#if ready && problem && tab !== 'robustness'}
+			{#if ready && problem && !analysisTab}
 				{#if tab === 'pool'}
 					<div class="space-y-1">
 						<span class="text-sm font-medium">Targets of view</span>
@@ -716,10 +738,22 @@
 				{evaluations}
 				objectiveRanges={objRanges}
 				bind:selectedId={selectedDesignId}
-				bind:result={analysisResult}
-				bind:analysisInputs
+				bind:evaluationId
+				bind:evaluateModelId
+				bind:evaluateDesignIds
+				bind:thresholds
 				onEvaluate={runEvaluate}
-				onAnalyse={runAnalysis}
+			/>
+		{:else if problem && setup && ready && tab === 'antifragility'}
+			<AntifragilityPanel
+				{problem}
+				{setup}
+				{evaluations}
+				bind:selectedId={selectedDesignId}
+				bind:evaluationId
+				bind:result={antifragilityResult}
+				bind:inputs={antifragilityInputs}
+				onAnalyse={runAntifragility}
 			/>
 		{:else if !problem}
 			<div class="flex h-full items-center justify-center text-gray-500">
@@ -818,22 +852,7 @@
 	{/snippet}
 
 	{#snippet numericalValues()}
-		{#if tab === 'robustness'}
-			{#if problem && setup && analysisResult}
-				<div class="h-full overflow-auto">
-					<AnalysisTables
-						{problem}
-						result={analysisResult}
-						baselineLeaf={analysisResult.scenarioModelId === setup.result.scenario_model_id
-							? setup.result.baseline_leaf
-							: null}
-						selectedId={selectedDesignId}
-					/>
-				</div>
-			{:else}
-				<p class="p-2 text-sm text-gray-500">Analyse an evaluation to see its tables.</p>
-			{/if}
-		{:else if problem && setup && iteration?.is_ready && iteration.result.results.length === 0}
+		{#if problem && setup && iteration?.is_ready && iteration.result.results.length === 0}
 			<p class="p-2 text-sm text-gray-500">{iteration.error ?? emptyMessage}</p>
 		{:else if problem && setup && iteration}
 			<DesignTable

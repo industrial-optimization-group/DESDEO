@@ -34,6 +34,12 @@ export function modelLabel(model: JinaScenarioModelInfo, full = false, shown = 3
 	return `#${model.id} — ${plural(model.n_leaves, 'leaf', 'leaves')}: ${leaves}`;
 }
 
+/** An evaluation's state id and scenario model, the setup's or a stress test. */
+export function evaluationLabel(stateId: number, modelId: number, setupModelId: number): string {
+	const kind = modelId === setupModelId ? 'setup' : 'stress test';
+	return `Evaluation ${stateId} — model #${modelId} (${kind})`;
+}
+
 /** The leaves with the baseline first and the others in their given order. */
 export function baselineFirst(leaves: string[], baseline: string | null): string[] {
 	if (baseline === null || !leaves.includes(baseline)) return leaves;

@@ -8156,7 +8156,7 @@ export const GetOrInitializeMethodJinaGetOrInitializePostResponse = zod
 								setup_state_id: zod.number(),
 								scenario_model_id: zod.number(),
 								design_ids: zod.array(zod.number()),
-								reference_point: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+								thresholds: zod.record(zod.string(), zod.number()),
 								outcomes: zod.record(
 									zod.string(),
 									zod.record(
@@ -8182,7 +8182,23 @@ export const GetOrInitializeMethodJinaGetOrInitializePostResponse = zod
 											})
 											.describe('Result of evaluating a design in one leaf scenario.')
 									)
-								)
+								),
+								domain_criterion: zod
+									.union([
+										zod.record(
+											zod.string(),
+											zod
+												.object({
+													counts: zod.record(zod.string(), zod.number()),
+													mean_count: zod.union([zod.number(), zod.null()]),
+													all_count: zod.number()
+												})
+												.describe('Per-design domain-criterion counts.')
+										),
+										zod.null()
+									])
+									.optional()
+									.describe('Domain criterion of each design at the thresholds; None until ready.')
 							})
 							.describe('Contents of a JINA evaluate state.'),
 						zod
@@ -8358,7 +8374,7 @@ export const GetOrInitializeMethodJinaGetOrInitializePostResponse = zod
 								setup_state_id: zod.number(),
 								scenario_model_id: zod.number(),
 								design_ids: zod.array(zod.number()),
-								reference_point: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+								thresholds: zod.record(zod.string(), zod.number()),
 								outcomes: zod.record(
 									zod.string(),
 									zod.record(
@@ -8384,7 +8400,23 @@ export const GetOrInitializeMethodJinaGetOrInitializePostResponse = zod
 											})
 											.describe('Result of evaluating a design in one leaf scenario.')
 									)
-								)
+								),
+								domain_criterion: zod
+									.union([
+										zod.record(
+											zod.string(),
+											zod
+												.object({
+													counts: zod.record(zod.string(), zod.number()),
+													mean_count: zod.union([zod.number(), zod.null()]),
+													all_count: zod.number()
+												})
+												.describe('Per-design domain-criterion counts.')
+										),
+										zod.null()
+									])
+									.optional()
+									.describe('Domain criterion of each design at the thresholds; None until ready.')
 							})
 							.describe('Contents of a JINA evaluate state.'),
 						zod
@@ -8613,7 +8645,7 @@ export const SetupMethodJinaSetupPostResponse = zod
 					setup_state_id: zod.number(),
 					scenario_model_id: zod.number(),
 					design_ids: zod.array(zod.number()),
-					reference_point: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+					thresholds: zod.record(zod.string(), zod.number()),
 					outcomes: zod.record(
 						zod.string(),
 						zod.record(
@@ -8635,7 +8667,23 @@ export const SetupMethodJinaSetupPostResponse = zod
 								})
 								.describe('Result of evaluating a design in one leaf scenario.')
 						)
-					)
+					),
+					domain_criterion: zod
+						.union([
+							zod.record(
+								zod.string(),
+								zod
+									.object({
+										counts: zod.record(zod.string(), zod.number()),
+										mean_count: zod.union([zod.number(), zod.null()]),
+										all_count: zod.number()
+									})
+									.describe('Per-design domain-criterion counts.')
+							),
+							zod.null()
+						])
+						.optional()
+						.describe('Domain criterion of each design at the thresholds; None until ready.')
 				})
 				.describe('Contents of a JINA evaluate state.'),
 			zod
@@ -8840,7 +8888,7 @@ export const IterateMethodJinaIteratePostResponse = zod
 					setup_state_id: zod.number(),
 					scenario_model_id: zod.number(),
 					design_ids: zod.array(zod.number()),
-					reference_point: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+					thresholds: zod.record(zod.string(), zod.number()),
 					outcomes: zod.record(
 						zod.string(),
 						zod.record(
@@ -8866,7 +8914,23 @@ export const IterateMethodJinaIteratePostResponse = zod
 								})
 								.describe('Result of evaluating a design in one leaf scenario.')
 						)
-					)
+					),
+					domain_criterion: zod
+						.union([
+							zod.record(
+								zod.string(),
+								zod
+									.object({
+										counts: zod.record(zod.string(), zod.number()),
+										mean_count: zod.union([zod.number(), zod.null()]),
+										all_count: zod.number()
+									})
+									.describe('Per-design domain-criterion counts.')
+							),
+							zod.null()
+						])
+						.optional()
+						.describe('Domain criterion of each design at the thresholds; None until ready.')
 				})
 				.describe('Contents of a JINA evaluate state.'),
 			zod
@@ -9066,7 +9130,7 @@ export const ImportDesignsMethodJinaImportPostResponse = zod
 					setup_state_id: zod.number(),
 					scenario_model_id: zod.number(),
 					design_ids: zod.array(zod.number()),
-					reference_point: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+					thresholds: zod.record(zod.string(), zod.number()),
 					outcomes: zod.record(
 						zod.string(),
 						zod.record(
@@ -9092,7 +9156,23 @@ export const ImportDesignsMethodJinaImportPostResponse = zod
 								})
 								.describe('Result of evaluating a design in one leaf scenario.')
 						)
-					)
+					),
+					domain_criterion: zod
+						.union([
+							zod.record(
+								zod.string(),
+								zod
+									.object({
+										counts: zod.record(zod.string(), zod.number()),
+										mean_count: zod.union([zod.number(), zod.null()]),
+										all_count: zod.number()
+									})
+									.describe('Per-design domain-criterion counts.')
+							),
+							zod.null()
+						])
+						.optional()
+						.describe('Domain criterion of each design at the thresholds; None until ready.')
 				})
 				.describe('Contents of a JINA evaluate state.'),
 			zod
@@ -9110,8 +9190,9 @@ export const ImportDesignsMethodJinaImportPostResponse = zod
 /**
  * Evaluate designs in the leaves of the setup's or another scenario model of the problem in the background.
 
-See `_evaluation_point` for the reference point each design is evaluated at.  Every leaf must
-get an objective from it; otherwise ``reference_point`` must supply one.
+Every leaf is re-solved at the thresholds with the design variables fixed, and the domain criterion
+of each design at the thresholds is stored with the outcomes.  The thresholds must cover exactly
+the objectives of the scenario model.
  * @summary Evaluate
  */
 export const EvaluateMethodJinaEvaluatePostQueryParams = zod.object({
@@ -9132,11 +9213,10 @@ export const EvaluateMethodJinaEvaluatePostBody = zod
 			.union([zod.array(zod.number()), zod.null()])
 			.optional()
 			.describe('Designs to evaluate. Defaults to all.'),
-		reference_point: zod
-			.union([zod.record(zod.string(), zod.number()), zod.null()])
-			.optional()
+		thresholds: zod
+			.record(zod.string(), zod.number())
 			.describe(
-				"Aspiration levels by original objective symbol for leaves a design's own reference point does not cover; overrides the reference point of imported designs."
+				'Domain-criterion thresholds by objective, original direction; the reference point every leaf is re-solved at.'
 			)
 	})
 	.describe('Request model for the JINA evaluate endpoint.');
@@ -9301,7 +9381,7 @@ export const EvaluateMethodJinaEvaluatePostResponse = zod
 					setup_state_id: zod.number(),
 					scenario_model_id: zod.number(),
 					design_ids: zod.array(zod.number()),
-					reference_point: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+					thresholds: zod.record(zod.string(), zod.number()),
 					outcomes: zod.record(
 						zod.string(),
 						zod.record(
@@ -9327,7 +9407,23 @@ export const EvaluateMethodJinaEvaluatePostResponse = zod
 								})
 								.describe('Result of evaluating a design in one leaf scenario.')
 						)
-					)
+					),
+					domain_criterion: zod
+						.union([
+							zod.record(
+								zod.string(),
+								zod
+									.object({
+										counts: zod.record(zod.string(), zod.number()),
+										mean_count: zod.union([zod.number(), zod.null()]),
+										all_count: zod.number()
+									})
+									.describe('Per-design domain-criterion counts.')
+							),
+							zod.null()
+						])
+						.optional()
+						.describe('Domain criterion of each design at the thresholds; None until ready.')
 				})
 				.describe('Contents of a JINA evaluate state.'),
 			zod
@@ -9510,7 +9606,7 @@ export const GetStatusMethodJinaStatusStateIdGetResponse = zod
 					setup_state_id: zod.number(),
 					scenario_model_id: zod.number(),
 					design_ids: zod.array(zod.number()),
-					reference_point: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+					thresholds: zod.record(zod.string(), zod.number()),
 					outcomes: zod.record(
 						zod.string(),
 						zod.record(
@@ -9536,7 +9632,23 @@ export const GetStatusMethodJinaStatusStateIdGetResponse = zod
 								})
 								.describe('Result of evaluating a design in one leaf scenario.')
 						)
-					)
+					),
+					domain_criterion: zod
+						.union([
+							zod.record(
+								zod.string(),
+								zod
+									.object({
+										counts: zod.record(zod.string(), zod.number()),
+										mean_count: zod.union([zod.number(), zod.null()]),
+										all_count: zod.number()
+									})
+									.describe('Per-design domain-criterion counts.')
+							),
+							zod.null()
+						])
+						.optional()
+						.describe('Domain criterion of each design at the thresholds; None until ready.')
 				})
 				.describe('Contents of a JINA evaluate state.'),
 			zod
@@ -9730,7 +9842,7 @@ export const SelectDesignsMethodJinaSelectPostResponse = zod
 					setup_state_id: zod.number(),
 					scenario_model_id: zod.number(),
 					design_ids: zod.array(zod.number()),
-					reference_point: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+					thresholds: zod.record(zod.string(), zod.number()),
 					outcomes: zod.record(
 						zod.string(),
 						zod.record(
@@ -9756,7 +9868,23 @@ export const SelectDesignsMethodJinaSelectPostResponse = zod
 								})
 								.describe('Result of evaluating a design in one leaf scenario.')
 						)
-					)
+					),
+					domain_criterion: zod
+						.union([
+							zod.record(
+								zod.string(),
+								zod
+									.object({
+										counts: zod.record(zod.string(), zod.number()),
+										mean_count: zod.union([zod.number(), zod.null()]),
+										all_count: zod.number()
+									})
+									.describe('Per-design domain-criterion counts.')
+							),
+							zod.null()
+						])
+						.optional()
+						.describe('Domain criterion of each design at the thresholds; None until ready.')
 				})
 				.describe('Contents of a JINA evaluate state.'),
 			zod
@@ -9772,20 +9900,18 @@ export const SelectDesignsMethodJinaSelectPostResponse = zod
 	.describe('A JINA state and whether its background job has finished.');
 
 /**
- * Compute max regret, the domain criterion and, with a baseline leaf, antifragility of evaluated designs.
+ * Compute the antifragility of evaluated designs relative to the setup's baseline leaf.
 
-The thresholds are those of the domain criterion; the absolute and loss floors set the Taleb classes of
-the antifragility.
-
-Leaves where a design failed are missing outcomes, treated by the metrics' default policy.  The
-antifragility is None when the setup has no baseline leaf or no design has an outcome in it.
- * @summary Analysis
+The absolute and loss floors set the Taleb classes.  Leaves where a design failed are missing
+outcomes, treated by the metric's default policy.  Raises 422 if the setup has no baseline leaf
+or no selected design has an outcome in it.
+ * @summary Antifragility Analysis
  */
-export const AnalysisMethodJinaAnalysisPostQueryParams = zod.object({
+export const AntifragilityAnalysisMethodJinaAntifragilityPostQueryParams = zod.object({
 	problem_id: zod.union([zod.number(), zod.null()]).optional()
 });
 
-export const AnalysisMethodJinaAnalysisPostBody = zod
+export const AntifragilityAnalysisMethodJinaAntifragilityPostBody = zod
 	.object({
 		problem_id: zod.number(),
 		session_id: zod.union([zod.number(), zod.null()]).optional(),
@@ -9798,10 +9924,6 @@ export const AnalysisMethodJinaAnalysisPostBody = zod
 			.union([zod.array(zod.number()), zod.null()])
 			.optional()
 			.describe('Designs to compare. Defaults to all evaluated.'),
-		thresholds: zod
-			.record(zod.string(), zod.number())
-			.optional()
-			.describe('Domain-criterion thresholds by objective, original direction.'),
 		absolute_floors: zod
 			.union([zod.record(zod.string(), zod.number()), zod.null()])
 			.optional()
@@ -9815,77 +9937,55 @@ export const AnalysisMethodJinaAnalysisPostBody = zod
 				'Largest acceptable loss relative to the baseline leaf by objective, in original units.'
 			)
 	})
-	.describe('Request model for the JINA robustness analysis endpoint.');
+	.describe('Request model for the JINA antifragility endpoint.');
 
-export const AnalysisMethodJinaAnalysisPostResponse = zod
+export const AntifragilityAnalysisMethodJinaAntifragilityPostResponse = zod
 	.object({
-		max_regret: zod.record(
+		antifragility: zod.record(
 			zod.string(),
 			zod
 				.object({
-					regret: zod.record(zod.string(), zod.union([zod.number(), zod.null()])),
-					mean_regret: zod.union([zod.number(), zod.null()])
+					objectives: zod.record(
+						zod.string(),
+						zod
+							.object({
+								upside: zod.union([zod.number(), zod.null()]),
+								downside: zod.union([zod.number(), zod.null()]),
+								antifragility: zod.union([zod.number(), zod.null()]),
+								n_gain: zod.number(),
+								n_loss: zod.number(),
+								upside_raw: zod.union([zod.number(), zod.null()]),
+								downside_raw: zod.union([zod.number(), zod.null()]),
+								max_loss_raw: zod.union([zod.number(), zod.null()]),
+								best_gain_leaf: zod.union([zod.string(), zod.null()]),
+								worst_loss_leaf: zod.union([zod.string(), zod.null()]),
+								worst_outcome: zod.union([zod.number(), zod.null()]),
+								taleb_class: zod.union([
+									zod.enum(['fragile', 'robust', 'antifragile']),
+									zod.null()
+								]),
+								deviations: zod.array(
+									zod
+										.object({
+											leaf: zod.string(),
+											value: zod.number(),
+											improvement: zod.number(),
+											improvement_raw: zod.number(),
+											event_class: zod.enum(['gain', 'untouched', 'bounded_loss', 'fragile'])
+										})
+										.describe('Deviation of one design and objective in one non-baseline leaf.')
+								)
+							})
+							.describe('Antifragility summary for one objective of one design.')
+					)
 				})
-				.describe('Per-design maximum regret summary.')
+				.describe('Antifragility results for a single design.')
 		),
-		domain_criterion: zod.record(
-			zod.string(),
-			zod
-				.object({
-					counts: zod.record(zod.string(), zod.number()),
-					mean_count: zod.union([zod.number(), zod.null()])
-				})
-				.describe('Per-design domain-criterion counts.')
-		),
-		antifragility: zod
-			.union([
-				zod.record(
-					zod.string(),
-					zod
-						.object({
-							objectives: zod.record(
-								zod.string(),
-								zod
-									.object({
-										upside: zod.union([zod.number(), zod.null()]),
-										downside: zod.union([zod.number(), zod.null()]),
-										antifragility: zod.union([zod.number(), zod.null()]),
-										n_gain: zod.number(),
-										n_loss: zod.number(),
-										upside_raw: zod.union([zod.number(), zod.null()]),
-										downside_raw: zod.union([zod.number(), zod.null()]),
-										max_loss_raw: zod.union([zod.number(), zod.null()]),
-										best_gain_leaf: zod.union([zod.string(), zod.null()]),
-										worst_loss_leaf: zod.union([zod.string(), zod.null()]),
-										worst_outcome: zod.union([zod.number(), zod.null()]),
-										taleb_class: zod.union([
-											zod.enum(['fragile', 'robust', 'antifragile']),
-											zod.null()
-										]),
-										deviations: zod.array(
-											zod
-												.object({
-													leaf: zod.string(),
-													value: zod.number(),
-													improvement: zod.number(),
-													improvement_raw: zod.number(),
-													event_class: zod.enum(['gain', 'untouched', 'bounded_loss', 'fragile'])
-												})
-												.describe('Deviation of one design and objective in one non-baseline leaf.')
-										)
-									})
-									.describe('Antifragility summary for one objective of one design.')
-							)
-						})
-						.describe('Antifragility results for a single design.')
-				),
-				zod.null()
-			])
-			.optional()
-			.describe('None when the setup has no baseline leaf in the evaluated outcomes.'),
-		antifragile_objectives: zod.union([zod.array(zod.string()), zod.null()]).optional()
+		antifragile_objectives: zod.array(zod.string())
 	})
-	.describe('Robustness metrics of evaluated designs, by design id.');
+	.describe(
+		"Antifragility of evaluated designs relative to the setup's baseline leaf, by design id."
+	);
 
 /**
  * List the design registry of a setup with the target values of each design in both views.

@@ -1,23 +1,21 @@
 <script lang="ts">
 	/**
-	 * The robustness tab: evaluate designs in a scenario model, pick an evaluation, see its
-	 * outcomes by scenario on the objective axes, analyse it and chart the results. Scrolls
-	 * vertically inside the tab.
+	 * The robustness tab: evaluate designs in a scenario model at domain-criterion thresholds, pick
+	 * an evaluation, see its outcomes by scenario on the objective axes and its domain criterion.
+	 * Scrolls vertically inside the tab.
 	 */
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 	import { PREFERENCE_TYPES } from '$lib/constants';
 	import type {
-		JinaAnalysisResponse,
 		JinaDesignInfo,
 		JinaScenarioModelInfo,
 		ProblemInfo
 	} from '$lib/gen/endpoints/DESDEOFastAPI';
-	import AnalysisPanel from './AnalysisPanel.svelte';
 	import RobustnessCharts from './RobustnessCharts.svelte';
 	import ScenarioBreakdown from './ScenarioBreakdown.svelte';
 	import ScenarioPicker from './ScenarioPicker.svelte';
 	import StressTestPanel from './StressTestPanel.svelte';
-	import { baselineFirst, formatNumber, objectiveLabel, plural } from './labels';
+	import { baselineFirst, evaluationLabel, formatNumber, objectiveLabel, plural } from './labels';
 	import type { Range } from './reference-point';
 	import {
 		evaluatedLeafObjectives,
@@ -25,7 +23,7 @@
 		evaluatedObjectives
 	} from './robustness-charts';
 	import { scenarioColor, scenarioLines, scenarioProblem } from './scenario-chart';
-	import type { AnalysisInputs, AnalysisResult, EvaluateState, SetupState } from './types';
+	import type { EvaluateState, SetupState } from './types';
 
 	let {
 		problem,
@@ -36,10 +34,11 @@
 		evaluations,
 		objectiveRanges,
 		selectedId = $bindable(null),
-		result = $bindable(null),
-		analysisInputs = $bindable({}),
-		onEvaluate,
-		onAnalyse
+		evaluationId = $bindable(null),
+		evaluateModelId = $bindable(''),
+		evaluateDesignIds = $bindable([]),
+		thresholds = $bindable({}),
+		onEvaluate
 	}: {
 		problem: ProblemInfo;
 		setup: SetupState;
@@ -49,24 +48,17 @@
 		evaluations: EvaluateState[];
 		objectiveRanges: Record<string, Range>;
 		selectedId?: number | null;
-		result?: AnalysisResult | null;
-		analysisInputs?: Record<number, AnalysisInputs>;
+		evaluationId?: number | null;
+		evaluateModelId?: string;
+		evaluateDesignIds?: number[];
+		thresholds?: Record<string, number | null>;
 		onEvaluate: (request: {
 			scenario_model_id: number;
 			design_ids: number[];
-			reference_point: Record<string, number> | null;
+			thresholds: Record<string, number>;
 		}) => void;
-		onAnalyse: (
-			evaluateStateId: number,
-			request: {
-				thresholds: Record<string, number>;
-				absolute_floors: Record<string, number> | null;
-				loss_floors: Record<string, number> | null;
-			}
-		) => Promise<JinaAnalysisResponse | null>;
 	} = $props();
 
-	let evaluationId = $state<number | null>(null);
 	// Scenarios plotted per evaluation; null plots all.
 	let checked = $state<Record<number, string[] | null>>({});
 
@@ -115,19 +107,13 @@
 		if (!e.is_ready) return 'running…';
 		return e.error ? 'failed' : plural(e.result.design_ids.length, 'design');
 	}
-
-	function modelName(id: number): string {
-		return id === setup.result.scenario_model_id
-			? `model #${id} (setup)`
-			: `model #${id} (stress test)`;
-	}
 </script>
 
 <!-- The scroller is positioned out of flow, so the layout's auto-sized grid row cannot grow to the
      content's height, and it anchors the chart's absolutely positioned tooltip. -->
 <div class="relative h-full min-h-0 min-w-0">
 	<div class="@container absolute inset-0 space-y-4 overflow-y-auto p-3">
-		<div class="grid gap-4 @2xl:grid-cols-2 @5xl:grid-cols-3">
+		<div class="grid gap-4 @2xl:grid-cols-2">
 			<section class="min-w-0 rounded border bg-white p-3">
 				<h3 class="mb-2 text-sm font-semibold">Evaluate designs</h3>
 				<StressTestPanel
@@ -137,6 +123,9 @@
 					{designs}
 					{wishlist}
 					{objectiveRanges}
+					bind:modelId={evaluateModelId}
+					bind:chosen={evaluateDesignIds}
+					bind:thresholds
 					{onEvaluate}
 				/>
 			</section>
@@ -158,7 +147,11 @@
 								title={e.error ?? undefined}
 								onclick={() => (evaluationId = e.state_id)}
 							>
-								Evaluation {e.state_id} — {modelName(e.result.scenario_model_id)}
+								{evaluationLabel(
+									e.state_id,
+									e.result.scenario_model_id,
+									setup.result.scenario_model_id
+								)}
 								<span class="text-xs font-normal {e.error ? 'text-red-700' : 'text-gray-500'}">
 									· {statusOf(e)}
 								</span>
@@ -166,27 +159,14 @@
 						</li>
 					{/each}
 				</ul>
-				{#if evaluation?.result.reference_point}
+				{#if evaluation}
 					<p class="mt-2 text-xs text-gray-500">
-						Fallback reference point:
-						{Object.entries(evaluation.result.reference_point)
+						Thresholds of evaluation {evaluation.state_id}:
+						{Object.entries(evaluation.result.thresholds)
 							.map(([obj, v]) => `${objectiveLabel(problem, obj)} ${formatNumber(v)}`)
 							.join(', ')}
 					</p>
 				{/if}
-			</section>
-
-			<section class="min-w-0 rounded border bg-white p-3">
-				<h3 class="mb-2 text-sm font-semibold">Analyse</h3>
-				<AnalysisPanel
-					{problem}
-					{evaluation}
-					{baselineLeaf}
-					{objectiveRanges}
-					{onAnalyse}
-					bind:result
-					bind:inputs={analysisInputs}
-				/>
 			</section>
 		</div>
 
@@ -260,8 +240,14 @@
 			</section>
 		{/if}
 
-		{#if evaluation && result?.evaluateStateId === evaluation.state_id}
-			<RobustnessCharts {problem} {result} {outcomes} {baselineLeaf} bind:selectedId />
+		{#if evaluation?.result.domain_criterion}
+			<RobustnessCharts
+				{problem}
+				domainCriterion={evaluation.result.domain_criterion}
+				objectives={Object.keys(evaluation.result.thresholds)}
+				nLeaves={leaves.length}
+				bind:selectedId
+			/>
 		{/if}
 	</div>
 </div>
