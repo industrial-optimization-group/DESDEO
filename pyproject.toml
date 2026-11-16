@@ -42,6 +42,7 @@ dependencies = [
   "websockets>=15.0.1",
   "coco-experiment>=2.8.2",
   "imodels>=2.0.4",
+  "six>=1.16",  # imodels imports six without declaring it
 ]
 
 [project.urls]

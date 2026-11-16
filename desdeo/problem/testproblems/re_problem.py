@@ -124,8 +124,8 @@ def re22() -> Problem:
 
     \begin{align}
         &\min_{\mathbf{x}} & f_1(\mathbf{x}) & = 29.4x_1 + 0.6x_2x_3 \\
-        &\min_{\mathbf{x}} & f_2(\mathbf{x}) & = \sum_{i=1}^2 \max\{g_i(\mathbf{x}), 0\} \\
-        &\text{s.t.,}   & g_1(\mathbf{x}) & = x_1x_3 - 7.735\frac{x_1^2}{x_2} - 180 \geq 0,\\
+        &\min_{\mathbf{x}} & f_2(\mathbf{x}) & = \sum_{i=1}^2 \max\{-g_i(\mathbf{x}), 0\} \\
+        &\text{where}   & g_1(\mathbf{x}) & = x_1x_3 - 7.735\frac{x_1^2}{x_2} - 180 \geq 0,\\
         & & g_2(\mathbf{x}) & = 4 - \frac{x_3}{x_2} \geq 0.
     \end{align}
 
@@ -253,25 +253,6 @@ def re22() -> Problem:
         name="x_1_con", symbol="x_1_con", cons_type=ConstraintTypeEnum.EQ, func=sum_expr, is_linear=True
     )
 
-    g_1 = Constraint(
-        name="g_1",
-        symbol="g_1",
-        cons_type=ConstraintTypeEnum.LTE,
-        func=f"- (({x_1_eprs}) * x_3 - 7.735 * (({x_1_eprs})**2 / x_2) - 180)",
-        is_linear=False,
-        is_convex=False,  # Not checked
-        is_twice_differentiable=True,
-    )
-    g_2 = Constraint(
-        name="g_2",
-        symbol="g_2",
-        cons_type=ConstraintTypeEnum.LTE,
-        func="-(4 - x_3 / x_2)",
-        is_linear=False,
-        is_convex=False,  # Not checked
-        is_twice_differentiable=True,
-    )
-
     f_1 = Objective(
         name="f_1",
         symbol="f_1",
@@ -284,7 +265,7 @@ def re22() -> Problem:
     f_2 = Objective(
         name="f_2",
         symbol="f_2",
-        func=f"Max(({x_1_eprs}) * x_3 - 7.735 * (({x_1_eprs})**2 / x_2) - 180, 0) + Max(4 - x_3 / x_2, 0)",
+        func=f"Max(-(({x_1_eprs}) * x_3 - 7.735 * (({x_1_eprs})**2 / x_2) - 180), 0) + Max(-(4 - x_3 / x_2), 0)",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
         is_convex=False,  # Not checked
@@ -295,7 +276,7 @@ def re22() -> Problem:
         description="The reinforced concrete beam design problem",
         variables=variables,
         objectives=[f_1, f_2],
-        constraints=[g_1, g_2, x_1_con],
+        constraints=[x_1_con],  # only the encoding of the discrete x_1; g_1, g_2 are folded into f_2
     )
 
 
@@ -307,7 +288,7 @@ def re23() -> Problem:
     \begin{align}
         &\min_{\mathbf{x}} & f_1(\mathbf{x}) & = 0.6224x_1x_3x_4 + 1.7781x_2x_3^2 + 3.1661x_1^2x_4 + 19.84x_1^2x_3 \\
         &\min_{\mathbf{x}} & f_2(\mathbf{x}) & = \sum_{i=1}^3 \max\{g_i(\mathbf{x}), 0\} \\
-        &\text{s.t.,}   & g_1(\mathbf{x}) & = -x_1 + 0.0193x_3 \leq 0,\\
+        &\text{where}   & g_1(\mathbf{x}) & = -x_1 + 0.0193x_3 \leq 0,\\
         & & g_2(\mathbf{x}) & = -x_2 + 0.00954x_3 \leq 0, \\
         & & g_3(\mathbf{x}) & = -\pi x_3^2x_4 - \frac{4}{3}\pi x_3^3 + 1\,296\,000 \leq 0.
     \end{align}
@@ -340,34 +321,6 @@ def re23() -> Problem:
     x_1_exprs = "(0.0625 * x_1)"
     x_2_exprs = "(0.0625 * x_2)"
 
-    g_1 = Constraint(
-        name="g_1",
-        symbol="g_1",
-        cons_type=ConstraintTypeEnum.LTE,
-        func=f"-({x_1_exprs} - 0.0193 * x_3)",
-        is_linear=True,
-        is_convex=False,  # Not checked
-        is_twice_differentiable=True,
-    )
-    g_2 = Constraint(
-        name="g_2",
-        symbol="g_2",
-        cons_type=ConstraintTypeEnum.LTE,
-        func=f"-({x_2_exprs} - 0.00954 * x_3)",
-        is_linear=True,
-        is_convex=False,  # Not checked
-        is_twice_differentiable=True,
-    )
-    g_3 = Constraint(
-        name="g_3",
-        symbol="g_3",
-        cons_type=ConstraintTypeEnum.LTE,
-        func=f"-({np.pi} * x_3**2 * x_4 + (4/3) * {np.pi} * x_3**3 - 1296000)",
-        is_linear=False,
-        is_convex=False,  # Not checked
-        is_twice_differentiable=True,
-    )
-
     f_1 = Objective(
         name="f_1",
         symbol="f_1",
@@ -381,8 +334,8 @@ def re23() -> Problem:
     f_2 = Objective(
         name="f_2",
         symbol="f_2",
-        func=f"Max({x_1_exprs} - 0.0193 * x_3, 0) + Max({x_2_exprs} - 0.00954 * x_3, 0) + "
-        f"Max({np.pi} * x_3**2 * x_4 + (4/3) * {np.pi} * x_3**3 - 1296000, 0)",
+        func=f"Max(0.0193 * x_3 - {x_1_exprs}, 0) + Max(0.00954 * x_3 - {x_2_exprs}, 0) + "
+        f"Max(1296000 - ({np.pi} * x_3**2 * x_4 + (4/3) * {np.pi} * x_3**3), 0)",
         objective_type=ObjectiveTypeEnum.analytical,
         is_linear=False,
         is_convex=False,  # Not checked
@@ -393,7 +346,7 @@ def re23() -> Problem:
         description="The pressure vessel design problem",
         variables=[x_1, x_2, x_3, x_4],
         objectives=[f_1, f_2],
-        constraints=[g_1, g_2, g_3],
+        constraints=None,  # g_1..g_3 are folded into f_2, as in the RE suite
     )
 
 
@@ -404,8 +357,8 @@ def re24() -> Problem:
 
     \begin{align}
         &\min_{\mathbf{x}} & f_1(\mathbf{x}) & = x_1 + 120x_2 \\
-        &\min_{\mathbf{x}} & f_2(\mathbf{x}) & = \sum_{i=1}^4 \max\{g_i(\mathbf{x}), 0\} \\
-        &\text{s.t.,}   & g_1(\mathbf{x}) & = 1.0 - \frac{\sigma_b}{\sigma_{b,max}} \geq 0,\\
+        &\min_{\mathbf{x}} & f_2(\mathbf{x}) & = \sum_{i=1}^4 \max\{-g_i(\mathbf{x}), 0\} \\
+        &\text{where}   & g_1(\mathbf{x}) & = 1.0 - \frac{\sigma_b}{\sigma_{b,max}} \geq 0,\\
         & & g_2(\mathbf{x}) & = 1.0 - \frac{\tau}{\tau_{max}} \geq 0, \\
         & & g_3(\mathbf{x}) & = 1.0 - \frac{\delta}{\delta_{max}} \geq 0, \\
         & & g_4(\mathbf{x}) & = 1.0 - \frac{\sigma_b}{\sigma_{k}} \geq 0,
@@ -437,43 +390,6 @@ def re24() -> Problem:
     tau = "(1800 / x_2)"
     delta = "(56.2 * 10**4 / (700000 * x_1 * x_2**2))"
 
-    g_1 = Constraint(
-        name="g_1",
-        symbol="g_1",
-        cons_type=ConstraintTypeEnum.LTE,
-        func=f"-(1 - {sigma_b} / 700)",
-        is_linear=False,
-        is_convex=False,  # Not checked
-        is_twice_differentiable=True,
-    )
-    g_2 = Constraint(
-        name="g_2",
-        symbol="g_2",
-        cons_type=ConstraintTypeEnum.LTE,
-        func=f"-(1 - {tau} / 450)",
-        is_linear=False,
-        is_convex=False,  # Not checked
-        is_twice_differentiable=True,
-    )
-    g_3 = Constraint(
-        name="g_3",
-        symbol="g_3",
-        cons_type=ConstraintTypeEnum.LTE,
-        func=f"-(1 - {delta} / 1.5)",
-        is_linear=False,
-        is_convex=False,  # Not checked
-        is_twice_differentiable=True,
-    )
-    g_4 = Constraint(
-        name="g_4",
-        symbol="g_4",
-        cons_type=ConstraintTypeEnum.LTE,
-        func=f"-(1 - {sigma_b} / {sigma_k})",
-        is_linear=False,
-        is_convex=False,  # Not checked
-        is_twice_differentiable=True,
-    )
-
     f_1 = Objective(
         name="f_1",
         symbol="f_1",
@@ -498,7 +414,7 @@ def re24() -> Problem:
         description="The hatch cover design problem",
         variables=[x_1, x_2],
         objectives=[f_1, f_2],
-        constraints=[g_1, g_2, g_3, g_4],
+        constraints=None,  # g_1..g_4 are folded into f_2, as in the RE suite
     )
 
 
