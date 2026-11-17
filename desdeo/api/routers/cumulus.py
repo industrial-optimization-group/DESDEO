@@ -47,6 +47,7 @@ from desdeo.api.models.cumulus import (
 from desdeo.api.models.generic import SolutionInfo
 from desdeo.api.models.generic_states import SolutionReference, SolutionReferenceResponse, StateKind
 from desdeo.api.models.problem import ConstraintDB, ProblemDB
+from desdeo.api.models.scenario import ScenarioModelDB
 from desdeo.api.models.state import CumulusClassificationState
 from desdeo.api.routers.problem import check_solver
 from desdeo.api.routers.user_authentication import get_current_user
@@ -75,8 +76,8 @@ from .utils import (
     determine_unstated_constraint_properties,
     get_solver_results_at,
     iter_states_of_kinds,
-    load_scenario_model,
     leaves_properties_unstated,
+    load_scenario_model,
 )
 
 logger = logging.getLogger(__name__)
@@ -201,7 +202,7 @@ def _build_combined_problem_and_initialize(
     )
     return initialize(new_request, new_context)
 
-  
+
 def _get_objective_constraint_ids(
     problem_id: int,
     session_id: int | None,

@@ -6,6 +6,24 @@
  * OpenAPI spec version: 0.1.0
  */
 import { customFetch } from '../../api/new-client';
+/**
+ * Model of the request to change the user's active session.
+ */
+export interface ActivateSessionRequest {
+	/** One of the user's own sessions, or None for none. */
+	session_id?: number | null;
+}
+
+export type ObjectiveAntifragilityTalebClass =
+	| (typeof ObjectiveAntifragilityTalebClass)[keyof typeof ObjectiveAntifragilityTalebClass]
+	| null;
+
+export const ObjectiveAntifragilityTalebClass = {
+	fragile: 'fragile',
+	robust: 'robust',
+	antifragile: 'antifragile'
+} as const;
+
 export type DeviationEventClass = (typeof DeviationEventClass)[keyof typeof DeviationEventClass];
 
 export const DeviationEventClass = {
@@ -41,7 +59,7 @@ export interface ObjectiveAntifragility {
 	best_gain_leaf: string | null;
 	worst_loss_leaf: string | null;
 	worst_outcome: number | null;
-	taleb_class: 'fragile' | 'robust' | 'antifragile' | null;
+	taleb_class: ObjectiveAntifragilityTalebClass;
 	deviations: Deviation[];
 }
 
@@ -52,12 +70,6 @@ export type AntifragilityObjectives = { [key: string]: ObjectiveAntifragility };
  */
 export interface Antifragility {
 	objectives: AntifragilityObjectives;
-/**
- * Model of the request to change the user's active session.
- */
-export interface ActivateSessionRequest {
-	/** One of the user's own sessions, or None for none. */
-	session_id?: number | null;
 }
 
 export interface BodyAddNewAnalystAddNewAnalystPost {
@@ -1839,6 +1851,16 @@ export type JinaDesignEffectiveReferencePoint = { [key: string]: number } | null
  */
 export type JinaDesignImportReferencePoint = { [key: string]: number } | null;
 
+/**
+ * View the design was solved in; None for imports.
+ */
+export type JinaDesignView = (typeof JinaDesignView)[keyof typeof JinaDesignView] | null;
+
+export const JinaDesignView = {
+	aggregated: 'aggregated',
+	per_scenario: 'per_scenario'
+} as const;
+
 export type JinaDesignSource = (typeof JinaDesignSource)[keyof typeof JinaDesignSource];
 
 export const JinaDesignSource = {
@@ -1864,7 +1886,7 @@ export interface JinaDesign {
 	/** The objective-keyed reference point an imported design was evaluated at. */
 	import_reference_point?: JinaDesignImportReferencePoint;
 	/** View the design was solved in; None for imports. */
-	view?: 'aggregated' | 'per_scenario' | null;
+	view?: JinaDesignView;
 	source: JinaDesignSource;
 	/** Objective values by leaf and objective symbol. */
 	leaf_objectives?: JinaDesignLeafObjectives;
@@ -1884,6 +1906,18 @@ export type JinaDesignInfoEffectiveReferencePoint = { [key: string]: number } | 
  * The objective-keyed reference point an imported design was evaluated at.
  */
 export type JinaDesignInfoImportReferencePoint = { [key: string]: number } | null;
+
+/**
+ * View the design was solved in; None for imports.
+ */
+export type JinaDesignInfoView =
+	| (typeof JinaDesignInfoView)[keyof typeof JinaDesignInfoView]
+	| null;
+
+export const JinaDesignInfoView = {
+	aggregated: 'aggregated',
+	per_scenario: 'per_scenario'
+} as const;
 
 export type JinaDesignInfoSource = (typeof JinaDesignInfoSource)[keyof typeof JinaDesignInfoSource];
 
@@ -1917,7 +1951,7 @@ export interface JinaDesignInfo {
 	/** The objective-keyed reference point an imported design was evaluated at. */
 	import_reference_point?: JinaDesignInfoImportReferencePoint;
 	/** View the design was solved in; None for imports. */
-	view?: 'aggregated' | 'per_scenario' | null;
+	view?: JinaDesignInfoView;
 	source: JinaDesignInfoSource;
 	/** Objective values by leaf and objective symbol. */
 	leaf_objectives?: JinaDesignInfoLeafObjectives;
@@ -1997,10 +2031,10 @@ export interface JinaEvaluateResult {
 
 /**
  * Stores the normalized kinds `{method}.{phase}` of supported states.
-
-Note:
-    Update this when adding new states. Be sure to update `KIND_TO_STATE`
-    in this file as well.
+ *
+ * Note:
+ *     Update this when adding new states. Be sure to update `KIND_TO_STATE`
+ *     in this file as well.
  */
 export type StateKind = (typeof StateKind)[keyof typeof StateKind];
 
@@ -2091,6 +2125,15 @@ export const JinaIterateStateResultMode = {
 	import: 'import'
 } as const;
 
+export type JinaIterateStateResultView =
+	| (typeof JinaIterateStateResultView)[keyof typeof JinaIterateStateResultView]
+	| null;
+
+export const JinaIterateStateResultView = {
+	aggregated: 'aggregated',
+	per_scenario: 'per_scenario'
+} as const;
+
 export type JinaIterateResultEffectiveReferencePoint = { [key: string]: number };
 
 export type JinaIterateResultTargetValues = { [key: string]: number };
@@ -2120,7 +2163,7 @@ export interface JinaIterateStateResult {
 	kind: 'jina.iterate';
 	setup_state_id: number;
 	mode: JinaIterateStateResultMode;
-	view: 'aggregated' | 'per_scenario' | null;
+	view: JinaIterateStateResultView;
 	reference_point: JinaIterateStateResultReferencePoint;
 	results: JinaIterateResult[];
 	new_design_ids: number[];
@@ -2270,7 +2313,7 @@ export interface JinaSetupRequest {
 	parent_state_id?: number | null;
 	/** DB id of the ScenarioModelDB. Defaults to the problem's first scenario model. */
 	scenario_model_id?: number | null;
-	/** Root variables forming a design. Defaults to the scalar root variables. */
+	/** Root variables forming a design. Defaults to all root variables. */
 	design_variables?: string[] | null;
 	/** The aggregation of the aggregated view. */
 	measure?: JinaSetupRequestMeasure;
@@ -3371,20 +3414,6 @@ export type UpdateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPo
 	problem_id?: number | null;
 };
 
-/**
- * Return all users with the decision maker role. Requires analyst or admin.
-
-Args:
-    user (Annotated[User, Depends]): the current user.
-    session (Annotated[Session, Depends]): the database session.
-
-Returns:
-    list[UserPublic]: public information for all DM users.
-
-Raises:
-    HTTPException: if the current user is not an analyst or admin.
- * @summary Get Dm Users
- */
 export type getDmUsersUsersDmsGetResponse200 = {
 	data: UserPublic[];
 	status: 200;
@@ -4052,7 +4081,7 @@ export const getAddProblemProblemAddPostUrl = (params?: AddProblemProblemAddPost
  * @summary Add Problem
  */
 export const addProblemProblemAddPost = async (
-	rPMSolveRequestENautilusStepRequestCreateSessionRequestNautilusNavigatorInitRequestNautilusNavigatorNavigateRequestJinaSessionRequestNull:
+	rPMSolveRequestENautilusStepRequestCreateSessionRequestNautilusNavigatorInitRequestNautilusNavigatorNavigateRequestJinaSessionRequestNull?:
 		| RPMSolveRequest
 		| ENautilusStepRequest
 		| CreateSessionRequest
@@ -4768,10 +4797,6 @@ export const createNewSessionSessionNewPost = async (
 	);
 };
 
-/**
- * Return an interactive session. Analysts and admins may access any session.
- * @summary Get Session
- */
 export type activateSessionSessionActivatePostResponse200 = {
 	data: InteractiveSessionBase | null;
 	status: 200;
@@ -6789,10 +6814,6 @@ export const modifyProblemStatusMethodCumulusModifyProblemStatusStateIdGet = asy
 	);
 };
 
-/**
- * List the scenario models of a problem; models that fail to load are left out.
- * @summary Get Scenario Models
- */
 export type getScenarioModelsMethodJinaScenarioModelsGetResponse200 = {
 	data: JinaScenarioModelInfo[];
 	status: 200;
@@ -6823,7 +6844,7 @@ export const getGetScenarioModelsMethodJinaScenarioModelsGetUrl = (
 
 	Object.entries(params || {}).forEach(([key, value]) => {
 		if (value !== undefined) {
-			normalizedParams.append(key, value === null ? 'null' : value.toString());
+			normalizedParams.append(key, value === null ? 'null' : String(value));
 		}
 	});
 
@@ -6834,6 +6855,10 @@ export const getGetScenarioModelsMethodJinaScenarioModelsGetUrl = (
 		: `http://localhost:8000/method/jina/scenario-models`;
 };
 
+/**
+ * List the scenario models of a problem; models that fail to load are left out.
+ * @summary Get Scenario Models
+ */
 export const getScenarioModelsMethodJinaScenarioModelsGet = async (
 	params?: GetScenarioModelsMethodJinaScenarioModelsGetParams,
 	options?: RequestInit
@@ -6847,10 +6872,6 @@ export const getScenarioModelsMethodJinaScenarioModelsGet = async (
 	);
 };
 
-/**
- * Return the latest JINA setup of the session, or None, and all later JINA states of that setup.
- * @summary Get Or Initialize
- */
 export type getOrInitializeMethodJinaGetOrInitializePostResponse200 = {
 	data: JinaGetOrInitializeResponse;
 	status: 200;
@@ -6881,7 +6902,7 @@ export const getGetOrInitializeMethodJinaGetOrInitializePostUrl = (
 
 	Object.entries(params || {}).forEach(([key, value]) => {
 		if (value !== undefined) {
-			normalizedParams.append(key, value === null ? 'null' : value.toString());
+			normalizedParams.append(key, value === null ? 'null' : String(value));
 		}
 	});
 
@@ -6892,6 +6913,10 @@ export const getGetOrInitializeMethodJinaGetOrInitializePostUrl = (
 		: `http://localhost:8000/method/jina/get-or-initialize`;
 };
 
+/**
+ * Return the latest JINA setup of the session, or None, and all later JINA states of that setup.
+ * @summary Get Or Initialize
+ */
 export const getOrInitializeMethodJinaGetOrInitializePost = async (
 	jinaSessionRequest: JinaSessionRequest,
 	params?: GetOrInitializeMethodJinaGetOrInitializePostParams,
@@ -6908,10 +6933,6 @@ export const getOrInitializeMethodJinaGetOrInitializePost = async (
 	);
 };
 
-/**
- * Start a JINA run on a scenario model of the problem; its target ranges are computed in the background.
- * @summary Setup
- */
 export type setupMethodJinaSetupPostResponse200 = {
 	data: JinaStateResponse;
 	status: 200;
@@ -6938,7 +6959,7 @@ export const getSetupMethodJinaSetupPostUrl = (params?: SetupMethodJinaSetupPost
 
 	Object.entries(params || {}).forEach(([key, value]) => {
 		if (value !== undefined) {
-			normalizedParams.append(key, value === null ? 'null' : value.toString());
+			normalizedParams.append(key, value === null ? 'null' : String(value));
 		}
 	});
 
@@ -6949,6 +6970,10 @@ export const getSetupMethodJinaSetupPostUrl = (params?: SetupMethodJinaSetupPost
 		: `http://localhost:8000/method/jina/setup`;
 };
 
+/**
+ * Start a JINA run on a scenario model of the problem; its target ranges are computed in the background.
+ * @summary Setup
+ */
 export const setupMethodJinaSetupPost = async (
 	jinaSetupRequest: JinaSetupRequest,
 	params?: SetupMethodJinaSetupPostParams,
@@ -6962,10 +6987,6 @@ export const setupMethodJinaSetupPost = async (
 	});
 };
 
-/**
- * Solve new designs at a reference point in the background, or pick designs found earlier from the pool.
- * @summary Iterate
- */
 export type iterateMethodJinaIteratePostResponse200 = {
 	data: JinaStateResponse;
 	status: 200;
@@ -6993,7 +7014,7 @@ export const getIterateMethodJinaIteratePostUrl = (params?: IterateMethodJinaIte
 
 	Object.entries(params || {}).forEach(([key, value]) => {
 		if (value !== undefined) {
-			normalizedParams.append(key, value === null ? 'null' : value.toString());
+			normalizedParams.append(key, value === null ? 'null' : String(value));
 		}
 	});
 
@@ -7004,6 +7025,10 @@ export const getIterateMethodJinaIteratePostUrl = (params?: IterateMethodJinaIte
 		: `http://localhost:8000/method/jina/iterate`;
 };
 
+/**
+ * Solve new designs at a reference point in the background, or pick designs found earlier from the pool.
+ * @summary Iterate
+ */
 export const iterateMethodJinaIteratePost = async (
 	jinaIterateRequest: JinaIterateRequest,
 	params?: IterateMethodJinaIteratePostParams,
@@ -7020,10 +7045,6 @@ export const iterateMethodJinaIteratePost = async (
 	);
 };
 
-/**
- * Import the designs of a representative solution set of the problem; they are evaluated in the background.
- * @summary Import Designs
- */
 export type importDesignsMethodJinaImportPostResponse200 = {
 	data: JinaStateResponse;
 	status: 200;
@@ -7054,7 +7075,7 @@ export const getImportDesignsMethodJinaImportPostUrl = (
 
 	Object.entries(params || {}).forEach(([key, value]) => {
 		if (value !== undefined) {
-			normalizedParams.append(key, value === null ? 'null' : value.toString());
+			normalizedParams.append(key, value === null ? 'null' : String(value));
 		}
 	});
 
@@ -7065,6 +7086,10 @@ export const getImportDesignsMethodJinaImportPostUrl = (
 		: `http://localhost:8000/method/jina/import`;
 };
 
+/**
+ * Import the designs of a representative solution set of the problem; they are evaluated in the background.
+ * @summary Import Designs
+ */
 export const importDesignsMethodJinaImportPost = async (
 	jinaImportRequest: JinaImportRequest,
 	params?: ImportDesignsMethodJinaImportPostParams,
@@ -7081,14 +7106,6 @@ export const importDesignsMethodJinaImportPost = async (
 	);
 };
 
-/**
- * Evaluate designs in the leaves of the setup's or another scenario model of the problem in the background.
-
-Every leaf is re-solved at the thresholds with the design variables fixed, and the domain criterion
-of each design at the thresholds is stored with the outcomes.  The thresholds must cover exactly
-the objectives of the scenario model.
- * @summary Evaluate
- */
 export type evaluateMethodJinaEvaluatePostResponse200 = {
 	data: JinaStateResponse;
 	status: 200;
@@ -7119,7 +7136,7 @@ export const getEvaluateMethodJinaEvaluatePostUrl = (
 
 	Object.entries(params || {}).forEach(([key, value]) => {
 		if (value !== undefined) {
-			normalizedParams.append(key, value === null ? 'null' : value.toString());
+			normalizedParams.append(key, value === null ? 'null' : String(value));
 		}
 	});
 
@@ -7130,6 +7147,14 @@ export const getEvaluateMethodJinaEvaluatePostUrl = (
 		: `http://localhost:8000/method/jina/evaluate`;
 };
 
+/**
+ * Evaluate designs in the leaves of the setup's or another scenario model of the problem in the background.
+ *
+ * Every leaf is re-solved at the thresholds with the design variables fixed, and the domain criterion
+ * of each design at the thresholds is stored with the outcomes.  The thresholds must cover exactly
+ * the objectives of the scenario model.
+ * @summary Evaluate
+ */
 export const evaluateMethodJinaEvaluatePost = async (
 	jinaEvaluateRequest: JinaEvaluateRequest,
 	params?: EvaluateMethodJinaEvaluatePostParams,
@@ -7146,10 +7171,6 @@ export const evaluateMethodJinaEvaluatePost = async (
 	);
 };
 
-/**
- * Return a JINA state and whether its background job has finished.
- * @summary Get Status
- */
 export type getStatusMethodJinaStatusStateIdGetResponse200 = {
 	data: JinaStateResponse;
 	status: 200;
@@ -7177,6 +7198,10 @@ export const getGetStatusMethodJinaStatusStateIdGetUrl = (stateId: number) => {
 	return `http://localhost:8000/method/jina/status/${stateId}`;
 };
 
+/**
+ * Return a JINA state and whether its background job has finished.
+ * @summary Get Status
+ */
 export const getStatusMethodJinaStatusStateIdGet = async (
 	stateId: number,
 	options?: RequestInit
@@ -7190,10 +7215,6 @@ export const getStatusMethodJinaStatusStateIdGet = async (
 	);
 };
 
-/**
- * Store the wishlist and the final design of the decision maker.
- * @summary Select Designs
- */
 export type selectDesignsMethodJinaSelectPostResponse200 = {
 	data: JinaStateResponse;
 	status: 200;
@@ -7224,7 +7245,7 @@ export const getSelectDesignsMethodJinaSelectPostUrl = (
 
 	Object.entries(params || {}).forEach(([key, value]) => {
 		if (value !== undefined) {
-			normalizedParams.append(key, value === null ? 'null' : value.toString());
+			normalizedParams.append(key, value === null ? 'null' : String(value));
 		}
 	});
 
@@ -7235,6 +7256,10 @@ export const getSelectDesignsMethodJinaSelectPostUrl = (
 		: `http://localhost:8000/method/jina/select`;
 };
 
+/**
+ * Store the wishlist and the final design of the decision maker.
+ * @summary Select Designs
+ */
 export const selectDesignsMethodJinaSelectPost = async (
 	jinaSelectRequest: JinaSelectRequest,
 	params?: SelectDesignsMethodJinaSelectPostParams,
@@ -7251,14 +7276,6 @@ export const selectDesignsMethodJinaSelectPost = async (
 	);
 };
 
-/**
- * Compute the antifragility of evaluated designs relative to the setup's baseline leaf.
-
-The absolute and loss floors set the Taleb classes.  Leaves where a design failed are missing
-outcomes, treated by the metric's default policy.  Raises 422 if the setup has no baseline leaf
-or no selected design has an outcome in it.
- * @summary Antifragility Analysis
- */
 export type antifragilityAnalysisMethodJinaAntifragilityPostResponse200 = {
 	data: JinaAntifragilityResponse;
 	status: 200;
@@ -7289,7 +7306,7 @@ export const getAntifragilityAnalysisMethodJinaAntifragilityPostUrl = (
 
 	Object.entries(params || {}).forEach(([key, value]) => {
 		if (value !== undefined) {
-			normalizedParams.append(key, value === null ? 'null' : value.toString());
+			normalizedParams.append(key, value === null ? 'null' : String(value));
 		}
 	});
 
@@ -7300,6 +7317,14 @@ export const getAntifragilityAnalysisMethodJinaAntifragilityPostUrl = (
 		: `http://localhost:8000/method/jina/antifragility`;
 };
 
+/**
+ * Compute the antifragility of evaluated designs relative to the setup's baseline leaf.
+ *
+ * The absolute and loss floors set the Taleb classes.  Leaves where a design failed are missing
+ * outcomes, treated by the metric's default policy.  Raises 422 if the setup has no baseline leaf
+ * or no selected design has an outcome in it.
+ * @summary Antifragility Analysis
+ */
 export const antifragilityAnalysisMethodJinaAntifragilityPost = async (
 	jinaAntifragilityRequest: JinaAntifragilityRequest,
 	params?: AntifragilityAnalysisMethodJinaAntifragilityPostParams,
@@ -7316,10 +7341,6 @@ export const antifragilityAnalysisMethodJinaAntifragilityPost = async (
 	);
 };
 
-/**
- * List the design registry of a setup with the target values of each design in both views.
- * @summary Get Designs
- */
 export type getDesignsMethodJinaDesignsGetResponse200 = {
 	data: JinaDesignInfo[];
 	status: 200;
@@ -7350,7 +7371,7 @@ export const getGetDesignsMethodJinaDesignsGetUrl = (
 
 	Object.entries(params || {}).forEach(([key, value]) => {
 		if (value !== undefined) {
-			normalizedParams.append(key, value === null ? 'null' : value.toString());
+			normalizedParams.append(key, value === null ? 'null' : String(value));
 		}
 	});
 
@@ -7361,6 +7382,10 @@ export const getGetDesignsMethodJinaDesignsGetUrl = (
 		: `http://localhost:8000/method/jina/designs`;
 };
 
+/**
+ * List the design registry of a setup with the target values of each design in both views.
+ * @summary Get Designs
+ */
 export const getDesignsMethodJinaDesignsGet = async (
 	params: GetDesignsMethodJinaDesignsGetParams,
 	options?: RequestInit
@@ -7374,15 +7399,6 @@ export const getDesignsMethodJinaDesignsGet = async (
 	);
 };
 
-/**
- * Solve intermediate solutions between given two solutions.
-
-Args:
-    request (IntermediateSolutionRequest): The request object containing parameters
-        for fetching results.
-    context (Annotated[SessionContext, Depends]): The session context.
- * @summary Solve Intermediate
- */
 export type solveIntermediateMethodGenericIntermediatePostResponse200 = {
 	data: GenericIntermediateSolutionResponse;
 	status: 200;
@@ -9203,22 +9219,6 @@ export const getSolutionDescriptionSolutionDescriptionGetPost = async (
 	);
 };
 
-/**
- * Add a new solution description metadata instance for a problem.
-
-Validates that all expressions in the parts are parseable and only refer to symbols the
-problem's solutions provide, then appends the new metadata to the database. The most
-recent entry is used when generating descriptions, so this effectively updates what
-description is produced.
-
-Args:
-    request: the problem id and new description metadata.
-    context: current session context.
-
-Returns:
-    The newly created SolutionDescriptionMetaData instance.
- * @summary Update Solution Description Metadata
- */
 export type updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPostResponse200 = {
 	data: SolutionDescriptionMetaData;
 	status: 200;

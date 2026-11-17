@@ -7891,13 +7891,6 @@ export const GetScenarioModelsMethodJinaScenarioModelsGetResponse = zod.array(
 /**
  * Return the latest JINA setup of the session, or None, and all later JINA states of that setup.
  * @summary Get Or Initialize
- * Solve intermediate solutions between given two solutions.
- *
- * Args:
- *     request (IntermediateSolutionRequest): The request object containing parameters
- *         for fetching results.
- *     context (Annotated[SessionContext, Depends]): The session context.
- * @summary Solve Intermediate
  */
 export const GetOrInitializeMethodJinaGetOrInitializePostQueryParams = zod.object({
 	problem_id: zod.union([zod.number(), zod.null()]).optional()
@@ -8388,7 +8381,7 @@ export const SetupMethodJinaSetupPostBody = zod
 		design_variables: zod
 			.union([zod.array(zod.string()), zod.null()])
 			.optional()
-			.describe('Root variables forming a design. Defaults to the scalar root variables.'),
+			.describe('Root variables forming a design. Defaults to all root variables.'),
 		measure: zod
 			.enum(['worst_case', 'expected_value', 'cvar'])
 			.default(setupMethodJinaSetupPostBodyMeasureDefault)
@@ -9115,10 +9108,10 @@ export const ImportDesignsMethodJinaImportPostResponse = zod
 
 /**
  * Evaluate designs in the leaves of the setup's or another scenario model of the problem in the background.
-
-Every leaf is re-solved at the thresholds with the design variables fixed, and the domain criterion
-of each design at the thresholds is stored with the outcomes.  The thresholds must cover exactly
-the objectives of the scenario model.
+ *
+ * Every leaf is re-solved at the thresholds with the design variables fixed, and the domain criterion
+ * of each design at the thresholds is stored with the outcomes.  The thresholds must cover exactly
+ * the objectives of the scenario model.
  * @summary Evaluate
  */
 export const EvaluateMethodJinaEvaluatePostQueryParams = zod.object({
@@ -9827,10 +9820,10 @@ export const SelectDesignsMethodJinaSelectPostResponse = zod
 
 /**
  * Compute the antifragility of evaluated designs relative to the setup's baseline leaf.
-
-The absolute and loss floors set the Taleb classes.  Leaves where a design failed are missing
-outcomes, treated by the metric's default policy.  Raises 422 if the setup has no baseline leaf
-or no selected design has an outcome in it.
+ *
+ * The absolute and loss floors set the Taleb classes.  Leaves where a design failed are missing
+ * outcomes, treated by the metric's default policy.  Raises 422 if the setup has no baseline leaf
+ * or no selected design has an outcome in it.
  * @summary Antifragility Analysis
  */
 export const AntifragilityAnalysisMethodJinaAntifragilityPostQueryParams = zod.object({
@@ -9961,11 +9954,11 @@ export const GetDesignsMethodJinaDesignsGetResponse = zod.array(
 
 /**
  * Solve intermediate solutions between given two solutions.
-
-Args:
-    request (IntermediateSolutionRequest): The request object containing parameters
-        for fetching results.
-    context (Annotated[SessionContext, Depends]): The session context.
+ *
+ * Args:
+ *     request (IntermediateSolutionRequest): The request object containing parameters
+ *         for fetching results.
+ *     context (Annotated[SessionContext, Depends]): The session context.
  * @summary Solve Intermediate
  */
 export const SolveIntermediateMethodGenericIntermediatePostQueryParams = zod.object({
