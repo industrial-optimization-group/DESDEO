@@ -1,38 +1,60 @@
 """Define popular MOEAs as Pydantic models."""
 
-from desdeo.emo.options.crossover import SimulatedBinaryCrossoverOptions, UniformMixedIntegerCrossoverOptions
-from desdeo.emo.options.generator import LHSGeneratorOptions, RandomMixedIntegerGeneratorOptions
+from desdeo.emo.options.crossover import (
+    DifferentialEvolutionCrossoverOptions,
+    SimulatedBinaryCrossoverOptions,
+    UniformMixedIntegerCrossoverOptions,
+)
+from desdeo.emo.options.generator import LHSGeneratorOptions, RandomGeneratorOptions, RandomMixedIntegerGeneratorOptions
 from desdeo.emo.options.mutation import BoundedPolynomialMutationOptions, MixedIntegerRandomMutationOptions
 from desdeo.emo.options.repair import ClipRepairOptions, NoRepairOptions
 from desdeo.emo.options.scalar_selection import ElitistSelectionOptions, TournamentSelectionOptions
 from desdeo.emo.options.selection import (
+    AGEMOEA2SelectorOptions,
+    HypESelectorOptions,
     IBEASelectorOptions,
+    ModifiedWASFGASelectorOptions,
+    MOEADSelectorOptions,
     NSGA2SelectorOptions,
     NSGA3SelectorOptions,
     ParameterAdaptationStrategy,
     ReferenceVectorOptions,
     RVEASelectorOptions,
     SMSEMOASelectorOptions,
+    SPEA2SelectorOptions,
 )
 from desdeo.emo.options.templates import (
     EMOOptions,
     Template1Options,
     Template2Options,
     Template3Options,
+    TemplateMOEADOptions,
     TemplateXLEMOOOptions,
     emo_constructor,
 )
 from desdeo.emo.options.termination import MaxEvaluationsTerminatorOptions, MaxGenerationsTerminatorOptions
 
 __all__ = [
+    "agemoea2_mixed_integer_options",
+    "agemoea2_options",
     "emo_constructor",
+    "hype_mixed_integer_options",
+    "hype_options",
     "ibea_mixed_integer_options",
     "ibea_options",
+    "modified_wasfga_mixed_integer_options",
+    "modified_wasfga_options",
+    "moead_de_options",
+    "moead_mixed_integer_options",
+    "moead_options",
     "nsga2_options",
     "nsga3_mixed_integer_options",
     "nsga3_options",
     "rvea_mixed_integer_options",
     "rvea_options",
+    "sms_emoa_options",
+    "spea2_mixed_integer_options",
+    "spea2_options",
     "xlemoo_options",
 ]
 
@@ -555,6 +577,476 @@ def sms_emoa_mixed_integer_options() -> EMOOptions:
             seed=42,
         ),
     )
+
+
+def moead_options() -> EMOOptions:
+    """Get default MOEA/D options as a Pydantic model.
+
+    The variant of Section V of the paper: Tchebycheff aggregation, no external population, simulated
+    binary crossover and polynomial mutation, and neighbourhood mating with every improved neighbour
+    replaced.
+
+    References:
+        Q. Zhang and H. Li, "MOEA/D: A Multiobjective Evolutionary Algorithm Based on Decomposition," IEEE
+        Transactions on Evolutionary Computation, vol. 11, no. 6, pp. 712-731, Dec. 2007,
+        doi: 10.1109/TEVC.2007.892759.
+
+    Returns:
+        EMOOptions: The default MOEA/D options as a Pydantic model.
+    """
+    return EMOOptions(
+        preference=None,
+        template=TemplateMOEADOptions(
+            algorithm_name="MOEA/D",
+            crossover=SimulatedBinaryCrossoverOptions(
+                name="SimulatedBinaryCrossover",
+                xover_distribution=20,
+                # The paper's "crossover rate is 1.00" is per pair, following Deb's NSGA-II code,
+                # whose per-variable rate is 0.5. The template keeps one of the two children.
+                pair_xover_probability=1.0,
+                xover_probability=0.5,
+                uniform_xover_probability=0.5,
+            ),
+            mutation=BoundedPolynomialMutationOptions(
+                name="BoundedPolynomialMutation",
+                distribution_index=20,
+                mutation_probability=None,  # 1/n
+            ),
+            selection=MOEADSelectorOptions(
+                name="MOEADSelector",
+                # The paper uses N = 100 weight vectors at two objectives and 300 at three (H = 23).
+                # At three objectives the simplex lattice gives 91 vectors for 100 requested.
+                reference_vector_options=ReferenceVectorOptions(
+                    adaptation_frequency=0,
+                    creation_type="simplex",
+                    vector_type="planar",
+                    lattice_resolution=None,
+                    number_of_vectors=100,
+                ),
+                neighbourhood_size=20,
+                neighbourhood_probability=1.0,
+                max_replacements=None,
+                aggregation="tchebycheff",
+            ),
+            # The population is drawn uniformly at random; the template sets its size to the number
+            # of weight vectors.
+            generator=RandomGeneratorOptions(
+                name="RandomGenerator",
+                n_points=100,
+            ),
+            repair=ClipRepairOptions(),
+            # The paper runs 250 generations. Each generation spends one evaluation per weight vector.
+            termination=MaxGenerationsTerminatorOptions(
+                name="MaxGenerationsTerminator",
+                max_generations=100,
+            ),
+            use_archive=True,
+            verbosity=2,
+            seed=42,
+        ),
+    )
+
+
+def moead_de_options() -> EMOOptions:
+    """Get default MOEA/D-DE options as a Pydantic model.
+
+    MOEA/D with a differential evolution operator whose base vector is the subproblem's own solution,
+    mating with the whole population with probability 1 - delta, and at most n_r replacements per
+    offspring.
+
+    The paper resets a variable that leaves its bounds to a random value inside them (Step 2.3). This
+    configuration clips it instead, as DESDEO's differential evolution operator, PlatEMO and jMetal
+    all do.
+
+    References:
+        H. Li and Q. Zhang, "Multiobjective Optimization Problems With Complicated Pareto Sets, MOEA/D and
+        NSGA-II," IEEE Transactions on Evolutionary Computation, vol. 13, no. 2, pp. 284-302, Apr. 2009,
+        doi: 10.1109/TEVC.2008.925798.
+
+    Returns:
+        EMOOptions: The default MOEA/D-DE options as a Pydantic model.
+    """
+    return EMOOptions(
+        preference=None,
+        template=TemplateMOEADOptions(
+            algorithm_name="MOEA/D-DE",
+            crossover=DifferentialEvolutionCrossoverOptions(
+                name="DifferentialEvolutionCrossover",
+                scaling_factor=0.5,
+                xover_probability=1.0,
+                base_vector="target",  # Step 2.2 sets r1 = i
+            ),
+            mutation=BoundedPolynomialMutationOptions(
+                name="BoundedPolynomialMutation",
+                distribution_index=20,
+                mutation_probability=None,  # p_m = 1/n
+            ),
+            selection=MOEADSelectorOptions(
+                name="MOEADSelector",
+                # The paper uses N = 300 weight vectors at two objectives (H = 299) and 595 at three
+                # (H = 33), on problems built to be hard to converge on.
+                reference_vector_options=ReferenceVectorOptions(
+                    adaptation_frequency=0,
+                    creation_type="simplex",
+                    vector_type="planar",
+                    lattice_resolution=None,
+                    number_of_vectors=100,
+                ),
+                neighbourhood_size=20,
+                neighbourhood_probability=0.9,
+                max_replacements=2,
+                aggregation="tchebycheff",
+            ),
+            generator=RandomGeneratorOptions(
+                name="RandomGenerator",
+                n_points=100,
+            ),
+            repair=ClipRepairOptions(),
+            # The paper runs 500 generations.
+            termination=MaxGenerationsTerminatorOptions(
+                name="MaxGenerationsTerminator",
+                max_generations=100,
+            ),
+            use_archive=True,
+            verbosity=2,
+            seed=42,
+        ),
+    )
+
+
+def spea2_options() -> EMOOptions:
+    """Get default SPEA2 options as a Pydantic model.
+
+    The archive is the selected population, of size `population_size`, and the mating tournament
+    fills a population of `winner_size` from it. The paper's continuous experiments set both to 100
+    and use SBX with eta = 20 and polynomial mutation; it does not state their rates, so the values
+    here are the ones DESDEO uses for NSGA-II and IBEA.
+
+    References:
+        E. Zitzler, M. Laumanns and L. Thiele, "SPEA2: Improving the Strength Pareto Evolutionary Algorithm," TIK-Report
+        103, Computer Engineering and Networks Laboratory (TIK), ETH Zurich, May 2001, doi: 10.3929/ethz-a-004284029.
+
+    Returns:
+        EMOOptions: The default SPEA2 options as a Pydantic model.
+    """
+    return EMOOptions(
+        preference=None,
+        template=Template2Options(
+            algorithm_name="SPEA2",
+            crossover=SimulatedBinaryCrossoverOptions(
+                name="SimulatedBinaryCrossover",
+                xover_distribution=20,
+                pair_xover_probability=1.0,
+                xover_probability=0.5,
+                uniform_xover_probability=0.5,
+            ),
+            mutation=BoundedPolynomialMutationOptions(
+                name="BoundedPolynomialMutation",
+                distribution_index=20,
+                mutation_probability=None,
+            ),
+            selection=SPEA2SelectorOptions(
+                name="SPEA2Selector",
+                population_size=100,  # the archive size, N-bar
+            ),
+            # Step 5: binary tournament with replacement on the archive fills the mating pool of N.
+            mate_selection=TournamentSelectionOptions(
+                name="TournamentSelection",
+                tournament_size=2,
+                winner_size=100,
+            ),
+            generator=LHSGeneratorOptions(
+                name="LHSGenerator",
+                n_points=100,
+            ),
+            repair=ClipRepairOptions(),
+            termination=MaxGenerationsTerminatorOptions(
+                name="MaxGenerationsTerminator",
+                max_generations=100,
+            ),
+            use_archive=True,
+            verbosity=2,
+            seed=42,
+        ),
+    )
+
+
+def agemoea2_options() -> EMOOptions:
+    """Get default AGE-MOEA-II options as a Pydantic model.
+
+    Not AGE-MOEA: the paper below compares the two on 17 WFG and SMOP problems at 3, 6 and 9
+    objectives, and AGE-MOEA-II is significantly better on 41 of the 51 cases and worse on 2.
+
+    References:
+        A. Panichella, "An Improved Pareto Front Modeling Algorithm for Large-scale Many-Objective Optimization," in
+        Proceedings of the Genetic and Evolutionary Computation Conference (GECCO '22), Boston, MA, USA: ACM, Jul. 2022,
+        pp. 565-573, doi: 10.1145/3512290.3528732.
+
+        A. Panichella, "An Adaptive Evolutionary Algorithm based on Non-Euclidean Geometry for Many-objective
+        Optimization," in Proceedings of the Genetic and Evolutionary Computation Conference (GECCO '19), Prague, Czech
+        Republic: ACM, Jul. 2019, pp. 595-603, doi: 10.1145/3321707.3321839.
+
+    Returns:
+        EMOOptions: The default AGE-MOEA-II options as a Pydantic model.
+    """
+    return EMOOptions(
+        preference=None,
+        template=Template2Options(
+            algorithm_name="AGE-MOEA-II",
+            crossover=SimulatedBinaryCrossoverOptions(
+                name="SimulatedBinaryCrossover",
+                xover_distribution=30,  # eta_c = 30, Table 1
+                # Table 1's p_c = 1 is per pair; the per-variable rate is Deb and Agrawal's 0.5.
+                pair_xover_probability=1.0,
+                xover_probability=0.5,
+                uniform_xover_probability=0.5,
+            ),
+            mutation=BoundedPolynomialMutationOptions(
+                name="BoundedPolynomialMutation",
+                distribution_index=20,  # eta_m = 20, Table 1
+                mutation_probability=None,  # p_m = 1/n
+            ),
+            selection=AGEMOEA2SelectorOptions(
+                name="AGEMOEA2Selector",
+                # Table 1 uses 200, 300 and 400 solutions at 3, 6 and 9 objectives.
+                population_size=100,
+            ),
+            # AGE-MOEA's binary tournament, by front and then survival score (2019, Section 3.1).
+            mate_selection=TournamentSelectionOptions(
+                name="TournamentSelection",
+                tournament_size=2,
+                winner_size=100,
+            ),
+            # The paper starts from a random population (Algorithm 2, line 2). LHS makes it lose parts of a
+            # biased front less often: on 3-objective DTLZ4 it reached the full front on 10 of 20 seeds,
+            # against 4 of 20 from a random start.
+            generator=LHSGeneratorOptions(
+                name="LHSGenerator",
+                n_points=100,
+            ),
+            repair=ClipRepairOptions(),
+            # Table 1 runs 200 iterations.
+            termination=MaxGenerationsTerminatorOptions(
+                name="MaxGenerationsTerminator",
+                max_generations=100,
+            ),
+            use_archive=True,
+            verbosity=2,
+            seed=42,
+        ),
+    )
+
+
+def hype_options() -> EMOOptions:
+    """Get default HypE options as a Pydantic model.
+
+    The paper's experiments use a population of 50, 10 000 Monte Carlo samples, SBX with eta = 20 and
+    polynomial mutation, with the rates of Deb et al.'s DTLZ study (crossover 1.0 per pair, mutation
+    1/n). The hypervolume fitness is exact up to three objectives.
+
+    References:
+        J. Bader and E. Zitzler, "HypE: An Algorithm for Fast Hypervolume-Based Many-Objective Optimization,"
+        Evolutionary Computation, vol. 19, no. 1, pp. 45-76, Mar. 2011, doi: 10.1162/EVCO_a_00009. Implemented from
+        the technical report version, TIK Report 286, ETH Zurich, 2008, doi: 10.3929/ethz-a-005703480.
+
+    Returns:
+        EMOOptions: The default HypE options as a Pydantic model.
+    """
+    return EMOOptions(
+        preference=None,
+        template=Template2Options(
+            algorithm_name="HypE",
+            crossover=SimulatedBinaryCrossoverOptions(
+                name="SimulatedBinaryCrossover",
+                xover_distribution=20,
+                pair_xover_probability=1.0,
+                xover_probability=0.5,
+                uniform_xover_probability=0.5,
+            ),
+            mutation=BoundedPolynomialMutationOptions(
+                name="BoundedPolynomialMutation",
+                distribution_index=20,
+                mutation_probability=None,
+            ),
+            selection=HypESelectorOptions(
+                name="HypESelector",
+                population_size=50,
+                n_samples=10_000,
+                exact_max_objectives=3,
+                normalised_reference_point_component=1.1,
+            ),
+            mate_selection=TournamentSelectionOptions(
+                name="TournamentSelection",
+                tournament_size=2,
+                winner_size=50,
+            ),
+            generator=RandomGeneratorOptions(
+                name="RandomGenerator",
+                n_points=50,
+            ),
+            repair=ClipRepairOptions(),
+            # The paper runs 200 generations.
+            termination=MaxGenerationsTerminatorOptions(
+                name="MaxGenerationsTerminator",
+                max_generations=100,
+            ),
+            use_archive=True,
+            verbosity=2,
+            seed=42,
+        ),
+    )
+
+
+def _mixed_integer(options: EMOOptions, algorithm_name: str) -> EMOOptions:
+    """Swap a continuous configuration's variation and initialization for the mixed-integer operators."""
+    template = options.template
+    template.algorithm_name = algorithm_name
+    template.crossover = UniformMixedIntegerCrossoverOptions()
+    template.mutation = MixedIntegerRandomMutationOptions()
+    template.generator = RandomMixedIntegerGeneratorOptions(n_points=template.generator.n_points)
+    template.repair = NoRepairOptions(name="NoRepair")
+    return options
+
+
+def moead_mixed_integer_options() -> EMOOptions:
+    """Get default MOEA/D options for mixed integer problems as a Pydantic model.
+
+    References:
+        Q. Zhang and H. Li, "MOEA/D: A Multiobjective Evolutionary Algorithm Based on Decomposition," IEEE
+        Transactions on Evolutionary Computation, vol. 11, no. 6, pp. 712-731, Dec. 2007,
+        doi: 10.1109/TEVC.2007.892759.
+
+    Returns:
+        EMOOptions: The default MOEA/D mixed integer options as a Pydantic model.
+    """
+    return _mixed_integer(moead_options(), "MOEA/D_Mixed_Integer")
+
+
+def spea2_mixed_integer_options() -> EMOOptions:
+    """Get default SPEA2 options for mixed integer problems as a Pydantic model.
+
+    References:
+        E. Zitzler, M. Laumanns and L. Thiele, "SPEA2: Improving the Strength Pareto Evolutionary Algorithm," TIK-Report
+        103, Computer Engineering and Networks Laboratory (TIK), ETH Zurich, May 2001, doi: 10.3929/ethz-a-004284029.
+
+    Returns:
+        EMOOptions: The default SPEA2 mixed integer options as a Pydantic model.
+    """
+    return _mixed_integer(spea2_options(), "SPEA2_Mixed_Integer")
+
+
+def agemoea2_mixed_integer_options() -> EMOOptions:
+    """Get default AGE-MOEA-II options for mixed integer problems as a Pydantic model.
+
+    References:
+        A. Panichella, "An Improved Pareto Front Modeling Algorithm for Large-scale Many-Objective Optimization," in
+        Proceedings of the Genetic and Evolutionary Computation Conference (GECCO '22), Boston, MA, USA: ACM, Jul. 2022,
+        pp. 565-573, doi: 10.1145/3512290.3528732.
+
+    Returns:
+        EMOOptions: The default AGE-MOEA-II mixed integer options as a Pydantic model.
+    """
+    return _mixed_integer(agemoea2_options(), "AGE-MOEA-II_Mixed_Integer")
+
+
+def hype_mixed_integer_options() -> EMOOptions:
+    """Get default HypE options for mixed integer problems as a Pydantic model.
+
+    References:
+        J. Bader and E. Zitzler, "HypE: An Algorithm for Fast Hypervolume-Based Many-Objective Optimization,"
+        Evolutionary Computation, vol. 19, no. 1, pp. 45-76, Mar. 2011, doi: 10.1162/EVCO_a_00009.
+
+    Returns:
+        EMOOptions: The default HypE mixed integer options as a Pydantic model.
+    """
+    return _mixed_integer(hype_options(), "HypE_Mixed_Integer")
+
+
+def modified_wasfga_options() -> EMOOptions:
+    """Get default Modified WASF-GA options as a Pydantic model.
+
+    Modified WASF-GA is the evolutionary part of IRA-EMO (Step 5 of the paper's algorithm). It looks for
+    solutions between an aspiration point and a reservation point, which are given as a
+    `DesirableRangesOptions` preference with `method="Modified WASF-GA"`. Without a preference it uses the
+    ideal and nadir points estimated from the run, as Global WASF-GA does. The rest of IRA-EMO (showing
+    the decision maker the solutions between the two points, and asking for new levels) is left to the
+    caller.
+
+    The settings are those of the authors' reference code (`IRAEMO_Settings`, real-coded problems):
+    population and weight vectors 100, 200 generations, a random initial population, SBX and polynomial
+    mutation with distribution indices of 20, and a binary tournament by Pareto dominance (jMetal's
+    `BinaryTournament2`). The paper's own example used a population of 50 for 100 generations, on a
+    mixed-integer problem. Where the paper and the code disagree, this follows the code, except for the
+    defects listed in `ModifiedWASFGASelector`.
+
+    References:
+        R. Saborido, A. B. Ruiz, M. Luque and K. Miettinen, "IRA-EMO: Interactive Method Using Reservation and
+        Aspiration Levels for Evolutionary Multiobjective Optimization," in Evolutionary Multi-Criterion
+        Optimization (EMO 2019), LNCS vol. 11411, Springer, 2019, pp. 618-630, doi: 10.1007/978-3-030-12598-1_49.
+
+        A. B. Ruiz, R. Saborido and M. Luque, "A preference-based evolutionary algorithm for multiobjective
+        optimization: the weighting achievement scalarizing function genetic algorithm," Journal of Global
+        Optimization, vol. 62, no. 1, pp. 101-129, 2015, doi: 10.1007/s10898-014-0214-y.
+
+    Returns:
+        EMOOptions: The default Modified WASF-GA options as a Pydantic model.
+    """
+    return EMOOptions(
+        preference=None,
+        template=Template2Options(
+            algorithm_name="ModifiedWASFGA",
+            crossover=SimulatedBinaryCrossoverOptions(
+                name="SimulatedBinaryCrossover",
+                xover_distribution=20,
+                # jMetal's SBXCrossover crosses a pair with probability 0.9, then each variable with
+                # probability 0.5, and swaps the two values between the offspring with probability 0.5.
+                pair_xover_probability=0.9,
+                xover_probability=0.5,
+                uniform_xover_probability=0.5,
+            ),
+            mutation=BoundedPolynomialMutationOptions(
+                name="BoundedPolynomialMutation",
+                distribution_index=20,
+                mutation_probability=None,  # 1 / n
+            ),
+            selection=ModifiedWASFGASelectorOptions(
+                name="ModifiedWASFGASelector",
+                population_size=100,  # the reference code sets the number of weight vectors to the same value
+            ),
+            mate_selection=TournamentSelectionOptions(
+                name="TournamentSelection",
+                tournament_size=2,
+                winner_size=100,
+                comparison="dominance",
+            ),
+            generator=RandomGeneratorOptions(
+                name="RandomGenerator",
+                n_points=100,
+            ),
+            repair=ClipRepairOptions(),
+            termination=MaxGenerationsTerminatorOptions(
+                name="MaxGenerationsTerminator",
+                max_generations=200,
+            ),
+            use_archive=True,
+            verbosity=2,
+            seed=42,
+        ),
+    )
+
+
+def modified_wasfga_mixed_integer_options() -> EMOOptions:
+    """Get default Modified WASF-GA options for mixed integer problems as a Pydantic model.
+
+    References:
+        R. Saborido, A. B. Ruiz, M. Luque and K. Miettinen, "IRA-EMO: Interactive Method Using Reservation and
+        Aspiration Levels for Evolutionary Multiobjective Optimization," in Evolutionary Multi-Criterion
+        Optimization (EMO 2019), LNCS vol. 11411, Springer, 2019, pp. 618-630, doi: 10.1007/978-3-030-12598-1_49.
+
+    Returns:
+        EMOOptions: The default Modified WASF-GA mixed integer options as a Pydantic model.
+    """
+    return _mixed_integer(modified_wasfga_options(), "ModifiedWASFGA_Mixed_Integer")
 
 
 # The serialized templates under `datasets/emoTemplates` are regenerated by

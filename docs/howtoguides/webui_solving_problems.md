@@ -80,7 +80,8 @@ additionally:
   with `ProblemDB.from_problem(...)`;
 - attaches a `SolutionDescriptionMetaData` to a problem, which the UI uses to
   render a nicer, human-readable description of a solution than just a list of
-  objective values;
+  objective values (see
+  [How to add a solution description to a problem](./solution_descriptions.md));
 - attaches a `ScenarioModelDB` to a base problem, which lets the Cumulus method
   build a combined scenario problem with uncertainty measures automatically.
 

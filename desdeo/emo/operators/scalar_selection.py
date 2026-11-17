@@ -3,11 +3,12 @@
 import warnings
 from abc import abstractmethod
 from collections.abc import Sequence
+from typing import Literal
 
 import numpy as np
 import polars as pl
 
-from desdeo.emo.operators.selection import SolutionType
+from desdeo.emo.operators.selection import SolutionType, constrained_dominance_matrix, total_constraint_violation
 from desdeo.tools.message import (
     DictMessage,
     Message,
@@ -110,7 +111,11 @@ class BaseScalarSelector(Subscriber):
 
 
 class TournamentSelection(BaseScalarSelector):
-    """A tournament selection operator."""
+    """A tournament selection operator.
+
+    The members of a tournament are compared either by the fitness the selector publishes or by
+    (constrained) Pareto dominance on the targets.
+    """
 
     def __init__(
         self,
@@ -122,6 +127,9 @@ class TournamentSelection(BaseScalarSelector):
         seed: int = 0,
         stochastic: bool = False,
         selection_probability: float | None = None,
+        comparison: Literal["fitness", "dominance"] = "fitness",
+        target_symbols: Sequence[str] | None = None,
+        constraint_symbols: Sequence[str] | None = None,
     ) -> None:
         """Initialize the tournament selection operator.
 
@@ -140,15 +148,28 @@ class TournamentSelection(BaseScalarSelector):
                 only meaningful when `stochastic` is set. If None, the probabilities are proportional to the fitness
                 values of the solutions in the tournament. If a value p is given, the probability of choosing the
                 k-best solution in the tournament is p * (1 - p) ** (k - 1).
+            comparison (Literal["fitness", "dominance"], optional): How the members of a tournament are compared.
+                "fitness" uses the published fitness. "dominance" draws the winner uniformly from the members that
+                no other member dominates, under constrained domination: a feasible solution beats an infeasible
+                one, and of two infeasible solutions the one with the smaller total violation wins. The published
+                fitness is then ignored. Defaults to "fitness".
+            target_symbols (Sequence[str] | None, optional): The minimized target columns that dominance is
+                computed on. Required when `comparison` is "dominance".
+            constraint_symbols (Sequence[str] | None, optional): The constraint columns, positive when violated.
+                None for an unconstrained problem. Only used when `comparison` is "dominance".
 
         Raises:
-            ValueError: If `selection_probability` is given without `stochastic`, which would silently ignore it.
+            ValueError: If `selection_probability` is given without `stochastic`, which would silently ignore it,
+                if `comparison` is "dominance" without `target_symbols`, or if it is combined with `stochastic`.
 
         Note:
             `seed` used to double as the switch between the two rules, so that leaving it unset made the selection
             deterministic *and* seeded the generator from OS entropy. That made a whole run irreproducible even with
             a fixed template seed, so the two are now separate: `seed` only seeds, and `stochastic` only chooses the
             rule.
+
+            The members of a tournament are drawn with replacement. jMetal's `BinaryTournament2`, which WASF-GA's
+            reference code uses with a dominance comparator, draws pairs from a permutation instead.
         """
         super().__init__(verbosity=verbosity, publisher=publisher)
         self.winner_size = winner_size
@@ -157,8 +178,53 @@ class TournamentSelection(BaseScalarSelector):
         self.rng = np.random.default_rng(seed)
         self.stochastic = stochastic
         self.selection_probability = selection_probability
+        self.comparison = comparison
+        self.target_symbols = list(target_symbols or [])
+        self.constraint_symbols = list(constraint_symbols) if constraint_symbols else None
         if not self.stochastic and self.selection_probability is not None:
             raise ValueError("If selection_probability is provided, stochastic must be True for it to have an effect.")
+        if self.comparison == "dominance":
+            if not self.target_symbols:
+                raise ValueError("A dominance tournament needs the target symbols to compare the members on.")
+            if self.stochastic:
+                raise ValueError("A dominance tournament has no fitness to draw a stochastic winner by.")
+
+    def do(
+        self,
+        solutions: tuple[SolutionType, pl.DataFrame],
+        fitness: np.ndarray | None = None,
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Perform the tournament selection operation.
+
+        Args:
+            solutions (tuple[SolutionType, pl.DataFrame]): the decision variables as the first element.
+                The second element is the objective values, targets, and constraint violations.
+            fitness (np.ndarray | None, optional): The fitness values of the solutions. If None, the fitness is
+                taken from the messages sent by the publisher. Ignored when `comparison` is "dominance".
+
+        Returns:
+            tuple[SolutionType, pl.DataFrame]: The selected decision variables and their outputs.
+        """
+        if self.comparison == "fitness":
+            return super().do(solutions, fitness)
+        # The selector may still publish a fitness; it plays no part here, but must not linger to the next call.
+        self.fitness = None
+        return self._do(solutions)
+
+    def dominance_select(self, indices: np.ndarray, dominance: np.ndarray) -> int:
+        """Select uniformly at random among the members of a tournament that no other member dominates.
+
+        Args:
+            indices (np.ndarray): The indices of the tournament's members.
+            dominance (np.ndarray): The population's dominance matrix; `dominance[i, j]` is True when i
+                dominates j.
+
+        Returns:
+            int: The index of the selected solution.
+        """
+        within = dominance[np.ix_(indices, indices)]
+        undominated = indices[~within.any(axis=0)]
+        return self.rng.choice(undominated)
 
     @staticmethod
     def deterministic_select(indices: np.ndarray, fitness: np.ndarray) -> int:
@@ -204,15 +270,24 @@ class TournamentSelection(BaseScalarSelector):
 
         Args:
             solutions (tuple[SolutionType, pl.DataFrame]): The decision variables and their outputs.
-            fitness (np.ndarray | None, optional): The fitness values of the solutions.
+            fitness (np.ndarray | None, optional): The fitness values of the solutions. Unused when `comparison`
+                is "dominance".
 
         Returns:
             tuple[SolutionType, pl.DataFrame]: The selected decision variables and their outputs.
         """
+        dominance = None
+        if self.comparison == "dominance":
+            dominance = constrained_dominance_matrix(
+                solutions[1][self.target_symbols].to_numpy(),
+                total_constraint_violation(solutions[1], self.constraint_symbols),
+            )
         selected_indices = np.zeros(self.winner_size, dtype=int)
         for i in range(self.winner_size):
             tournament_indices = self.rng.choice(range(len(solutions[0])), size=self.tournament_size, replace=True)
-            if self.stochastic:
+            if dominance is not None:
+                selected_indices[i] = self.dominance_select(tournament_indices, dominance)
+            elif self.stochastic:
                 selected_indices[i] = self.stochastic_select(tournament_indices, fitness[tournament_indices])
             else:
                 selected_indices[i] = self.deterministic_select(tournament_indices, fitness[tournament_indices])

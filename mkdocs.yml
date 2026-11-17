@@ -41,6 +41,7 @@ nav:
       - "How to deploy DESDEO on OpenShift": "howtoguides/deploying_on_openshift.md"
       - "How to run DESDEO's web-API and web-GUI": "howtoguides/api_and_gui.md"
       - "How to solve problems with the web-GUI": "howtoguides/webui_solving_problems.md"
+      - "How to add a solution description to a problem": "howtoguides/solution_descriptions.md"
       - "How to implement method interfaces in the Web-GUI": "howtoguides/implementing_method_interfaces.md"
       - "How to utilize 'MCDM' methods": "howtoguides/how_to_utilize_mcdm_methods.ipynb"
       - "How to use the NAUTILUS Navigator method": "howtoguides/nautilus_navigator.md"

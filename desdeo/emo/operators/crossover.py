@@ -7,6 +7,7 @@ in multiobjective optimization are defined here.
 import copy
 from abc import abstractmethod
 from collections.abc import Sequence
+from typing import Literal
 
 import numpy as np
 import polars as pl
@@ -1920,6 +1921,10 @@ class DifferentialEvolutionCrossover(BaseCrossover):
     `xover_probability`, forcing at least one component to come from `v` so that no offspring is a
     copy of its target.
 
+    With `base_vector="target"` the target itself is the base, `v = x_i + F * (x_r2 - x_r3)`, and
+    only the two donors are drawn. This is the operator of MOEA/D-DE (Li and Zhang 2009, Step 2.2,
+    which sets `r1 = i`), where the target is the current solution of the subproblem being improved.
+
     What separates this from the other continuous operators here is *which* individuals set the step
     size. Every other operator displaces an offspring relative to the parents being recombined, so a
     solution far from the rest of the population gets a large step and one inside a tight cluster
@@ -1944,6 +1949,11 @@ class DifferentialEvolutionCrossover(BaseCrossover):
         Kukkonen, S., & Lampinen, J. (2005). GDE3: The third evolution step of generalized
             differential evolution. In 2005 IEEE Congress on Evolutionary Computation (pp. 443-450).
             https://doi.org/10.1109/CEC.2005.1554717
+
+        Li, H., & Zhang, Q. (2009). Multiobjective optimization problems with complicated Pareto
+            sets, MOEA/D and NSGA-II. IEEE Transactions on Evolutionary Computation, 13(2), 284-302.
+            https://doi.org/10.1109/TEVC.2008.925798
+            (The `base_vector="target"` variant.)
     """
 
     _MIN_POPULATION = 4
@@ -1980,6 +1990,7 @@ class DifferentialEvolutionCrossover(BaseCrossover):
         seed: int,
         scaling_factor: float = 0.5,
         xover_probability: float = 0.9,
+        base_vector: Literal["random", "target"] = "random",
     ):
         """Initialize the differential evolution crossover operator.
 
@@ -1994,6 +2005,9 @@ class DifferentialEvolutionCrossover(BaseCrossover):
             xover_probability (float, optional): the binomial crossover rate `CR`, the per-component
                 probability that the offspring takes the mutant's value rather than the target's.
                 Defaults to 0.9.
+            base_vector (Literal["random", "target"], optional): the vector the scaled difference is
+                added to. "random" draws it as a third donor (DE/rand/1); "target" uses the target
+                itself, as MOEA/D-DE does. Defaults to "random".
         """
         super().__init__(problem=problem, verbosity=verbosity, publisher=publisher, seed=seed)
 
@@ -2003,9 +2017,12 @@ class DifferentialEvolutionCrossover(BaseCrossover):
             raise ValueError("scaling_factor must be positive.")
         if not 0 <= xover_probability <= 1:
             raise ValueError("xover_probability must be in [0,1].")
+        if base_vector not in ("random", "target"):
+            raise ValueError("base_vector must be 'random' or 'target'.")
 
         self.scaling_factor = scaling_factor
         self.xover_probability = xover_probability
+        self.base_vector = base_vector
 
     def do(
         self,
@@ -2040,8 +2057,12 @@ class DifferentialEvolutionCrossover(BaseCrossover):
         num_offspring, num_var = targets.shape[0], whole.shape[1]
         self.parent_population = population[targets.tolist()]
 
-        donors = _distinct_indices(self.rng, targets, pop_size, k=3)
-        mutant = whole[donors[:, 0]] + self.scaling_factor * (whole[donors[:, 1]] - whole[donors[:, 2]])
+        if self.base_vector == "target":
+            donors = _distinct_indices(self.rng, targets, pop_size, k=2)
+            mutant = whole[targets] + self.scaling_factor * (whole[donors[:, 0]] - whole[donors[:, 1]])
+        else:
+            donors = _distinct_indices(self.rng, targets, pop_size, k=3)
+            mutant = whole[donors[:, 0]] + self.scaling_factor * (whole[donors[:, 1]] - whole[donors[:, 2]])
 
         take_mutant = self.rng.random((num_offspring, num_var)) < self.xover_probability
         # One component is always inherited from the mutant, so an offspring is never a copy of its

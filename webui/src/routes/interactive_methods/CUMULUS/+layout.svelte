@@ -1,8 +1,9 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import Dialogs from '$lib/components/custom/dialogs/Dialogs.svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import '../../../app.css';
-	let { children } = $props();
+	let { children }: { children: Snippet } = $props();
 </script>
 
 <main class="flex min-h-[calc(100vh-3rem)]">

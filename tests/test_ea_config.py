@@ -9,6 +9,7 @@ import pytest
 from desdeo.emo import algorithms
 from desdeo.emo.operators.selection import ParameterAdaptationStrategy, RVEASelector
 from desdeo.emo.options.generator import ArchiveGeneratorOptions
+from desdeo.emo.options.templates import DesirableRangesOptions
 from desdeo.emo.options.termination import (
     CompositeTerminatorOptions,
     MaxEvaluationsTerminatorOptions,
@@ -21,6 +22,11 @@ from desdeo.problem.testproblems import (
     momip_ti2,
     river_pollution_problem,
 )
+
+# MOEADSelector and HypESelector are disabled: their constructors raise NotImplementedError. Their
+# tests are skipped until the selectors are enabled again.
+MOEAD_DISABLED = pytest.mark.skip(reason="MOEADSelector is disabled; its constructor raises NotImplementedError.")
+HYPE_DISABLED = pytest.mark.skip(reason="HypESelector is disabled; its constructor raises NotImplementedError.")
 
 
 @pytest.mark.ea
@@ -115,6 +121,47 @@ def test_smsemoa_dtlz2():
     assert norm.median() < 1.3  # Really bad convergence to save time.
 
 
+@MOEAD_DISABLED
+@pytest.mark.ea
+@pytest.mark.parametrize("factory", ["moead_options", "moead_de_options"])
+def test_moead_dtlz2(factory):
+    """Test whether MOEA/D and MOEA/D-DE can be initialized and run as a whole."""
+    problem = dtlz2(n_objectives=3, n_variables=12)
+    options = getattr(algorithms, factory)()
+    options.template.termination = MaxGenerationsTerminatorOptions(max_generations=30)  # to save time
+    solver, extras = algorithms.emo_constructor(emo_options=options, problem=problem)
+    results = solver()
+
+    # One solution per weight vector: the simplex lattice gives 91 for 100 requested at three objectives.
+    assert len(results.optimal_outputs) == 91
+    assert extras.archive is not None
+    norm = results.optimal_outputs.with_columns(
+        (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
+    )["norm"]
+    assert norm.median() < 1.2
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(
+    ("factory", "population_size"),
+    [("spea2_options", 100), ("agemoea2_options", 100), pytest.param("hype_options", 50, marks=HYPE_DISABLED)],
+)
+def test_spea2_agemoea2_hype_dtlz2(factory, population_size):
+    """Test whether SPEA2, AGE-MOEA-II and HypE can be initialized and run as a whole."""
+    problem = dtlz2(n_objectives=3, n_variables=12)
+    options = getattr(algorithms, factory)()
+    options.template.termination = MaxGenerationsTerminatorOptions(max_generations=40)  # to save time
+    solver, extras = algorithms.emo_constructor(emo_options=options, problem=problem)
+    results = solver()
+
+    assert len(results.optimal_outputs) == population_size
+    assert extras.archive is not None
+    norm = results.optimal_outputs.with_columns(
+        (pl.col("f_1") ** 2 + pl.col("f_2") ** 2 + pl.col("f_3") ** 2).sqrt().alias("norm")
+    )["norm"]
+    assert norm.median() < 1.2
+
+
 @pytest.mark.ea
 def test_mixed_integer_nsga3():
     """Test whether the mixed-integer NSGA-III variant can be initialized and run as a whole."""
@@ -148,6 +195,63 @@ def test_mixed_integer_smsemoa():
     problem = momip_ti2()
     solver, _ = algorithms.emo_constructor(problem=problem, emo_options=algorithms.sms_emoa_mixed_integer_options())
     _ = solver()
+
+
+@pytest.mark.ea
+def test_modified_wasfga_dtlz2():
+    """Modified WASF-GA converges on DTLZ2, and a pair of levels draws the population into their box.
+
+    Without a preference about a tenth of the final population lies between 0.2 and 0.8 in every
+    objective. With those values as the aspiration and reservation levels, about half of it does. The
+    rest approximates the parts of the front the two points project onto beyond the box, which IRA-EMO
+    filters out afterwards.
+    """
+    problem = dtlz2(n_objectives=3, n_variables=12)
+    symbols = [objective.symbol for objective in problem.objectives]
+
+    def in_box(preference: DesirableRangesOptions | None) -> float:
+        options = algorithms.modified_wasfga_options()
+        options.preference = preference
+        options.template.termination = MaxGenerationsTerminatorOptions(max_generations=100)
+        solver, extras = algorithms.emo_constructor(emo_options=options, problem=problem)
+        objectives = solver().optimal_outputs[symbols].to_numpy()
+        assert extras.archive is not None
+        assert np.median(np.linalg.norm(objectives, axis=1)) < 1.05
+        return float(((objectives >= 0.2) & (objectives <= 0.8)).all(axis=1).mean())
+
+    without = in_box(None)
+    with_levels = in_box(
+        DesirableRangesOptions(
+            method="Modified WASF-GA",
+            aspiration_levels=dict.fromkeys(symbols, 0.2),
+            reservation_levels=dict.fromkeys(symbols, 0.8),
+        )
+    )
+
+    assert with_levels > 0.4
+    assert with_levels > 3 * without
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(
+    "factory",
+    [
+        pytest.param("moead_mixed_integer_options", marks=MOEAD_DISABLED),
+        "spea2_mixed_integer_options",
+        "agemoea2_mixed_integer_options",
+        pytest.param("hype_mixed_integer_options", marks=HYPE_DISABLED),
+        "modified_wasfga_mixed_integer_options",
+    ],
+)
+def test_mixed_integer_new_moeas(factory):
+    """Test whether the mixed-integer MOEA/D, SPEA2, AGE-MOEA-II and HypE variants run as a whole."""
+    problem = momip_ti2()
+    options = getattr(algorithms, factory)()
+    options.template.termination = MaxGenerationsTerminatorOptions(max_generations=20)
+    solver, _ = algorithms.emo_constructor(problem=problem, emo_options=options)
+    results = solver()
+
+    assert len(results.optimal_outputs) > 0
 
 
 @pytest.mark.ea

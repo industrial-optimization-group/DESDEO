@@ -10,7 +10,14 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from desdeo.emo.hooks.archivers import NonDominatedArchive
-from desdeo.emo.methods.templates import EMOResult, template1, template2, template3, template_xlemoo
+from desdeo.emo.methods.templates import (
+    EMOResult,
+    template1,
+    template2,
+    template3,
+    template_moead,
+    template_xlemoo,
+)
 from desdeo.emo.operators.evaluator import EMOEvaluator
 from desdeo.emo.operators.learning_mode import LearningModeOperator
 from desdeo.emo.operators.scalar_selection import ElitistSelection
@@ -44,7 +51,7 @@ from .scalar_selection import (
     ScalarSelectionOptions,
     scalar_selector_constructor,
 )
-from .selection import ReferenceVectorOptions, SelectorOptions, selection_constructor
+from .selection import MOEADSelectorOptions, ReferenceVectorOptions, SelectorOptions, selection_constructor
 from .termination import (
     TerminatorOptions,
     terminator_constructor,
@@ -171,7 +178,29 @@ class TemplateXLEMOOOptions(BaseTemplateOptions):
     Must be one of the keys of `XLEMOO_SCALARIZATIONS`."""
 
 
-TemplateOptions = Template1Options | Template2Options | TemplateXLEMOOOptions | Template3Options
+class TemplateMOEADOptions(BaseTemplateOptions):
+    """Options for the MOEA/D template.
+
+    The MOEA/D template makes and evaluates one offspring per subproblem, replacing solutions as it
+    goes. See [template_moead][desdeo.emo.methods.templates.template_moead] for details.
+
+    The population size is the number of weight vectors, which the selector's reference vector options
+    decide. A generator with an `n_points` field is built with that many points, whatever its own
+    `n_points` says; the simplex lattice, for instance, turns 100 requested vectors into 91 at three
+    objectives. Any other generator must supply one solution per weight vector.
+    """
+
+    name: Literal["TemplateMOEAD"] = Field(
+        default="TemplateMOEAD", frozen=True, description="The name of the template."
+    )
+    """The name of the template."""
+    selection: MOEADSelectorOptions = Field(  # type: ignore[assignment]
+        description="The MOEA/D selector options."
+    )
+    """The MOEA/D selector, which holds the weight vectors, the neighbourhoods and the replacement rule."""
+
+
+TemplateOptions = Template1Options | Template2Options | TemplateXLEMOOOptions | Template3Options | TemplateMOEADOptions
 
 
 class ReferencePointOptions(BaseModel):
@@ -206,10 +235,11 @@ class DesirableRangesOptions(BaseModel):
         description="The reservation levels as a dictionary with objective function symbols as the keys."
     )
     """The reservation levels as a dictionary with objective function symbols as the keys."""
-    method: Literal["Hakanen", "DF transformation"] = Field(
+    method: Literal["Hakanen", "DF transformation", "Modified WASF-GA"] = Field(
         default="Hakanen", description="The method for handling the desirable ranges."
     )
-    """The method for handling the desirable ranges."""
+    """The method for handling the desirable ranges. "Modified WASF-GA" hands the levels to a
+    `ModifiedWASFGASelector` as its aspiration and reservation points."""
     desirability_levels: tuple[float, float] = Field(
         default=(0.9, 0.1),
         description=(
@@ -277,7 +307,8 @@ def preference_handler(
     This function modifies the problem and selection operator based on the provided preference options. E.g., if
     the preference method is "Hakanen", the reference vector options of the selection operator are modified to
     include the preference information. If the preference method is "IOPIS" or "DF transformation", the problem is
-    modified to include desirability functions or IOPIS functions.
+    modified to include desirability functions or IOPIS functions. If it is "Modified WASF-GA", the aspiration and
+    reservation levels become the two reference points of a copy of the `ModifiedWASFGASelector` options.
 
     Args:
         preference (PreferenceOptions | None): The preference options.
@@ -320,6 +351,18 @@ def preference_handler(
             reference_point=preference.preference,
         )
         return iopis_problem, selection
+    if preference.method == "Modified WASF-GA":
+        if not isinstance(preference, DesirableRangesOptions):
+            raise InvalidTemplateError("The Modified WASF-GA method takes aspiration and reservation levels.")
+        if selection.name != "ModifiedWASFGASelector":
+            raise InvalidTemplateError("The Modified WASF-GA method needs the ModifiedWASFGASelector.")
+        selection = selection.model_copy(
+            update={
+                "aspiration_levels": dict(preference.aspiration_levels),
+                "reservation_levels": dict(preference.reservation_levels),
+            }
+        )
+        return problem, selection
     if preference.method == "DF transformation":
         df_problem, _ = add_desirability_funcs(
             problem=problem,
@@ -390,6 +433,7 @@ def emo_constructor(
             publisher=publisher,
             verbosity=template.verbosity,
             seed=template.seed,
+            problem=problem_,
         )
     else:
         selector = selection_constructor(
@@ -400,9 +444,14 @@ def emo_constructor(
             seed=template.seed,
         )
 
+    generator_options = template.generator
+    if template.name == "TemplateMOEAD" and "n_points" in type(generator_options).model_fields:
+        # MOEA/D keeps exactly one solution per weight vector.
+        generator_options = generator_options.model_copy(update={"n_points": selector.number_of_subproblems})
+
     generator = generator_constructor(
         problem=problem_,
-        options=template.generator,
+        options=generator_options,
         evaluator=evaluator,
         publisher=publisher,
         verbosity=template.verbosity,
@@ -455,6 +504,7 @@ def emo_constructor(
             publisher=publisher,
             verbosity=template.verbosity,
             seed=template.seed,
+            problem=problem_,
         )
         components["mate_selection"] = scalar_selector
 
@@ -484,6 +534,7 @@ def emo_constructor(
         "Template2": template2,
         "TemplateXLEMOO": template_xlemoo,
         "Template3": template3,
+        "TemplateMOEAD": template_moead,
     }
 
     if template.name == "TemplateXLEMOO":
@@ -506,7 +557,7 @@ def emo_constructor(
 
     constructor_extras = ConstructorExtras(problem=problem_, publisher=publisher, archive=archive)
 
-    if template.name == "Template3":
+    if template.name in ("Template3", "TemplateMOEAD"):
         components["seed"] = template.seed
 
     return (partial(template_funcs[template.name], **components, repair=repair), constructor_extras)

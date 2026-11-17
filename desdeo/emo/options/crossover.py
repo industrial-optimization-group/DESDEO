@@ -206,6 +206,12 @@ class DifferentialEvolutionCrossoverOptions(BaseModel):
     """The binomial crossover rate `CR`: the per-component probability that the offspring takes the
     mutant's value rather than the target's. One component is always taken from the mutant regardless,
     so no offspring is a copy of its target even at 0.0."""
+    base_vector: Literal["random", "target"] = Field(
+        default="random", description="The vector the scaled difference is added to."
+    )
+    """The vector the scaled difference is added to. "random" draws it as a third donor (DE/rand/1);
+    "target" uses the target itself, `x_i + F * (x_r2 - x_r3)`, as MOEA/D-DE does (Li and Zhang
+    2009). Defaults to "random"."""
 
 
 class ParentCentricCrossoverOptions(BaseModel):

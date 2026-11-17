@@ -25,6 +25,28 @@ def dominates(x: np.ndarray, y: np.ndarray) -> bool:
 
 
 @njit()
+def dominance_matrix(data: np.ndarray) -> np.ndarray:
+    """Finds the pairwise dominance relations in a population of solutions.
+
+    Args:
+        data (np.ndarray): 2-D array of solutions, with each row being a single solution.
+
+    Returns:
+        np.ndarray: n x n boolean array, where n is the number of solutions. The element (i, j) is
+            true if solution i dominates solution j. False otherwise.
+    """
+    num_solutions = len(data)
+    matrix = np.zeros((num_solutions, num_solutions), dtype=np.bool_)
+    for i in range(num_solutions):
+        for j in range(i + 1, num_solutions):
+            if dominates(data[i], data[j]):
+                matrix[i, j] = True
+            elif dominates(data[j], data[i]):
+                matrix[j, i] = True
+    return matrix
+
+
+@njit()
 def non_dominated(data: np.ndarray) -> np.ndarray:
     """Finds the non-dominated front from a population of solutions.
 
@@ -99,6 +121,44 @@ def fast_non_dominated_sort_indices(data: np.ndarray) -> list[list[int]]:
     """
     fronts = fast_non_dominated_sort(data)
     return [np.where(fronts[i])[0].tolist() for i in range(len(fronts))]
+
+
+def constrained_fronts(targets: np.ndarray, violations: np.ndarray | None) -> np.ndarray:
+    """Rank a population into fronts under the constrained domination of Deb et al. (2002).
+
+    Constrained domination never compares a feasible solution with an infeasible one on objectives,
+    so the two groups can be ranked separately and concatenated instead of a dominance relation being
+    redefined. The feasible group gets the ordinary non-dominated sort; the infeasible group is
+    stratified by total violation, one front per distinct value, which is what "the one with the
+    smaller violation wins" means as a ranking. Without constraints this is the ordinary sort.
+
+    Args:
+        targets (np.ndarray): the minimized objective vectors, shape `(n, m)`.
+        violations (np.ndarray | None): total constraint violation per row, or None for an
+            unconstrained problem.
+
+    Returns:
+        np.ndarray: boolean front masks, shape `(n_fronts, n)`, best front first.
+    """
+    if violations is None:
+        return fast_non_dominated_sort(targets)
+
+    feasible = np.flatnonzero(violations <= 0)
+    infeasible = np.flatnonzero(violations > 0)
+    fronts = []
+
+    if feasible.size > 0:
+        for front in fast_non_dominated_sort(targets[feasible]):
+            row = np.zeros(len(targets), dtype=np.bool_)
+            row[feasible[front]] = True
+            fronts.append(row)
+
+    for violation in np.unique(violations[infeasible]):
+        row = np.zeros(len(targets), dtype=np.bool_)
+        row[infeasible[violations[infeasible] == violation]] = True
+        fronts.append(row)
+
+    return np.array(fronts)
 
 
 @njit()

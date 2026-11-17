@@ -1,0 +1,71 @@
+# Dependabot configuration.
+#
+# Patch and minor updates are grouped into one PR per ecosystem, both for
+# regular version updates and for security updates. Major updates still
+# arrive as one PR per package, since those need checking one at a time.
+#
+# Docs: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+
+version: 2
+
+updates:
+  # Python dependencies (pyproject.toml, uv.lock).
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      python-minor-patch:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+      python-security:
+        applies-to: security-updates
+        update-types: ["minor", "patch"]
+
+  # Web UI dependencies (webui/package.json, webui/package-lock.json).
+  - package-ecosystem: "npm"
+    directory: "/webui"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      webui-minor-patch:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+      webui-security:
+        applies-to: security-updates
+        update-types: ["minor", "patch"]
+      # Storybook packages must stay on the same version.
+      storybook:
+        patterns:
+          - "storybook"
+          - "@storybook/*"
+          - "eslint-plugin-storybook"
+      # vitest packages must stay on the same version.
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+    ignore:
+      # SvelteKit 3 is blocked until bits-ui supports it: bits-ui 2.x needs
+      # runed 0.35.x, which only accepts SvelteKit 2. Remove these when that
+      # changes (adapter-node 6 also drops the ORIGIN variable used in
+      # deploy/webui-deployment.yaml).
+      - dependency-name: "@sveltejs/kit"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@sveltejs/adapter-node"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@sveltejs/adapter-auto"
+        update-types: ["version-update:semver-major"]
+
+  # GitHub Actions used in .github/workflows.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      github-actions:
+        patterns: ["*"]

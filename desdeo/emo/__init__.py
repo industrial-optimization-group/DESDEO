@@ -17,9 +17,18 @@ __all__ = [
 from types import SimpleNamespace
 
 from .options.algorithms import (
+    agemoea2_mixed_integer_options,
+    agemoea2_options,
     emo_constructor,
+    hype_mixed_integer_options,
+    hype_options,
     ibea_mixed_integer_options,
     ibea_options,
+    modified_wasfga_mixed_integer_options,
+    modified_wasfga_options,
+    moead_de_options,
+    moead_mixed_integer_options,
+    moead_options,
     nsga2_options,
     nsga3_mixed_integer_options,
     nsga3_options,
@@ -27,6 +36,8 @@ from .options.algorithms import (
     rvea_options,
     sms_emoa_mixed_integer_options,
     sms_emoa_options,
+    spea2_mixed_integer_options,
+    spea2_options,
     xlemoo_options,
 )
 from .options.crossover import (
@@ -67,11 +78,18 @@ from .options.scalar_selection import (
     TournamentSelectionOptions,
 )
 from .options.selection import (
+    AGEMOEA2SelectorOptions,
+    HypESelectorOptions,
     IBEASelectorOptions,
+    ModifiedWASFGASelectorOptions,
+    MOEADSelectorOptions,
     NSGA2SelectorOptions,
     NSGA3SelectorOptions,
     ReferenceVectorOptions,
     RVEASelectorOptions,
+    SingleObjectiveConstrainedRankingSelectorOptions,
+    SMSEMOASelectorOptions,
+    SPEA2SelectorOptions,
 )
 from .options.templates import (
     DesirableRangesOptions,
@@ -80,6 +98,8 @@ from .options.templates import (
     ReferencePointOptions,
     Template1Options,
     Template2Options,
+    Template3Options,
+    TemplateMOEADOptions,
     TemplateXLEMOOOptions,
 )
 from .options.termination import (
@@ -97,10 +117,21 @@ algorithms = SimpleNamespace(
     nsga3_options=nsga3_options,
     ibea_options=ibea_options,
     sms_emoa_options=sms_emoa_options,
+    moead_options=moead_options,
+    moead_de_options=moead_de_options,
+    spea2_options=spea2_options,
+    agemoea2_options=agemoea2_options,
+    hype_options=hype_options,
+    modified_wasfga_options=modified_wasfga_options,
     rvea_mixed_integer_options=rvea_mixed_integer_options,
     nsga3_mixed_integer_options=nsga3_mixed_integer_options,
     ibea_mixed_integer_options=ibea_mixed_integer_options,
     sms_emoa_mixed_integer_options=sms_emoa_mixed_integer_options,
+    moead_mixed_integer_options=moead_mixed_integer_options,
+    spea2_mixed_integer_options=spea2_mixed_integer_options,
+    agemoea2_mixed_integer_options=agemoea2_mixed_integer_options,
+    hype_mixed_integer_options=hype_mixed_integer_options,
+    modified_wasfga_mixed_integer_options=modified_wasfga_mixed_integer_options,
     xlemoo_options=xlemoo_options,
     emo_constructor=emo_constructor,
 )
@@ -118,6 +149,13 @@ selection = SimpleNamespace(
     NSGA3SelectorOptions=NSGA3SelectorOptions,
     NSGA2SelectorOptions=NSGA2SelectorOptions,
     RVEASelectorOptions=RVEASelectorOptions,
+    MOEADSelectorOptions=MOEADSelectorOptions,
+    SMSEMOASelectorOptions=SMSEMOASelectorOptions,
+    SPEA2SelectorOptions=SPEA2SelectorOptions,
+    AGEMOEA2SelectorOptions=AGEMOEA2SelectorOptions,
+    HypESelectorOptions=HypESelectorOptions,
+    ModifiedWASFGASelectorOptions=ModifiedWASFGASelectorOptions,
+    SingleObjectiveConstrainedRankingSelectorOptions=SingleObjectiveConstrainedRankingSelectorOptions,
 )
 
 other = SimpleNamespace(
@@ -153,7 +191,9 @@ generator = SimpleNamespace(
 templates = SimpleNamespace(
     Template1Options=Template1Options,
     Template2Options=Template2Options,
+    Template3Options=Template3Options,
     TemplateXLEMOOOptions=TemplateXLEMOOOptions,
+    TemplateMOEADOptions=TemplateMOEADOptions,
 )
 
 repair = SimpleNamespace(NoRepairOptions=NoRepairOptions, ClipRepairOptions=ClipRepairOptions)

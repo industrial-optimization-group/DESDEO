@@ -7,14 +7,20 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from desdeo.emo.operators.selection import (
+    AGEMOEA2Selector,
     BaseSelector,
+    HypESelector,
     IBEASelector,
+    ModifiedWASFGASelector,
+    MOEADSelector,
     NSGA2Selector,
     NSGA3Selector,
     ParameterAdaptationStrategy,
     ReferenceVectorOptions,
     RVEASelector,
+    SingleObjectiveConstrainedRankingSelector,
     SMSEMOASelector,
+    SPEA2Selector,
 )
 from desdeo.tools.indicators_binary import self_epsilon, self_hv
 
@@ -100,13 +106,210 @@ class SMSEMOASelectorOptions(BaseModel):
     this component."""
 
 
+class SPEA2SelectorOptions(BaseModel):
+    """Options for SPEA2 environmental selection."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    name: Literal["SPEA2Selector"] = Field(
+        default="SPEA2Selector", frozen=True, description="The name of the selection operator."
+    )
+    """The name of the selection operator."""
+    population_size: int = Field(gt=0, description="The archive size.")
+    """The archive size, N-bar in the paper. The population size N is the mating selection's
+    `winner_size`."""
+
+
+class ModifiedWASFGASelectorOptions(BaseModel):
+    """Options for the environmental selection of Modified WASF-GA (IRA-EMO)."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    name: Literal["ModifiedWASFGASelector"] = Field(
+        default="ModifiedWASFGASelector", frozen=True, description="The name of the selection operator."
+    )
+    """The name of the selection operator."""
+    population_size: int = Field(gt=0, description="The number of solutions selected each generation.")
+    """The number of solutions selected each generation."""
+    number_of_weights: int | None = Field(
+        default=None,
+        gt=1,
+        description="The number of weight vectors, split evenly between the two reference points. None uses the "
+        "population size.",
+    )
+    """The number of weight vectors, split evenly between the two reference points. None uses the population
+    size, which is the reference code's default."""
+    aspiration_levels: dict[str, float] | None = Field(
+        default=None,
+        description="The aspiration level of every objective, keyed by symbol. None uses the estimated ideal point.",
+    )
+    """The aspiration level of every objective, keyed by symbol and in the objective's own sense. None uses the
+    ideal point estimated from the run."""
+    reservation_levels: dict[str, float] | None = Field(
+        default=None,
+        description="The reservation level of every objective, keyed by symbol. None uses the estimated nadir point.",
+    )
+    """The reservation level of every objective, keyed by symbol and in the objective's own sense. None uses the
+    nadir point estimated from the run."""
+    rho: float = Field(default=0.001, gt=0.0, description="The augmentation coefficient of the ASF.")
+    """The augmentation coefficient of the achievement scalarizing function. 0.001 is the reference code's value."""
+    epsilon: float | None = Field(
+        default=None,
+        gt=0.0,
+        description="The smallest component of the vectors whose inverses are the weights. None uses 0.01 for two "
+        "objectives and 0.005 for more.",
+    )
+    """The smallest component of the vectors whose inverses are the weights. None uses the reference code's
+    values, 0.01 for two objectives and 0.005 for more."""
+
+
+class AGEMOEA2SelectorOptions(BaseModel):
+    """Options for AGE-MOEA-II environmental selection."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    name: Literal["AGEMOEA2Selector"] = Field(
+        default="AGEMOEA2Selector", frozen=True, description="The name of the selection operator."
+    )
+    """The name of the selection operator."""
+    population_size: int = Field(gt=0, description="The population size.")
+    """The population size."""
+
+
+class HypESelectorOptions(BaseModel):
+    """Options for HypE environmental selection."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    name: Literal["HypESelector"] = Field(
+        default="HypESelector", frozen=True, description="The name of the selection operator."
+    )
+    """The name of the selection operator."""
+    population_size: int = Field(gt=0, description="The population size.")
+    """The population size."""
+    n_samples: int = Field(default=10_000, gt=0, description="The number of Monte Carlo samples.")
+    """The number of Monte Carlo samples M used to estimate the hypervolume fitness above
+    `exact_max_objectives` objectives. Defaults to the paper's 10 000."""
+    exact_max_objectives: int = Field(
+        default=3, ge=0, le=3, description="The most objectives for which the fitness is computed exactly."
+    )
+    """The most objectives for which the hypervolume fitness is computed exactly rather than
+    estimated. Defaults to 3, as the paper recommends."""
+    normalised_reference_point_component: float = Field(
+        default=1.1, gt=1.0, description="The reference point in every normalized objective."
+    )
+    """The reference point in every objective after normalizing parents and offspring to [0, 1]. The
+    paper leaves the reference point to the user."""
+
+
+class MOEADSelectorOptions(BaseModel):
+    """Options for the MOEA/D selector.
+
+    Only `TemplateMOEADOptions` takes this selector, since its replacement works one offspring at a
+    time inside the MOEA/D loop. It is therefore not a member of `SelectorOptions`.
+    """
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    name: Literal["MOEADSelector"] = Field(
+        default="MOEADSelector", frozen=True, description="The name of the selection operator."
+    )
+    """The name of the selection operator."""
+    reference_vector_options: ReferenceVectorOptions = Field(
+        default=ReferenceVectorOptions(vector_type="planar"), description="Options for the weight vectors."
+    )
+    """Options for the weight vectors. Their number is the population size. The vectors are always
+    normalized to sum to one, whatever `vector_type` says."""
+    neighbourhood_size: int = Field(default=20, ge=2, description="The neighbourhood size T.")
+    """The neighbourhood size `T`: how many of the closest weight vectors, the subproblem's own
+    included, form a subproblem's neighbourhood."""
+    neighbourhood_probability: float = Field(
+        default=1.0, ge=0.0, le=1.0, description="The probability delta of mating within the neighbourhood."
+    )
+    """The probability `delta` that the mating pool and the replacement range are the neighbourhood
+    rather than the whole population. 1.0 in the original MOEA/D, 0.9 in MOEA/D-DE."""
+    max_replacements: int | None = Field(
+        default=None, ge=1, description="The maximum number n_r of solutions one offspring may replace."
+    )
+    """The maximum number `n_r` of solutions one offspring may replace. None places no cap, as in the
+    original MOEA/D; MOEA/D-DE uses 2."""
+    aggregation: Literal["tchebycheff", "pbi", "weighted_sum"] = Field(
+        default="tchebycheff", description="The aggregation function of the subproblems."
+    )
+    """The aggregation function of the subproblems."""
+    pbi_penalty: float = Field(default=5.0, gt=0.0, description="The penalty theta of the PBI function.")
+    """The penalty `theta` of the PBI aggregation function. Only used with `aggregation="pbi"`."""
+
+
+class SingleObjectiveConstrainedRankingSelectorOptions(BaseModel):
+    """Options for the single-objective constrained ranking selection."""
+
+    name: Literal["SingleObjectiveConstrainedRankingSelector"] = Field(
+        default="SingleObjectiveConstrainedRankingSelector",
+        frozen=True,
+        description="The name of the selection operator.",
+    )
+    """The name of the selection operator."""
+    population_size: int = Field(gt=0, description="The population size.")
+    """The population size."""
+    target_objective_symbol: str = Field(description="The symbol of the objective to be optimized.")
+    """The symbol of the objective to be optimized."""
+    constraints: dict[str, float] = Field(
+        description="The relaxation threshold of each constraint, by constraint symbol."
+    )
+    """The relaxation threshold of each constraint, by constraint symbol. Ignored in the 'baseline' mode."""
+    mode: Literal["baseline", "relaxed", "ranking", "hypervolume", "joint"] = Field(
+        default="baseline",
+        description=(
+            "The mode of the operator: 'baseline' (feasibility-first lexicographic), 'relaxed' "
+            "(per-constraint round-robin pools), 'ranking' (rank vectors with non-dominated sorting "
+            "and niching), 'hypervolume' (greedy hypervolume-contribution ranking of the shadow front), or "
+            "'joint' (round robin between the strict pool and one pool with all constraints relaxed at once)."
+        ),
+    )
+    """The operator mode: 'baseline', 'relaxed', 'ranking', 'hypervolume', or 'joint'."""
+    niching: Literal["crowding", "knearest", "kth"] = Field(
+        default="crowding",
+        description=(
+            "Niching mechanism used in 'ranking' mode to break ties within a non-dominated front. "
+            "'crowding' uses NSGA-II crowding distance, 'knearest' the mean Euclidean distance to the k "
+            "nearest neighbours in rank-vector space, and 'kth' the distance to the k-th nearest neighbour."
+        ),
+    )
+    """Niching mechanism used in 'ranking' mode: 'crowding', 'knearest', or 'kth'."""
+    niching_k: int = Field(
+        default=3,
+        gt=0,
+        description="Number of nearest neighbours considered when niching is 'knearest' or 'kth'. Defaults to 3.",
+    )
+    """Number of nearest neighbours considered when niching is 'knearest' or 'kth'. Defaults to 3."""
+    hv_eps: float = Field(
+        default=0.01,
+        ge=0.0,
+        description=(
+            "Fractional outward expansion of the online hypervolume reference point on each axis, "
+            "used only in the 'hypervolume' mode. Defaults to 0.01."
+        ),
+    )
+    """Fractional outward expansion of the hypervolume reference point, used in 'hypervolume' mode."""
+
+
 SelectorOptions = (
-    RVEASelectorOptions | NSGA2SelectorOptions | NSGA3SelectorOptions | IBEASelectorOptions | SMSEMOASelectorOptions
+    RVEASelectorOptions
+    | NSGA2SelectorOptions
+    | NSGA3SelectorOptions
+    | IBEASelectorOptions
+    | SMSEMOASelectorOptions
+    | SPEA2SelectorOptions
+    | AGEMOEA2SelectorOptions
+    | HypESelectorOptions
+    | ModifiedWASFGASelectorOptions
+    | SingleObjectiveConstrainedRankingSelectorOptions
 )
 
 
 def selection_constructor(
-    problem: Problem, options: SelectorOptions, publisher: Publisher, verbosity: int, seed: int
+    problem: Problem, options: SelectorOptions | MOEADSelectorOptions, publisher: Publisher, verbosity: int, seed: int
 ) -> BaseSelector:
     """Construct a selection operator from given options.
 
@@ -129,6 +332,12 @@ def selection_constructor(
         "NSGA3Selector": NSGA3Selector,
         "IBEASelector": IBEASelector,
         "SMSEMOASelector": SMSEMOASelector,
+        "MOEADSelector": MOEADSelector,
+        "SPEA2Selector": SPEA2Selector,
+        "AGEMOEA2Selector": AGEMOEA2Selector,
+        "HypESelector": HypESelector,
+        "ModifiedWASFGASelector": ModifiedWASFGASelector,
+        "SingleObjectiveConstrainedRankingSelector": SingleObjectiveConstrainedRankingSelector,
     }
     options: dict = options.model_dump()
     name = options.pop("name")

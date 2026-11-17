@@ -156,8 +156,10 @@ class MathParser:
                     idx = _collect_indices(raw_indices, arr.shape[-1])
                     result = arr[..., idx] if idx else np.empty((*arr.shape[:-1], 0), dtype=arr.dtype)
                 else:
-                    result = _extract_from_array(arr, *raw_indices)
-                return pl.Series(values=result.tolist())
+                    result = np.asarray(_extract_from_array(arr, *raw_indices))
+                # Stays an ndarray so polars types it as a fixed-shape array, as it does a
+                # plain tensor reference: its arithmetic will not mix an array with a list.
+                return pl.Series(values=result)
 
             return to_expr(expr).map_batches(_fn)
 
@@ -170,8 +172,9 @@ class MathParser:
                     keep = [i for i in range(n) if i not in excluded]
                     result = arr[..., keep] if keep else np.empty((*arr.shape[:-1], 0), dtype=arr.dtype)
                 else:
-                    result = _exclude_from_array(arr, *raw_indices)
-                return pl.Series(values=result.tolist())
+                    result = np.asarray(_exclude_from_array(arr, *raw_indices))
+                # An ndarray, as in `_polars_extract`.
+                return pl.Series(values=result)
 
             return to_expr(expr).map_batches(_fn)
 

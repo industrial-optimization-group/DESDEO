@@ -10,6 +10,12 @@
 	export let onChange: (value: string) => void = () => {};
 	let error: string | null = null;
 
+	// What the user is typing. The parent usually echoes each change back formatted (2 -> "2.00"),
+	// so outside updates are only taken while the field is not being edited.
+	let draft = value;
+	let focused = false;
+	$: if (!focused) draft = value;
+
 	const schema = (min: number, max: number) =>
 		z
 			.string()
@@ -29,7 +35,7 @@
 			error = null;
 			onChange(val);
 		}
-		value = val;
+		draft = val;
 	}
 </script>
 
@@ -37,7 +43,12 @@
 	type="text"
 	{placeholder}
 	class="max-w-xs"
-	bind:value
+	bind:value={draft}
+	onfocus={() => (focused = true)}
+	onblur={() => {
+		focused = false;
+		draft = value;
+	}}
 	oninput={(e) => validate(e.currentTarget.value)}
 />
 {#if error}

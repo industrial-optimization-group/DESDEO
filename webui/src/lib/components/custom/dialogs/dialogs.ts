@@ -31,6 +31,8 @@ export interface InputDialogOptions {
   placeholder?: string;
   confirmVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
   requiredValue?: string;
+  /** Disallow confirming a blank value. */
+  required?: boolean;
   onConfirm?: (value: string) => void;
   onCancel?: () => void;
 }

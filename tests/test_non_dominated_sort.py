@@ -3,7 +3,7 @@
 import numpy as np
 import numpy.testing as npt
 
-from desdeo.tools.non_dominated_sorting import fast_non_dominated_sort
+from desdeo.tools.non_dominated_sorting import dominance_matrix, fast_non_dominated_sort
 
 
 def test_simple():
@@ -69,3 +69,18 @@ def test_simple():
             ]
         ),
     )
+
+
+def test_dominance_matrix():
+    """Element (i, j) of the dominance matrix is true exactly when solution i dominates solution j."""
+    rng = np.random.default_rng(0)
+    # Integer objectives so that ties, duplicates and weak dominance all occur.
+    data = rng.integers(0, 4, size=(40, 3)).astype(float)
+
+    matrix = dominance_matrix(data)
+
+    no_worse = np.all(data[:, None, :] <= data[None, :, :], axis=2)
+    better = np.any(data[:, None, :] < data[None, :, :], axis=2)
+    npt.assert_equal(matrix, no_worse & better)
+    assert not matrix.diagonal().any()
+    assert dominance_matrix(np.empty((0, 3))).shape == (0, 0)

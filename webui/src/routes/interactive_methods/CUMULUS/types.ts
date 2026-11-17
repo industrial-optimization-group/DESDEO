@@ -3,9 +3,7 @@
 import type { ReferencePoint, CumulusFinalizeResponse } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type { BaseMethodResponse, PeriodKey, Solution } from '$lib/types';
 
-export type ObjectiveValues = {
-	[key: string]: number;
-};
+export type ObjectiveValues = Record<string, number>;
 
 export type Response = BaseMethodResponse & {
 	response_type:
@@ -32,8 +30,13 @@ export type Response = BaseMethodResponse & {
 export type { ReferencePoint };
 export type FinishResponse = CumulusFinalizeResponse;
 
+/** ECharts options for one year's map; the backend can ask for a name-only tooltip. */
+export type MapOptions = Record<string, unknown> & {
+	tooltip?: { formatterEnabled?: boolean; formatter?: (params: { name: string }) => string };
+};
+
 export interface MapState {
-	mapOptions: Record<PeriodKey, Record<string, any>>;
+	mapOptions: Record<PeriodKey, MapOptions>;
 	yearlist: string[];
 	selectedPeriod: PeriodKey;
 	geoJSON: object | undefined;

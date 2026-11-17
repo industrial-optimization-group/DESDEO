@@ -13,6 +13,7 @@ from desdeo.mcdm.cumulus import (
     _scenario_aug_weights,
     generate_starting_point,
     infer_classifications,
+    soft_constraint_violations,
     solve_sub_problems,
 )
 from desdeo.problem import PolarsEvaluator, Problem
@@ -370,6 +371,7 @@ def test_solve_sub_problems_feasible_soft_constraint_is_not_relaxed(river_curren
     assert result.success
     assert result.optimal_variables["x_1"] <= 0.4 + 1e-6
     assert "_g_soft_lte_violation" not in result.optimal_variables
+    assert soft_constraint_violations(result, soft) == {"g_soft": 0.0}
 
 
 @pytest.mark.cumulus
@@ -406,6 +408,9 @@ def test_solve_sub_problems_relaxes_conflicting_soft_constraint(river_current):
     assert result.success
     assert result.optimal_variables["x_1"] >= 0.8 - 1e-6
     assert np.isclose(result.optimal_variables["_g_soft_lte_violation"], 0.3, atol=1e-4)
+    assert np.isclose(soft_constraint_violations(result, soft)["g_soft"], 0.3, atol=1e-4)
+    # the internal violation objective is not reported as one of the problem's objectives
+    assert set(result.optimal_objectives) == {obj.symbol for obj in problem.objectives}
 
 
 @pytest.mark.cumulus

@@ -60,6 +60,10 @@ class SimulatorEvaluator:
                 constraints and extra functions in the problem JSON. Defaults to None.
         """
         self.problem = problem
+        # Built on the first evaluation that needs it and reused after that. Building it parses every
+        # function of the problem, which cost as much as evaluating it: 2 ms of a 6 ms single-solution
+        # evaluation on a 30-variable LZ09 problem, paid on every call by steady-state and MOEA/D loops.
+        self._polars_evaluator: PolarsEvaluator | None = None
         # store the symbol and min or max multiplier as well (symbol, min/max multiplier [1 | -1])
         self.objective_mix_max_mult = [
             (objective.symbol, -1 if objective.maximize else 1) for objective in problem.objectives
@@ -318,7 +322,9 @@ class SimulatorEvaluator:
 
         # Evaluate the analytical functions
         if len(self.analytical_symbols + self.data_based_symbols) > 0:
-            polars_evaluator = PolarsEvaluator(self.problem, evaluator_mode=PolarsEvaluatorModesEnum.mixed)
+            if self._polars_evaluator is None:
+                self._polars_evaluator = PolarsEvaluator(self.problem, evaluator_mode=PolarsEvaluatorModesEnum.mixed)
+            polars_evaluator = self._polars_evaluator
             analytical_values = (
                 polars_evaluator._polars_evaluate(xs) if not flat else polars_evaluator._polars_evaluate_flat(xs)
             )

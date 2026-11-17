@@ -16,6 +16,12 @@ class CreateSessionRequest(SQLModel):
     info: str | None = Field(default=None)
 
 
+class ActivateSessionRequest(SQLModel):
+    """Model of the request to change the user's active session."""
+
+    session_id: int | None = Field(default=None, description="One of the user's own sessions, or None for none.")
+
+
 class InteractiveSessionBase(SQLModel):
     """The base model for representing interactive sessions."""
 

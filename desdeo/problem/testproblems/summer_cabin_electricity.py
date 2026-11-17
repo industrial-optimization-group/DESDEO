@@ -274,7 +274,7 @@ def summer_cabin_battery_problem(initial_soc: float = 0.0, n_panels_max: int = 5
         Constraint(
             name="Capacity zero if not installed",
             symbol="cap_ub_con",
-            func=["Add", "E", ["Negate", ["Multiply", 42.0, "y"]]],
+            func=["Add", "E", ["Negate", ["Multiply", 42.0, "y"]]], #"E-42*y"
             cons_type=ConstraintTypeEnum.LTE,
             is_linear=True,
             is_convex=True,

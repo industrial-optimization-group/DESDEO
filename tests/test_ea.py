@@ -1,16 +1,18 @@
 """Tests for Evolutionary Algorithms."""
 
 from contextlib import suppress
-from itertools import pairwise
+from itertools import combinations, pairwise
 
 import numpy as np
 import numpy.testing as npt
 import polars as pl
 import pytest
+from moocore import hypervolume
+from pydantic import ValidationError
 
 from desdeo.emo.hooks.archivers import Archive, FeasibleArchive, NonDominatedArchive
 from desdeo.emo.methods.EAs import ibea, nsga3, nsga3_mixed_integer, rvea, rvea_mixed_integer
-from desdeo.emo.methods.templates import template1, template2
+from desdeo.emo.methods.templates import template1, template2, template_moead
 from desdeo.emo.operators.crossover import (
     BlendAlphaCrossover,
     BoundedExponentialCrossover,
@@ -44,15 +46,33 @@ from desdeo.emo.operators.mutation import (
 )
 from desdeo.emo.operators.scalar_selection import TournamentSelection
 from desdeo.emo.operators.selection import (
+    AGEMOEA2Selector,
+    HypESelector,
     IBEASelector,
+    ModifiedWASFGASelector,
+    MOEADSelector,
     NSGA2Selector,
     NSGA3Selector,
     ParameterAdaptationStrategy,
     ReferenceVectorOptions,
     RVEASelector,
+    SPEA2Selector,
     _nsga2_crowding_distance_assignment,
     _rvea_selection,
     _rvea_selection_constrained,
+    agemoea2_curvature,
+    agemoea2_geodesic_distances,
+    agemoea2_normalize,
+    agemoea2_survival_score,
+    constrained_dominance_matrix,
+    hype_fitness_exact,
+    hype_fitness_monte_carlo,
+    modified_wasfga_asf,
+    modified_wasfga_weights,
+    moead_scalarize,
+    spea2_fitness,
+    spea2_truncate,
+    total_constraint_violation,
 )
 from desdeo.emo.operators.termination import (
     CompositeTerminator,
@@ -61,7 +81,18 @@ from desdeo.emo.operators.termination import (
     MaxGenerationsTerminator,
     MaxTimeTerminator,
 )
-from desdeo.emo.options.algorithms import ibea_options, nsga2_options, nsga3_options, rvea_options
+from desdeo.emo.options.algorithms import (
+    agemoea2_options,
+    hype_options,
+    ibea_options,
+    modified_wasfga_options,
+    moead_de_options,
+    moead_options,
+    nsga2_options,
+    nsga3_options,
+    rvea_options,
+    spea2_options,
+)
 from desdeo.emo.options.crossover import (
     DifferentialEvolutionCrossoverOptions,
     ParentCentricCrossoverOptions,
@@ -69,7 +100,17 @@ from desdeo.emo.options.crossover import (
     UniformCrossoverOptions,
     crossover_constructor,
 )
-from desdeo.emo.options.templates import emo_constructor
+from desdeo.emo.options.scalar_selection import (
+    RouletteWheelSelectionOptions,
+    TournamentSelectionOptions,
+    scalar_selector_constructor,
+)
+from desdeo.emo.options.templates import (
+    DesirableRangesOptions,
+    InvalidTemplateError,
+    ReferencePointOptions,
+    emo_constructor,
+)
 from desdeo.emo.options.termination import (
     CompositeTerminatorOptions,
     ExternalCheckTerminatorOptions,
@@ -91,12 +132,18 @@ from desdeo.problem.testproblems import (
     simple_knapsack,
     simple_knapsack_vectors,
     simple_test_problem,
+    zdt1,
 )
 from desdeo.tools.message import EvaluatorMessageTopics, IntMessage, TerminatorMessageTopics
 from desdeo.tools.non_dominated_sorting import fast_non_dominated_sort
 from desdeo.tools.patterns import Publisher
 from desdeo.tools.reference_vectors import _ensure_axis_vectors, create_s_energy
 from desdeo.tools.utils import repair
+
+# MOEADSelector and HypESelector are disabled: their constructors raise NotImplementedError. Their
+# tests are skipped until the selectors are enabled again.
+MOEAD_DISABLED = pytest.mark.skip(reason="MOEADSelector is disabled; its constructor raises NotImplementedError.")
+HYPE_DISABLED = pytest.mark.skip(reason="HypESelector is disabled; its constructor raises NotImplementedError.")
 
 
 @pytest.mark.ea
@@ -2721,6 +2768,8 @@ def test_s_energy_gives_every_selector_the_same_population_size(n_objectives):
         ("nsga3", nsga3_options),
         ("nsga2", nsga2_options),
         ("ibea", ibea_options),
+        ("spea2", spea2_options),
+        ("agemoea2", agemoea2_options),
     ):
         options = factory()
         template = options.template
@@ -2862,15 +2911,102 @@ def test_ibea_survives_a_population_collapsed_onto_one_objective_vector():
 
 
 @pytest.mark.ea
-@pytest.mark.parametrize("name", ["nsga2", "ibea"])
-def test_constrained_selectors_reach_a_feasible_population(name):
-    """Both selectors must drive a constrained run to feasibility, not merely tolerate constraints.
+def test_ibea_grows_a_population_seeded_with_fewer_solutions_than_its_size():
+    """A run seeded with too few solutions keeps them and their offspring until the population is full.
 
-    Ignoring the constraints entirely, as both did before, leaves most of the final population
-    infeasible on this problem, so a loose assertion would not distinguish the two.
+    The selector used to return a short population as it was, before computing any fitness. The mating
+    tournament then raised "The fitness is not set", and even with a fitness the offspring would have been
+    dropped every generation. The interactive SCORE bands sessions seed IBEA this way.
+    """
+    from desdeo.emo.options.generator import ArchiveGeneratorOptions  # noqa: PLC0415
+
+    problem = dtlz2(n_variables=6, n_objectives=3)
+    objectives = [objective.symbol for objective in problem.objectives]
+    options = ibea_options()
+    options.template.generator.n_points = 20
+    options.template.selection.population_size = 20
+    options.template.mate_selection.winner_size = 20
+    options.template.termination = MaxGenerationsTerminatorOptions(max_generations=3)
+    seeds = emo_constructor(problem=problem, emo_options=options)[0]()
+
+    options.template.generator = ArchiveGeneratorOptions(
+        solutions=seeds.optimal_variables[:5], outputs=seeds.optimal_outputs[objectives][:5]
+    )
+    result = emo_constructor(problem=problem, emo_options=options)[0]()
+
+    assert len(result.optimal_variables) == 20
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(
+    ("constrained", "population_size"),
+    [(False, 20), (True, 5), (True, 20)],
+    ids=["unconstrained", "enough-feasible", "too-few-feasible"],
+)
+def test_ibea_selection_indexes_the_merged_population(constrained, population_size):
+    """IBEA's `selection` holds the survivors' row positions in parents + offspring on every branch.
+
+    The indicator branch used to store the survivor mask, and on a constrained problem a mask over
+    the feasible solutions only, so the STATE message changed shape and meaning between branches.
+    The fixture has 9 feasible solutions of 40, so 5 places can be filled from them and 20 cannot.
+    """
+    problem = car_side_impact(three_obj=False) if constrained else dtlz2(n_variables=8, n_objectives=3)
+    publisher = Publisher()
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=40, seed=0, verbosity=1
+    )
+    selector = IBEASelector(problem=problem, verbosity=1, publisher=publisher, population_size=population_size, seed=0)
+    solutions, outputs = generator.do()
+
+    half = len(solutions) // 2
+    selected_solutions, selected = selector.do(
+        parents=(solutions[:half], outputs[:half]), offsprings=(solutions[half:], outputs[half:])
+    )
+
+    assert isinstance(selector.selection, list)
+    assert len(selector.selection) == population_size
+    assert all(isinstance(index, int) for index in selector.selection)
+    assert selected_solutions.equals(solutions[selector.selection])
+    assert selected.equals(outputs[selector.selection])
+    if constrained and population_size == 5:
+        constraints = [c.symbol for c in problem.constraints]
+        feasible = np.flatnonzero(np.maximum(outputs[constraints].to_numpy(), 0.0).sum(axis=1) <= 0)
+        assert set(selector.selection) <= set(feasible.tolist())
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(
+    "name",
+    [
+        "nsga2",
+        "ibea",
+        pytest.param("moead", marks=MOEAD_DISABLED),
+        pytest.param("moead_de", marks=MOEAD_DISABLED),
+        "spea2",
+        "agemoea2",
+        pytest.param("hype", marks=HYPE_DISABLED),
+        "modified_wasfga",
+    ],
+)
+def test_constrained_selectors_reach_a_feasible_population(name):
+    """Every selector must drive a constrained run to feasibility, not merely tolerate constraints.
+
+    Ignoring the constraints entirely, as NSGA-II and IBEA did before, leaves most of the final
+    population infeasible on this problem (57 of 84 for MOEA/D at seed 0), so a loose assertion would
+    not distinguish the two.
     """
     problem = car_side_impact(three_obj=False)
-    options = {"nsga2": nsga2_options, "ibea": ibea_options}[name]()
+    options = {
+        "nsga2": nsga2_options,
+        "ibea": ibea_options,
+        "moead": moead_options,
+        "moead_de": moead_de_options,
+        "spea2": spea2_options,
+        "agemoea2": agemoea2_options,
+        "hype": hype_options,
+        "modified_wasfga": modified_wasfga_options,
+    }[name]()
     options.template.verbosity = 2
     options.template.use_archive = False
     options.template.seed = 0
@@ -2955,7 +3091,298 @@ def test_tournament_selection_seed_only_seeds():
 
 
 @pytest.mark.ea
-@pytest.mark.parametrize("name", ["rvea", "nsga3", "nsga2", "ibea"])
+def test_dominance_tournament_never_picks_a_dominated_member():
+    """Under constrained domination a dominated member never wins, and the published fitness plays no part.
+
+    Solution 0 dominates every other solution in the objectives but is infeasible, so it must lose to
+    every feasible solution. Among the feasible ones, 1 dominates 2 and 3, while 1 and 4 are mutually
+    non-dominated, so each of them has to win some of their tournaments.
+    """
+    outputs = pl.DataFrame(
+        {
+            "f1_min": [0.0, 1.0, 2.0, 1.5, 0.5],
+            "f2_min": [0.0, 1.0, 2.0, 1.5, 3.0],
+            "g": [1.0, 0.0, -1.0, 0.0, 0.0],
+        }
+    )
+    solutions = (pl.DataFrame({"x": np.arange(5.0)}), outputs)
+    # (winner, loser): every feasible solution beats the infeasible 0, then plain Pareto dominance.
+    decided = [(1, 0), (2, 0), (3, 0), (4, 0), (1, 2), (1, 3), (3, 2)]
+
+    selector = TournamentSelection(
+        winner_size=10,
+        verbosity=0,
+        publisher=Publisher(),
+        seed=3,
+        comparison="dominance",
+        target_symbols=["f1_min", "f2_min"],
+        constraint_symbols=["g"],
+    )
+    dominance = constrained_dominance_matrix(
+        outputs[["f1_min", "f2_min"]].to_numpy(), total_constraint_violation(outputs, ["g"])
+    )
+    for winner, loser in decided:
+        for order in ([winner, loser], [loser, winner]):
+            assert all(selector.dominance_select(np.array(order), dominance) == winner for _ in range(20))
+    assert {selector.dominance_select(np.array([1, 4]), dominance) for _ in range(50)} == {1, 4}
+
+    # A published fitness of the wrong length would make a fitness tournament raise. Here it is ignored and cleared.
+    selector.fitness = np.zeros(2)
+    winners = selector.do(solutions)[1]
+    assert selector.fitness is None
+    assert len(winners) == 10
+
+    def replay(seed: int) -> list[float]:
+        replayed = TournamentSelection(
+            winner_size=10,
+            verbosity=0,
+            publisher=Publisher(),
+            seed=seed,
+            comparison="dominance",
+            target_symbols=["f1_min", "f2_min"],
+            constraint_symbols=["g"],
+        )
+        return replayed.do(solutions)[0]["x"].to_list()
+
+    assert replay(3) == replay(3)
+
+    with pytest.raises(ValueError, match="target symbols"):
+        TournamentSelection(winner_size=10, verbosity=0, publisher=Publisher(), comparison="dominance")
+
+
+@pytest.mark.ea
+def test_dominance_tournament_options():
+    """The options route a dominance tournament to the problem's targets, and a roulette wheel refuses one."""
+    problem = dtlz2(n_variables=5, n_objectives=3)
+    selector = scalar_selector_constructor(
+        TournamentSelectionOptions(winner_size=10, comparison="dominance"),
+        seed=0,
+        publisher=Publisher(),
+        verbosity=0,
+        problem=problem,
+    )
+    assert selector.comparison == "dominance"
+    assert selector.target_symbols == [f"{obj.symbol}_min" for obj in problem.objectives]
+    assert selector.constraint_symbols is None
+
+    # The default stays a fitness tournament, which existing algorithms rely on.
+    assert TournamentSelectionOptions(winner_size=10).comparison == "fitness"
+
+    with pytest.raises(ValueError, match="needs the problem"):
+        scalar_selector_constructor(
+            TournamentSelectionOptions(winner_size=10, comparison="dominance"),
+            seed=0,
+            publisher=Publisher(),
+            verbosity=0,
+        )
+    with pytest.raises(ValidationError):
+        RouletteWheelSelectionOptions(winner_size=10, comparison="dominance")
+
+
+@pytest.mark.ea
+def test_modified_wasfga_asf_matches_the_reference_code():
+    """The ASF is `AchievementScalarizingFunction.evaluateNormalizing`, whose augmentation term is unweighted.
+
+    f = (0.5, 0.3), q = (0.1, 0.2), mu = (0.25, 0.75), ideal = (0, 0) and nadir = (2, 1) give
+    d = (0.2, 0.1), so s = max(0.05, 0.075) + 0.001 * 0.3. Eq. (2) of the papers would weight the
+    sum, giving 0.075 + 0.001 * 0.125 instead.
+    """
+    value = modified_wasfga_asf(
+        targets=np.array([[0.5, 0.3]]),
+        reference_points=np.array([[0.1, 0.2]]),
+        weights=np.array([[0.25, 0.75]]),
+        ideal=np.array([0.0, 0.0]),
+        nadir=np.array([2.0, 1.0]),
+        rho=0.001,
+    )
+    npt.assert_allclose(value, [[0.075 + 0.001 * 0.3]])
+
+
+@pytest.mark.ea
+def test_modified_wasfga_weights_match_the_reference_code():
+    """Two objectives follow `initUniformPairAndOddWeights2D` and `invertWeights(weights, true)`.
+
+    Inverting u = (u1, 1 - u1) and normalising gives mu = (1 - u1, u1). With more objectives there is
+    one weight vector per requested one, all finite and positive.
+    """
+    weights = modified_wasfga_weights(2, 10, 0.01)
+    first = 0.01 + np.arange(10) * 0.98 / 9
+    npt.assert_allclose(weights, np.column_stack([1 - first, first]))
+
+    for n_objectives in (3, 5, 10):
+        weights = modified_wasfga_weights(n_objectives, 100, 0.005)
+        assert weights.shape == (100, n_objectives)
+        assert np.isfinite(weights).all()
+        assert (weights > 0).all()
+        npt.assert_allclose(weights.sum(axis=1), 1.0)
+
+
+def _ranking_asfs(asf: np.ndarray, population_size: int) -> list[int]:
+    """A line-by-line copy of the reference code's `RankingASFs` and the loop of `IRAEMO.execute` that uses it."""
+    remaining = list(range(len(asf)))
+    population: list[int] = []
+    while remaining and len(population) < population_size:
+        front = []
+        for column in range(asf.shape[1]):
+            if not remaining:
+                break
+            best = remaining[0]
+            for node in remaining:
+                if asf[node, column] < asf[best, column]:
+                    best = node
+            front.append(best)
+            remaining.remove(best)
+        population.extend(front[: population_size - len(population)])
+    return population
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize("n_objectives", [2, 3])
+def test_modified_wasfga_fronts_follow_the_reference_ranking(n_objectives):
+    """On random parents and offspring the selection is what the reference code's ranking keeps, in its order."""
+    rng = np.random.default_rng(1)
+    problem = dtlz2(n_variables=n_objectives + 1, n_objectives=n_objectives)
+    symbols = [objective.symbol for objective in problem.objectives]
+    targets = rng.random((30, n_objectives))
+    outputs = pl.DataFrame(
+        {
+            **dict(zip(symbols, targets.T, strict=True)),
+            **{f"{s}_min": t for s, t in zip(symbols, targets.T, strict=True)},
+        }
+    )
+    solutions = pl.DataFrame({v.symbol: rng.random(30) for v in problem.get_flattened_variables()})
+    aspiration = dict.fromkeys(symbols, 0.2)
+    reservation = dict.fromkeys(symbols, 0.7)
+    selector = ModifiedWASFGASelector(
+        problem=problem,
+        verbosity=1,
+        publisher=Publisher(),
+        population_size=13,
+        number_of_weights=6,
+        aspiration_levels=aspiration,
+        reservation_levels=reservation,
+    )
+
+    selector.do(parents=(solutions[:15], outputs[:15]), offsprings=(solutions[15:], outputs[15:]))
+
+    reference_points = np.where(
+        (np.arange(6) % 2 == 1)[:, None], np.full(n_objectives, 0.2), np.full(n_objectives, 0.7)
+    )
+    asf = modified_wasfga_asf(
+        targets, reference_points, selector.weights, targets.min(axis=0), targets.max(axis=0), rho=0.001
+    )
+    assert selector.selection == _ranking_asfs(asf, 13)
+    npt.assert_allclose(selector.fitness, [1.0] * 6 + [0.5] * 6 + [1 / 3])
+
+
+@pytest.mark.ea
+def test_modified_wasfga_keeps_what_the_reservation_point_finds():
+    """The reservation point decides part of the selection, and the last front is cut in assignment order.
+
+    The eight solutions lie on or near the line f1 + f2 = 1, plus (0.35, 0.35). With aspiration (0.3, 0.3)
+    and reservation (1, 1), the four weight vectors keep solutions 3, 6, 2 and 1. With the aspiration point
+    in both roles, which is WASF-GA with a single reference point, they keep 0, 6, 1 and 3: solution 2,
+    (0.25, 0.45), survives only because the reservation half of the weights finds it.
+    """
+    problem = dtlz2(n_variables=3, n_objectives=2)
+    targets = np.array(
+        [[0.3, 0.4], [0.4, 0.3], [0.25, 0.45], [0.45, 0.25], [0.0, 1.0], [1.0, 0.0], [0.35, 0.35], [0.05, 0.8]]
+    )
+    outputs = pl.DataFrame(
+        {"f_1": targets[:, 0], "f_2": targets[:, 1], "f_1_min": targets[:, 0], "f_2_min": targets[:, 1]}
+    )
+    solutions = pl.DataFrame({f"x_{i}": np.arange(8.0) for i in range(1, 4)})
+
+    def selection(reservation: tuple[float, float], population_size: int = 4) -> list[int]:
+        selector = ModifiedWASFGASelector(
+            problem=problem,
+            verbosity=1,
+            publisher=Publisher(),
+            population_size=population_size,
+            number_of_weights=4,
+            aspiration_levels={"f_1": 0.3, "f_2": 0.3},
+            reservation_levels={"f_1": reservation[0], "f_2": reservation[1]},
+        )
+        selector.do(parents=(solutions[:4], outputs[:4]), offsprings=(solutions[4:], outputs[4:]))
+        return selector.selection
+
+    assert selection((1.0, 1.0)) == [3, 6, 2, 1]
+    assert selection((0.3, 0.3)) == [0, 6, 1, 3]
+    # The second front would be 0, 7, 4, 5; two places are left for it.
+    assert selection((1.0, 1.0), population_size=6) == [3, 6, 2, 1, 0, 7]
+
+
+@pytest.mark.ea
+def test_modified_wasfga_puts_feasible_solutions_first():
+    """Infeasible solutions follow the feasible ones, one per front, by increasing total violation."""
+    problem = car_side_impact(three_obj=False)
+    publisher = Publisher()
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=40, seed=0, verbosity=1
+    )
+    solutions, outputs = generator.do()
+    constraints = [c.symbol for c in problem.constraints]
+    violations = np.maximum(outputs[constraints].to_numpy(), 0.0).sum(axis=1)
+    feasible = np.flatnonzero(violations <= 0)
+    assert 0 < len(feasible) < 20, "the fixture must have some feasible solutions, but too few to fill the population"
+
+    selector = ModifiedWASFGASelector(problem=problem, verbosity=1, publisher=publisher, population_size=20)
+    selector.do(parents=(solutions[:20], outputs[:20]), offsprings=(solutions[20:], outputs[20:]))
+
+    assert set(selector.selection[: len(feasible)]) == set(feasible.tolist())
+    rest = violations[selector.selection[len(feasible) :]]
+    assert (rest > 0).all()
+    assert (np.diff(rest) >= 0).all()
+    assert (np.diff(selector.fitness[len(feasible) - 1 :]) < 0).all()
+
+
+@pytest.mark.ea
+def test_modified_wasfga_preference_reaches_the_selector():
+    """Desirable ranges with the "Modified WASF-GA" method become the selector's two points, sign-corrected."""
+    problem = river_pollution_problem()
+    symbols = [objective.symbol for objective in problem.objectives]
+    aspiration = {symbol: float(i) for i, symbol in enumerate(symbols)}
+    reservation = {symbol: float(i) + 0.5 for i, symbol in enumerate(symbols)}
+    options = modified_wasfga_options()
+    options.preference = DesirableRangesOptions(
+        method="Modified WASF-GA", aspiration_levels=aspiration, reservation_levels=reservation
+    )
+
+    solver, _ = emo_constructor(options, problem)
+    selector = solver.keywords["selection"]
+
+    sense = np.array([-1.0 if objective.maximize else 1.0 for objective in problem.objectives])
+    assert (sense < 0).any(), "the fixture needs a maximised objective"
+    npt.assert_allclose(selector.aspiration, sense * np.array([aspiration[s] for s in symbols]))
+    npt.assert_allclose(selector.reservation, sense * np.array([reservation[s] for s in symbols]))
+    # The caller's options are left as they were.
+    assert options.template.selection.aspiration_levels is None
+
+    options = ibea_options()
+    options.preference = DesirableRangesOptions(
+        method="Modified WASF-GA", aspiration_levels=aspiration, reservation_levels=reservation
+    )
+    with pytest.raises(InvalidTemplateError, match="ModifiedWASFGASelector"):
+        emo_constructor(options, problem)
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize(
+    "name",
+    [
+        "rvea",
+        "nsga3",
+        "nsga2",
+        "ibea",
+        pytest.param("moead", marks=MOEAD_DISABLED),
+        pytest.param("moead_de", marks=MOEAD_DISABLED),
+        "spea2",
+        "agemoea2",
+        pytest.param("hype", marks=HYPE_DISABLED),
+        "modified_wasfga",
+    ],
+)
 def test_a_run_is_reproducible_from_the_template_seed(name):
     """Two runs of the same algorithm at the same template seed must agree exactly.
 
@@ -2963,7 +3390,18 @@ def test_a_run_is_reproducible_from_the_template_seed(name):
     template seed reached every operator except that one.
     """
     problem = dtlz2(n_objectives=3, n_variables=10)
-    factories = {"rvea": rvea_options, "nsga3": nsga3_options, "nsga2": nsga2_options, "ibea": ibea_options}
+    factories = {
+        "rvea": rvea_options,
+        "nsga3": nsga3_options,
+        "nsga2": nsga2_options,
+        "ibea": ibea_options,
+        "moead": moead_options,
+        "moead_de": moead_de_options,
+        "spea2": spea2_options,
+        "agemoea2": agemoea2_options,
+        "hype": hype_options,
+        "modified_wasfga": modified_wasfga_options,
+    }
 
     def run() -> np.ndarray:
         options = factories[name]()
@@ -3085,3 +3523,541 @@ def test_decomposition_selector_adapts_to_each_preference_type(preference):
     assert adapted.shape[1] == 3
     assert np.isfinite(adapted).all()
     assert adapted.shape != initial.shape or not np.allclose(adapted, initial)
+
+
+def _moead_population(problem, n_points: int, publisher: Publisher, seed: int = 0):
+    """Evaluate a random population for driving a MOEADSelector by hand."""
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n_points, seed=seed, verbosity=1
+    )
+    return generator.do()
+
+
+def _dominating_offspring(solutions: pl.DataFrame, outputs: pl.DataFrame, target_symbols: list[str]):
+    """A one-row offspring whose targets lie below every target in the population."""
+    floor = outputs[target_symbols].min().row(0)
+    offspring_outputs = outputs[:1].with_columns(
+        [pl.lit(value - 1.0).alias(symbol) for symbol, value in zip(target_symbols, floor, strict=True)]
+    )
+    return solutions[:1], offspring_outputs
+
+
+@MOEAD_DISABLED
+@pytest.mark.ea
+@pytest.mark.parametrize("max_replacements", [None, 2])
+def test_moead_replaces_only_within_the_mating_pool(max_replacements):
+    """An offspring replaces solutions of the pool it was made for, and at most n_r of them.
+
+    The offspring here improves every subproblem, so without a cap it must replace exactly the
+    neighbourhood, and with MOEA/D-DE's cap of two it must replace two members of it. Nothing outside
+    the neighbourhood may change in either case, which is what keeps MOEA/D's search local.
+    """
+    problem = dtlz2(n_objectives=2, n_variables=6)
+    publisher = Publisher()
+    selector = MOEADSelector(
+        problem=problem,
+        verbosity=1,
+        publisher=publisher,
+        reference_vector_options=ReferenceVectorOptions(number_of_vectors=21),
+        neighbourhood_size=5,
+        neighbourhood_probability=1.0,
+        max_replacements=max_replacements,
+        seed=0,
+    )
+    assert selector.number_of_subproblems == 21
+    solutions, outputs = _moead_population(problem, selector.number_of_subproblems, publisher)
+    selector.do(parents=(solutions, outputs), offsprings=(solutions.clear(), outputs.clear()))
+    before = selector.outputs.clone()
+
+    pool = selector.mating_pool(10)
+    npt.assert_array_equal(np.sort(pool), [8, 9, 10, 11, 12])  # the neighbourhood of a lattice interior point
+    offspring = _dominating_offspring(solutions, outputs, selector.target_symbols)
+    _, after = selector.do(parents=(solutions, outputs), offsprings=offspring)
+
+    changed = np.flatnonzero((before.to_numpy() != after.to_numpy()).any(axis=1))
+    assert set(changed) <= set(pool.tolist())
+    assert len(changed) == (len(pool) if max_replacements is None else max_replacements)
+    npt.assert_array_equal(selector.ideal_point, offspring[1][selector.target_symbols].to_numpy()[0])
+
+
+@MOEAD_DISABLED
+@pytest.mark.ea
+def test_moead_mating_pool_is_the_neighbourhood_with_probability_delta():
+    """MOEA/D-DE mates within the neighbourhood with probability delta and population-wide otherwise."""
+    selector = MOEADSelector(
+        problem=dtlz2(n_objectives=3, n_variables=8),
+        verbosity=0,
+        publisher=Publisher(),
+        reference_vector_options=ReferenceVectorOptions(number_of_vectors=91),
+        neighbourhood_size=20,
+        neighbourhood_probability=0.9,
+        seed=0,
+    )
+    draws = [selector.mating_pool(i % selector.number_of_subproblems) for i in range(4000)]
+
+    local = np.mean([len(pool) == 20 for pool in draws])
+    assert abs(local - 0.9) < 0.02
+    assert all(len(pool) in (20, selector.number_of_subproblems) for pool in draws)
+    assert all(i % selector.number_of_subproblems in pool for i, pool in enumerate(draws))
+
+
+@MOEAD_DISABLED
+@pytest.mark.ea
+def test_moead_constraint_violation_decides_before_aggregation():
+    """A less infeasible offspring replaces a more infeasible solution even if its aggregation value is worse."""
+    problem = car_side_impact(three_obj=False)
+    publisher = Publisher()
+    selector = MOEADSelector(
+        problem=problem,
+        verbosity=0,
+        publisher=publisher,
+        reference_vector_options=ReferenceVectorOptions(number_of_vectors=10, creation_type="s_energy"),
+        neighbourhood_size=10,
+        seed=0,
+    )
+    solutions, outputs = _moead_population(problem, selector.number_of_subproblems, publisher)
+    constraints = [c.symbol for c in problem.constraints]
+    selector.do(parents=(solutions, outputs), offsprings=(solutions.clear(), outputs.clear()))
+    violations = np.maximum(outputs[constraints].to_numpy(), 0.0).sum(axis=1)
+    assert violations.max() > 0, "the fixture needs an infeasible member"
+    worst = int(np.argmax(violations))
+
+    # Feasible, but with every target far above the population: worse on any aggregation function.
+    offspring_outputs = outputs[:1].with_columns(
+        [pl.lit(0.0).alias(c) for c in constraints] + [pl.lit(1e6).alias(symbol) for symbol in selector.target_symbols]
+    )
+    selector.mating_pool(worst)
+    selector.do(parents=(solutions, outputs), offsprings=(solutions[:1], offspring_outputs))
+
+    replaced = set(selector.replaced)
+    assert worst in replaced
+    assert all(violations[j] > 0 for j in replaced), "a feasible solution was replaced by a worse one"
+
+
+@pytest.mark.ea
+def test_moead_scalarize_matches_the_paper_definitions():
+    """Tchebycheff, PBI and weighted sum as in Zhang and Li (2007), Eqs. 2, 3 and 5 for minimization."""
+    ideal = np.array([0.0, 0.0])
+    weights = np.array([[0.5, 0.5], [0.5, 0.5], [1.0, 0.0]])
+    targets = np.array([[1.0, 1.0], [2.0, 0.0], [3.0, 7.0]])
+
+    npt.assert_allclose(moead_scalarize(targets, weights, ideal, "tchebycheff"), [0.5, 1.0, 3.0])
+    npt.assert_allclose(moead_scalarize(targets, weights, ideal, "weighted_sum"), [1.0, 1.0, 3.0])
+    # On the weight vector's ray d2 is zero and d1 is the distance from z; off it, theta * d2 is added.
+    pbi = moead_scalarize(targets, weights, ideal, "pbi", pbi_penalty=5.0)
+    npt.assert_allclose(pbi[0], np.sqrt(2.0))
+    npt.assert_allclose(pbi[1], np.sqrt(2.0) + 5.0 * np.sqrt(2.0))
+    npt.assert_allclose(pbi[2], 3.0 + 5.0 * 7.0)
+
+
+@MOEAD_DISABLED
+@pytest.mark.ea
+@pytest.mark.parametrize("crossover", ["sbx", "de"])
+def test_moead_template_spends_one_evaluation_per_subproblem(crossover):
+    """Each generation evaluates one offspring per subproblem, one at a time.
+
+    MOEA/D lets an offspring replace solutions before the next subproblem mates, so its offspring
+    cannot be evaluated as a batch. Over G generations, counting the initial population as the first,
+    the evaluator sees N * G solutions, every call after the initial population carrying exactly one.
+    """
+    problem = dtlz2(n_objectives=3, n_variables=8)
+    publisher = Publisher()
+    selector = MOEADSelector(
+        problem=problem,
+        verbosity=1,
+        publisher=publisher,
+        reference_vector_options=ReferenceVectorOptions(number_of_vectors=15),
+        neighbourhood_size=5,
+        seed=0,
+    )
+    n = selector.number_of_subproblems
+    evaluator = EMOEvaluator(problem=problem, publisher=publisher, verbosity=1)
+    batch_sizes = []
+    evaluate = evaluator.evaluate
+
+    def counting_evaluate(population):
+        batch_sizes.append(len(population))
+        return evaluate(population)
+
+    evaluator.evaluate = counting_evaluate
+    generator = RandomGenerator(
+        problem=problem, evaluator=evaluator, publisher=publisher, n_points=n, seed=0, verbosity=1
+    )
+    if crossover == "sbx":
+        operator = SimulatedBinaryCrossover(problem=problem, publisher=publisher, seed=0, verbosity=1)
+    else:
+        operator = DifferentialEvolutionCrossover(
+            problem=problem, publisher=publisher, seed=0, verbosity=1, xover_probability=1.0, base_vector="target"
+        )
+    mutation = BoundedPolynomialMutation(problem=problem, publisher=publisher, seed=0, verbosity=1)
+    terminator = MaxGenerationsTerminator(6, publisher=publisher)
+
+    result = template_moead(
+        evaluator=evaluator,
+        crossover=operator,
+        mutation=mutation,
+        generator=generator,
+        selection=selector,
+        terminator=terminator,
+        seed=0,
+    )
+
+    assert len(result.optimal_outputs) == n
+    assert terminator.current_evaluations == n * 6
+    assert batch_sizes == [n] + [1] * (n * 5)  # the initial population first, then one offspring per call
+
+
+@pytest.mark.ea
+def test_moead_de_takes_the_target_as_its_base_vector():
+    """With base_vector="target" and CR = 1, the offspring is x_i + F (x_r2 - x_r3) for two donors.
+
+    DE/rand/1 adds the difference to a third donor instead, so its offspring are generally not on any
+    such line through the target.
+    """
+    problem = dtlz2(n_objectives=2, n_variables=4)
+    rng = np.random.default_rng(1)
+    symbols = [v.symbol for v in problem.get_flattened_variables()]
+    # Interior points and a small F keep every offspring inside the bounds, so no clipping interferes.
+    population = pl.DataFrame(0.3 + 0.4 * rng.random((6, 4)), schema=symbols, orient="row")
+    whole = population.to_numpy()
+    differences = {(a, b): whole[a] - whole[b] for a in range(6) for b in range(6) if a != b}
+
+    def on_a_target_line(base_vector: str, target: int) -> bool:
+        operator = DifferentialEvolutionCrossover(
+            problem=problem,
+            publisher=Publisher(),
+            seed=target,
+            verbosity=0,
+            scaling_factor=0.25,
+            xover_probability=1.0,
+            base_vector=base_vector,
+        )
+        step = operator.do(population=population, to_mate=[target]).to_numpy()[0] - whole[target]
+        return any(np.allclose(step, 0.25 * diff) for (a, b), diff in differences.items() if target not in (a, b))
+
+    assert all(on_a_target_line("target", target) for target in range(6))
+    assert not all(on_a_target_line("random", target) for target in range(6))
+
+
+@MOEAD_DISABLED
+@pytest.mark.ea
+@pytest.mark.parametrize("aggregation", ["tchebycheff", "pbi"])
+def test_moead_reference_point_draws_the_population_towards_it(aggregation):
+    """A reference point must pull MOEA/D's population towards its direction, not away from it.
+
+    The preference adaptations place the weight vectors as directions, and a Tchebycheff optimum lies
+    along 1 / w, so without the WS-transformation the population settled on the far side of the front
+    (median angle 44 degrees to the reference direction on this setup, against about 6 with it).
+    """
+    reference_point = {"f_1": 0.2, "f_2": 0.5, "f_3": 0.8}
+    options = moead_options()
+    options.preference = ReferencePointOptions(preference=reference_point)
+    options.template.selection.aggregation = aggregation
+    options.template.use_archive = False
+    options.template.termination = MaxGenerationsTerminatorOptions(max_generations=20)
+
+    solver, _extras = emo_constructor(options, dtlz2(n_objectives=3, n_variables=10))
+    front = solver().optimal_outputs[["f_1", "f_2", "f_3"]].to_numpy()
+
+    direction = np.array(list(reference_point.values()))
+    cosines = (front / np.linalg.norm(front, axis=1, keepdims=True)) @ (direction / np.linalg.norm(direction))
+    assert np.degrees(np.arccos(np.median(cosines))) < 15
+
+
+@MOEAD_DISABLED
+@pytest.mark.ea
+def test_moead_weighted_sum_rejects_a_preference():
+    """The weighted sum has no direction a preference could adapt, so it must refuse one."""
+    with pytest.raises(ValueError, match="weighted sum"):
+        MOEADSelector(
+            problem=dtlz2(n_objectives=3, n_variables=8),
+            verbosity=0,
+            publisher=Publisher(),
+            reference_vector_options=ReferenceVectorOptions(reference_point={"f_1": 0.2, "f_2": 0.5, "f_3": 0.8}),
+            aggregation="weighted_sum",
+        )
+
+
+def _selector_population(targets: np.ndarray, problem=None):
+    """Decision variables and outputs for driving a selector by hand on given two-objective targets."""
+    problem = problem if problem is not None else zdt1(3)
+    symbols = [v.symbol for v in problem.get_flattened_variables()]
+    solutions = pl.DataFrame(np.zeros((len(targets), len(symbols))), schema=symbols, orient="row")
+    columns = {}
+    for i, objective in enumerate(problem.objectives):
+        columns[objective.symbol] = targets[:, i]
+        columns[f"{objective.symbol}_min"] = targets[:, i]
+    return problem, solutions, pl.DataFrame(columns)
+
+
+@pytest.mark.ea
+def test_spea2_fitness_follows_its_definition():
+    """R sums the strengths of a solution's dominators, and the density keeps F below the next integer.
+
+    a, b, c are mutually nondominated; b dominates d; everything dominates e. The strengths are
+    S = (1, 2, 1, 1, 0), so R(d) = S(b) = 2 and R(e) = 1 + 2 + 1 + 1 = 5 (Zitzler et al. 2001, Sec. 3.1).
+    """
+    targets = np.array([[1.0, 4.0], [2.0, 2.0], [4.0, 1.0], [3.0, 3.0], [5.0, 5.0]])
+    fitness, distances = spea2_fitness(targets)
+
+    npt.assert_array_equal(np.floor(fitness), [0, 0, 0, 2, 5])
+    density = fitness - np.floor(fitness)
+    assert np.all((density > 0) & (density < 0.5))
+    # k = floor(sqrt(5)) = 2: the second nearest other solution sets the density.
+    npt.assert_allclose(density, 1 / (np.sort(distances, axis=1)[:, 1] + 2))
+
+
+@pytest.mark.ea
+def test_spea2_truncation_thins_a_cluster_and_keeps_the_extremes():
+    """Truncation removes the most crowded solution first and never an extreme one (Fig. 2 of the paper)."""
+    spread = np.linspace(0, 1, 6)
+    front = np.column_stack([spread, 1 - spread])
+    cluster = np.array([[0.41, 0.59], [0.42, 0.58], [0.43, 0.57]])
+    targets = np.vstack([front, cluster])
+    distances = np.linalg.norm(targets[:, None] - targets[None], axis=2)
+    np.fill_diagonal(distances, np.inf)
+
+    kept = spea2_truncate(distances, keep=6)
+
+    assert {0, 5} <= set(kept)  # the extremes
+    assert len(set(kept) & {6, 7, 8}) <= 1  # the cluster is thinned to at most one member
+
+
+@pytest.mark.ea
+def test_spea2_selector_fills_the_archive_with_the_best_dominated():
+    """With fewer nondominated solutions than archive places, the best dominated ones by F fill it."""
+    targets = np.array([[0.0, 1.0], [1.0, 0.0], [0.6, 0.6], [2.0, 2.0], [0.7, 1.2], [3.0, 3.0]])
+    problem, solutions, outputs = _selector_population(targets)
+    selector = SPEA2Selector(problem=problem, verbosity=2, publisher=Publisher(), population_size=4)
+
+    _, archive = selector.do(parents=(solutions, outputs), offsprings=(solutions.clear(), outputs.clear()))
+
+    assert sorted(selector.selection) == [0, 1, 2, 4]  # (0.7, 1.2) has R = 6; (2, 2) 10 and (3, 3) 11
+    assert len(archive) == 4
+    assert np.all(selector.fitness > 0)
+    assert selector.fitness[:3].min() > selector.fitness[3]  # nondominated outrank the dominated one
+
+
+@pytest.mark.ea
+def test_agemoea2_curvature_reproduces_the_papers_newton_raphson_example():
+    """Points on the unit circle have p = 2; the paper's four iterations from p = 1 reach it (Sec. 3.1.1).
+
+    The paper prints Eq. 9 with the opposite sign, which drives p negative on the same points.
+    """
+    for angle in (np.pi / 8, np.pi / 16, np.pi / 4):
+        assert abs(agemoea2_curvature(np.array([np.cos(angle), np.sin(angle)])) - 2.0) < 1e-3
+    assert abs(agemoea2_curvature(np.array([0.5, 0.5])) - 1.0) < 1e-3  # flat front
+    assert abs(agemoea2_curvature(np.array([0.25, 0.25])) - 0.5) < 1e-3  # hyperbolic front
+    # No lower bound, as in the author's code; pymoo would replace anything at or below 0.1 by 1.
+    assert abs(agemoea2_curvature(np.array([1e-4, 1e-4])) - np.log(2) / np.log(1e4)) < 1e-3
+
+
+@pytest.mark.ea
+def test_agemoea2_geodesic_distance_matches_the_papers_example():
+    """A = (0, 1) and B = (1, 0) on the unit circle are 0.7653 + 0.7653 apart through C (Sec. 3.2.2)."""
+    distances = agemoea2_geodesic_distances(np.array([[0.0, 1.0], [1.0, 0.0]]), p=2.0)
+
+    npt.assert_allclose(distances[0, 1], 2 * np.hypot(1 - 1 / np.sqrt(2), 1 / np.sqrt(2)))
+    assert abs(distances[0, 1] / 2 - 0.7653) < 1e-4
+    # On a flat front the path through the midpoint is the straight segment.
+    npt.assert_allclose(agemoea2_geodesic_distances(np.array([[0.0, 1.0], [1.0, 0.0]]), p=1.0)[0, 1], np.sqrt(2))
+
+
+@pytest.mark.ea
+def test_agemoea2_cuts_a_dominated_front_by_proximity():
+    """The front that does not fit keeps the solutions nearest the ideal point (2019, Algorithm 2, lines 19-21).
+
+    pymoo 0.6.2 leaves that front unscored and keeps (0.95, 0.4) in place of (0.3, 0.9) here.
+    """
+    first = np.column_stack([np.linspace(0, 1, 6), 1 - np.linspace(0, 1, 6)])
+    second = np.array([[0.3, 0.9], [0.5, 0.75], [0.95, 0.4], [0.7, 0.6]])
+    later = np.array([[2.0, 2.0], [1.5, 1.4], [3.0, 3.0], [2.5, 2.6]])
+    problem, solutions, outputs = _selector_population(np.vstack([first, second, later]))
+    selector = AGEMOEA2Selector(problem=problem, verbosity=2, publisher=Publisher(), population_size=9)
+
+    selector.do(parents=(solutions, outputs), offsprings=(solutions.clear(), outputs.clear()))
+
+    assert sorted(selector.selection) == [0, 1, 2, 3, 4, 5, 6, 7, 9]
+    assert selector.curvature == pytest.approx(1.0, abs=1e-3)
+    # Front first, survival score second: every first-front member outranks every second-front one.
+    assert selector.fitness[:6].min() > selector.fitness[6:].max()
+
+
+@pytest.mark.ea
+def test_agemoea2_keeps_the_extreme_points_of_an_overfull_first_front():
+    """Extreme points score infinity, so they survive however crowded the first front is."""
+    angles = np.linspace(0, np.pi / 2, 30)
+    targets = np.column_stack([np.cos(angles), np.sin(angles)])
+    problem, solutions, outputs = _selector_population(targets)
+    selector = AGEMOEA2Selector(problem=problem, verbosity=0, publisher=Publisher(), population_size=10)
+
+    selector.do(parents=(solutions, outputs), offsprings=(solutions.clear(), outputs.clear()))
+
+    assert {0, 29} <= set(selector.selection)
+    assert selector.curvature == pytest.approx(2.0, abs=1e-2)
+
+
+@pytest.mark.ea
+def test_agemoea2_normalization_keeps_a_negative_intercept():
+    """The author's code falls back to min-max constants only when an intercept is NaN.
+
+    The plane through the extreme points (1, 0, 0), (0.6, 1e-6, 0.8) and (0, 0, 1) cuts the second axis at -2.5e-6.
+    The 2019 paper (Section 3.2) would fall back here; the author's code divides by it and shifts the minimum back to
+    zero, which turns the second objective around.
+    """
+    front = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.6, 1e-6, 0.8], [0.8, 0.0, 0.6]])
+
+    normalized, extremes = agemoea2_normalize(front)
+
+    npt.assert_array_equal(extremes, [0, 2, 1])
+    npt.assert_allclose(normalized[:, [0, 2]], front[:, [0, 2]])
+    npt.assert_allclose(normalized[:, 1], [0.4, 0.4, 0.0, 0.4])
+
+
+@pytest.mark.ea
+def test_agemoea2_scores_later_fronts_on_raw_objectives():
+    """A later front is ranked by `||f - z||_p` on the raw objectives, as in the author's code.
+
+    The first front normalizes f2 by 0.01, so (1.2, 0.001) is nearer the ideal point in normalized space and
+    (0.1, 0.05) in raw space. The 2019 paper (Section 3.2) normalizes later fronts and would keep the first.
+    """
+    targets = np.array([[1.0, 0.0], [0.0, 0.01], [1.2, 0.001], [0.1, 0.05]])
+    problem, solutions, outputs = _selector_population(targets)
+    selector = AGEMOEA2Selector(problem=problem, verbosity=0, publisher=Publisher(), population_size=3)
+
+    selector.do(parents=(solutions, outputs), offsprings=(solutions.clear(), outputs.clear()))
+
+    assert sorted(selector.selection) == [0, 1, 3]
+
+
+@pytest.mark.ea
+def test_agemoea2_survival_score_leaves_the_last_solution_at_zero():
+    """The greedy loop stops one solution short, as in the author's code, so the last one keeps the score 0."""
+    front = np.column_stack([np.linspace(0, 1, 6), 1 - np.linspace(0, 1, 6)])
+
+    score, p = agemoea2_survival_score(front)
+
+    assert p == pytest.approx(1.0, abs=1e-3)
+    assert np.isinf(score[[0, 5]]).all()
+    assert np.count_nonzero(score == 0) == 1
+    assert (score[1:5] >= 0).all()
+
+
+def _hype_brute_force(points: np.ndarray, reference: np.ndarray, k: int) -> np.ndarray:
+    """I_h^k by its definition (Bader and Zitzler, Def. III.6, Eq. 11), with every partition by inclusion-exclusion."""
+    n = len(points)
+
+    def dominated_by_all(members):
+        return float(np.prod(np.maximum(reference - points[list(members)].max(axis=0), 0.0)))
+
+    def partition(members):  # dominated by every solution in `members` and by none outside it
+        rest = [j for j in range(n) if j not in members]
+        return sum(
+            (-1) ** r * dominated_by_all(list(members) + list(extra))
+            for r in range(len(rest) + 1)
+            for extra in combinations(rest, r)
+        )
+
+    values = np.zeros(n)
+    for a in range(n):
+        subsets = [(a, *others) for others in combinations([j for j in range(n) if j != a], k - 1)]
+        values[a] = np.mean(
+            [
+                sum(partition(t) / len(t) for r in range(1, k + 1) for t in combinations(subset, r) if a in t)
+                for subset in subsets
+            ]
+        )
+    return values
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize("n_objectives", [2, 3])
+def test_hype_exact_fitness_matches_its_definition(n_objectives):
+    """The exact sweep must equal Def. III.6 for every k.
+
+    It must also sum to the hypervolume at k = |A| (Theorem III.3) and be the exclusive contribution at
+    k = 1. Dominated solutions are part of the set, as the definition requires; moocore's
+    `hv_contributions` drops them, so the contributions are taken leave-one-out here.
+    """
+    rng = np.random.default_rng(n_objectives)
+    points = rng.random((6, n_objectives))
+    reference = np.full(n_objectives, 1.1)
+
+    for k in (1, 2, 4, 6):
+        npt.assert_allclose(
+            hype_fitness_exact(points, reference, k), _hype_brute_force(points, reference, k), atol=1e-12
+        )
+    npt.assert_allclose(hype_fitness_exact(points, reference, 6).sum(), hypervolume(points, ref=reference))
+    leave_one_out = [
+        hypervolume(points, ref=reference) - hypervolume(np.delete(points, i, axis=0), ref=reference) for i in range(6)
+    ]
+    npt.assert_allclose(hype_fitness_exact(points, reference, 1), leave_one_out, atol=1e-12)
+
+
+@pytest.mark.ea
+def test_hype_monte_carlo_estimates_the_exact_fitness():
+    """Algorithm 3's estimate converges on the exact fitness.
+
+    At 1e6 samples the largest error was at most 1.0% of the largest fitness over five seeds (2.6% at 2e5).
+    """
+    rng = np.random.default_rng(0)
+    points = rng.random((40, 3))
+    reference = np.full(3, 1.1)
+
+    exact = hype_fitness_exact(points, reference, 10)
+    estimate = hype_fitness_monte_carlo(points, reference, 10, 1_000_000, np.random.default_rng(1))
+
+    assert np.max(np.abs(estimate - exact)) < 0.02 * exact.max()
+
+
+@HYPE_DISABLED
+@pytest.mark.ea
+def test_hype_removes_the_smallest_fitness_one_at_a_time():
+    """Environmental selection recomputes I_h^k after each removal, with k the number still to go (Algorithm 7)."""
+    rng = np.random.default_rng(3)
+    angles = np.sort(rng.random(12)) * np.pi / 2
+    targets = np.column_stack([np.cos(angles), np.sin(angles)])  # one nondominated front
+    problem, solutions, outputs = _selector_population(targets)
+    selector = HypESelector(problem=problem, verbosity=2, publisher=Publisher(), population_size=7, seed=0)
+
+    selector.do(parents=(solutions, outputs), offsprings=(solutions.clear(), outputs.clear()))
+
+    normalized = (targets - targets.min(axis=0)) / (targets.max(axis=0) - targets.min(axis=0))
+    remaining = list(range(12))
+    for k in range(5, 0, -1):
+        fitness = hype_fitness_exact(normalized[remaining], np.full(2, 1.1), k)
+        del remaining[int(np.argmin(fitness))]
+    assert sorted(selector.selection) == remaining
+    # The mating fitness is I_h over the new population, positive and summing to its hypervolume.
+    assert np.all(selector.fitness > 0)
+    npt.assert_allclose(selector.fitness.sum(), hypervolume(normalized[selector.selection], ref=np.full(2, 1.1)))
+
+
+@pytest.mark.ea
+@pytest.mark.parametrize("n_offspring", [3, 4, 5])
+def test_clip_repair_keeps_rows_in_place_for_a_square_offspring_block(n_offspring):
+    """Clip repair must not transpose the offspring when there are as many of them as variables.
+
+    It rebuilt its result with `pl.DataFrame(array, schema=...)` and no orientation, and polars reads
+    a square array column by column: with four offspring of four variables, every offspring came back
+    as a column of the input. Any template with a population equal to the number of variables, such as
+    100 solutions on a 100-variable problem, recombined transposed offspring.
+    """
+    names = ["x_1", "x_2", "x_3", "x_4"]
+    lower = {"x_1": 0.0, "x_2": -1.0, "x_3": 0.0, "x_4": 2.0}
+    upper = {"x_1": 1.0, "x_2": 1.0, "x_3": 10.0, "x_4": 3.0}
+    rng = np.random.default_rng(n_offspring)
+    inside = np.array([lower[n] for n in names]) + rng.random((n_offspring, 4)) * np.array(
+        [upper[n] - lower[n] for n in names]
+    )
+    offspring = pl.DataFrame(inside, schema=names, orient="row")
+
+    repaired = repair(lower_bounds=lower, upper_bounds=upper)(offspring.clone())
+
+    npt.assert_array_equal(repaired.to_numpy(), inside)  # nothing to clip, so nothing may move
+    outside = inside.copy()
+    outside[0] = [5.0, -5.0, np.nan, 0.0]
+    repaired = repair(lower_bounds=lower, upper_bounds=upper)(pl.DataFrame(outside, schema=names, orient="row"))
+    npt.assert_array_equal(repaired.to_numpy()[0], [1.0, -1.0, 5.0, 2.0])
+    npt.assert_array_equal(repaired.to_numpy()[1:], inside[1:])

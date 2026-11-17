@@ -3,7 +3,8 @@ algorithms in DESDEO. Essentially, create a complete [`EMOOptions`][desdeo.emo.o
 the various components of the algorithm. Pass the created model, along with the problem to be solved, to
 [`emo_constructor`][desdeo.emo.options.templates.emo_constructor] to create an instance of the desired algorithm.
 Popular pre-configured EMO methods include [NSGA-III][desdeo.emo.options.algorithms.nsga3_options],
-[RVEA][desdeo.emo.options.algorithms.rvea_options], and [IBEA][desdeo.emo.options.algorithms.ibea_options].
+[RVEA][desdeo.emo.options.algorithms.rvea_options], [MOEA/D][desdeo.emo.options.algorithms.moead_options], and
+[IBEA][desdeo.emo.options.algorithms.ibea_options].
 You can find the actual implementation of these components in the
 [EMO](./desdeo_emo.md) page.
 
