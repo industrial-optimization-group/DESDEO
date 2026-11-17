@@ -11,11 +11,11 @@
 		leftSidebarWidth?: string;
 		rightSidebarWidth?: string;
 		bottomPanelTitle?: string; // New prop for the bottom panel title
+		showNumericalValues?: boolean; // Whether the bottom panel is rendered
 		// Named snippets
 		leftSidebar?: Snippet;
 		explorerTitle?: Snippet;
 		explorerControls?: Snippet;
-		debugPanel?: Snippet;
 		visualizationArea?: Snippet;
 		tabsList?: Snippet;
 		numericalValues?: Snippet;
@@ -29,10 +29,10 @@
 		leftSidebarWidth = 'auto',
 		rightSidebarWidth = 'auto',
 		bottomPanelTitle = 'Numerical values', // Default title for the bottom panel
+		showNumericalValues = true,
 		leftSidebar,
 		explorerTitle,
 		explorerControls,
-		debugPanel,
 		visualizationArea,
 		tabsList,
 		numericalValues,
@@ -87,16 +87,17 @@
 				</div>
 			</Resizable.Pane>
 
-			<ResizableHandle />
-			<!-- Bottom Panel: Numerical Values and Tables -->
-			<Resizable.Pane defaultSize={35} class="flex min-h-0 flex-col p-2">
-					<Tabs.Root value="numerical-values" class="flex flex-col min-h-0 h-full">
+			{#if showNumericalValues}
+				<ResizableHandle />
+				<!-- Bottom Panel: Numerical Values and Tables -->
+				<Resizable.Pane defaultSize={35} class="flex min-h-0 flex-col p-2">
+					<Tabs.Root value="numerical-values" class="flex h-full min-h-0 flex-col">
 						<Tabs.List class="flex-shrink-0">
-						{#if tabsList}
-							{@render tabsList()}
-						{:else}
-							<span class='text-black'>{bottomPanelTitle}</span>
-						{/if}
+							{#if tabsList}
+								{@render tabsList()}
+							{:else}
+								<span class="text-black">{bottomPanelTitle}</span>
+							{/if}
 						</Tabs.List>
 
 						<!-- Numerical Values Tab Content -->
@@ -117,7 +118,8 @@
 							{/if}
 						</Tabs.Content>
 					</Tabs.Root>
-			</Resizable.Pane>
+				</Resizable.Pane>
+			{/if}
 		</Resizable.PaneGroup>
 	</div>
 

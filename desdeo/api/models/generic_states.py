@@ -36,6 +36,10 @@ from .state import (
     GNIMBUSOptimizationState,
     GNIMBUSVotingState,
     IntermediateSolutionState,
+    JinaEvaluateState,
+    JinaIterateState,
+    JinaSelectState,
+    JinaSetupState,
     NIMBUSClassificationState,
     NIMBUSFinalState,
     NIMBUSInitializationState,
@@ -84,6 +88,10 @@ class StateKind(str, Enum):
     CUMULUS_FINAL = "cumulus.final"
     CUMULUS_MODIFY = "cumulus.modify"
     CUMULUS_OBJ_CONSTRAINT = "cumulus.objective_constraint"
+    JINA_SETUP = "jina.setup"
+    JINA_ITERATE = "jina.iterate"
+    JINA_EVALUATE = "jina.evaluate"
+    JINA_SELECT = "jina.select"
 
 
 class State(SQLModel, table=True):
@@ -226,6 +234,10 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.CUMULUS_FINAL: CumulusFinalState,
     StateKind.CUMULUS_MODIFY: CumulusModificationState,
     StateKind.CUMULUS_OBJ_CONSTRAINT: CumulusObjectiveConstraintState,
+    StateKind.JINA_SETUP: JinaSetupState,
+    StateKind.JINA_ITERATE: JinaIterateState,
+    StateKind.JINA_EVALUATE: JinaEvaluateState,
+    StateKind.JINA_SELECT: JinaSelectState,
 }
 
 SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
@@ -252,6 +264,10 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
     CumulusSaveState: StateKind.CUMULUS_SAVE,
     CumulusModificationState: StateKind.CUMULUS_MODIFY,
     CumulusObjectiveConstraintState: StateKind.CUMULUS_OBJ_CONSTRAINT,
+    JinaSetupState: StateKind.JINA_SETUP,
+    JinaIterateState: StateKind.JINA_ITERATE,
+    JinaEvaluateState: StateKind.JINA_EVALUATE,
+    JinaSelectState: StateKind.JINA_SELECT,
 }
 
 

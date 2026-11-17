@@ -59,7 +59,7 @@ from desdeo.mcdm.cumulus import (
     solve_sub_problems,
 )
 from desdeo.mcdm.reference_point_method import rpm_intermediate_solutions
-from desdeo.problem import PolarsEvaluator, Problem, ScenarioModel
+from desdeo.problem import PolarsEvaluator, Problem
 from desdeo.problem.json_parser import FormatEnum, MathParser
 from desdeo.problem.schema import Constraint, ConstraintTypeEnum, TensorVariable
 from desdeo.tools import SolverResults, guess_best_solver, is_heuristic_solver
@@ -77,6 +77,7 @@ from .utils import (
     get_solver_results_at,
     iter_states_of_kinds,
     leaves_properties_unstated,
+    load_scenario_model,
 )
 
 logger = logging.getLogger(__name__)
@@ -202,17 +203,6 @@ def _build_combined_problem_and_initialize(
     return initialize(new_request, new_context)
 
 
-def _load_scenario_model(
-    scenario_model_id: int,
-    db_session: Session,
-) -> ScenarioModel | None:
-    """Load a :class:`ScenarioModel` from the DB given its id."""
-    sm_db = db_session.get(ScenarioModelDB, scenario_model_id)
-    if sm_db is None or sm_db.base_problem is None:
-        return None
-    return sm_db.to_scenario_model(base_problem=Problem.from_problemdb(sm_db.base_problem))
-
-
 def _get_objective_constraint_ids(
     problem_id: int,
     session_id: int | None,
@@ -255,7 +245,7 @@ def solve_solutions(
 
     session_id = interactive_session.id if interactive_session else None
     scenario_model_id = _get_scenario_model_id(problem_db.id, session_id, db_session)
-    scenario_model = _load_scenario_model(scenario_model_id, db_session) if scenario_model_id is not None else None
+    scenario_model = load_scenario_model(scenario_model_id, db_session) if scenario_model_id is not None else None
 
     results_by_scalarization = solve_sub_problems(
         problem=problem,

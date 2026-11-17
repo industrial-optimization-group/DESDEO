@@ -102,6 +102,12 @@
 			preferencesType: ['reference point']
 		},
 		{
+			name: 'JINA',
+			path: '/interactive_methods/JINA',
+			description: 'Find designs that perform well across the scenarios of a scenario model.',
+			preferencesType: ['reference point']
+		},
+		{
 			name: 'Group NIMBUS',
 			path: '/interactive_methods/GNIMBUS',
 			description: 'Group NIMBUS method for collaborative MOO.',
@@ -175,6 +181,8 @@
 		(problem?.problem_metadata?.representative_nd_metadata?.length ?? 0) > 0
 	);
 
+	const hasScenarioModels = $derived((problem?.scenario_model_ids?.length ?? 0) > 0);
+
 	// Button enable logic: for group methods, enable if groupId exists; for individual methods, enable if problem exists
 	const isMethodEnabled = (method: Method) => {
 		if (method.supportsGroups && data.groupId) {
@@ -183,6 +191,8 @@
 		} else if (!problem) {
 			return false;
 		} else if (method.name === 'E-NAUTILUS' && !hasRepresentativeSets) {
+			return false;
+		} else if (method.name === 'JINA' && !hasScenarioModels) {
 			return false;
 		} else {
 			return true;
@@ -193,6 +203,9 @@
 		if (!problem) return null;
 		if (method.name === 'E-NAUTILUS' && !hasRepresentativeSets) {
 			return 'Requires representative solution sets';
+		}
+		if (method.name === 'JINA' && !hasScenarioModels) {
+			return 'Requires a scenario model';
 		}
 		return null;
 	};

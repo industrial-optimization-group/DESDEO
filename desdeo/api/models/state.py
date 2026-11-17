@@ -422,6 +422,95 @@ class CumulusObjectiveConstraintState(ResultInterface, SQLModel, table=True):
         return 0
 
 
+class JinaSetupState(ResultInterface, SQLModel, table=True):
+    """JINA: the scenario model, design variables and aggregation of a JINA run, and its target ranges."""
+
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
+
+    scenario_model_id: int = Field(description="DB id of the ScenarioModelDB.")
+    design_variables: list[str] = Field(sa_column=Column(JSON), default_factory=list)
+    measure: str = Field(default="worst_case", description="'worst_case', 'expected_value' or 'cvar'.")
+    cvar_alpha: float = Field(default=0.9)
+    baseline_leaf: str | None = Field(default=None, description="Leaf the antifragility analysis compares against.")
+    design_rtol: float = Field(default=1e-4, description="Relative tolerance for identifying equal designs.")
+    next_design_id: int = Field(default=1, description="The id given to the next design added to the registry.")
+    targets: dict[str, list[dict]] | None = Field(
+        sa_column=Column(JSON), default=None, description="The targets of each view, as `Target` dumps."
+    )
+    ranges: dict[str, dict[str, list[float]]] | None = Field(
+        sa_column=Column(JSON), default=None, description="`[ideal, nadir]` by view and target symbol."
+    )
+    is_ready: bool = Field(default=False, description="True once the background range computation has finished.")
+    error: str | None = Field(default=None, description="Error message if the range computation failed.")
+
+    @property
+    def num_solutions(self) -> int:
+        """JINA states hold designs, not solutions."""
+        return 0
+
+
+class JinaIterateState(ResultInterface, SQLModel, table=True):
+    """JINA: designs solved, picked from the design pool or imported at a reference point."""
+
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
+
+    setup_state_id: int = Field(index=True, description="The StateDB id of the JINA setup state.")
+    mode: str = Field(description="'solve', 'pool' or 'import'.")
+    view: str | None = Field(default=None, description="'aggregated' or 'per_scenario'; None for imports.")
+    reference_point: dict[str, float] = Field(sa_column=Column(JSON), default_factory=dict)
+    results: list[dict] = Field(sa_column=Column(JSON), default_factory=list, description="`JinaIterateResult` dumps.")
+    new_design_ids: list[int] = Field(sa_column=Column(JSON), default_factory=list)
+    designs: list[dict] = Field(
+        sa_column=Column(JSON), default_factory=list, description="`JinaDesign` dumps of the new designs."
+    )
+    is_ready: bool = Field(default=False)
+    error: str | None = Field(default=None)
+
+    @property
+    def num_solutions(self) -> int:
+        """JINA states hold designs, not solutions."""
+        return 0
+
+
+class JinaEvaluateState(ResultInterface, SQLModel, table=True):
+    """JINA: designs evaluated in the leaf scenarios of a scenario model."""
+
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
+
+    setup_state_id: int = Field(index=True, description="The StateDB id of the JINA setup state.")
+    scenario_model_id: int = Field(description="DB id of the ScenarioModelDB the designs were evaluated in.")
+    design_ids: list[int] = Field(sa_column=Column(JSON), default_factory=list)
+    thresholds: dict[str, float] = Field(sa_column=Column(JSON), default_factory=dict)
+    outcomes: dict[str, dict[str, dict]] = Field(
+        sa_column=Column(JSON), default_factory=dict, description="`LeafOutcome` dumps by design id and leaf."
+    )
+    domain_criterion: dict[str, dict] | None = Field(
+        sa_column=Column(JSON), default=None, description="`DomainCriterion` dumps by design id."
+    )
+    is_ready: bool = Field(default=False)
+    error: str | None = Field(default=None)
+
+    @property
+    def num_solutions(self) -> int:
+        """JINA states hold designs, not solutions."""
+        return 0
+
+
+class JinaSelectState(ResultInterface, SQLModel, table=True):
+    """JINA: the wishlist and final design of the decision maker."""
+
+    id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
+
+    setup_state_id: int = Field(index=True, description="The StateDB id of the JINA setup state.")
+    wishlist: list[int] = Field(sa_column=Column(JSON), default_factory=list)
+    final_design_id: int | None = Field(default=None)
+
+    @property
+    def num_solutions(self) -> int:
+        """JINA states hold designs, not solutions."""
+        return 0
+
+
 class GNIMBUSOptimizationState(ResultInterface, SQLModel, table=True):
     """GNIMBUS: classification / solving."""
 
