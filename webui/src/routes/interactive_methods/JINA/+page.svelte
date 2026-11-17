@@ -116,6 +116,10 @@
 	let ready = $derived(!!setup && setup.is_ready && !setup.error && !!setup.result.ranges);
 	// The Robustness and Antifragility tabs edit no reference point; their view is only a placeholder.
 	let analysisTab = $derived(tab === 'robustness' || tab === 'antifragility');
+	// Antifragility needs a baseline leaf, so its tab is shown only for setups with one.
+	let tabs = $derived(
+		setup?.result.baseline_leaf ? TABS : TABS.filter((t) => t.value !== 'antifragility')
+	);
 	let view = $derived<View>(tab === 'pool' ? poolView : analysisTab ? 'aggregated' : (tab as View));
 	let targets = $derived<Target[]>(setup?.result.targets?.[view] ?? []);
 	let ranges = $derived<Record<string, Range>>(
@@ -209,6 +213,7 @@
 	function applySetup(state: SetupState, children: JinaStateResponse[] = []) {
 		setup = state;
 		states = children;
+		if (tab === 'antifragility' && !state.result.baseline_leaf) tab = 'robustness';
 		designs = [];
 		selectedDesignId = null;
 		referencePoints = { aggregated: {}, per_scenario: {} };
@@ -589,8 +594,8 @@
 {/if}
 
 <BaseLayout
-	showLeftSidebar={!!problem}
-	showRightSidebar={ready}
+	showLeftSidebar={ready && !analysisTab}
+	showRightSidebar={!!problem}
 	leftSidebarWidth="20rem"
 	rightSidebarWidth="24rem"
 	bottomPanelTitle={tab === 'pool' ? 'Pool picks' : 'Iteration results'}
@@ -599,32 +604,6 @@
 	{#snippet leftSidebar()}
 		<!-- At most the viewport's height: the editor scrolls and the solve button stays visible. -->
 		<div class="flex max-h-[calc(100vh-3rem)] flex-col gap-4 p-3">
-			{#if setup && setupModel}
-				<div class="space-y-1 text-xs text-gray-600">
-					<p class="truncate" title={modelLabel(setupModel, true)}>
-						Scenario model {modelLabel(setupModel)}
-					</p>
-					<p>
-						Aggregation: {MEASURE_LABELS[setup.result.measure]}{setup.result.measure === 'cvar'
-							? ` (α = ${setup.result.cvar_alpha})`
-							: ''}
-					</p>
-					<p>Design variables: {setup.result.design_variables.join(', ')}</p>
-					<p>Baseline leaf: {setup.result.baseline_leaf ?? 'none'}</p>
-				</div>
-			{/if}
-			<Button variant="outline" size="sm" class="self-start" onclick={() => (showSetup = true)}>
-				{setup ? 'New setup' : 'Set up'}
-			</Button>
-			{#if setupJobId !== null}
-				<JobStatus
-					stateId={setupJobId}
-					label="Computing target ranges"
-					onDone={setupDone}
-					onDismiss={() => (setupJobId = null)}
-				/>
-			{/if}
-
 			{#if ready && problem && !analysisTab}
 				{#if tab === 'pool'}
 					<div class="space-y-1">
@@ -661,7 +640,7 @@
 		{#if ready}
 			<!-- Wraps onto further lines rather than overflowing a narrow pane. -->
 			<div class="flex min-w-0 flex-wrap items-center justify-end gap-2">
-				<SegmentedControl bind:value={tab} options={TABS} />
+				<SegmentedControl bind:value={tab} options={tabs} />
 				{#if tabIterations.length > 0 && iteration}
 					<Select.Root type="single" bind:value={shownIteration[tab]}>
 						<Select.Trigger class="w-56 max-w-full min-w-0">
@@ -869,7 +848,34 @@
 	{/snippet}
 
 	{#snippet rightSidebar()}
-		{#if problem && setup}
+		<div class="flex flex-col gap-3 p-3 pb-0">
+			{#if setup && setupModel}
+				<div class="space-y-1 text-xs text-gray-600">
+					<p class="truncate" title={modelLabel(setupModel, true)}>
+						Scenario model {modelLabel(setupModel)}
+					</p>
+					<p>
+						Aggregation: {MEASURE_LABELS[setup.result.measure]}{setup.result.measure === 'cvar'
+							? ` (α = ${setup.result.cvar_alpha})`
+							: ''}
+					</p>
+					<p>Design variables: {setup.result.design_variables.join(', ')}</p>
+					<p>Baseline leaf: {setup.result.baseline_leaf ?? 'none'}</p>
+				</div>
+			{/if}
+			<Button variant="outline" size="sm" class="self-start" onclick={() => (showSetup = true)}>
+				{setup ? 'New setup' : 'Set up'}
+			</Button>
+			{#if setupJobId !== null}
+				<JobStatus
+					stateId={setupJobId}
+					label="Computing target ranges"
+					onDone={setupDone}
+					onDismiss={() => (setupJobId = null)}
+				/>
+			{/if}
+		</div>
+		{#if problem && setup && ready}
 			{#key setup.state_id}
 				<div class="min-w-0 space-y-3 p-3">
 					{#each pending as job (job.id)}
