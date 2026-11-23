@@ -68,3 +68,16 @@ lint:
 # run pre-commit hooks on all files.
 lint-all:
     pre-commit run --all-files
+
+# Generate the OpenAPI specification used by the documentation.
+docs-openapi:
+    python -m scripts.generate_openapi
+
+# Generate the database ER diagram used by the documentation.
+docs-erd:
+    python -m scripts.generate_erd
+
+# Generate both documentation artifacts.
+docs-gen:
+    just docs-openapi
+    just docs-erd
