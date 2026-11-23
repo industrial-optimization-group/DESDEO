@@ -29,8 +29,8 @@ spec:
     type: Git
     git:
       # Github repo and deploy branch
-      uri: https://github.com/gialmisi/DESDEO.git
-      ref: rahti-deploy
+      uri: https://github.com/industrial-optimization-group/DESDEO.git
+      ref: master
 
   strategy:
     type: Source
