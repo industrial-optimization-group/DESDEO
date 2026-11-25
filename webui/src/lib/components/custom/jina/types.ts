@@ -10,6 +10,7 @@ import type {
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 export type View = 'aggregated' | 'per_scenario';
+export type SolveView = View | 'scenario_optimal';
 export type Measure = JinaSetupResult['measure'];
 
 export type SetupState = JinaStateResponse & { result: JinaSetupResult };

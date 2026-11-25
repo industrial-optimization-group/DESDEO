@@ -46,6 +46,11 @@ export function baselineFirst(leaves: string[], baseline: string | null): string
 	return [baseline, ...leaves.filter((l) => l !== baseline)];
 }
 
+/** A short label for the message of an unsuccessful scenario outcome. */
+export function failureLabel(message: string): string {
+	return /infeasible/i.test(message) ? 'Infeasible' : 'Not solved';
+}
+
 export function formatNumber(value: number | null | undefined, digits = 4): string {
 	if (value === null || value === undefined || !Number.isFinite(value)) return '—';
 	return Number(value.toPrecision(digits)).toString();

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { baselineFirst, compactNumber } from './labels';
+import { baselineFirst, compactNumber, failureLabel } from './labels';
 
 describe('compactNumber', () => {
 	it('abbreviates large values with SI suffixes', () => {
@@ -26,5 +26,17 @@ describe('baselineFirst', () => {
 	it('keeps the order without a baseline among the leaves', () => {
 		expect(baselineFirst(['a', 'b'], null)).toEqual(['a', 'b']);
 		expect(baselineFirst(['a', 'b'], 'x')).toEqual(['a', 'b']);
+	});
+});
+
+describe('failureLabel', () => {
+	it('labels infeasible messages regardless of case', () => {
+		expect(failureLabel('Model is either infeasible or unbounded.')).toBe('Infeasible');
+		expect(failureLabel('Infeasible problem')).toBe('Infeasible');
+	});
+
+	it('labels other messages as not solved', () => {
+		expect(failureLabel('Time limit reached.')).toBe('Not solved');
+		expect(failureLabel('')).toBe('Not solved');
 	});
 });

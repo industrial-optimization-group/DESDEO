@@ -1858,7 +1858,8 @@ export type JinaDesignView = (typeof JinaDesignView)[keyof typeof JinaDesignView
 
 export const JinaDesignView = {
 	aggregated: 'aggregated',
-	per_scenario: 'per_scenario'
+	per_scenario: 'per_scenario',
+	scenario_optimal: 'scenario_optimal'
 } as const;
 
 export type JinaDesignSource = (typeof JinaDesignSource)[keyof typeof JinaDesignSource];
@@ -1887,6 +1888,8 @@ export interface JinaDesign {
 	import_reference_point?: JinaDesignImportReferencePoint;
 	/** View the design was solved in; None for imports. */
 	view?: JinaDesignView;
+	/** Scenario the design was optimised for; scenario_optimal view only. */
+	leaf?: string | null;
 	source: JinaDesignSource;
 	/** Objective values by leaf and objective symbol. */
 	leaf_objectives?: JinaDesignLeafObjectives;
@@ -1916,7 +1919,8 @@ export type JinaDesignInfoView =
 
 export const JinaDesignInfoView = {
 	aggregated: 'aggregated',
-	per_scenario: 'per_scenario'
+	per_scenario: 'per_scenario',
+	scenario_optimal: 'scenario_optimal'
 } as const;
 
 export type JinaDesignInfoSource = (typeof JinaDesignInfoSource)[keyof typeof JinaDesignInfoSource];
@@ -1952,6 +1956,8 @@ export interface JinaDesignInfo {
 	import_reference_point?: JinaDesignInfoImportReferencePoint;
 	/** View the design was solved in; None for imports. */
 	view?: JinaDesignInfoView;
+	/** Scenario the design was optimised for; scenario_optimal view only. */
+	leaf?: string | null;
 	source: JinaDesignInfoSource;
 	/** Objective values by leaf and objective symbol. */
 	leaf_objectives?: JinaDesignInfoLeafObjectives;
@@ -2102,6 +2108,18 @@ export type JinaSetupResultRanges = Partial<
 > | null;
 
 /**
+ * The objectives of each leaf alone, as targets by leaf.
+ */
+export type JinaSetupResultScenarioTargets = { [key: string]: Target[] } | null;
+
+/**
+ * (ideal, nadir) by leaf and objective symbol, with each leaf solved alone.
+ */
+export type JinaSetupResultScenarioRanges = {
+	[key: string]: { [key: string]: [number, number] };
+} | null;
+
+/**
  * Contents of a JINA setup state.
  */
 export interface JinaSetupResult {
@@ -2114,6 +2132,10 @@ export interface JinaSetupResult {
 	design_rtol: number;
 	targets: Partial<Record<'aggregated' | 'per_scenario', Target[]>> | null;
 	ranges: JinaSetupResultRanges;
+	/** The objectives of each leaf alone, as targets by leaf. */
+	scenario_targets: JinaSetupResultScenarioTargets;
+	/** (ideal, nadir) by leaf and objective symbol, with each leaf solved alone. */
+	scenario_ranges: JinaSetupResultScenarioRanges;
 }
 
 export type JinaIterateStateResultMode =
@@ -2121,7 +2143,6 @@ export type JinaIterateStateResultMode =
 
 export const JinaIterateStateResultMode = {
 	solve: 'solve',
-	pool: 'pool',
 	import: 'import'
 } as const;
 
@@ -2131,7 +2152,8 @@ export type JinaIterateStateResultView =
 
 export const JinaIterateStateResultView = {
 	aggregated: 'aggregated',
-	per_scenario: 'per_scenario'
+	per_scenario: 'per_scenario',
+	scenario_optimal: 'scenario_optimal'
 } as const;
 
 export type JinaIterateResultEffectiveReferencePoint = { [key: string]: number };
@@ -2139,10 +2161,15 @@ export type JinaIterateResultEffectiveReferencePoint = { [key: string]: number }
 export type JinaIterateResultTargetValues = { [key: string]: number };
 
 /**
- * Result of one variant, pool scorer or imported row of an iterate state.
+ * The design's outcome in every leaf; scenario_optimal view only.
+ */
+export type JinaIterateResultOutcomes = { [key: string]: LeafOutcome };
+
+/**
+ * Result of one variant or imported row of an iterate state.
  */
 export interface JinaIterateResult {
-	/** Variant name, pool scorer name or 'row_<i>'. */
+	/** Variant name or 'row_<i>'. */
 	name: string;
 	success: boolean;
 	message: string;
@@ -2150,6 +2177,8 @@ export interface JinaIterateResult {
 	target_values?: JinaIterateResultTargetValues;
 	alpha?: number | null;
 	binding?: string[];
+	/** The design's outcome in every leaf; scenario_optimal view only. */
+	outcomes?: JinaIterateResultOutcomes;
 	/** Registry id of the resulting design. */
 	design_id?: number | null;
 }
@@ -2164,6 +2193,7 @@ export interface JinaIterateStateResult {
 	setup_state_id: number;
 	mode: JinaIterateStateResultMode;
 	view: JinaIterateStateResultView;
+	leaf: string | null;
 	reference_point: JinaIterateStateResultReferencePoint;
 	results: JinaIterateResult[];
 	new_design_ids: number[];
@@ -2218,23 +2248,13 @@ export interface JinaImportRequest {
 	reference_point: JinaImportRequestReferencePoint;
 }
 
-/**
- * Solve new designs, or pick designs found earlier from the design pool.
- */
-export type JinaIterateRequestMode =
-	(typeof JinaIterateRequestMode)[keyof typeof JinaIterateRequestMode];
-
-export const JinaIterateRequestMode = {
-	solve: 'solve',
-	pool: 'pool'
-} as const;
-
 export type JinaIterateRequestView =
 	(typeof JinaIterateRequestView)[keyof typeof JinaIterateRequestView];
 
 export const JinaIterateRequestView = {
 	aggregated: 'aggregated',
-	per_scenario: 'per_scenario'
+	per_scenario: 'per_scenario',
+	scenario_optimal: 'scenario_optimal'
 } as const;
 
 /**
@@ -2250,9 +2270,9 @@ export interface JinaIterateRequest {
 	session_id?: number | null;
 	parent_state_id?: number | null;
 	setup_state_id: number;
-	/** Solve new designs, or pick designs found earlier from the design pool. */
-	mode?: JinaIterateRequestMode;
 	view?: JinaIterateRequestView;
+	/** Scenario the designs are optimised for; required by and only allowed in the scenario_optimal view. */
+	leaf?: string | null;
 	/** Aspiration levels by target symbol, original direction. */
 	reference_point: JinaIterateRequestReferencePoint;
 }
@@ -7026,7 +7046,10 @@ export const getIterateMethodJinaIteratePostUrl = (params?: IterateMethodJinaIte
 };
 
 /**
- * Solve new designs at a reference point in the background, or pick designs found earlier from the pool.
+ * Solve new designs at a reference point in the background.
+ *
+ * In the scenario_optimal view, the designs are optimised for the leaf of the request alone, at the
+ * reference point limited to the ranges of the leaf, and then evaluated in every other leaf.
  * @summary Iterate
  */
 export const iterateMethodJinaIteratePost = async (
