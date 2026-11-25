@@ -48,7 +48,11 @@
 		scenarioReferencePoint
 	} from '$lib/components/custom/jina/scenario-chart';
 	import {
+		allFailedText,
 		extendToValues,
+		failedOutcomes,
+		failureLines,
+		infeasibleByRow,
 		outcomeLines,
 		outcomeRows,
 		rowKey,
@@ -499,6 +503,9 @@
 		outcomeRows(plottedIterations).filter((r) => !hiddenDesigns.includes(r.result.design_id!))
 	);
 
+	let plottedInfeasible = $derived(infeasibleByRow(plottedRows, leafOrder));
+	let plottedFailures = $derived(failureLines(plottedRows, plottedInfeasible));
+
 	// The selected scenario-optimal row: the one clicked last if it has the selected design, else a
 	// row with that design, first from the shown iteration, then from the plotted ones.
 	let selectedRow = $derived.by(() => {
@@ -512,6 +519,14 @@
 		selectedRow && rowKey(selectedRow.stateId, selectedRow.result.name)
 	);
 	let selectedOutcomes = $derived(selectedRow && solvedOutcomes(selectedRow.result, leafOrder));
+	// The messages of the scenarios where the selected row failed.
+	let selectedFailed = $derived(
+		Object.fromEntries(
+			selectedRow
+				? failedOutcomes(selectedRow.result, leafOrder).map((f) => [f.leaf, f.message])
+				: []
+		)
+	);
 
 	// The selected solution's values of the edited targets.
 	let solution = $derived.by(() => {
@@ -755,7 +770,11 @@
 		{#if ready}
 			<!-- Wraps onto further lines rather than overflowing a narrow pane. -->
 			<div class="flex min-w-0 flex-wrap items-center justify-end gap-2">
-				<SegmentedControl bind:value={tab} options={tabs} />
+				<SegmentedControl
+					bind:value={tab}
+					options={tabs}
+					class="max-[1440px]:[&_label]:px-1.5 max-[1440px]:[&_label]:text-xs [&>[role=radiogroup]]:flex-wrap"
+				/>
 				{#if tabIterations.length > 0 && iteration}
 					<Select.Root type="single" bind:value={() => shownIteration[tab], showIteration}>
 						<Select.Trigger class="w-56 max-w-full min-w-0">
@@ -860,95 +879,112 @@
 				Give a reference point and solve.
 			</div>
 		{:else}
-			<Resizable.PaneGroup direction="horizontal" class="h-full">
-				<Resizable.Pane defaultSize={50} minSize={30} class="h-full p-2">
-					{#if !iteration.is_ready}
-						<div class="flex h-full items-center justify-center text-gray-500">Solving…</div>
-					{:else if !chart || chart.designIds.length === 0}
-						<div class="flex h-full items-center justify-center text-gray-500">
-							{iteration.error ??
-								(allHidden
-									? 'All designs are hidden. Use Show all or the eye icons to plot them.'
-									: iteration.result.results.some((r) => r.success && r.design_id != null)
-										? 'No visible designs to plot.'
-										: emptyMessage)}
-						</div>
-					{:else}
+			<!-- Size containment: the content doesn't set the height; positioning would offset the tooltips. -->
+			<div class="h-full [contain:size]">
+				<Resizable.PaneGroup direction="horizontal" class="h-full">
+					<Resizable.Pane defaultSize={50} minSize={30} class="h-full p-2">
 						<div class="flex h-full flex-col">
-							<div class="min-h-0 flex-1">
-								<VisualizationsPanel
-									problem={chart.problem}
-									solutionsObjectiveValues={chart.values}
-									currentPreferenceValues={chart.reference ?? []}
-									previousPreferenceValues={chart.previous}
-									currentPreferenceType={PREFERENCE_TYPES.ReferencePoint}
-									previousPreferenceType={PREFERENCE_TYPES.ReferencePoint}
-									externalSelectedIndexes={chartSelected}
-									onSelectSolution={(index: number) => {
-										selectedDesignId = chart?.designIds[index] ?? null;
-										clickedRowKey = chart?.rowKeys?.[index] ?? null;
-									}}
-									lineLabels={Object.fromEntries(
-										chart.labels.map((label, i) => [String(i), label])
-									)}
-									colorByIndex={chart.colors}
-									showHeader={false}
-									verticalAxisLabels
-									compactTickLabels
-									fitMargins
-									improvementArrows
-									minAxisSpacing={80}
-									referenceDataLabels={{
-										currentRefLabel: chart.referenceLabel,
-										previousRefLabel: chart.previousLabel
-									}}
-								/>
-							</div>
-							{#if chart.note}
-								<p class="shrink-0 text-xs text-gray-500">{chart.note}</p>
+							{#if !iteration.is_ready}
+								<div class="flex min-h-0 flex-1 items-center justify-center text-gray-500">
+									Solving…
+								</div>
+							{:else if !chart || chart.designIds.length === 0}
+								<div class="flex min-h-0 flex-1 items-center justify-center text-gray-500">
+									{iteration.error ??
+										(allHidden
+											? 'All designs are hidden. Use Show all or the eye icons to plot them.'
+											: (allFailedText(plottedRows, chartSelection.leaves, plottedInfeasible) ??
+												(iteration.result.results.some((r) => r.success && r.design_id != null)
+													? 'No visible designs to plot.'
+													: emptyMessage)))}
+								</div>
+							{:else}
+								<div class="min-h-0 flex-1">
+									<VisualizationsPanel
+										problem={chart.problem}
+										solutionsObjectiveValues={chart.values}
+										currentPreferenceValues={chart.reference ?? []}
+										previousPreferenceValues={chart.previous}
+										currentPreferenceType={PREFERENCE_TYPES.ReferencePoint}
+										previousPreferenceType={PREFERENCE_TYPES.ReferencePoint}
+										externalSelectedIndexes={chartSelected}
+										onSelectSolution={(index: number) => {
+											selectedDesignId = chart?.designIds[index] ?? null;
+											clickedRowKey = chart?.rowKeys?.[index] ?? null;
+										}}
+										lineLabels={Object.fromEntries(
+											chart.labels.map((label, i) => [String(i), label])
+										)}
+										colorByIndex={chart.colors}
+										showHeader={false}
+										verticalAxisLabels
+										compactTickLabels
+										fitMargins
+										improvementArrows
+										minAxisSpacing={80}
+										referenceDataLabels={{
+											currentRefLabel: chart.referenceLabel,
+											previousRefLabel: chart.previousLabel
+										}}
+									/>
+								</div>
+								{#if chart.note}
+									<p class="shrink-0 text-xs text-gray-500">{chart.note}</p>
+								{/if}
+							{/if}
+							{#if iteration.is_ready && plottedFailures.length > 0}
+								<ul class="max-h-16 shrink-0 overflow-y-auto text-xs text-red-700">
+									{#each plottedFailures as { key, text } (key)}
+										<li class="truncate" title={text}>{text}</li>
+									{/each}
+								</ul>
 							{/if}
 						</div>
-					{/if}
-				</Resizable.Pane>
-				<ResizableHandle withHandle />
-				<Resizable.Pane defaultSize={50} minSize={30} class="h-full">
-					<div class="h-full min-w-0 space-y-3 overflow-auto p-2">
-						<ScenarioPicker
-							leaves={leafOrder}
-							baselineLeaf={setup?.result.baseline_leaf ?? null}
-							bind:checked={
-								() => chartSelection.leaves, (leaves: string[]) => selectChart({ leaves })
-							}
-							aggregate={aggregateEntry}
-							bind:aggregateChecked={
-								() => chartSelection.aggregate, (aggregate: boolean) => selectChart({ aggregate })
-							}
-						/>
-						{#if view === 'scenario_optimal' ? selectedRow : selectedDesign}
-							<div class="border-t pt-2">
-								<h3 class="mb-1 text-sm font-semibold">
-									Design #{selectedDesignId}
-									{selectedRow
-										? `(${selectedRow.result.name}) by scenario, optimised for ${selectedRow.leaf}`
-										: 'by scenario'}
-								</h3>
-								<ScenarioBreakdown
-									{problem}
-									leafObjectives={selectedOutcomes ?? selectedDesign?.leaf_objectives ?? {}}
-									baselineLeaf={setup?.result.baseline_leaf ?? null}
-									{leafColors}
-									checkedLeaves={objectiveMode ? chartSelection.leaves : []}
-								/>
-							</div>
-						{:else}
-							<p class="text-sm text-gray-500">
-								Select a {view === 'scenario_optimal' ? 'row or line' : 'design'} to see its values by
-								scenario.
-							</p>
-						{/if}
-					</div>
-				</Resizable.Pane>
-			</Resizable.PaneGroup>
+					</Resizable.Pane>
+					<ResizableHandle withHandle />
+					<Resizable.Pane defaultSize={50} minSize={30} class="h-full">
+						<div class="h-full min-w-0 space-y-3 overflow-auto p-2">
+							<ScenarioPicker
+								leaves={leafOrder}
+								baselineLeaf={setup?.result.baseline_leaf ?? null}
+								bind:checked={
+									() => chartSelection.leaves, (leaves: string[]) => selectChart({ leaves })
+								}
+								aggregate={aggregateEntry}
+								bind:aggregateChecked={
+									() => chartSelection.aggregate, (aggregate: boolean) => selectChart({ aggregate })
+								}
+								failed={selectedFailed}
+							/>
+							{#if view === 'scenario_optimal' ? selectedRow : selectedDesign}
+								<div class="border-t pt-2">
+									<h3 class="mb-1 text-sm font-semibold">
+										Design #{selectedDesignId}
+										{selectedRow
+											? `(${selectedRow.result.name}) by scenario, optimised for ${selectedRow.leaf}`
+											: 'by scenario'}
+									</h3>
+									<ScenarioBreakdown
+										{problem}
+										leafObjectives={selectedOutcomes ?? selectedDesign?.leaf_objectives ?? {}}
+										failed={selectedFailed}
+										failureLabels
+										leafOrder={view === 'scenario_optimal' ? leafOrder : undefined}
+										baselineLeaf={setup?.result.baseline_leaf ?? null}
+										{leafColors}
+										checkedLeaves={objectiveMode ? chartSelection.leaves : []}
+									/>
+								</div>
+							{:else}
+								<p class="text-sm text-gray-500">
+									Select a {view === 'scenario_optimal' ? 'row or line' : 'design'} to see its values
+									by scenario.
+								</p>
+							{/if}
+						</div>
+					</Resizable.Pane>
+				</Resizable.PaneGroup>
+			</div>
 		{/if}
 	{/snippet}
 
@@ -962,6 +998,7 @@
 				results={iteration.result.results}
 				{designs}
 				designVariables={setup.result.design_variables}
+				leafOrder={view === 'scenario_optimal' ? leafOrder : undefined}
 				bind:selectedId={selectedDesignId}
 				bind:selectedName={
 					() =>

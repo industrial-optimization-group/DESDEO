@@ -1,16 +1,26 @@
 <script lang="ts">
 	/**
 	 * Objective values of one design in each leaf scenario, compact with the full value on hover.
-	 * Leaves listed in `failed` show their message instead of values; rows of `checkedLeaves` are bold.
+	 * Leaves listed in `failed` show their message instead of values, or with `failureLabels` a short
+	 * label with the message on hover; rows of `checkedLeaves` are bold. The rows follow `leafOrder` if
+	 * given.
 	 */
 	import * as Table from '$lib/components/ui/table/index.js';
 	import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
-	import { baselineFirst, compactNumber, formatNumber, objectiveLabel } from './labels';
+	import {
+		baselineFirst,
+		compactNumber,
+		failureLabel,
+		formatNumber,
+		objectiveLabel
+	} from './labels';
 
 	let {
 		problem,
 		leafObjectives,
 		failed = {},
+		failureLabels = false,
+		leafOrder,
 		baselineLeaf = null,
 		leafColors = {},
 		checkedLeaves = []
@@ -18,17 +28,17 @@
 		problem: ProblemInfo;
 		leafObjectives: Record<string, Record<string, number>>;
 		failed?: Record<string, string>;
+		failureLabels?: boolean;
+		leafOrder?: string[];
 		baselineLeaf?: string | null;
 		leafColors?: Record<string, string>;
 		checkedLeaves?: string[];
 	} = $props();
 
-	let leaves = $derived(
-		baselineFirst(
-			[...new Set([...Object.keys(leafObjectives), ...Object.keys(failed)])],
-			baselineLeaf
-		)
-	);
+	let leaves = $derived.by(() => {
+		const shown = [...new Set([...Object.keys(leafObjectives), ...Object.keys(failed)])];
+		return leafOrder?.filter((l) => shown.includes(l)) ?? baselineFirst(shown, baselineLeaf);
+	});
 	let objectives = $derived([
 		...new Set(Object.values(leafObjectives).flatMap((values) => Object.keys(values)))
 	]);
@@ -68,7 +78,7 @@
 							class="truncate px-1 text-red-700"
 							title={failed[leaf]}
 						>
-							{failed[leaf]}
+							{failureLabels ? failureLabel(failed[leaf]) : failed[leaf]}
 						</Table.Cell>
 					{:else}
 						{#each objectives as symbol (symbol)}

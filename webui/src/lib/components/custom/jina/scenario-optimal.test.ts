@@ -3,12 +3,17 @@ import type { LeafOutcome, ProblemInfo, Target } from '$lib/gen/endpoints/DESDEO
 import { percentToRaw } from './reference-point';
 import { scenarioLineColor } from './scenario-chart';
 import {
+	allFailedText,
 	extendToValues,
+	failedOutcomes,
+	failureLines,
+	failureText,
 	infeasibleByRow,
 	limitToRange,
 	outcomeLines,
 	outcomeRows,
 	rowKey,
+	solvedCount,
 	solvedOutcomes,
 	targetLines,
 	type OutcomeRow
@@ -58,6 +63,46 @@ describe('solvedOutcomes', () => {
 			['a', { f_1: 3, f_2: 4 }],
 			['b', { f_1: 1, f_2: 2 }]
 		]);
+	});
+});
+
+describe('failedOutcomes and solvedCount', () => {
+	it('go by the status in leaf order', () => {
+		const { result } = row(5, 'balanced', 1, {
+			c: failed('Time limit reached.'),
+			b: { ...solved(1, 2), message: 'Infeasible' },
+			a: { ...solved(3, 4), status: false }
+		});
+		expect(failedOutcomes(result, leafOrder)).toEqual([
+			{ leaf: 'a', message: 'Optimal' },
+			{ leaf: 'c', message: 'Time limit reached.' }
+		]);
+		expect(solvedCount(result)).toEqual({ solved: 1, total: 3 });
+	});
+
+	it('count solved scenarios with missing objectives', () => {
+		const { result } = row(5, 'balanced', 1, { a: { status: true, message: '' } });
+		expect(failedOutcomes(result, leafOrder)).toEqual([]);
+		expect(solvedCount(result)).toEqual({ solved: 1, total: 1 });
+	});
+
+	it('are empty without outcomes', () => {
+		const result = { name: 'balanced', success: false, message: 'x' };
+		expect(failedOutcomes(result, leafOrder)).toEqual([]);
+		expect(solvedCount(result)).toEqual({ solved: 0, total: 0 });
+	});
+});
+
+describe('failureText', () => {
+	it('lists the scenarios of each kind of failure separately', () => {
+		const failures = [
+			{ leaf: 'a', message: 'Model is either infeasible or unbounded.' },
+			{ leaf: 'b', message: 'Time limit reached.' },
+			{ leaf: 'c', message: 'Infeasible' }
+		];
+		expect(failureText(failures)).toBe('infeasible in a, c; not solved in b');
+		expect(failureText(failures.slice(0, 1))).toBe('infeasible in a');
+		expect(failureText([])).toBe('');
 	});
 });
 
@@ -184,6 +229,69 @@ describe('infeasibleByRow', () => {
 			['5:emphasis_f_1', 'a'],
 			['5:emphasis_f_1', 'b']
 		]);
+	});
+});
+
+describe('failureLines', () => {
+	const rows = [
+		row(5, 'balanced', 1, { a: failed('infeasible'), b: solved(1, 2), c: failed('infeasible') }),
+		row(5, 'emphasis_f_1', 1, { a: solved(1, 2), b: solved(1, 2), c: failed('x') }),
+		row(5, 'emphasis_f_2', 2, { a: solved(1, 2), b: solved(1, 2), c: solved(1, 2) })
+	];
+	const texts = (rows: OutcomeRow[]) => failureLines(rows, infeasibleByRow(rows, leafOrder));
+
+	it('gives one line per row with failures', () => {
+		expect(texts(rows)).toEqual([
+			{ key: '5:balanced', text: '#1 balanced: infeasible in a, c' },
+			{ key: '5:emphasis_f_1', text: '#1 emphasis_f_1: not solved in c' }
+		]);
+	});
+
+	it('names the optimised scenario of rows for several scenarios', () => {
+		const other = row(6, 'balanced', 1, { a: solved(1, 2), b: failed('infeasible') }, 'a');
+		expect(texts([rows[0], other])).toEqual([
+			{ key: '5:balanced', text: '#1 balanced (for b): infeasible in a, c' },
+			{ key: '6:balanced', text: '#1 balanced (for a): infeasible in b' }
+		]);
+	});
+});
+
+describe('allFailedText', () => {
+	const rows = [
+		row(5, 'balanced', 1, { a: failed('infeasible'), b: solved(1, 2), c: failed('infeasible') }),
+		row(5, 'emphasis_f_1', 1, { a: failed('infeasible'), b: solved(1, 2), c: solved(3, 4) })
+	];
+	const infeasible = infeasibleByRow(rows, leafOrder);
+	const infeasibleText = 'The plotted designs are infeasible in the checked scenarios.';
+	const notSolvedText = 'The plotted designs were not solved in the checked scenarios.';
+
+	it('gives a message when every row failed in every scenario', () => {
+		expect(allFailedText(rows, ['a'], infeasible)).toBe(infeasibleText);
+		expect(allFailedText(rows.slice(0, 1), ['a', 'c'], infeasible)).toBe(infeasibleText);
+		expect(allFailedText(rows, ['a', 'c'], infeasible)).toBeNull();
+		expect(allFailedText(rows, ['b'], infeasible)).toBeNull();
+	});
+
+	it('names infeasibility only when it is every failure in the scenarios', () => {
+		const mixed = [
+			row(5, 'balanced', 1, { a: failed('infeasible'), c: failed('time limit') }),
+			row(5, 'emphasis_f_1', 2, { a: failed('infeasible'), c: failed('infeasible') })
+		];
+		const failures = infeasibleByRow(mixed, leafOrder);
+		expect(allFailedText(mixed, ['a'], failures)).toBe(infeasibleText);
+		expect(allFailedText(mixed, ['a', 'c'], failures)).toBe(notSolvedText);
+		expect(allFailedText(mixed.slice(0, 1), ['c'], failures)).toBe(notSolvedText);
+		expect(allFailedText(mixed.slice(1), ['a', 'c'], failures)).toBe(infeasibleText);
+	});
+
+	it('is null without rows or scenarios', () => {
+		expect(allFailedText([], ['a'], infeasible)).toBeNull();
+		expect(allFailedText(rows, [], infeasible)).toBeNull();
+	});
+
+	it('is null for solved scenarios with missing objectives', () => {
+		const partial = [row(5, 'balanced', 1, { a: { status: true, message: '', objectives: {} } })];
+		expect(allFailedText(partial, ['a'], infeasibleByRow(partial, leafOrder))).toBeNull();
 	});
 });
 

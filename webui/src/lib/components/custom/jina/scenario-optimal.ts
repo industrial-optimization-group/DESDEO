@@ -1,6 +1,7 @@
 /* Chart lines, infeasible scenarios and range limits of designs optimised for one scenario. */
 
 import type { JinaIterateResult, ProblemInfo, Target } from '$lib/gen/endpoints/DESDEOFastAPI';
+import { failureLabel } from './labels';
 import type { Range } from './reference-point';
 import { scenarioLines, type ChartLines } from './scenario-chart';
 import type { IterateState } from './types';
@@ -11,6 +12,12 @@ export interface OutcomeRow {
 	stateId: number;
 	leaf: string;
 	result: JinaIterateResult;
+}
+
+/** A scenario a result was not solved in, with the outcome's message. */
+export interface Failure {
+	leaf: string;
+	message: string;
 }
 
 /** Lines of scenario-optimal rows; `rowKeys` holds each line's row key. */
@@ -45,6 +52,30 @@ export function solvedOutcomes(
 			return outcome?.status ? [[leaf, outcome.objectives ?? {}]] : [];
 		})
 	);
+}
+
+/** The scenarios the result was not solved in, in leaf order. */
+export function failedOutcomes(result: JinaIterateResult, leafOrder: string[]): Failure[] {
+	return Object.entries(result.outcomes ?? {})
+		.flatMap(([leaf, outcome]) => (outcome.status ? [] : [{ leaf, message: outcome.message }]))
+		.sort((a, b) => leafOrder.indexOf(a.leaf) - leafOrder.indexOf(b.leaf));
+}
+
+/** The number of scenarios the result was solved in, and of all its scenarios. */
+export function solvedCount(result: JinaIterateResult): { solved: number; total: number } {
+	const outcomes = Object.values(result.outcomes ?? {});
+	return { solved: outcomes.filter((o) => o.status).length, total: outcomes.length };
+}
+
+/** The scenarios of the failures by label, e.g. "infeasible in a, c; not solved in b". */
+export function failureText(failures: Failure[]): string {
+	const groups: Record<string, string[]> = {};
+	for (const { leaf, message } of failures) {
+		(groups[failureLabel(message).toLowerCase()] ??= []).push(leaf);
+	}
+	return Object.entries(groups)
+		.map(([label, leaves]) => `${label} in ${leaves.join(', ')}`)
+		.join('; ');
 }
 
 /** One line per row with a value for every target, in target order. */
@@ -103,15 +134,43 @@ export function outcomeLines(
 export function infeasibleByRow(
 	rows: OutcomeRow[],
 	leafOrder: string[]
-): Record<string, { leaf: string; message: string }[]> {
+): Record<string, Failure[]> {
 	return Object.fromEntries(
 		rows.map(({ stateId, result }) => [
 			rowKey(stateId, result.name),
-			Object.entries(result.outcomes ?? {})
-				.flatMap(([leaf, outcome]) => (outcome.status ? [] : [{ leaf, message: outcome.message }]))
-				.sort((a, b) => leafOrder.indexOf(a.leaf) - leafOrder.indexOf(b.leaf))
+			failedOutcomes(result, leafOrder)
 		])
 	);
+}
+
+/** One entry per row with failures; names the rows' scenarios when they are for several. */
+export function failureLines(
+	rows: OutcomeRow[],
+	infeasible: Record<string, Failure[]>
+): { key: string; text: string }[] {
+	const showLeaf = new Set(rows.map((row) => row.leaf)).size > 1;
+	return rows.flatMap(({ stateId, leaf, result }) => {
+		const key = rowKey(stateId, result.name);
+		const label = `#${result.design_id} ${result.name}${showLeaf ? ` (for ${leaf})` : ''}`;
+		return infeasible[key]?.length
+			? [{ key, text: `${label}: ${failureText(infeasible[key])}` }]
+			: [];
+	});
+}
+
+/** A message if every row failed in every leaf, or null, also without rows or leaves. */
+export function allFailedText(
+	rows: OutcomeRow[],
+	leaves: string[],
+	infeasible: Record<string, Failure[]>
+): string | null {
+	const failures = rows.flatMap(({ stateId, result }) =>
+		(infeasible[rowKey(stateId, result.name)] ?? []).filter((f) => leaves.includes(f.leaf))
+	);
+	if (failures.length === 0 || failures.length < rows.length * leaves.length) return null;
+	return failures.every((f) => failureLabel(f.message) === 'Infeasible')
+		? 'The plotted designs are infeasible in the checked scenarios.'
+		: 'The plotted designs were not solved in the checked scenarios.';
 }
 
 /**

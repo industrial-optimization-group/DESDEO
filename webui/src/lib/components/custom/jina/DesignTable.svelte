@@ -3,7 +3,8 @@
 	 * Table of the results of a JINA iteration: one row per variant with its design id, target
 	 * values (binding targets marked) and design variable values. Clicking a row selects its design,
 	 * and with `selectedName` given also the row itself, which alone is then highlighted. The eye
-	 * toggles whether the design is plotted, and hidden designs are greyed.
+	 * toggles whether the design is plotted, and hidden designs are greyed. With `leafOrder` given, a
+	 * column shows in how many scenarios each variant was solved, with the failed ones on hover.
 	 */
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Button } from '$lib/components/ui/button';
@@ -16,6 +17,7 @@
 		Target
 	} from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { formatNumber, formatValue, targetLabel } from './labels';
+	import { failedOutcomes, failureText, solvedCount } from './scenario-optimal';
 
 	let {
 		problem,
@@ -23,6 +25,7 @@
 		results,
 		designs,
 		designVariables,
+		leafOrder,
 		selectedId = $bindable(null),
 		selectedName = $bindable(),
 		hidden = $bindable([])
@@ -32,6 +35,7 @@
 		results: JinaIterateResult[];
 		designs: JinaDesignInfo[];
 		designVariables: string[];
+		leafOrder?: string[];
 		selectedId?: number | null;
 		selectedName?: string | null;
 		hidden?: number[];
@@ -83,6 +87,7 @@
 				<Table.Head class="w-8"><span class="sr-only">Plotted</span></Table.Head>
 				<Table.Head>Design</Table.Head>
 				<Table.Head>Variant</Table.Head>
+				{#if leafOrder}<Table.Head>Solved scenarios</Table.Head>{/if}
 				{#each targets as target (target.symbol)}
 					<Table.Head class="text-right">{targetLabel(problem, target)}</Table.Head>
 				{/each}
@@ -129,6 +134,15 @@
 							<span class="block text-xs text-red-700">{result.message}</span>
 						{/if}
 					</Table.Cell>
+					{#if leafOrder}
+						{@const { solved, total } = solvedCount(result)}
+						<Table.Cell
+							class={solved < total ? 'text-red-700' : ''}
+							title={solved < total ? failureText(failedOutcomes(result, leafOrder)) : undefined}
+						>
+							{total > 0 ? `${solved}/${total}` : '—'}
+						</Table.Cell>
+					{/if}
 					{#each targets as target (target.symbol)}
 						{@const binding = (result.binding ?? []).includes(target.symbol)}
 						<Table.Cell

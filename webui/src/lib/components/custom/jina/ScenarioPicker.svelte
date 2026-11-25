@@ -2,10 +2,12 @@
 	/**
 	 * Checkboxes for the leaf scenarios whose outcomes the chart shows, each with its colour; the
 	 * baseline leaf is marked ★. With `aggregate` given, an entry for the aggregate comes first; it
-	 * is disabled with a note when not available.
+	 * is disabled with a note when not available. Leaves listed in `failed`, by message, are struck
+	 * through and marked ✕.
 	 */
 	import { Button } from '$lib/components/ui/button';
 	import Checkbox from '$lib/components/ui/checkbox/checkbox.svelte';
+	import { failureLabel } from './labels';
 	import { AGGREGATE_COLOR, scenarioColor } from './scenario-chart';
 
 	let {
@@ -13,13 +15,15 @@
 		baselineLeaf = null,
 		checked = $bindable([]),
 		aggregate = null,
-		aggregateChecked = $bindable(false)
+		aggregateChecked = $bindable(false),
+		failed = {}
 	}: {
 		leaves: string[];
 		baselineLeaf?: string | null;
 		checked?: string[];
 		aggregate?: { label: string; available: boolean; note: string } | null;
 		aggregateChecked?: boolean;
+		failed?: Record<string, string>;
 	} = $props();
 
 	function toggle(leaf: string, on: boolean) {
@@ -86,6 +90,7 @@
 	{/if}
 	<div class="flex max-h-28 flex-wrap gap-x-3 gap-y-1 overflow-y-auto">
 		{#each leaves as leaf, i (leaf)}
+			{@const failure = failed[leaf] === undefined ? null : failureLabel(failed[leaf])}
 			<div class="flex min-w-0 items-center gap-1">
 				<Checkbox
 					id="scenario-{leaf}"
@@ -99,12 +104,20 @@
 				></span>
 				<label
 					for="scenario-{leaf}"
-					class="max-w-[9rem] cursor-pointer truncate text-xs"
+					class="max-w-[9rem] cursor-pointer truncate text-xs {failure ? 'line-through' : ''}"
 					style="color: {scenarioColor(i)}"
 					title={leaf === baselineLeaf ? `${leaf} (baseline leaf)` : leaf}
 				>
 					{leaf === baselineLeaf ? '★ ' : ''}{leaf}
 				</label>
+				{#if failure}
+					<span
+						class="shrink-0 text-xs text-red-700"
+						role="img"
+						aria-label={failure}
+						title={failure}>✕</span
+					>
+				{/if}
 			</div>
 		{/each}
 	</div>
