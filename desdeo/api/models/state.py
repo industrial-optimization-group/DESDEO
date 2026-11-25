@@ -440,6 +440,12 @@ class JinaSetupState(ResultInterface, SQLModel, table=True):
     ranges: dict[str, dict[str, list[float]]] | None = Field(
         sa_column=Column(JSON), default=None, description="`[ideal, nadir]` by view and target symbol."
     )
+    scenario_targets: dict[str, list[dict]] | None = Field(
+        sa_column=Column(JSON), default=None, description="The targets of each leaf alone, as `Target` dumps."
+    )
+    scenario_ranges: dict[str, dict[str, list[float]]] | None = Field(
+        sa_column=Column(JSON), default=None, description="`[ideal, nadir]` by leaf and objective symbol."
+    )
     is_ready: bool = Field(default=False, description="True once the background range computation has finished.")
     error: str | None = Field(default=None, description="Error message if the range computation failed.")
 
@@ -450,13 +456,18 @@ class JinaSetupState(ResultInterface, SQLModel, table=True):
 
 
 class JinaIterateState(ResultInterface, SQLModel, table=True):
-    """JINA: designs solved, picked from the design pool or imported at a reference point."""
+    """JINA: designs solved or imported at a reference point."""
 
     id: int | None = Field(sa_column=Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True))
 
     setup_state_id: int = Field(index=True, description="The StateDB id of the JINA setup state.")
-    mode: str = Field(description="'solve', 'pool' or 'import'.")
-    view: str | None = Field(default=None, description="'aggregated' or 'per_scenario'; None for imports.")
+    mode: str = Field(description="'solve' or 'import'.")
+    view: str | None = Field(
+        default=None, description="'aggregated', 'per_scenario' or 'scenario_optimal'; None for imports."
+    )
+    leaf: str | None = Field(
+        default=None, description="Scenario the designs are optimised for; scenario_optimal view only."
+    )
     reference_point: dict[str, float] = Field(sa_column=Column(JSON), default_factory=dict)
     results: list[dict] = Field(sa_column=Column(JSON), default_factory=list, description="`JinaIterateResult` dumps.")
     new_design_ids: list[int] = Field(sa_column=Column(JSON), default_factory=list)

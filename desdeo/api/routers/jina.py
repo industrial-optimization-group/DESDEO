@@ -42,9 +42,12 @@ from desdeo.mcdm.jina import (
     JinaProblem,
     View,
     build_jina_problem,
+    build_leaf_jina_problem,
+    evaluate_design_by_leaf,
     leaf_ranges,
-    match_pool,
+    limit_to_ranges,
     objective_ranges,
+    scenario_ranges,
     solve_variants,
     target_ranges,
     target_values,
@@ -286,21 +289,28 @@ def _fail(session: Session, table: type[SQLModel], sub_id: int, error: Exception
 
 
 def _run_setup(bind: Engine, problem_id: int, setup_id: int, solver: type[BaseSolver] | None) -> None:
-    """Background task: compute the targets and target ranges of both views of a setup."""
+    """Background task: compute the targets and ranges of a setup, in both views and for each leaf alone."""
     with Session(bind) as session:
         try:
             setup = _snapshot(session.get(JinaSetupState, setup_id))
             model = load_scenario_model(setup.scenario_model_id, session)
             session.commit()
 
+            # One solver for every leaf, guessed from the problem covering them all.
+            leaf_solver = solver or guess_best_solver(_jina_problem(problem_id, setup, "per_scenario", model).problem)
+            by_leaf = scenario_ranges(model, leaf_solver)
             targets, ranges = {}, {}
             for view in VIEWS:
                 jp = _jina_problem(problem_id, setup, view, model)
                 targets[view] = [t.model_dump() for t in jp.targets]
-                ranges[view] = target_ranges(jp, model, solver or guess_best_solver(jp.problem))
+                ranges[view] = target_ranges(jp, model, solver or guess_best_solver(jp.problem), by_leaf=by_leaf)
 
             sub = session.get(JinaSetupState, setup_id)
-            sub.targets, sub.ranges, sub.is_ready = targets, ranges, True
+            sub.targets, sub.ranges = targets, ranges
+            sub.scenario_targets = {
+                leaf: [t.model_dump() for t in build_leaf_jina_problem(model, leaf).targets] for leaf in by_leaf
+            }
+            sub.scenario_ranges, sub.is_ready = by_leaf, True
             session.add(sub)
             session.commit()
         except Exception as e:
@@ -308,32 +318,56 @@ def _run_setup(bind: Engine, problem_id: int, setup_id: int, solver: type[BaseSo
 
 
 def _run_solve(bind: Engine, problem_id: int, setup_id: int, iterate_id: int, solver: type[BaseSolver] | None) -> None:
-    """Background task: solve the variants of an iterate state and add their designs to the registry."""
+    """Background task: solve the variants of an iterate state and add their designs to the registry.
+
+    In the scenario_optimal view, the problem of the state's leaf is solved alone, and the design of each
+    variant is re-optimised in every other leaf at the variant's reference point.
+    """
     with Session(bind) as session:
         try:
             setup = _snapshot(session.get(JinaSetupState, setup_id))
             iterate = session.get(JinaIterateState, iterate_id)
-            setup_state_id, view, reference_point = iterate.setup_state_id, iterate.view, dict(iterate.reference_point)
+            setup_state_id, view, leaf = iterate.setup_state_id, iterate.view, iterate.leaf
+            reference_point = dict(iterate.reference_point)
             model = load_scenario_model(setup.scenario_model_id, session)
             session.commit()
 
-            jp = _jina_problem(problem_id, setup, view, model)
-            variants = solve_variants(
-                jp,
-                reference_point,
-                setup.ranges[view],
-                solver or guess_best_solver(jp.problem),
-                design_variables=setup.design_variables,
-            )
+            if leaf is not None:
+                jp, ranges = build_leaf_jina_problem(model, leaf), setup.scenario_ranges[leaf]
+                # One solver for every leaf, guessed from the problem covering them all.
+                solver = solver or guess_best_solver(_jina_problem(problem_id, setup, "per_scenario", model).problem)
+            else:
+                jp, ranges = _jina_problem(problem_id, setup, view, model), setup.ranges[view]
+                solver = solver or guess_best_solver(jp.problem)
+            variants = solve_variants(jp, reference_point, ranges, solver, design_variables=setup.design_variables)
             solved = [variant for variant in variants if variant.success]
+            outcomes: dict[str, dict[str, LeafOutcome]] = {}
+            if leaf is not None:
+                others = [other for other in model.leaf_scenarios if other != leaf]
+                for variant in solved:
+                    own = LeafOutcome(status=True, message=variant.message, objectives=variant.leaf_objectives[leaf])
+                    outcomes[variant.name] = {leaf: own} | evaluate_design_by_leaf(
+                        model,
+                        variant.design,
+                        reference_point | variant.effective_reference_point,
+                        setup.scenario_ranges,
+                        solver,
+                        leaves=others,
+                    )
             candidates = [
                 JinaDesign(
                     id=0,
                     values=variant.design,
                     effective_reference_point=variant.effective_reference_point,
                     view=view,
+                    leaf=leaf,
                     source="solve",
-                    leaf_objectives=variant.leaf_objectives,
+                    leaf_objectives=variant.leaf_objectives
+                    | {
+                        other: outcome.objectives
+                        for other, outcome in outcomes.get(variant.name, {}).items()
+                        if outcome.status
+                    },
                 )
                 for variant in solved
             ]
@@ -345,6 +379,7 @@ def _run_solve(bind: Engine, problem_id: int, setup_id: int, iterate_id: int, so
                 iterate.results = [
                     JinaIterateResult(
                         **variant.model_dump(exclude={"leaf_objectives", "design"}),
+                        outcomes=outcomes.get(variant.name, {}),
                         design_id=design_ids.get(variant.name),
                     ).model_dump()
                     for variant in variants
@@ -564,8 +599,12 @@ def setup(
         design_rtol=request.design_rtol,
         targets=None,
         ranges=None,
+        scenario_targets=None,
+        scenario_ranges=None,
     )
-    sub = JinaSetupState(**setup.model_dump(exclude={"kind", "targets", "ranges"}))
+    sub = JinaSetupState(
+        **setup.model_dump(exclude={"kind", "targets", "ranges", "scenario_targets", "scenario_ranges"})
+    )
     state = _create_state(context, sub, request.parent_state_id)
     background_tasks.add_task(
         _run_setup, context.db_session.get_bind(), problem_db.id, state.base_state.id, check_solver(problem_db)
@@ -579,9 +618,24 @@ def iterate(
     background_tasks: BackgroundTasks,
     context: Annotated[SessionContext, Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post)],
 ) -> JinaStateResponse:
-    """Solve new designs at a reference point in the background, or pick designs found earlier from the pool."""
+    """Solve new designs at a reference point in the background.
+
+    In the scenario_optimal view, the designs are optimised for the leaf of the request alone, at the
+    reference point limited to the ranges of the leaf, and then evaluated in every other leaf.
+    """
     setup_state, setup = _get_setup(request.setup_state_id, context)
-    targets = {t.symbol for t in setup.targets[request.view]}
+    if request.view == "scenario_optimal":
+        if request.leaf not in setup.scenario_targets:
+            raise _unprocessable(
+                f"The scenario_optimal view needs a leaf of {list(setup.scenario_targets)}; got {request.leaf}."
+            )
+        targets = {t.symbol for t in setup.scenario_targets[request.leaf]}
+        reference_point = limit_to_ranges(request.reference_point, setup.scenario_ranges[request.leaf])
+    else:
+        if request.leaf is not None:
+            raise _unprocessable(f"The {request.view} view takes no leaf; got {request.leaf}.")
+        targets = {t.symbol for t in setup.targets[request.view]}
+        reference_point = request.reference_point
     if not request.reference_point or not set(request.reference_point) <= targets:
         raise _unprocessable(
             f"The reference point must have targets of the {request.view} view {sorted(targets)}; "
@@ -589,47 +643,21 @@ def iterate(
         )
 
     sub = JinaIterateState(
-        setup_state_id=setup_state.id, mode=request.mode, view=request.view, reference_point=request.reference_point
+        setup_state_id=setup_state.id,
+        mode="solve",
+        view=request.view,
+        leaf=request.leaf,
+        reference_point=reference_point,
     )
-    if request.mode == "pool":
-        model = load_scenario_model(setup.scenario_model_id, context.db_session)
-        jp = _jina_problem(context.problem_db.id, setup, request.view, model)
-        iterate_states = _iterate_states(setup_state.id, context.db_session)
-        values = {design.id: target_values(jp, design.leaf_objectives) for _, design in _registry(iterate_states)}
-        exclude = {
-            result["design_id"]
-            for state in iterate_states
-            if state.state.mode == "pool"
-            for result in state.state.results
-        }
-        try:
-            picks = match_pool(values, request.reference_point, setup.ranges[request.view], jp.targets, exclude=exclude)
-        except ValueError as e:
-            raise _unprocessable(str(e)) from e
-        sub.results = [
-            JinaIterateResult(
-                name=name,
-                success=True,
-                message="Picked from the design pool.",
-                effective_reference_point=request.reference_point,
-                target_values=values[design_id],
-                design_id=design_id,
-            ).model_dump()
-            for design_id, names in picks.items()
-            for name in names
-        ]
-        sub.is_ready = True
-
     state = _create_state(context, sub, _parent_id(request, setup_state.id))
-    if request.mode == "solve":
-        background_tasks.add_task(
-            _run_solve,
-            context.db_session.get_bind(),
-            context.problem_db.id,
-            setup_state.state_id,
-            state.base_state.id,
-            check_solver(context.problem_db),
-        )
+    background_tasks.add_task(
+        _run_solve,
+        context.db_session.get_bind(),
+        context.problem_db.id,
+        setup_state.state_id,
+        state.base_state.id,
+        check_solver(context.problem_db),
+    )
     return _state_response(state)
 
 

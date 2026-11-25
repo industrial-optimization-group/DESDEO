@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, BeforeValidator, Field
 
-from desdeo.mcdm.jina import Measure, Target, View
+from desdeo.mcdm.jina import Measure, SolveView, Target, View
 from desdeo.tools.robustness_metrics import Antifragility, DomainCriterion
 from desdeo.tools.scenario_designs import LeafOutcome
 
@@ -54,10 +54,13 @@ class JinaIterateRequest(JinaSessionRequest):
     """Request model for the JINA iterate endpoint."""
 
     setup_state_id: int
-    mode: Literal["solve", "pool"] = Field(
-        default="solve", description="Solve new designs, or pick designs found earlier from the design pool."
+    view: SolveView = Field(default="aggregated")
+    leaf: str | None = Field(
+        default=None,
+        description=(
+            "Scenario the designs are optimised for; required by and only allowed in the scenario_optimal view."
+        ),
     )
-    view: View = Field(default="aggregated")
     reference_point: dict[str, FiniteFloat] = Field(
         description="Aspiration levels by target symbol, original direction."
     )
@@ -137,7 +140,10 @@ class JinaDesign(BaseModel):
     import_reference_point: dict[str, float] | None = Field(
         default=None, description="The objective-keyed reference point an imported design was evaluated at."
     )
-    view: View | None = Field(default=None, description="View the design was solved in; None for imports.")
+    view: SolveView | None = Field(default=None, description="View the design was solved in; None for imports.")
+    leaf: str | None = Field(
+        default=None, description="Scenario the design was optimised for; scenario_optimal view only."
+    )
     source: Literal["solve", "import"]
     leaf_objectives: dict[str, dict[str, float]] = Field(
         default_factory=dict, description="Objective values by leaf and objective symbol."
@@ -152,15 +158,18 @@ class JinaDesignInfo(JinaDesign):
 
 
 class JinaIterateResult(BaseModel):
-    """Result of one variant, pool scorer or imported row of an iterate state."""
+    """Result of one variant or imported row of an iterate state."""
 
-    name: str = Field(description="Variant name, pool scorer name or 'row_<i>'.")
+    name: str = Field(description="Variant name or 'row_<i>'.")
     success: bool
     message: str
     effective_reference_point: dict[str, float] = Field(default_factory=dict)
     target_values: dict[str, float] = Field(default_factory=dict)
     alpha: float | None = Field(default=None)
     binding: list[str] = Field(default_factory=list)
+    outcomes: dict[str, LeafOutcome] = Field(
+        default_factory=dict, description="The design's outcome in every leaf; scenario_optimal view only."
+    )
     design_id: int | None = Field(default=None, description="Registry id of the resulting design.")
 
 
@@ -176,6 +185,12 @@ class JinaSetupResult(BaseModel):
     design_rtol: float
     targets: dict[View, list[Target]] | None
     ranges: dict[View, dict[str, tuple[float, float]]] | None
+    scenario_targets: dict[str, list[Target]] | None = Field(
+        description="The objectives of each leaf alone, as targets by leaf."
+    )
+    scenario_ranges: dict[str, dict[str, tuple[float, float]]] | None = Field(
+        description="(ideal, nadir) by leaf and objective symbol, with each leaf solved alone."
+    )
 
 
 class JinaIterateStateResult(BaseModel):
@@ -183,8 +198,9 @@ class JinaIterateStateResult(BaseModel):
 
     kind: Literal["jina.iterate"]
     setup_state_id: int
-    mode: Literal["solve", "pool", "import"]
-    view: View | None
+    mode: Literal["solve", "import"]
+    view: SolveView | None
+    leaf: str | None
     reference_point: dict[str, float]
     results: list[JinaIterateResult]
     new_design_ids: list[int]

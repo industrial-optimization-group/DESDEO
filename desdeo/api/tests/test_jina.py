@@ -23,7 +23,7 @@ from desdeo.api.routers import jina as jina_router
 from desdeo.api.routers.user_authentication import get_password_hash
 from desdeo.api.tests.conftest import get_json, login, post_json
 from desdeo.api.tests.test_routes import _setup_simple_scenario
-from desdeo.mcdm.jina import Target, objective_ranges
+from desdeo.mcdm.jina import Target, evaluate_design_by_leaf, objective_ranges
 from desdeo.problem import Constant
 from desdeo.problem.scenario import ScenarioModel
 from desdeo.problem.testproblems import simple_scenario_model, summer_cabin_battery_problem_split_scenario
@@ -207,7 +207,7 @@ def test_scenario_models(client: TestClient, session_and_user: dict, monkeypatch
 
 @pytest.mark.gurobipy
 def test_jina_flow(client: TestClient, session_and_user: dict):
-    """Setup, solve in both views, pool, import, evaluate, stress test, select, antifragility and designs listing."""
+    """Setup, solve in both views, import, evaluate, stress test, select, antifragility and designs listing."""
     seeded = _seed(session_and_user)
     problem_id = seeded["problem_id"]
     token = login(client)
@@ -245,19 +245,6 @@ def test_jina_flow(client: TestClient, session_and_user: dict):
     )["result"]
     assert all(r["success"] for r in per_scenario["results"])
     assert all(d["view"] == "per_scenario" and d["source"] == "solve" for d in per_scenario["designs"])
-    solved_ids = {r["design_id"] for r in first["results"] + per_scenario["results"]}
-
-    # Pool mode never picks a design twice.
-    picked: list[int] = []
-    while True:
-        pool = _post_ready(client, token, "iterate", request | {"mode": "pool", "reference_point": aggregated_rp})
-        ids = {r["design_id"] for r in pool["result"]["results"]}
-        if not ids:
-            break
-        assert not ids & set(picked)
-        assert all(r["target_values"] for r in pool["result"]["results"])
-        picked += ids
-    assert set(picked) == solved_ids
 
     # Import: the third row repeats the first, and the fourth is infeasible in s_2 (con_4 needs x_1 <= 1).
     import_rp = {"f_1": 0.0, "f_2": 0.0, "f_3": 0.0}
@@ -358,6 +345,205 @@ def test_jina_flow(client: TestClient, session_and_user: dict):
     assert state_ids == sorted(state_ids)
     assert [s["kind"] for s in restored["states"]][-1] == "jina.select"
     assert evaluate_id in state_ids
+
+
+def _iterate_leaf(client: TestClient, token: str, problem_id: int, setup: dict, leaf: str, **kwargs) -> dict:
+    """Iterate in the scenario_optimal view at the midpoints of the leaf's ranges, or those of ``kwargs``."""
+    rp = _midpoint(setup["result"]["scenario_ranges"][leaf])
+    request = {"problem_id": problem_id, "setup_state_id": setup["state_id"], "view": "scenario_optimal"}
+    return _post_ready(client, token, "iterate", request | {"leaf": leaf, "reference_point": rp} | kwargs)
+
+
+@pytest.mark.gurobipy
+def test_scenario_optimal_flow(client: TestClient, session_and_user: dict):
+    """Designs optimised for one leaf are stored with their outcomes in every leaf and can be used as any design."""
+    seeded = _seed(session_and_user)
+    problem_id = seeded["problem_id"]
+    token = login(client)
+    setup = _setup(client, token, problem_id)
+    setup_id = setup["state_id"]
+    targets, ranges = setup["result"]["scenario_targets"], setup["result"]["scenario_ranges"]
+    assert list(targets) == list(ranges) == ["s_1", "s_2", "s_3"]
+    for leaf, leaf_targets in targets.items():
+        assert [t["symbol"] for t in leaf_targets] == ["f_3", "f_1", "f_2"]
+        assert all(t["objective"] == t["symbol"] and t["leaf"] == leaf for t in leaf_targets)
+        assert list(ranges[leaf]) == ["f_3", "f_1", "f_2"]
+    names = ["balanced", "emphasis_f_3", "emphasis_f_1", "emphasis_f_2"]
+    designs = {}
+
+    # The balanced design for s_1, in the other leaves at its reference point limited to their ranges.
+    state = _iterate_leaf(client, token, problem_id, setup, "s_1")
+    state_ids = [state["state_id"]]
+    first = state["result"]
+    assert (first["mode"], first["view"], first["leaf"]) == ("solve", "scenario_optimal", "s_1")
+    assert first["reference_point"] == pytest.approx(_midpoint(ranges["s_1"]))
+    assert [r["name"] for r in first["results"]] == names
+    for result in first["results"]:
+        assert result["success"], result["message"]
+        assert set(result["outcomes"]) == {"s_1", "s_2", "s_3"}
+        assert result["outcomes"]["s_1"]["objectives"] == result["target_values"]
+    balanced = first["results"][0]
+    expected = {
+        "s_1": {"f_3": 34.426, "f_1": -4.496, "f_2": -1.492},
+        "s_2": {"f_3": 30.728, "f_1": 35.034, "f_2": 8.194},
+        "s_3": {"f_3": 35.928, "f_1": 12.994, "f_2": -2.995},
+    }
+    for leaf, objectives in expected.items():
+        assert balanced["outcomes"][leaf]["status"], balanced["outcomes"][leaf]["message"]
+        assert balanced["outcomes"][leaf]["objectives"] == pytest.approx(objectives, abs=1e-2)
+    designs |= {d["id"]: d for d in first["designs"]}
+    design = designs[balanced["design_id"]]
+    assert (design["view"], design["leaf"], design["source"]) == ("scenario_optimal", "s_1", "solve")
+    assert design["values"]["x_1"] == pytest.approx(-2.994, abs=1e-2)
+    assert design["leaf_objectives"] == {leaf: balanced["outcomes"][leaf]["objectives"] for leaf in expected}
+    # An emphasis design is re-optimised at the shifted reference point of its variant.
+    emphasis = first["results"][names.index("emphasis_f_3")]
+    expected = {"f_3": 14.998, "f_1": 22.817, "f_2": 5.421}
+    assert emphasis["outcomes"]["s_2"]["objectives"] == pytest.approx(expected, abs=1e-2)
+
+    # The emphasis_f_3 design for s_3 is infeasible in s_2.
+    state = _iterate_leaf(client, token, problem_id, setup, "s_3")
+    state_ids.append(state["state_id"])
+    emphasis = next(r for r in state["result"]["results"] if r["name"] == "emphasis_f_3")
+    assert emphasis["success"] is True
+    assert emphasis["outcomes"]["s_2"]["status"] is False
+    assert emphasis["outcomes"]["s_2"]["message"]
+    assert emphasis["outcomes"]["s_2"]["objectives"] == {}
+    expected = {
+        "s_1": {"f_3": 1.360, "f_1": 2.800, "f_2": 1.509},
+        "s_3": {"f_3": 5.025, "f_1": 26.419, "f_2": -2.155},
+    }
+    for leaf, objectives in expected.items():
+        assert emphasis["outcomes"][leaf]["objectives"] == pytest.approx(objectives, abs=1e-2)
+    designs |= {d["id"]: d for d in state["result"]["designs"]}
+    design = designs[emphasis["design_id"]]
+    assert design["leaf"] == "s_3"
+    assert design["values"]["x_1"] == pytest.approx(2.154, abs=1e-2)
+    assert set(design["leaf_objectives"]) == {"s_1", "s_3"}
+
+    # The variants for s_2 share a design but differ in the operational variables.
+    state = _iterate_leaf(client, token, problem_id, setup, "s_2")
+    state_ids.append(state["state_id"])
+    results = state["result"]["results"]
+    assert len({r["design_id"] for r in results}) == 1
+    f_3 = [r["outcomes"]["s_2"]["objectives"]["f_3"] for r in results]
+    assert f_3 == pytest.approx([4.45, 2.567, 4.45, 6.333], abs=1e-2)
+    designs |= {d["id"]: d for d in state["result"]["designs"]}
+    assert designs[results[0]["design_id"]]["values"]["x_1"] == pytest.approx(1.0, abs=1e-2)
+
+    designs_url = f"{URL}/designs?problem_id={problem_id}&setup_state_id={setup_id}"
+    response = get_json(client, designs_url, token)
+    assert response.status_code == status.HTTP_200_OK, response.text
+    listed = {d["id"]: d for d in response.json()}
+    assert set(listed) == set(designs)
+    assert listed[emphasis["design_id"]]["leaf"] == "s_3"
+
+    # The designs can be evaluated and wishlisted.
+    chosen = [balanced["design_id"], emphasis["design_id"]]
+    request = {"problem_id": problem_id, "setup_state_id": setup_id}
+    thresholds = _midpoint(_objective_ranges(setup["result"]))
+    evaluated = _post_ready(client, token, "evaluate", request | {"design_ids": chosen, "thresholds": thresholds})
+    outcomes = evaluated["result"]["outcomes"]
+    assert all(outcome["status"] for outcome in outcomes[str(chosen[0])].values())
+    assert {leaf: outcome["status"] for leaf, outcome in outcomes[str(chosen[1])].items()} == {
+        "s_1": True,
+        "s_2": False,
+        "s_3": True,
+    }
+    selected = _post_ready(client, token, "select", request | {"wishlist": chosen, "final_design_id": chosen[0]})
+    assert selected["result"]["wishlist"] == chosen
+
+    restored = post_json(client, f"{URL}/get-or-initialize", {"problem_id": problem_id}, token).json()
+    assert restored["setup"]["result"] == setup["result"]
+    iterates = {s["state_id"]: s["result"] for s in restored["states"] if s["kind"] == "jina.iterate"}
+    assert list(iterates) == state_ids
+    assert [iterates[state_id]["leaf"] for state_id in state_ids] == ["s_1", "s_3", "s_2"]
+    assert iterates[state_ids[0]]["results"] == first["results"]
+    assert iterates[state_ids[1]]["results"][names.index("emphasis_f_3")] == emphasis
+
+
+@pytest.mark.gurobipy
+def test_scenario_optimal_limited_reference_point(client: TestClient, session_and_user: dict):
+    """The reference point is stored and used limited to the leaf's ranges, and may miss objectives."""
+    seeded = _seed(session_and_user)
+    problem_id = seeded["problem_id"]
+    token = login(client)
+    setup = _setup(client, token, problem_id)
+    rp = _midpoint(setup["result"]["scenario_ranges"]["s_1"])
+
+    above = _iterate_leaf(client, token, problem_id, setup, "s_1", reference_point=rp | {"f_1": 100.0})["result"]
+    assert above["reference_point"] == pytest.approx(rp | {"f_1": 1.0}, abs=1e-2)
+    assert above["results"][0]["effective_reference_point"] == above["reference_point"]
+
+    partial = _iterate_leaf(client, token, problem_id, setup, "s_1", reference_point={"f_1": -100.0})["result"]
+    assert partial["reference_point"] == pytest.approx({"f_1": -10.3}, abs=1e-2)
+    assert [r["name"] for r in partial["results"]] == ["balanced", "emphasis_f_1"]
+    assert set(partial["results"][0]["outcomes"]["s_2"]["objectives"]) == {"f_1", "f_2", "f_3"}
+
+
+@pytest.mark.gurobipy
+def test_scenario_optimal_zero_range(client: TestClient, session_and_user: dict):
+    """An objective with a zero range in the chosen leaf still counts in the leaves where its range is nonzero."""
+    seeded = _seed(session_and_user)
+    problem_id = seeded["problem_id"]
+    token = login(client)
+    setup = _setup(client, token, problem_id)
+    ranges = setup["result"]["scenario_ranges"]
+    rp = _midpoint(ranges["s_1"])
+    ranges["s_1"]["f_3"] = [rp["f_3"], rp["f_3"]]
+    with Session(session_and_user["session"].get_bind()) as fresh:
+        sub = fresh.get(JinaSetupState, fresh.get(StateDB, setup["state_id"]).state_id)
+        sub.scenario_ranges = ranges
+        fresh.add(sub)
+        fresh.commit()
+
+    result = _iterate_leaf(client, token, problem_id, setup, "s_1", reference_point=rp)["result"]
+    assert [r["name"] for r in result["results"]] == ["balanced", "emphasis_f_1", "emphasis_f_2"]
+    designs = {d["id"]: d["values"] for d in result["designs"]}
+    for variant in result["results"]:
+        effective = variant["effective_reference_point"]
+        assert set(effective) == {"f_1", "f_2"}
+        expected, without_f_3 = (
+            evaluate_design_by_leaf(
+                simple_scenario_model(),
+                designs[variant["design_id"]],
+                point,
+                ranges,
+                GurobipySolver,
+                leaves=["s_2", "s_3"],
+            )
+            for point in (rp | effective, effective)
+        )
+        for leaf, outcome in expected.items():
+            assert outcome.status, outcome.message
+            assert variant["outcomes"][leaf]["objectives"] == pytest.approx(outcome.objectives, abs=1e-2)
+            assert outcome.objectives["f_3"] != pytest.approx(without_f_3[leaf].objectives["f_3"], abs=1e-2)
+
+
+@pytest.mark.cvxpy
+def test_scenario_optimal_heterogeneous_leaves(client: TestClient, session_and_user: dict):
+    """Without a selected solver, one that suits every leaf is used, also when only some leaves are nonlinear."""
+    session = session_and_user["session"]
+    user = session_and_user["user"]
+    model = simple_scenario_model()
+    func = ["Add", ["Exp", ["Divide", "x_1", 5]], ["Power", ["Add", "x_2", -2], 2]]
+    objectives = list(model.objectives)
+    index = model.scenarios["s_2"].objectives["f_2"]
+    objectives[index] = objectives[index].model_copy(update={"func": func, "is_linear": False})
+    model = model.model_copy(update={"objectives": objectives})
+    problem_db = ProblemDB.from_problem(model.base_problem, user=user)
+    session.add(problem_db)
+    session.commit()
+    session.refresh(problem_db)
+    session.add(ScenarioModelDB.from_scenario_model(model, user=user, base_problem_id=problem_db.id))
+    session.commit()
+    token = login(client)
+
+    setup = _setup(client, token, problem_db.id)
+    result = _iterate_leaf(client, token, problem_db.id, setup, "s_1")["result"]
+    for variant in result["results"]:
+        assert variant["success"], variant["message"]
+        assert variant["outcomes"]["s_2"]["status"], variant["outcomes"]["s_2"]["message"]
 
 
 @pytest.mark.gurobipy
@@ -541,7 +727,7 @@ def test_lineage(client: TestClient, session_and_user: dict):
     setup = _setup(client, token, problem_id)
     setup_id = setup["state_id"]
     rp = _midpoint(setup["result"]["ranges"]["aggregated"])
-    request = {"problem_id": problem_id, "setup_state_id": setup_id, "mode": "pool", "reference_point": rp}
+    request = {"problem_id": problem_id, "setup_state_id": setup_id, "reference_point": rp}
     first = _post_ready(client, token, "iterate", request)["state_id"]
     second = _post_ready(client, token, "iterate", request)["state_id"]
     third = _post_ready(client, token, "iterate", request | {"parent_state_id": first})["state_id"]
@@ -559,12 +745,14 @@ def test_background_failure(client: TestClient, session_and_user: dict, monkeypa
     def boom(*args, **kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(jina_router, "target_ranges", boom)
+    monkeypatch.setattr(jina_router, "scenario_ranges", boom)
     response = post_json(client, f"{URL}/setup", {"problem_id": seeded["problem_id"]}, token)
     body = get_json(client, f"{URL}/status/{response.json()['state_id']}", token).json()
     assert body["is_ready"]
     assert body["error"] == "RuntimeError: boom"
     assert body["result"]["ranges"] is None
+    assert body["result"]["scenario_targets"] is None
+    assert body["result"]["scenario_ranges"] is None
 
 
 @pytest.mark.gurobipy
@@ -689,6 +877,19 @@ def test_invalid_iterations(client: TestClient, session_and_user: dict):
         post_json(client, f"{URL}/iterate", request | {"view": "sideways", "reference_point": rp}, token).status_code
         == 422
     )
+
+    optimal = request | {"view": "scenario_optimal", "leaf": "s_1", "reference_point": {"f_1": 0.0}}
+    assert post_json(client, f"{URL}/iterate", optimal, token).status_code == 200
+    for bad, named in [
+        ({"leaf": None}, "needs a leaf"),
+        ({"leaf": "nope"}, "nope"),
+        ({"reference_point": {"s_1_f_1": 0.0}}, "s_1_f_1"),
+        ({"reference_point": {}}, "reference point"),
+        ({"view": "aggregated", "reference_point": {"robust_f_1": 0.0}}, "takes no leaf"),
+    ]:
+        response = post_json(client, f"{URL}/iterate", optimal | bad, token)
+        assert response.status_code == 422, bad
+        assert named in response.json()["detail"]
 
     import_request = request | {"reference_point": {"f_1": 0.0}}
     # The river pollution problem's solution set belongs to problem 2.
