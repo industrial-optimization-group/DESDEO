@@ -2,18 +2,24 @@
 
 import math
 import os
+import warnings
 from pathlib import Path
 
 import pytest
 
+import desdeo.mcdm.jina
 from desdeo.mcdm.jina import (
     Target,
     aggregate_outcomes,
     build_jina_problem,
+    build_leaf_jina_problem,
+    evaluate_design_by_leaf,
     leaf_ranges,
     leaf_reference_points,
+    limit_to_ranges,
     match_pool,
     objective_ranges,
+    scenario_ranges,
     score_designs,
     shift_reference_point,
     solve_variants,
@@ -25,7 +31,12 @@ from desdeo.problem.schema import Objective, Problem, Variable, VariableTypeEnum
 from desdeo.problem.testproblems import simple_scenario_model, summer_cabin_battery_problem_split_scenario
 from desdeo.tools import CVXPYSolver, GurobipySolver
 from desdeo.tools.partial_scalarization import add_asf_partial_diff
-from desdeo.tools.scenario_designs import default_design_variables, evaluate_design, outcomes_from_combined
+from desdeo.tools.scenario_designs import (
+    default_design_variables,
+    evaluate_design,
+    fix_variables,
+    outcomes_from_combined,
+)
 
 pytestmark = pytest.mark.scenario
 
@@ -511,6 +522,256 @@ def test_objective_ranges():
         "robust_f_2": (1.0, 5.0),
     }
     assert objective_ranges(targets, ranges) == {"f_1": (-2.0, 10.0), "f_3": (12.0, 0.0), "f_2": (1.0, 5.0)}
+
+
+SCENARIO_RANGES = {
+    "s_1": {"f_3": (-4.95, 71.71), "f_1": (-10.3, 1.0), "f_2": (-11.2, 7.7)},
+    "s_2": {"f_3": (-1.2, 10.1), "f_1": (4.0, 41.21), "f_2": (-7.1, 4.2)},
+    "s_3": {"f_3": (-5.2, 71.71), "f_1": (3.8, 52.31), "f_2": (-11.2, 8.198)},
+}
+
+
+def test_build_leaf_jina_problem(model):
+    """A leaf problem keeps the original symbols and has one target per objective of the leaf."""
+    jp = build_leaf_jina_problem(_maximize_f_3(model), "s_2")
+    assert [(t.symbol, t.objective, t.leaf, t.leaves, t.maximize) for t in jp.targets] == [
+        ("f_3", "f_3", "s_2", ("s_2",), True),
+        ("f_1", "f_1", "s_2", ("s_2",), False),
+        ("f_2", "f_2", "s_2", ("s_2",), False),
+    ]
+    assert (jp.view, jp.measure, jp.probabilities) == ("scenario_optimal", "worst_case", {"s_2": 1.0})
+    for name in ["ROOT", "nope"]:
+        with pytest.raises(ValueError, match=name):
+            build_leaf_jina_problem(model, name)
+
+
+@pytest.mark.gurobipy
+def test_scenario_ranges(model):
+    """The ranges of each leaf come from the payoff table over the leaf's objectives."""
+    ranges = scenario_ranges(model, GurobipySolver)
+    assert list(ranges) == list(SCENARIO_RANGES)
+    for leaf, expected in SCENARIO_RANGES.items():
+        assert list(ranges[leaf]) == list(expected)
+        for sym, values in expected.items():
+            assert ranges[leaf][sym] == pytest.approx(values, abs=1e-2)
+
+
+@pytest.mark.gurobipy
+@pytest.mark.parametrize("view", ["aggregated", "per_scenario"])
+@pytest.mark.parametrize("fixture", ["model", "sparse_model"])
+def test_target_ranges_by_leaf(request, fixture, view):
+    """Target ranges are the same when per-leaf targets take theirs from scenario ranges."""
+    model = request.getfixturevalue(fixture)
+    jp = build_jina_problem(model, view)
+    by_leaf = scenario_ranges(model, GurobipySolver)
+    ranges = target_ranges(jp, model, GurobipySolver)
+    reused = target_ranges(jp, model, GurobipySolver, by_leaf=by_leaf)
+    assert list(reused) == list(ranges)
+    for sym, values in ranges.items():
+        assert reused[sym] == pytest.approx(values, rel=1e-6)
+
+
+def test_target_ranges_by_leaf_does_not_solve(model, monkeypatch):
+    """Per-leaf targets with given scenario ranges need no payoff table."""
+
+    def payoff(*_args, **_kwargs):
+        pytest.fail("A payoff table was solved.")
+
+    monkeypatch.setattr(desdeo.mcdm.jina, "_payoff", payoff)
+    jp = build_jina_problem(model, "per_scenario")
+    ranges = target_ranges(jp, model, GurobipySolver, by_leaf=SCENARIO_RANGES)
+    assert ranges == {t.symbol: SCENARIO_RANGES[t.leaf][t.objective] for t in jp.targets}
+
+
+def test_limit_to_ranges():
+    """Values are limited to the range of their symbol in either direction."""
+    ranges = {"min": (0.0, 10.0), "max": (10.0, 0.0)}
+    assert limit_to_ranges({"min": -3.0, "max": 12.0}, ranges) == {"min": 0.0, "max": 10.0}
+    assert limit_to_ranges({"min": 12.0, "max": -1.0}, ranges) == {"min": 10.0, "max": 0.0}
+    assert limit_to_ranges({"min": 5.0, "max": 5.0, "other": 1.0}, ranges) == {"min": 5.0, "max": 5.0}
+
+
+@pytest.mark.gurobipy
+def test_evaluate_design_by_leaf_values(model):
+    """Designs optimised for one leaf have the expected outcomes, or are infeasible, in the others."""
+    ranges = scenario_ranges(model, GurobipySolver)
+    expected = {
+        ("s_1", "balanced"): (
+            -2.994,
+            {"f_3": 33.38, "f_1": -4.65, "f_2": -1.75},
+            {
+                "s_1": {"f_3": 34.426, "f_1": -4.496, "f_2": -1.492},
+                "s_2": {"f_3": 30.728, "f_1": 35.034, "f_2": 8.194},
+                "s_3": {"f_3": 35.928, "f_1": 12.994, "f_2": -2.995},
+            },
+        ),
+        ("s_3", "emphasis_f_3"): (
+            2.154,
+            {"f_3": 7.618, "f_1": 28.055, "f_2": -1.501},
+            {
+                "s_1": {"f_3": 1.360, "f_1": 2.800, "f_2": 1.509},
+                "s_2": None,
+                "s_3": {"f_3": 5.025, "f_1": 26.419, "f_2": -2.155},
+            },
+        ),
+    }
+    for (own_leaf, name), (x_1, rp, per_leaf) in expected.items():
+        results = solve_variants(
+            build_leaf_jina_problem(model, own_leaf),
+            _midpoint(ranges[own_leaf]),
+            ranges[own_leaf],
+            GurobipySolver,
+            design_variables=["x_1"],
+        )
+        variant = next(r for r in results if r.name == name)
+        assert variant.design["x_1"] == pytest.approx(x_1, abs=1e-2)
+        assert variant.effective_reference_point == pytest.approx(rp, abs=1e-2)
+        outcomes = evaluate_design_by_leaf(
+            model, variant.design, variant.effective_reference_point, ranges, GurobipySolver
+        )
+        assert list(outcomes) == ["s_1", "s_2", "s_3"]
+        for leaf, objectives in per_leaf.items():
+            outcome = outcomes[leaf]
+            assert outcome.variables == {}
+            if objectives is None:
+                assert not outcome.status
+                assert outcome.message
+                assert outcome.objectives == {}
+            else:
+                assert outcome.status, outcome.message
+                assert outcome.objectives == pytest.approx(objectives, abs=1e-2)
+
+
+@pytest.mark.gurobipy
+def test_evaluate_design_by_leaf_reproduces_own_leaf(model):
+    """Evaluating a variant's design in its own leaf gives the variant's target values."""
+    ranges = scenario_ranges(model, GurobipySolver)
+    for leaf in ranges:
+        jp = build_leaf_jina_problem(model, leaf)
+        variants = solve_variants(jp, _midpoint(ranges[leaf]), ranges[leaf], GurobipySolver, design_variables=["x_1"])
+        assert [v.name for v in variants] == ["balanced", "emphasis_f_3", "emphasis_f_1", "emphasis_f_2"]
+        for v in variants:
+            assert v.success, v.message
+            outcomes = evaluate_design_by_leaf(
+                model, v.design, v.effective_reference_point, ranges, GurobipySolver, leaves=[leaf]
+            )
+            assert list(outcomes) == [leaf]
+            assert outcomes[leaf].status, outcomes[leaf].message
+            assert outcomes[leaf].objectives == pytest.approx(v.target_values, rel=1e-4)
+
+
+@pytest.mark.gurobipy
+@pytest.mark.parametrize("maximize", [False, True], ids=["min", "max"])
+def test_evaluate_design_by_leaf_matches_asf(model, maximize):
+    """The outcome equals the partial ASF solved on the leaf problem with the design fixed."""
+    model = _maximize_f_3(model) if maximize else model
+    ranges = scenario_ranges(model, GurobipySolver)
+    design = {"x_1": -1.0}
+    rp = _midpoint(ranges["s_1"])
+    outcome = evaluate_design_by_leaf(model, design, rp, ranges, GurobipySolver, leaves=["s_2"])["s_2"]
+
+    limited = {sym: min(max(q, min(ranges["s_2"][sym])), max(ranges["s_2"][sym])) for sym, q in rp.items()}
+    assert limited != rp
+    weights = {sym: abs(nadir - ideal) for sym, (ideal, nadir) in ranges["s_2"].items()}
+    problem, symbol = add_asf_partial_diff(
+        fix_variables(model.get_scenario_problem("s_2"), design),
+        "_asf",
+        limited,
+        weights=weights,
+        weights_aug=weights,
+        rho=1e-3,
+    )
+    results = GurobipySolver(problem).solve(symbol)
+    assert results.success
+    assert outcome.status, outcome.message
+    assert outcome.objectives == pytest.approx({sym: results.optimal_objectives[sym] for sym in rp}, rel=1e-4)
+
+
+@pytest.mark.gurobipy
+def test_evaluate_design_by_leaf_sparse(sparse_model):
+    """Leaves without an objective in the reference point fail, the others are solved."""
+    ranges = scenario_ranges(sparse_model, GurobipySolver)
+    outcomes = evaluate_design_by_leaf(sparse_model, {"x_1": 1.0}, {"f_4": 0.0}, ranges, GurobipySolver)
+    assert {leaf: outcome.status for leaf, outcome in outcomes.items()} == {"s_1": False, "s_2": True, "s_3": False}
+    assert "no objectives of leaf 's_1'" in outcomes["s_1"].message
+    assert "no objectives of leaf 's_3'" in outcomes["s_3"].message
+    assert set(outcomes["s_2"].objectives) == {"f_1", "f_2", "f_3", "f_4"}
+
+
+@pytest.mark.gurobipy
+def test_evaluate_design_by_leaf_failures(model):
+    """A leaf where the design is infeasible or cannot be fixed fails without stopping the others."""
+    rp = _midpoint(SCENARIO_RANGES["s_1"])
+    outcomes = evaluate_design_by_leaf(model, {"x_1": 2.0}, rp, SCENARIO_RANGES, GurobipySolver)
+    assert {leaf: outcome.status for leaf, outcome in outcomes.items()} == {"s_1": True, "s_2": False, "s_3": True}
+    assert outcomes["s_2"].message
+
+    for design, message in [({"x_1": 1000.0}, "outside its bounds"), ({"nope": 1.0}, "nope")]:
+        outcomes = evaluate_design_by_leaf(model, design, rp, SCENARIO_RANGES, GurobipySolver)
+        assert list(outcomes) == ["s_1", "s_2", "s_3"]
+        assert not any(outcome.status for outcome in outcomes.values())
+        assert all(message in outcome.message for outcome in outcomes.values())
+
+    with pytest.raises(ValueError, match="nope"):
+        evaluate_design_by_leaf(model, {"x_1": 1.0}, rp, SCENARIO_RANGES, GurobipySolver, leaves=["s_1", "nope"])
+
+
+@pytest.mark.gurobipy
+def test_evaluate_design_by_leaf_zero_ranges(model):
+    """Zero-range objectives are left out of the ASF without a warning; unit weights apply if all are zero."""
+    design = {"x_1": -1.0}
+    rp = _midpoint(SCENARIO_RANGES["s_1"])
+    own = SCENARIO_RANGES["s_1"]
+    one_zero = {"s_1": own | {"f_1": (-5.0, -5.0)}}
+    all_zero = {"s_1": {sym: (q, q) for sym, q in rp.items()}}
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        left_out = evaluate_design_by_leaf(model, design, rp, one_zero, GurobipySolver, leaves=["s_1"])["s_1"]
+        unit = evaluate_design_by_leaf(model, design, rp, all_zero, GurobipySolver, leaves=["s_1"])["s_1"]
+    assert not [w for w in record if "range" in str(w.message) or "weight" in str(w.message)]
+
+    for outcome, weights in [
+        (left_out, {sym: abs(own[sym][1] - own[sym][0]) for sym in ["f_3", "f_2"]}),
+        (unit, dict.fromkeys(rp, 1.0)),
+    ]:
+        assert outcome.status, outcome.message
+        problem, symbol = add_asf_partial_diff(
+            fix_variables(model.get_scenario_problem("s_1"), design),
+            "_asf",
+            {sym: rp[sym] for sym in weights},
+            weights=weights,
+            weights_aug=weights,
+            rho=1e-3,
+        )
+        results = GurobipySolver(problem).solve(symbol)
+        assert outcome.objectives == pytest.approx({sym: results.optimal_objectives[sym] for sym in rp}, rel=1e-4)
+
+
+@pytest.mark.slow
+@pytest.mark.gurobipy
+@pytest.mark.githubskip
+def test_evaluate_design_by_leaf_summer_cabin():
+    """The balanced design for S1a is feasible there and infeasible in the other leaves."""
+    cabin = summer_cabin_battery_problem_split_scenario()
+    ranges = scenario_ranges(cabin, GurobipySolver)
+    with pytest.warns(UserWarning, match="f_3"):
+        balanced = solve_variants(
+            build_leaf_jina_problem(cabin, "S1a"),
+            _midpoint(ranges["S1a"]),
+            ranges["S1a"],
+            GurobipySolver,
+            design_variables=default_design_variables(cabin),
+        )[0]
+    assert balanced.success, balanced.message
+    outcomes = evaluate_design_by_leaf(
+        cabin, balanced.design, balanced.effective_reference_point, ranges, GurobipySolver
+    )
+    assert {leaf: outcome.status for leaf, outcome in outcomes.items()} == {
+        "S1a": True,
+        "S1b": False,
+        "S2a": False,
+        "S2b": False,
+    }
 
 
 @pytest.mark.slow

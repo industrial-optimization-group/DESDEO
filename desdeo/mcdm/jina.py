@@ -3,8 +3,9 @@
 The decision maker gives a reference point over *targets*: aggregated objectives (worst case,
 expected value or CVaR over the leaf scenarios) or per-leaf objective values.  The combined scenario
 problem is scalarised with a partial ASF for a balanced variant and one variant per emphasised
-objective, and the first-stage (design) variables of each solution form a design.  Designs found
-earlier can be scored against a new reference point with numpy alone.
+objective, and the first-stage (design) variables of each solution form a design.  The problem of a
+single leaf can be solved the same way, and a design re-optimised in each leaf on its own.  Designs
+found earlier can be scored against a new reference point with numpy alone.
 
 All public functions take and return values in the objectives' original direction.
 """
@@ -13,7 +14,7 @@ import math
 import warnings
 from collections.abc import Callable, Hashable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Literal, get_args
 
 import numpy as np
@@ -24,11 +25,12 @@ from desdeo.problem.scenario import ScenarioModel
 from desdeo.tools.generics import BaseSolver
 from desdeo.tools.partial_scalarization import add_asf_partial_diff
 from desdeo.tools.robust import add_worst_case_robust
-from desdeo.tools.scenario_designs import design_from_values, outcomes_from_combined
+from desdeo.tools.scenario_designs import LeafOutcome, design_from_values, fix_variables, outcomes_from_combined
 from desdeo.tools.scenarios import build_combined_scenario_problem, build_scenario_problem
 from desdeo.tools.stochastic import add_conditional_value_at_risk, add_expected_value
 
 View = Literal["aggregated", "per_scenario"]
+SolveView = Literal["aggregated", "per_scenario", "scenario_optimal"]
 Measure = Literal["worst_case", "expected_value", "cvar"]
 DesignId = Hashable
 
@@ -50,12 +52,12 @@ class Target(BaseModel):
 
 @dataclass(frozen=True)
 class JinaProblem:
-    """A combined scenario problem with the objectives the targets refer to."""
+    """A combined or single-leaf scenario problem with the objectives the targets refer to."""
 
     problem: Problem
     symbol_maps: dict[str, dict[str, dict[str, str]]]
     targets: list[Target]
-    view: View
+    view: SolveView
     measure: Measure
     probabilities: dict[str, float]
     cvar_alpha: float
@@ -156,6 +158,41 @@ def build_jina_problem(
         measure=measure,
         probabilities=dict(model.leaf_scenarios),
         cvar_alpha=cvar_alpha,
+    )
+
+
+def build_leaf_jina_problem(model: ScenarioModel, leaf: str) -> JinaProblem:
+    """Build the JINA problem of one leaf scenario alone, with one target per objective of the leaf.
+
+    The problem keeps the original symbols, so the targets have the symbols of the objectives.
+
+    Args:
+        model: the scenario model.
+        leaf: the leaf scenario.
+
+    Returns:
+        The JINA problem, with the view ``"scenario_optimal"``.
+
+    Raises:
+        ValueError: if ``leaf`` is not a leaf of the model.
+    """
+    if leaf not in model.leaf_scenarios:
+        raise ValueError(f"Not a leaf of the model: '{leaf}'.")
+    problem = build_scenario_problem(model, leaf)
+    return JinaProblem(
+        problem=problem,
+        symbol_maps={
+            "variables": {var.symbol: {leaf: var.symbol} for var in problem.variables},
+            "objectives": {obj.symbol: {leaf: obj.symbol} for obj in problem.objectives},
+        },
+        targets=[
+            Target(symbol=obj.symbol, objective=obj.symbol, leaf=leaf, leaves=(leaf,), maximize=obj.maximize)
+            for obj in problem.objectives
+        ],
+        view="scenario_optimal",
+        measure="worst_case",
+        probabilities={leaf: 1.0},
+        cvar_alpha=0.9,
     )
 
 
@@ -268,6 +305,44 @@ def _payoff(
     return {sym: (float(ideals[sym]), float(worst[sym](row[sym] for row in rows.values()))) for sym in symbols}
 
 
+def scenario_ranges(
+    model: ScenarioModel,
+    solver: type[BaseSolver],
+    *,
+    solver_options: Any = None,
+    pareto_rows: bool = True,
+) -> dict[str, dict[str, tuple[float, float]]]:
+    """Estimate the ideal and nadir of every objective in every leaf with payoff tables.
+
+    The payoff table of a leaf is over all objectives of the leaf's scenario problem; see
+    `target_ranges`.
+
+    Args:
+        model: the scenario model.
+        solver: the solver class.
+        solver_options: options passed to the solver.
+        pareto_rows: whether to make each payoff row Pareto optimal with a second solve.
+
+    Returns:
+        ``{leaf: {objective: (ideal, nadir)}}``.
+
+    Raises:
+        RuntimeError: if a payoff table solve fails; the message names the leaf and objective.
+    """
+    ranges: dict[str, dict[str, tuple[float, float]]] = {}
+    for leaf in model.leaf_scenarios:
+        leaf_problem = build_scenario_problem(model, leaf)
+        ranges[leaf] = _payoff(
+            leaf_problem,
+            [obj.symbol for obj in leaf_problem.objectives],
+            solver,
+            solver_options,
+            where=f"leaf '{leaf}'",
+            pareto_rows=pareto_rows,
+        )
+    return ranges
+
+
 def target_ranges(
     jp: JinaProblem,
     model: ScenarioModel,
@@ -275,6 +350,7 @@ def target_ranges(
     *,
     solver_options: Any = None,
     pareto_rows: bool = True,
+    by_leaf: dict[str, dict[str, tuple[float, float]]] | None = None,
 ) -> dict[str, tuple[float, float]]:
     """Estimate the ideal and nadir of every target with payoff tables.
 
@@ -291,6 +367,8 @@ def target_ranges(
         solver: the solver class.
         solver_options: options passed to the solver.
         pareto_rows: whether to make each payoff row Pareto optimal with a second solve.
+        by_leaf: the result of `scenario_ranges`; per-leaf targets take their ranges from it without
+            solving.
 
     Returns:
         ``(ideal, nadir)`` by target symbol.
@@ -300,15 +378,18 @@ def target_ranges(
     """
     ranges: dict[str, tuple[float, float]] = {}
     for leaf in dict.fromkeys(t.leaf for t in jp.targets if t.leaf is not None):
-        leaf_problem = build_scenario_problem(model, leaf)
-        payoff = _payoff(
-            leaf_problem,
-            [obj.symbol for obj in leaf_problem.objectives],
-            solver,
-            solver_options,
-            where=f"leaf '{leaf}'",
-            pareto_rows=pareto_rows,
-        )
+        if by_leaf is not None:
+            payoff = by_leaf[leaf]
+        else:
+            leaf_problem = build_scenario_problem(model, leaf)
+            payoff = _payoff(
+                leaf_problem,
+                [obj.symbol for obj in leaf_problem.objectives],
+                solver,
+                solver_options,
+                where=f"leaf '{leaf}'",
+                pareto_rows=pareto_rows,
+            )
         ranges |= {t.symbol: payoff[t.objective] for t in jp.targets if t.leaf == leaf}
     if any(t.leaf is None for t in jp.targets):
         payoff = _payoff(
@@ -357,6 +438,23 @@ def shift_reference_point(
         ideal = ranges[t.symbol][0]
         shifted[t.symbol] = ideal + (shifted[t.symbol] - ideal) / factor
     return shifted
+
+
+def limit_to_ranges(reference_point: dict[str, float], ranges: dict[str, tuple[float, float]]) -> dict[str, float]:
+    """Limit each value of a reference point to the range of its symbol.
+
+    Args:
+        reference_point: aspiration levels by symbol.
+        ranges: ``(ideal, nadir)`` by symbol.
+
+    Returns:
+        The limited reference point; symbols missing from ``ranges`` are left out.
+    """
+    return {
+        sym: min(max(value, min(ranges[sym])), max(ranges[sym]))
+        for sym, value in reference_point.items()
+        if sym in ranges
+    }
 
 
 def _weights(
@@ -502,6 +600,81 @@ def solve_variants(
             for name, rp in variants.items()
         ]
         return [future.result() for future in futures]
+
+
+def evaluate_design_by_leaf(
+    model: ScenarioModel,
+    design: dict[str, float | list],
+    reference_point: dict[str, float],
+    ranges: dict[str, dict[str, tuple[float, float]]],
+    solver: type[BaseSolver],
+    *,
+    leaves: list[str] | None = None,
+    rho: float = 1e-3,
+    solver_options: Any = None,
+) -> dict[str, LeafOutcome]:
+    """Evaluate a design in each leaf scenario alone.
+
+    The design variables are fixed and the remaining variables of the leaf are chosen by minimising
+    the ASF of `solve_variants` over the objectives of the leaf found in ``reference_point``, with
+    the reference point limited to the ranges of the leaf (`limit_to_ranges`).  Objectives with a
+    zero range in the leaf are left out; if all have a zero range, all are used with unit weights.
+
+    Unlike `evaluate_design`, leaves that share unfixed variables are solved separately, so that an
+    infeasible leaf does not affect the others, and the reference point is limited in each leaf.
+
+    Args:
+        model: the scenario model.
+        design: maps design variable symbols to values.
+        reference_point: aspiration levels by original objective symbol.
+        ranges: the result of `scenario_ranges`.
+        solver: the solver class.
+        leaves: the leaves to evaluate. Defaults to all leaves.
+        rho: the augmentation coefficient.
+        solver_options: options passed to the solver.
+
+    Returns:
+        The outcome of each evaluated leaf, without variable values.  A leaf that cannot be
+        evaluated has ``status=False`` and the reason as its message.
+
+    Raises:
+        ValueError: if ``leaves`` has names that are not leaves of the model.
+    """
+    leaves = list(model.leaf_scenarios) if leaves is None else leaves
+    if unknown := sorted(set(leaves) - set(model.leaf_scenarios)):
+        raise ValueError(f"Not leaves of the model: {unknown}.")
+    outcomes: dict[str, LeafOutcome] = {}
+    for leaf in leaves:
+        own_ranges = ranges.get(leaf, {})
+        try:
+            jp = build_leaf_jina_problem(model, leaf)
+            objectives = {t.symbol for t in jp.targets}
+            rp = limit_to_ranges({sym: q for sym, q in reference_point.items() if sym in objectives}, own_ranges)
+            if not rp:
+                message = f"The reference point has no objectives of leaf '{leaf}'."
+                outcomes[leaf] = LeafOutcome(status=False, message=message)
+                continue
+            if all(own_ranges[sym][0] == own_ranges[sym][1] for sym in rp):
+                weights = dict.fromkeys(rp, 1.0)
+            else:
+                weights = _weights(rp, own_ranges, warn=False)
+            result = _solve_variant(
+                replace(jp, problem=fix_variables(jp.problem, design)),
+                "fixed_design",
+                {sym: rp[sym] for sym in weights},
+                weights,
+                solver=solver,
+                design_variables=list(design),
+                rho=rho,
+                solver_options=solver_options,
+            )
+        except Exception as e:
+            outcomes[leaf] = LeafOutcome(status=False, message=f"{type(e).__name__}: {e}")
+            continue
+        outcomes[leaf] = LeafOutcome(
+            status=result.success, message=result.message, objectives=result.leaf_objectives.get(leaf, {})
+        )
+    return outcomes
 
 
 def leaf_reference_points(
