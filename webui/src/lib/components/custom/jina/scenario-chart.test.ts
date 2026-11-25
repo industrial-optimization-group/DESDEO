@@ -429,14 +429,16 @@ describe('aggregate lines', () => {
 });
 
 describe('defaultChartSelection', () => {
-	it('plots the aggregate alone in the aggregated view and all scenarios in the per-scenario view', () => {
+	it('plots the aggregate alone in the aggregated view and all scenarios in the others', () => {
 		expect(defaultChartSelection('aggregated', ['a', 'b'])).toEqual({
 			leaves: [],
 			aggregate: true
 		});
-		expect(defaultChartSelection('per_scenario', ['a', 'b'])).toEqual({
-			leaves: ['a', 'b'],
-			aggregate: false
-		});
+		for (const view of ['per_scenario', 'scenario_optimal'] as const) {
+			expect(defaultChartSelection(view, ['a', 'b'])).toEqual({
+				leaves: ['a', 'b'],
+				aggregate: false
+			});
+		}
 	});
 });

@@ -1,9 +1,9 @@
 <script lang="ts">
 	/**
-	 * Table of the results of a JINA iteration: one row per variant or pool scorer with its
-	 * design id, target values (binding targets marked) and design variable values. Clicking
-	 * a row selects its design; the eye toggles whether the design is plotted, and hidden designs
-	 * are greyed.
+	 * Table of the results of a JINA iteration: one row per variant with its design id, target
+	 * values (binding targets marked) and design variable values. Clicking a row selects its design,
+	 * and with `selectedName` given also the row itself, which alone is then highlighted. The eye
+	 * toggles whether the design is plotted, and hidden designs are greyed.
 	 */
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Button } from '$lib/components/ui/button';
@@ -23,8 +23,8 @@
 		results,
 		designs,
 		designVariables,
-		nameLabel = 'Variant',
 		selectedId = $bindable(null),
+		selectedName = $bindable(),
 		hidden = $bindable([])
 	}: {
 		problem: ProblemInfo;
@@ -32,8 +32,8 @@
 		results: JinaIterateResult[];
 		designs: JinaDesignInfo[];
 		designVariables: string[];
-		nameLabel?: string;
 		selectedId?: number | null;
+		selectedName?: string | null;
 		hidden?: number[];
 	} = $props();
 
@@ -42,6 +42,20 @@
 	let ids = $derived([
 		...new Set(results.flatMap((r) => (r.design_id != null ? [r.design_id] : [])))
 	]);
+
+	function isSelected(result: JinaIterateResult): boolean {
+		return (
+			result.design_id != null &&
+			result.design_id === selectedId &&
+			(selectedName === undefined || result.name === selectedName)
+		);
+	}
+
+	function select(result: JinaIterateResult) {
+		if (result.design_id == null) return;
+		selectedId = result.design_id;
+		if (selectedName !== undefined) selectedName = result.name;
+	}
 
 	function toggleHidden(id: number) {
 		hidden = hidden.includes(id) ? hidden.filter((h) => h !== id) : [...hidden, id];
@@ -68,7 +82,7 @@
 			<Table.Row>
 				<Table.Head class="w-8"><span class="sr-only">Plotted</span></Table.Head>
 				<Table.Head>Design</Table.Head>
-				<Table.Head>{nameLabel}</Table.Head>
+				<Table.Head>Variant</Table.Head>
 				{#each targets as target (target.symbol)}
 					<Table.Head class="text-right">{targetLabel(problem, target)}</Table.Head>
 				{/each}
@@ -82,12 +96,10 @@
 				{@const design = result.design_id != null ? byId.get(result.design_id) : undefined}
 				{@const isHidden = result.design_id != null && hidden.includes(result.design_id)}
 				<Table.Row
-					class="cursor-pointer {result.design_id != null && result.design_id === selectedId
-						? 'bg-blue-50'
-						: ''} {isHidden ? 'text-gray-400' : ''}"
-					onclick={() => {
-						if (result.design_id != null) selectedId = result.design_id;
-					}}
+					class="cursor-pointer {isSelected(result) ? 'bg-blue-50' : ''} {isHidden
+						? 'text-gray-400'
+						: ''}"
+					onclick={() => select(result)}
 				>
 					<Table.Cell class="px-1">
 						{#if result.design_id != null}

@@ -6,8 +6,10 @@
 	 * entered as raw values, as percent of the ideal–nadir range (100 = ideal, 0 = nadir) or as a
 	 * change from the previous reference point in percent of the range toward the ideal.
 	 *
-	 * With a target per scenario, the cells are grouped by objective, and each group has a fill row
-	 * that writes one entry into the cells of all scenarios or of the scenarios in `checkedLeaves`.
+	 * With targets of several scenarios, the cells are grouped by objective, and each group has a fill
+	 * row that writes one entry into the cells of all scenarios or of the scenarios in `checkedLeaves`.
+	 *
+	 * With `limit`, entries outside a target's range are limited to it, and so are the bars' fills.
 	 *
 	 * Each cell has a bar for picking the raw value, filled up to `solution`, the selected design's
 	 * value of the target, if given, in the scenario's colour for a per-scenario target and dark grey
@@ -23,6 +25,7 @@
 		rawToPercent,
 		type Range
 	} from './reference-point';
+	import { limitToRange } from './scenario-optimal';
 	import { compactNumber, formatNumber, objectiveLabel, targetLabel } from './labels';
 	import {
 		applyAllFills,
@@ -45,6 +48,7 @@
 		leafColors = {},
 		value = $bindable({}),
 		checkedLeaves = [],
+		limit = false,
 		collapsed = $bindable([])
 	}: {
 		problem: ProblemInfo;
@@ -55,6 +59,7 @@
 		leafColors?: Record<string, string>;
 		value?: Record<string, number>;
 		checkedLeaves?: string[];
+		limit?: boolean;
 		collapsed?: string[];
 	} = $props();
 
@@ -97,9 +102,16 @@
 		fillWarnings = {};
 	});
 
-	// Fill rows of the objective groups, used when there is a target per scenario.
+	// Targets of another scenario can have the same symbols.
+	$effect(() => {
+		void targets;
+		drafts = {};
+		warnings = {};
+	});
+
+	// Fill rows of the objective groups, used when there are targets of several scenarios.
 	let groups = $derived(groupByObjective(targets));
-	let grouped = $derived(targets.some((t) => t.leaf !== null));
+	let grouped = $derived(new Set(targets.map((t) => t.leaf)).size > 1);
 	let scope = $state<'all' | 'checked'>('all');
 	let scopeLeaves = $derived(scope === 'all' ? null : checkedLeaves);
 	let fills = $state<Record<string, string>>({});
@@ -158,16 +170,23 @@
 				: mode === 'change'
 					? (v: number) => changeToRaw(v, prev!, range)
 					: (v: number) => v;
-		const result = applyEntry(input, initial, convert, mode === 'percent' ? [0, 100] : undefined);
-		warnings = result.warning
-			? { ...warnings, [target.symbol]: result.warning }
+		const bounds: [number, number] | undefined =
+			mode === 'percent' && !limit ? [0, 100] : undefined;
+		const result = applyEntry(input, initial, convert, bounds);
+		const limited = limit ? limitToRange(result.value, range) : null;
+		const warning = limited?.limited
+			? `Limited to the range ${formatNumber(Math.min(...range))} … ${formatNumber(Math.max(...range))}.`
+			: result.warning;
+		warnings = warning
+			? { ...warnings, [target.symbol]: warning }
 			: without(warnings, target.symbol);
-		value = { ...value, [target.symbol]: result.value };
+		value = { ...value, [target.symbol]: limited?.value ?? result.value };
 	}
 
 	/** Set a raw value picked on the bar and show it converted in the input. */
 	function picked(target: Target, raw: number) {
-		value = { ...value, [target.symbol]: raw };
+		const range = ranges[target.symbol];
+		value = { ...value, [target.symbol]: limit ? limitToRange(raw, range).value : raw };
 		drafts = without(drafts, target.symbol);
 		warnings = without(warnings, target.symbol);
 	}
@@ -223,7 +242,9 @@
 				<HorizontalBar
 					axisRanges={[Math.min(...range), Math.max(...range)]}
 					direction={target.maximize ? 'max' : 'min'}
-					{solutionValue}
+					solutionValue={limit && solutionValue != null
+						? limitToRange(solutionValue, range).value
+						: solutionValue}
 					selectedValue={value[target.symbol]}
 					previousValue={previous?.[target.symbol]}
 					barColor={solutionValue === undefined

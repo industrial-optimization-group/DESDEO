@@ -10,6 +10,7 @@
 	import ResizableHandle from '$lib/components/ui/resizable/resizable-handle.svelte';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Button } from '$lib/components/ui/button';
+	import { Label } from '$lib/components/ui/label';
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 	import { PREFERENCE_TYPES } from '$lib/constants';
 
@@ -46,6 +47,14 @@
 		scenarioProblem,
 		scenarioReferencePoint
 	} from '$lib/components/custom/jina/scenario-chart';
+	import {
+		extendToValues,
+		outcomeLines,
+		outcomeRows,
+		rowKey,
+		solvedOutcomes,
+		targetLines
+	} from '$lib/components/custom/jina/scenario-optimal';
 	import ScenarioPicker from '$lib/components/custom/jina/ScenarioPicker.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 
@@ -58,8 +67,8 @@
 		JinaStateResponse,
 		SelectState,
 		SetupState,
-		Target,
-		View
+		SolveView,
+		Target
 	} from './types';
 	import {
 		analyseAntifragility,
@@ -75,17 +84,13 @@
 	const { data } = $props<{ data: { problems: ProblemInfo[] } }>();
 	let problemList = $derived(data.problems ?? []);
 
-	type Tab = View | 'pool' | 'robustness' | 'antifragility';
+	type Tab = SolveView | 'robustness' | 'antifragility';
 	const TABS: { value: Tab; label: string }[] = [
 		{ value: 'aggregated', label: 'Aggregated' },
 		{ value: 'per_scenario', label: 'Per-scenario' },
-		{ value: 'pool', label: 'Pool' },
+		{ value: 'scenario_optimal', label: 'Scenario-optimal' },
 		{ value: 'robustness', label: 'Robustness' },
 		{ value: 'antifragility', label: 'Antifragility' }
-	];
-	const VIEW_OPTIONS: { value: View; label: string }[] = [
-		{ value: 'aggregated', label: 'Aggregated' },
-		{ value: 'per_scenario', label: 'Per-scenario' }
 	];
 
 	let problem = $state<ProblemInfo | null>(null);
@@ -99,19 +104,20 @@
 	let setupJobId = $state<number | null>(null);
 	let designsRequest = 0;
 	let tab = $state<Tab>('aggregated');
-	let poolView = $state<View>('aggregated');
+	// The scenario chosen in the Scenario-optimal tab (null: the first in leaf order).
+	let chosenLeaf = $state<string | null>(null);
 	let selectedDesignId = $state<number | null>(null);
+	// The key of the scenario-optimal row clicked last.
+	let clickedRowKey = $state<string | null>(null);
 	let shownIteration = $state<Record<Tab, string>>({
 		aggregated: '',
 		per_scenario: '',
-		pool: '',
+		scenario_optimal: '',
 		robustness: '',
 		antifragility: ''
 	});
-	let referencePoints = $state<Record<View, Record<string, number>>>({
-		aggregated: {},
-		per_scenario: {}
-	});
+	// The reference point being edited by point key.
+	let referencePoints = $state<Record<string, Record<string, number>>>({});
 
 	let ready = $derived(!!setup && setup.is_ready && !setup.error && !!setup.result.ranges);
 	// The Robustness and Antifragility tabs edit no reference point; their view is only a placeholder.
@@ -120,11 +126,33 @@
 	let tabs = $derived(
 		setup?.result.baseline_leaf ? TABS : TABS.filter((t) => t.value !== 'antifragility')
 	);
-	let view = $derived<View>(tab === 'pool' ? poolView : analysisTab ? 'aggregated' : (tab as View));
-	let targets = $derived<Target[]>(setup?.result.targets?.[view] ?? []);
-	let ranges = $derived<Record<string, Range>>(
-		(setup?.result.ranges?.[view] ?? {}) as Record<string, Range>
+	let view = $derived<SolveView>(analysisTab ? 'aggregated' : (tab as SolveView));
+	let setupModel = $derived(scenarioModels.find((m) => m.id === setup?.result.scenario_model_id));
+	let leafOrder = $derived(
+		baselineFirst(setupModel?.leaves ?? [], setup?.result.baseline_leaf ?? null)
 	);
+	// The scenario the Scenario-optimal tab optimises for; null in the other tabs.
+	let leaf = $derived(view === 'scenario_optimal' ? (chosenLeaf ?? leafOrder[0] ?? null) : null);
+	let targets = $derived(viewTargets(view, leaf));
+	let ranges = $derived(viewRanges(view, leaf));
+
+	// The targets and ranges of a view, in the scenario-optimal view those of the scenario `leaf`.
+	function viewTargets(view: SolveView, leaf: string | null): Target[] {
+		if (view !== 'scenario_optimal') return setup?.result.targets?.[view] ?? [];
+		return setup?.result.scenario_targets?.[leaf ?? ''] ?? [];
+	}
+
+	function viewRanges(view: SolveView, leaf: string | null): Record<string, Range> {
+		if (view !== 'scenario_optimal') return setup?.result.ranges?.[view] ?? {};
+		return setup?.result.scenario_ranges?.[leaf ?? ''] ?? {};
+	}
+
+	// The key of a view's reference point; the scenario-optimal view has one per scenario.
+	function pointKey(view: SolveView, leaf: string | null): string {
+		return leaf === null ? view : `${view}:${leaf}`;
+	}
+
+	let referencePoint = $derived(referencePoints[pointKey(view, leaf)] ?? {});
 
 	let iterations = $derived(
 		states.filter((s): s is IterateState => s.result.kind === 'jina.iterate')
@@ -139,22 +167,20 @@
 	let finalId = $derived(lastSelect?.result.final_design_id ?? null);
 
 	let tabIterations = $derived(
-		iterations.filter((s) =>
-			tab === 'pool' ? s.result.mode === 'pool' : s.result.mode === 'solve' && s.result.view === tab
-		)
+		iterations.filter((s) => s.result.mode === 'solve' && s.result.view === tab)
 	);
 	let iteration = $derived(
 		tabIterations.find((s) => String(s.state_id) === shownIteration[tab]) ?? tabIterations.at(-1)
 	);
 	let iterationTargets = $derived<Target[]>(
-		iteration?.result.view ? (setup?.result.targets?.[iteration.result.view] ?? []) : []
+		iteration?.result.view ? viewTargets(iteration.result.view, iteration.result.leaf) : []
 	);
 
-	// The latest reference point iterated with in each view.
+	// The latest reference point iterated with by point key.
 	let previousPoints = $derived.by(() => {
-		const result: Partial<Record<View, Record<string, number>>> = {};
-		for (const s of iterations) {
-			if (s.result.view) result[s.result.view] = s.result.reference_point;
+		const result: Record<string, Record<string, number>> = {};
+		for (const { result: r } of iterations) {
+			if (r.view) result[pointKey(r.view, r.leaf)] = r.reference_point;
 		}
 		return result;
 	});
@@ -177,19 +203,24 @@
 			s.id == null ? [] : [{ id: s.id, name: s.name }]
 		)
 	);
-	let setupModel = $derived(scenarioModels.find((m) => m.id === setup?.result.scenario_model_id));
 
-	// Starts each view's reference point at its previous one, or at the middle of each range.
+	// Starts each reference point at its previous one, or at the middle of each range.
 	$effect(() => {
 		if (!ready || !setup) return;
-		for (const v of ['aggregated', 'per_scenario'] as View[]) {
-			const viewTargets = setup.result.targets?.[v] ?? [];
-			if (Object.keys(referencePoints[v]).length > 0 || viewTargets.length === 0) continue;
-			const viewRanges = (setup.result.ranges?.[v] ?? {}) as Record<string, Range>;
+		const points: [SolveView, string | null][] = [
+			['aggregated', null],
+			['per_scenario', null],
+			...leafOrder.map((l): [SolveView, string] => ['scenario_optimal', l])
+		];
+		for (const [v, l] of points) {
+			const key = pointKey(v, l);
+			const pointTargets = viewTargets(v, l);
+			if (referencePoints[key] || pointTargets.length === 0) continue;
+			const pointRanges = viewRanges(v, l);
 			const start =
-				previousPoints[v] ??
-				Object.fromEntries(viewTargets.map((t) => [t.symbol, midpoint(viewRanges[t.symbol])]));
-			referencePoints[v] = { ...start };
+				previousPoints[key] ??
+				Object.fromEntries(pointTargets.map((t) => [t.symbol, midpoint(pointRanges[t.symbol])]));
+			referencePoints[key] = { ...start };
 		}
 	});
 
@@ -216,15 +247,18 @@
 		if (tab === 'antifragility' && !state.result.baseline_leaf) tab = 'robustness';
 		designs = [];
 		selectedDesignId = null;
-		referencePoints = { aggregated: {}, per_scenario: {} };
+		clickedRowKey = null;
+		// The latest iteration is shown, so its scenario is chosen.
+		chosenLeaf = iterations.findLast((s) => s.result.leaf !== null)?.result.leaf ?? null;
+		referencePoints = {};
 		shownIteration = {
 			aggregated: '',
 			per_scenario: '',
-			pool: '',
+			scenario_optimal: '',
 			robustness: '',
 			antifragility: ''
 		};
-		chartSelections = { aggregated: null, per_scenario: null };
+		chartSelections = { aggregated: null, per_scenario: null, scenario_optimal: null };
 		hiddenDesigns = [];
 		collapsedGroups = [];
 		evaluationId = null;
@@ -236,7 +270,7 @@
 		chartIterationIds = {
 			aggregated: [],
 			per_scenario: [],
-			pool: [],
+			scenario_optimal: [],
 			robustness: [],
 			antifragility: []
 		};
@@ -293,14 +327,14 @@
 		if (!problem || !setup) return;
 		const point = Object.fromEntries(
 			targets
-				.filter((t) => referencePoints[view][t.symbol] !== undefined)
-				.map((t) => [t.symbol, referencePoints[view][t.symbol]])
+				.filter((t) => referencePoint[t.symbol] !== undefined)
+				.map((t) => [t.symbol, referencePoint[t.symbol]])
 		);
 		const state = await iterate({
 			problem_id: problem.id,
 			setup_state_id: setup.state_id,
-			mode: tab === 'pool' ? 'pool' : 'solve',
 			view,
+			leaf,
 			reference_point: point
 		});
 		if (state) {
@@ -367,24 +401,29 @@
 		applySetup(state as SetupState);
 	}
 
-	function iterationLabel(s: IterateState, index: number): string {
-		const viewLabel =
-			tab === 'pool' && s.result.view ? ` (${s.result.view.replace('_', '-')})` : '';
-		return `Iteration ${index + 1}${viewLabel}`;
+	function leafLabel(l: string): string {
+		return l === setup?.result.baseline_leaf ? `★ ${l}` : l;
 	}
 
-	let emptyMessage = $derived(
-		iteration?.result.mode === 'pool'
-			? 'No unpicked designs left.'
-			: 'No designs in this iteration.'
-	);
+	function iterationLabel(s: IterateState, index: number): string {
+		return `Iteration ${index + 1}${s.result.leaf ? ` (${s.result.leaf})` : ''}`;
+	}
+
+	// Showing a scenario-optimal iteration also chooses its scenario.
+	function showIteration(id: string) {
+		shownIteration[tab] = id;
+		chosenLeaf = iteration?.result.leaf ?? chosenLeaf;
+	}
+
+	const emptyMessage = 'No designs in this iteration.';
 
 	// Chart state of the current setup: per view, the scenarios plotted and whether the aggregate
 	// is (null: the default), the designs hidden from the chart and the iterations plotted in each
 	// tab (none chosen: the shown iteration).
-	let chartSelections = $state<Record<View, { leaves: string[]; aggregate: boolean } | null>>({
+	let chartSelections = $state<Record<SolveView, { leaves: string[]; aggregate: boolean } | null>>({
 		aggregated: null,
-		per_scenario: null
+		per_scenario: null,
+		scenario_optimal: null
 	});
 	let hiddenDesigns = $state<number[]>([]);
 	// The evaluation chosen in the Robustness and Antifragility tabs (null: the latest).
@@ -402,14 +441,11 @@
 	let chartIterationIds = $state<Record<Tab, number[]>>({
 		aggregated: [],
 		per_scenario: [],
-		pool: [],
+		scenario_optimal: [],
 		robustness: [],
 		antifragility: []
 	});
 
-	let leafOrder = $derived(
-		baselineFirst(setupModel?.leaves ?? [], setup?.result.baseline_leaf ?? null)
-	);
 	let leafColors = $derived(Object.fromEntries(leafOrder.map((l, i) => [l, scenarioColor(i)])));
 	let chartSelection = $derived(chartSelections[view] ?? defaultChartSelection(view, leafOrder));
 	let chartIterations = $derived.by(() => {
@@ -443,9 +479,9 @@
 		showAggregate || (chartSelection.leaves.length > 0 && perScenarioTargets.length > 0)
 	);
 
-	// The target view's axes are the shown iteration's targets, so it plots only iterations in that
-	// view; the objective axes plot them all.
-	let comparable = (s: IterateState) => objectiveMode || s.result.view === iteration?.result.view;
+	// The target view's axes are the shown iteration's targets, so it plots only iterations for the
+	// same scenario; the objective axes plot them all.
+	let comparable = (s: IterateState) => objectiveMode || s.result.leaf === iteration?.result.leaf;
 	let plottedIterations = $derived(chartIterations.filter(comparable));
 	let plottedIds = $derived([
 		...new Set(
@@ -458,25 +494,69 @@
 		plottedIds.length > 0 && plottedIds.every((id) => hiddenDesigns.includes(id))
 	);
 
+	// The rows of the plotted scenario-optimal iterations whose designs are visible.
+	let plottedRows = $derived(
+		outcomeRows(plottedIterations).filter((r) => !hiddenDesigns.includes(r.result.design_id!))
+	);
+
+	// The selected scenario-optimal row: the one clicked last if it has the selected design, else a
+	// row with that design, first from the shown iteration, then from the plotted ones.
+	let selectedRow = $derived.by(() => {
+		if (!iteration) return null;
+		const rows = outcomeRows([iteration, ...plottedIterations, ...tabIterations]).filter(
+			(r) => r.result.design_id === selectedDesignId
+		);
+		return rows.find((r) => rowKey(r.stateId, r.result.name) === clickedRowKey) ?? rows[0] ?? null;
+	});
+	let selectedRowKey = $derived(
+		selectedRow && rowKey(selectedRow.stateId, selectedRow.result.name)
+	);
+	let selectedOutcomes = $derived(selectedRow && solvedOutcomes(selectedRow.result, leafOrder));
+
+	// The selected solution's values of the edited targets.
+	let solution = $derived.by(() => {
+		if (view !== 'scenario_optimal') return selectedDesign?.target_values[view] ?? null;
+		return (selectedOutcomes ?? selectedDesign?.leaf_objectives)?.[leaf ?? ''] ?? null;
+	});
+
+	// The edited reference point's targets are those of the shown iteration.
+	let pointComparable = $derived(
+		!!iteration?.result.view &&
+			pointKey(iteration.result.view, iteration.result.leaf) === pointKey(view, leaf)
+	);
+
 	// Target view: the shown iteration's targets as axes, one line per visible design of the plotted
-	// iterations in that view. The reference point is the one being edited; the previous one is the
-	// shown iteration's.
+	// iterations, or per row in the scenario-optimal view. The reference point is the one being edited;
+	// the previous one is the shown iteration's. In the scenario-optimal view, the axes cover all drawn
+	// values.
 	let targetChart = $derived.by(() => {
 		if (!problem || !iteration) return null;
-		const ranges = (
-			iteration.result.view ? (setup?.result.ranges?.[iteration.result.view] ?? {}) : {}
-		) as Record<string, Range>;
+		const ranges = iteration.result.view
+			? viewRanges(iteration.result.view, iteration.result.leaf)
+			: {};
 		const results = plottedIterations.flatMap((s) => s.result.results);
-		const lines = hideLines(viewRows(results, iterationTargets), hiddenDesigns);
+		const lines =
+			view === 'scenario_optimal'
+				? targetLines(plottedRows, iterationTargets)
+				: {
+						...hideLines(viewRows(results, iterationTargets), hiddenDesigns),
+						rowKeys: null
+					};
+		const current = pointComparable ? pointArray(referencePoint, iterationTargets) : null;
 		const previous = pointArray(iteration.result.reference_point, iterationTargets);
+		const points = [current, previous].filter((p) => p !== null);
+		const chartProblem = viewProblem(problem, iterationTargets, ranges);
 		return {
-			problem: viewProblem(problem, iterationTargets, ranges),
+			problem:
+				view === 'scenario_optimal'
+					? extendToValues(chartProblem, [...lines.values, ...points])
+					: chartProblem,
 			designIds: lines.designIds,
 			labels: lines.labels,
 			values: lines.values,
+			rowKeys: lines.rowKeys,
 			colors: undefined,
-			reference:
-				iteration.result.view === view ? pointArray(referencePoints[view], iterationTargets) : null,
+			reference: current,
 			referenceLabel: 'Reference point',
 			previous: previous ? [previous] : [],
 			previousLabel: 'Previous reference point',
@@ -486,7 +566,8 @@
 
 	// Objective axes: the original objectives, one line per visible design and checked scenario with
 	// its objective values there, coloured by scenario, and in the aggregated view one per design
-	// with its aggregated target values.
+	// with its aggregated target values. In the scenario-optimal view, one line per visible row and
+	// checked scenario, and the reference points of the optimised scenario.
 	let scenarioChart = $derived.by(() => {
 		if (!problem || !iteration || !setup || !objectiveMode) return null;
 		const leaves = chartSelection.leaves;
@@ -503,6 +584,25 @@
 				: null
 		);
 		const objectives = chartProblem.objectives.map((o) => o.symbol);
+		if (view === 'scenario_optimal') {
+			const lines = outcomeLines(plottedRows, leaves, leafOrder, objectives, selectedRowKey);
+			const current = pointComparable ? pointArray(referencePoint, chartProblem.objectives) : null;
+			const previous = pointArray(iteration.result.reference_point, chartProblem.objectives);
+			const points = [current, previous].filter((p) => p !== null);
+			return {
+				problem: extendToValues(chartProblem, [...lines.values, ...points]),
+				designIds: lines.designIds,
+				labels: lines.labels,
+				values: lines.values,
+				rowKeys: lines.rowKeys,
+				colors: lines.colors,
+				reference: current,
+				referenceLabel: `Reference point (for ${iteration.result.leaf})`,
+				previous: previous ? [previous] : [],
+				previousLabel: `Previous reference point (for ${iteration.result.leaf})`,
+				note: "In other scenarios, each level is limited to the scenario's ideal–nadir range."
+			};
+		}
 		const ids = plottedIds.filter((id) => !hiddenDesigns.includes(id));
 		const leafObjectives = Object.fromEntries(designs.map((d) => [d.id, d.leaf_objectives]));
 		const aggregatedValues = Object.fromEntries(
@@ -515,12 +615,7 @@
 				? [aggregateLines(ids, aggregatedValues, aggregatedTargets, objectives, selectedDesignId)]
 				: [])
 		);
-		const current = scenarioReferencePoint(
-			setup.result.targets?.[view] ?? [],
-			referencePoints[view],
-			objectives,
-			leaves
-		);
+		const current = scenarioReferencePoint(targets, referencePoint, objectives, leaves);
 		const previous = scenarioReferencePoint(
 			iterationTargets,
 			iteration.result.reference_point,
@@ -533,6 +628,7 @@
 			designIds: lines.designIds,
 			labels: lines.labels,
 			values: lines.values,
+			rowKeys: null,
 			colors: lines.colors,
 			reference: current.values,
 			referenceLabel: `Reference point${suffix(current.shared)}`,
@@ -544,7 +640,11 @@
 
 	let chart = $derived(scenarioChart ?? targetChart);
 	let chartSelected = $derived(
-		chart ? chart.designIds.flatMap((id, i) => (id === selectedDesignId ? [i] : [])) : []
+		chart
+			? chart.designIds.flatMap((id, i) =>
+					(chart.rowKeys ? chart.rowKeys[i] === selectedRowKey : id === selectedDesignId) ? [i] : []
+				)
+			: []
 	);
 
 	// Keeps the selection on a design of the shown iteration when another iteration is shown.
@@ -554,6 +654,7 @@
 			.filter((id): id is number => id != null);
 		const current = untrack(() => selectedDesignId);
 		if (current === null || !ids.includes(current)) selectedDesignId = ids[0] ?? null;
+		clickedRowKey = null;
 	});
 
 	function toggleChartIteration(id: number, on: boolean) {
@@ -598,17 +699,29 @@
 	showRightSidebar={!!problem}
 	leftSidebarWidth="20rem"
 	rightSidebarWidth="24rem"
-	bottomPanelTitle={tab === 'pool' ? 'Pool picks' : 'Iteration results'}
+	bottomPanelTitle="Iteration results"
 	showNumericalValues={!analysisTab}
 >
 	{#snippet leftSidebar()}
 		<!-- At most the viewport's height: the editor scrolls and the solve button stays visible. -->
 		<div class="flex max-h-[calc(100vh-3rem)] flex-col gap-4 p-3">
 			{#if ready && problem && !analysisTab}
-				{#if tab === 'pool'}
-					<div class="space-y-1">
-						<span class="text-sm font-medium">Targets of view</span>
-						<SegmentedControl bind:value={poolView} options={VIEW_OPTIONS} size="sm" />
+				{#if view === 'scenario_optimal'}
+					<div class="grid grid-cols-[minmax(0,1fr)] gap-1">
+						<Label for="jina-leaf">Optimise for scenario</Label>
+						<Select.Root
+							type="single"
+							bind:value={() => leaf ?? '', (l: string) => (chosenLeaf = l)}
+						>
+							<Select.Trigger id="jina-leaf" class="w-full min-w-0">
+								<span class="min-w-0 truncate">{leafLabel(leaf ?? '')}</span>
+							</Select.Trigger>
+							<Select.Content>
+								{#each leafOrder as l (l)}
+									<Select.Item value={l}>{leafLabel(l)}</Select.Item>
+								{/each}
+							</Select.Content>
+						</Select.Root>
 					</div>
 				{/if}
 				<h3 class="text-sm font-semibold">Reference point</h3>
@@ -617,17 +730,19 @@
 						{problem}
 						targets={orderTargets(targets, leafOrder)}
 						{ranges}
-						previous={previousPoints[view] ?? null}
-						solution={selectedDesign?.target_values?.[view] ?? null}
+						previous={previousPoints[pointKey(view, leaf)] ?? null}
+						{solution}
 						{leafColors}
-						bind:value={referencePoints[view]}
+						bind:value={
+							() => referencePoint,
+							(point: Record<string, number>) => (referencePoints[pointKey(view, leaf)] = point)
+						}
 						checkedLeaves={chartSelection.leaves}
+						limit={view === 'scenario_optimal'}
 						bind:collapsed={collapsedGroups}
 					/>
 				</div>
-				<Button class="w-full shrink-0" onclick={runIterate}>
-					{tab === 'pool' ? 'Pick from pool' : 'Solve'}
-				</Button>
+				<Button class="w-full shrink-0" onclick={runIterate}>Solve</Button>
 			{/if}
 		</div>
 	{/snippet}
@@ -642,7 +757,7 @@
 			<div class="flex min-w-0 flex-wrap items-center justify-end gap-2">
 				<SegmentedControl bind:value={tab} options={tabs} />
 				{#if tabIterations.length > 0 && iteration}
-					<Select.Root type="single" bind:value={shownIteration[tab]}>
+					<Select.Root type="single" bind:value={() => shownIteration[tab], showIteration}>
 						<Select.Trigger class="w-56 max-w-full min-w-0">
 							<span class="min-w-0 truncate">
 								{iterationLabel(iteration, tabIterations.indexOf(iteration))}
@@ -680,15 +795,15 @@
 								>
 									{iterationLabel(s, i)}
 									{#if !comparable(s)}
-										<span class="text-xs text-gray-500">(other view)</span>
+										<span class="text-xs text-gray-500">(other scenario)</span>
 									{/if}
 								</DropdownMenu.CheckboxItem>
 							{/each}
 							{#if tabIterations.some((s) => !comparable(s))}
 								<DropdownMenu.Separator />
 								<p class="max-w-64 px-2 py-1 text-xs text-gray-500">
-									Iterations in another view have other targets; check a scenario to compare them by
-									their objective values.
+									Iterations for another scenario have other targets; check a scenario to compare
+									them by their objective values.
 								</p>
 							{/if}
 						</DropdownMenu.Content>
@@ -742,9 +857,7 @@
 			<div class="flex h-full items-center justify-center text-gray-500">Set up JINA to start.</div>
 		{:else if !iteration}
 			<div class="flex h-full items-center justify-center text-gray-500">
-				{tab === 'pool'
-					? 'Pick designs from the pool of designs found so far.'
-					: 'Give a reference point and solve.'}
+				Give a reference point and solve.
 			</div>
 		{:else}
 			<Resizable.PaneGroup direction="horizontal" class="h-full">
@@ -773,6 +886,7 @@
 									externalSelectedIndexes={chartSelected}
 									onSelectSolution={(index: number) => {
 										selectedDesignId = chart?.designIds[index] ?? null;
+										clickedRowKey = chart?.rowKeys?.[index] ?? null;
 									}}
 									lineLabels={Object.fromEntries(
 										chart.labels.map((label, i) => [String(i), label])
@@ -810,19 +924,27 @@
 								() => chartSelection.aggregate, (aggregate: boolean) => selectChart({ aggregate })
 							}
 						/>
-						{#if selectedDesign}
+						{#if view === 'scenario_optimal' ? selectedRow : selectedDesign}
 							<div class="border-t pt-2">
-								<h3 class="mb-1 text-sm font-semibold">Design #{selectedDesign.id} by scenario</h3>
+								<h3 class="mb-1 text-sm font-semibold">
+									Design #{selectedDesignId}
+									{selectedRow
+										? `(${selectedRow.result.name}) by scenario, optimised for ${selectedRow.leaf}`
+										: 'by scenario'}
+								</h3>
 								<ScenarioBreakdown
 									{problem}
-									leafObjectives={selectedDesign.leaf_objectives ?? {}}
+									leafObjectives={selectedOutcomes ?? selectedDesign?.leaf_objectives ?? {}}
 									baselineLeaf={setup?.result.baseline_leaf ?? null}
 									{leafColors}
 									checkedLeaves={objectiveMode ? chartSelection.leaves : []}
 								/>
 							</div>
 						{:else}
-							<p class="text-sm text-gray-500">Select a design to see its values by scenario.</p>
+							<p class="text-sm text-gray-500">
+								Select a {view === 'scenario_optimal' ? 'row or line' : 'design'} to see its values by
+								scenario.
+							</p>
 						{/if}
 					</div>
 				</Resizable.Pane>
@@ -840,8 +962,17 @@
 				results={iteration.result.results}
 				{designs}
 				designVariables={setup.result.design_variables}
-				nameLabel={tab === 'pool' ? 'Scorer' : 'Variant'}
 				bind:selectedId={selectedDesignId}
+				bind:selectedName={
+					() =>
+						view !== 'scenario_optimal'
+							? undefined
+							: selectedRow?.stateId === iteration.state_id
+								? selectedRow.result.name
+								: null,
+					(name: string | null | undefined) =>
+						(clickedRowKey = name ? rowKey(iteration.state_id, name) : null)
+				}
 				bind:hidden={hiddenDesigns}
 			/>
 		{/if}

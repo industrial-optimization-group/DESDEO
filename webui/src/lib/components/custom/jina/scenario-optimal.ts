@@ -1,8 +1,10 @@
 /* Chart lines, infeasible scenarios and range limits of designs optimised for one scenario. */
 
-import type { JinaIterateResult, ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
+import type { JinaIterateResult, ProblemInfo, Target } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type { Range } from './reference-point';
 import { scenarioLines, type ChartLines } from './scenario-chart';
+import type { IterateState } from './types';
+import { pointArray } from './view-problem';
 
 /** A successful result of the iterate state `stateId`, optimised for the scenario `leaf`. */
 export interface OutcomeRow {
@@ -21,6 +23,49 @@ export function rowKey(stateId: number, name: string): string {
 	return `${stateId}:${name}`;
 }
 
+/** The successful rows of the states optimised for one scenario. */
+export function outcomeRows(states: IterateState[]): OutcomeRow[] {
+	return states.flatMap(({ state_id, result: { leaf, results } }) =>
+		leaf === null
+			? []
+			: results
+					.filter((r) => r.success && r.design_id != null)
+					.map((result) => ({ stateId: state_id, leaf, result }))
+	);
+}
+
+/** The objective values of the result in the scenarios it was solved in, in leaf order. */
+export function solvedOutcomes(
+	result: JinaIterateResult,
+	leafOrder: string[]
+): Record<string, Record<string, number>> {
+	return Object.fromEntries(
+		leafOrder.flatMap((leaf) => {
+			const outcome = result.outcomes?.[leaf];
+			return outcome?.status ? [[leaf, outcome.objectives ?? {}]] : [];
+		})
+	);
+}
+
+/** One line per row with a value for every target, in target order. */
+export function targetLines(
+	rows: OutcomeRow[],
+	targets: Target[]
+): { designIds: number[]; labels: string[]; values: number[][]; rowKeys: string[] } {
+	const lines = rows.flatMap((row) => {
+		const values = pointArray(row.result.target_values ?? {}, targets);
+		return row.result.design_id != null && values
+			? [{ row, id: row.result.design_id, values }]
+			: [];
+	});
+	return {
+		designIds: lines.map(({ id }) => id),
+		labels: lines.map(({ row, id }) => `#${id} ${row.result.name} (for ${row.leaf})`),
+		values: lines.map(({ values }) => values),
+		rowKeys: lines.map(({ row }) => rowKey(row.stateId, row.result.name))
+	};
+}
+
 /** One line per row and checked scenario with a successful outcome that has every objective. */
 export function outcomeLines(
 	rows: OutcomeRow[],
@@ -32,14 +77,7 @@ export function outcomeLines(
 	const keys = rows.map((row) => rowKey(row.stateId, row.result.name));
 	const indices = rows.flatMap((row, i) => (row.result.design_id != null ? [i] : []));
 	const leafObjectives = Object.fromEntries(
-		indices.map((i) => [
-			i,
-			Object.fromEntries(
-				Object.entries(rows[i].result.outcomes ?? {}).flatMap(([leaf, outcome]) =>
-					outcome.status ? [[leaf, outcome.objectives ?? {}]] : []
-				)
-			)
-		])
+		indices.map((i) => [i, solvedOutcomes(rows[i].result, leafOrder)])
 	);
 	// Lines are built per row index, so rows sharing a design id stay separate.
 	const lines = scenarioLines(

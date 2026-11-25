@@ -37,11 +37,13 @@
 
 	const VIEW_LABELS: Record<string, string> = {
 		aggregated: 'aggregated',
-		per_scenario: 'per-scenario'
+		per_scenario: 'per-scenario',
+		scenario_optimal: 'optimal for'
 	};
 
 	function origin(design: JinaDesignInfo): string {
-		return design.source === 'import' ? 'imported' : `solved, ${VIEW_LABELS[design.view ?? '']}`;
+		if (design.source === 'import') return 'imported';
+		return `solved, ${VIEW_LABELS[design.view ?? '']}${design.leaf ? ` ${design.leaf}` : ''}`;
 	}
 
 	let importSet = $state<{ id: number; name: string } | null>(null);

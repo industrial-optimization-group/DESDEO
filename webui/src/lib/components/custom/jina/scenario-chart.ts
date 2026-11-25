@@ -2,6 +2,7 @@ import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors';
 import type { ObjectiveDB, ProblemInfo, Target } from '$lib/gen/endpoints/DESDEOFastAPI';
 import { objectiveLabel } from './labels';
 import { objectiveRanges, type Range } from './reference-point';
+import type { SolveView } from './types';
 import { axisRange } from './view-problem';
 
 /** Background of the chart area the scenario lines are drawn on. */
@@ -304,9 +305,9 @@ export function concatLines(...parts: ChartLines[]): ChartLines {
 	return lines;
 }
 
-/** The scenarios and whether the aggregate are plotted by default: the aggregate alone in the aggregated view, all scenarios in the per-scenario view. */
+/** The scenarios and whether the aggregate are plotted by default: the aggregate alone in the aggregated view, all scenarios in the others. */
 export function defaultChartSelection(
-	view: 'aggregated' | 'per_scenario',
+	view: SolveView,
 	leaves: string[]
 ): { leaves: string[]; aggregate: boolean } {
 	return view === 'aggregated'

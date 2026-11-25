@@ -7,7 +7,7 @@ export type {
 	Target
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 export type {
-	View,
+	SolveView,
 	SetupState,
 	IterateState,
 	EvaluateState,

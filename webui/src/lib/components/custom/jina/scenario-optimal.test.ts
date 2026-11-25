@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { LeafOutcome, ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
+import type { LeafOutcome, ProblemInfo, Target } from '$lib/gen/endpoints/DESDEOFastAPI';
 import { percentToRaw } from './reference-point';
 import { scenarioLineColor } from './scenario-chart';
 import {
@@ -7,9 +7,13 @@ import {
 	infeasibleByRow,
 	limitToRange,
 	outcomeLines,
+	outcomeRows,
 	rowKey,
+	solvedOutcomes,
+	targetLines,
 	type OutcomeRow
 } from './scenario-optimal';
+import type { IterateState } from './types';
 
 const solved = (f_1: number, f_2: number): LeafOutcome => ({
 	status: true,
@@ -32,6 +36,61 @@ const row = (
 
 const leafOrder = ['a', 'b', 'c'];
 const objectives = ['f_1', 'f_2'];
+
+describe('outcomeRows', () => {
+	it('gives the successful results of states for one scenario', () => {
+		const solvedRow = row(5, 'balanced', 1, { b: solved(1, 2) });
+		const failedResult = { name: 'emphasis_f_1', success: false, message: 'x', design_id: null };
+		const states = [
+			{ state_id: 4, result: { leaf: null, results: [solvedRow.result] } },
+			{ state_id: 5, result: { leaf: 'b', results: [solvedRow.result, failedResult] } },
+			{ state_id: 6, result: { leaf: 'a', results: [solvedRow.result] } }
+		] as IterateState[];
+		expect(outcomeRows(states)).toEqual([solvedRow, { ...solvedRow, stateId: 6, leaf: 'a' }]);
+	});
+});
+
+describe('solvedOutcomes', () => {
+	it('gives the values of the solved scenarios in leaf order', () => {
+		const { result } = row(5, 'balanced', 1, { b: solved(1, 2), c: failed('x'), a: solved(3, 4) });
+		const outcomes = solvedOutcomes(result, leafOrder);
+		expect(Object.entries(outcomes)).toEqual([
+			['a', { f_1: 3, f_2: 4 }],
+			['b', { f_1: 1, f_2: 2 }]
+		]);
+	});
+});
+
+describe('targetLines', () => {
+	const targets: Target[] = objectives.map((symbol) => ({
+		symbol,
+		objective: symbol,
+		leaf: 'b',
+		leaves: ['b'],
+		maximize: false
+	}));
+	const withValues = (name: string, design_id: number, target_values: Record<string, number>) => {
+		const { result, ...rest } = row(5, name, design_id, {});
+		return { ...rest, result: { ...result, target_values } };
+	};
+
+	it('draws rows sharing a design id separately and skips rows missing a target', () => {
+		const rows = [
+			withValues('balanced', 1, { f_2: 2, f_1: 1 }),
+			withValues('partial', 2, { f_1: 1 }),
+			withValues('emphasis_f_1', 1, { f_1: 3, f_2: 4 })
+		];
+		expect(targetLines(rows, targets)).toEqual({
+			designIds: [1, 1],
+			labels: ['#1 balanced (for b)', '#1 emphasis_f_1 (for b)'],
+			values: [
+				[1, 2],
+				[3, 4]
+			],
+			rowKeys: ['5:balanced', '5:emphasis_f_1']
+		});
+	});
+});
 
 describe('outcomeLines', () => {
 	const rows = [

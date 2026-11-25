@@ -71,8 +71,11 @@ export function viewRows(
 	};
 }
 
-/** A point by target symbol as an array in target order; null if a target is missing. */
-export function pointArray(point: Record<string, number>, targets: Target[]): number[] | null {
+/** A point by symbol as an array in the order of the targets or objectives; null if one is missing. */
+export function pointArray(
+	point: Record<string, number>,
+	targets: { symbol: string }[]
+): number[] | null {
 	const values = targets.map((t) => point[t.symbol]);
 	return values.every((v) => typeof v === 'number') ? values : null;
 }
