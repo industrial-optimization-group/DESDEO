@@ -120,6 +120,11 @@ def _leaf_solver(model: ScenarioModel) -> type[BaseSolver]:
     return guess_best_solver(model.get_scenario_problem(next(iter(model.leaf_scenarios))))
 
 
+def _per_scenario_solver(problem_id: int, setup: JinaSetupResult, model: ScenarioModel) -> type[BaseSolver]:
+    """Guess one solver for every leaf from the per-scenario problem, which covers them all."""
+    return guess_best_solver(_jina_problem(problem_id, setup, "per_scenario", model).problem)
+
+
 def _load_model(scenario_model_id: int, problem_db: ProblemDB, db_session: Session) -> ScenarioModel:
     """Load a scenario model of the problem; raise 422 if it is not one."""
     sm_db = db_session.get(ScenarioModelDB, scenario_model_id)
@@ -296,8 +301,7 @@ def _run_setup(bind: Engine, problem_id: int, setup_id: int, solver: type[BaseSo
             model = load_scenario_model(setup.scenario_model_id, session)
             session.commit()
 
-            # One solver for every leaf, guessed from the problem covering them all.
-            leaf_solver = solver or guess_best_solver(_jina_problem(problem_id, setup, "per_scenario", model).problem)
+            leaf_solver = solver or _per_scenario_solver(problem_id, setup, model)
             by_leaf = scenario_ranges(model, leaf_solver)
             targets, ranges = {}, {}
             for view in VIEWS:
@@ -334,8 +338,7 @@ def _run_solve(bind: Engine, problem_id: int, setup_id: int, iterate_id: int, so
 
             if leaf is not None:
                 jp, ranges = build_leaf_jina_problem(model, leaf), setup.scenario_ranges[leaf]
-                # One solver for every leaf, guessed from the problem covering them all.
-                solver = solver or guess_best_solver(_jina_problem(problem_id, setup, "per_scenario", model).problem)
+                solver = solver or _per_scenario_solver(problem_id, setup, model)
             else:
                 jp, ranges = _jina_problem(problem_id, setup, view, model), setup.ranges[view]
                 solver = solver or guess_best_solver(jp.problem)

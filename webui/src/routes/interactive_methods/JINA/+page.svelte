@@ -969,7 +969,7 @@
 										leafObjectives={selectedOutcomes ?? selectedDesign?.leaf_objectives ?? {}}
 										failed={selectedFailed}
 										failureLabels
-										leafOrder={view === 'scenario_optimal' ? leafOrder : undefined}
+										{leafOrder}
 										baselineLeaf={setup?.result.baseline_leaf ?? null}
 										{leafColors}
 										checkedLeaves={objectiveMode ? chartSelection.leaves : []}
