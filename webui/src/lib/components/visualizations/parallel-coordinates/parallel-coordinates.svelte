@@ -35,6 +35,13 @@
 	 *     enableBrushing: boolean; // Whether to enable axis brushing for filtering
 	 *   }
 	 * - lineLabels: { [key: string]: string } - Map of data indexes to custom labels displayed in tooltips
+	 * - colorByIndex: { [key: string]: string } — Optional fixed stroke color per data index
+	 * - showTickLabels: boolean — When false, axis tick text is hidden
+	 * - compactTickLabels: boolean — Render tick text in compact SI form (e.g. "7.9k")
+	 * - verticalAxisLabels: boolean — Draw axis names rotated along each axis
+	 * - fitMargins: boolean — Size left/bottom margins to fit tick labels and the filter status line
+	 * - improvementArrows: boolean — Draw an up arrow above each axis (axes run from worst to best)
+	 * - minAxisSpacing: number — Minimum pixels between axes; wider charts scroll horizontally
 	 * - selectedIndex: number | null — Index of selected line in single selection mode
 	 * - multipleSelectedIndexes: number[] | null — Indexes of selected lines in multi-selection mode
 	 * - brushFilters: { [dimension: string]: [number, number] } — Brush filter ranges for each dimension
@@ -89,6 +96,8 @@
 		min?: number;
 		max?: number;
 		direction?: 'max' | 'min';
+		// Labels for values 1..categories.length, shown as ticks instead of numbers
+		categories?: string[];
 	}[] = [];
 
 	// Optional reference data for enhanced visualization
@@ -101,6 +110,8 @@
 		strokeWidth: number; // Thickness of data lines
 		opacity: number; // Opacity of non-selected lines
 		enableBrushing: boolean; // Whether to enable axis brushing for filtering
+		// Whether to draw the colored square beside each axis name (default true)
+		showAxisColorSquares?: boolean;
 	} = {
 		showAxisLabels: true,
 		highlightOnHover: true,
@@ -110,6 +121,64 @@
 	};
 	// optional map of labels for each data index for tooltip display on hover
 	export let lineLabels: { [key: string]: string } = {}; // Map of data index to label
+	// optional fixed stroke color per data index; unlisted indexes use the default coloring
+	export let colorByIndex: { [key: string]: string } | undefined = undefined;
+
+	// When false, tick text is hidden on every axis (tick marks stay)
+	export let showTickLabels: boolean = true;
+
+	// Render tick text in compact SI form at a smaller font with a white halo
+	export let compactTickLabels: boolean = false;
+
+	const COMPACT_TICK_FONT_PX = 10;
+	const COMPACT_TICK_CHAR_PX = 6.5; // ~average glyph width at COMPACT_TICK_FONT_PX
+	const COMPACT_TICK_PAD_PX = 9; // d3's tick mark length + text padding
+
+	/** Formats a number in compact SI form, e.g. "-32.1M", "7.9k", "158". */
+	function compactTick(v: number): string {
+		if (!Number.isFinite(v)) return '';
+		if (v === 0) return '0';
+		const av = Math.abs(v);
+		const [divisor, suffix] =
+			av >= 1e9 ? [1e9, 'B'] : av >= 1e6 ? [1e6, 'M'] : av >= 1e3 ? [1e3, 'k'] : [1, ''];
+		const scaled = v / divisor;
+		const scaledAbs = Math.abs(scaled);
+		const digits = scaledAbs >= 100 ? 0 : scaledAbs >= 10 ? 1 : suffix ? 1 : 2;
+		// Number() drops trailing zeros
+		return `${Number(scaled.toFixed(digits))}${suffix}`;
+	}
+
+	/** Width needed left of an axis line for the widest compact tick label. */
+	function compactTickGutter(domains: [number, number][]): number {
+		let widest = 1;
+		for (const [lo, hi] of domains) {
+			widest = Math.max(widest, compactTick(lo).length, compactTick(hi).length);
+		}
+		return Math.ceil(widest * COMPACT_TICK_CHAR_PX + COMPACT_TICK_PAD_PX);
+	}
+
+	// Draw axis names rotated along each axis instead of above it (requires options.showAxisLabels)
+	export let verticalAxisLabels: boolean = false;
+
+	// Fit the left margin to tick text and add bottom room for the filter status line
+	export let fitMargins: boolean = false;
+
+	// Draw an up arrow above each axis marking upward as the improving direction
+	export let improvementArrows: boolean = false;
+
+	// Minimum distance between axes in pixels; when the axes need more than the container's width,
+	// the chart is drawn wider and the container scrolls horizontally. Undefined fits the container.
+	export let minAxisSpacing: number | undefined = undefined;
+
+	/** Width the chart is drawn at. */
+	function chartWidth(containerWidth: number): number {
+		return minAxisSpacing
+			? Math.max(containerWidth, Math.ceil(dimensions.length * minAxisSpacing))
+			: containerWidth;
+	}
+
+	const VERTICAL_LABEL_CHAR_PX = 6; // ~average glyph width of the 10px bold axis names
+
 	// Index of currently selected line (null = no selection)
 	export let selectedIndex: number | null = null;
 	// indexes for the case where multiple lines can be selected
@@ -283,6 +352,9 @@
 			.attr('stroke', (d, i) => {
 				const passes = passesFilters(d);
 				if (!passes) return '#93c5fd'; // Hidden lines are lighter color, tailwind sky 700
+
+				const fixedColor = colorByIndex?.[i];
+				if (fixedColor) return fixedColor;
 
 				if (isSelected(i)) return '#3b82f6'; // Selected line uses primary color, tailwind blue 500
 				return '#93c5fd'; // Non-selected lines are lighter color
@@ -725,15 +797,59 @@
 	}
 
 	/**
+	 * Estimates the left margin needed by the leftmost axis's tick text and vertical axis name.
+	 */
+	function estimateLeftAxisMargin(): number {
+		const DEFAULT_LEFT_MARGIN = 40;
+		// Room for a vertical axis name left of the leftmost axis
+		const verticalLabelMargin = options.showAxisLabels && verticalAxisLabels ? 26 : 0;
+		if (!showTickLabels) return Math.max(12, verticalLabelMargin);
+		const first = dimensions[0];
+		if (!first) return DEFAULT_LEFT_MARGIN;
+
+		// With compact ticks the vertical axis name is drawn right of the axis, so only ticks count
+		if (compactTickLabels) {
+			const bounds: [number, number][] =
+				first.min !== undefined && first.max !== undefined ? [[first.min, first.max]] : [];
+			return compactTickGutter(bounds);
+		}
+
+		if (!fitMargins) return Math.max(DEFAULT_LEFT_MARGIN, verticalLabelMargin);
+
+		let domainMin: number;
+		let domainMax: number;
+		if (first.min !== undefined && first.max !== undefined) {
+			domainMin = first.min;
+			domainMax = first.max;
+		} else {
+			const values = data.map((d) => d[first.symbol]).filter((v) => v !== undefined && v !== null);
+			const extent = d3.extent(values) as [number, number];
+			[domainMin, domainMax] = extent ?? [0, 1];
+		}
+
+		const widestLabelLength = Math.max(
+			Math.round(domainMin).toLocaleString('en-US').length,
+			Math.round(domainMax).toLocaleString('en-US').length
+		);
+		// ~6.5px per character plus d3's tick mark and text padding
+		const estimated = widestLabelLength * 6.5 + 15;
+		return Math.max(DEFAULT_LEFT_MARGIN, Math.ceil(estimated), verticalLabelMargin);
+	}
+
+	/**
 	 * Main function that draws the entire parallel coordinates plot
 	 * Orchestrates all the drawing functions and handles the overall layout
 	 */
 	function drawChart(): void {
 		if (!data.length || !dimensions.length) return; // Skip if no data to display
 
+		const leftMargin = estimateLeftAxisMargin();
+		// Extra bottom room for the filter status line when filters are active
+		const bottomMargin = fitMargins && Object.keys(brushFilters).length > 0 ? 34 : 20;
 		// Define margins around the chart area
-		const margin = { top: 20, right: 40, bottom: 20, left: 40 };
-		const innerWidth = width - margin.left - margin.right; // Available width for chart
+		const margin = { top: 20, right: 40, bottom: bottomMargin, left: leftMargin };
+		const drawWidth = chartWidth(width);
+		const innerWidth = drawWidth - margin.left - margin.right; // Available width for chart
 		const innerHeight = height - margin.top - margin.bottom; // Available height for chart
 
 		// Clear any previous chart content
@@ -746,7 +862,7 @@
 		// Create main SVG group with proper positioning
 		const svgElement = d3
 			.select(svg)
-			.attr('width', width)
+			.attr('width', drawWidth)
 			.attr('height', height)
 			.append('g')
 			.attr('transform', `translate(${margin.left}, ${margin.top})`); // Offset by margins
@@ -779,33 +895,120 @@
 			const axisColor = axisColorScale(dim.symbol); // Get color for this dimension
 
 			// Draw axis line with tick marks and labels
-			svgElement
+			const axisGen = d3.axisLeft(newScales[dim.symbol]);
+			if (dim.categories && dim.categories.length > 0) {
+				// One tick per category, labeled "1. name"
+				const categories = dim.categories;
+				const tickValues = categories.map((_, idx) => idx + 1);
+				axisGen.tickValues(tickValues).tickFormat((v) => {
+					const idx = Math.round(v as number) - 1;
+					const label = categories[idx] ?? String(v);
+					const truncated = label.length > 24 ? `${label.slice(0, 23)}…` : label;
+					return `${idx + 1}. ${truncated}`;
+				});
+			} else if (compactTickLabels) {
+				// Fewer ticks to avoid overlap on short charts
+				axisGen.ticks(4).tickFormat((v) => compactTick(v as number));
+			} else {
+				axisGen.ticks(5); // Left-aligned axis with 5 ticks
+			}
+			const axisGroup = svgElement
 				.append('g')
 				.attr('class', `axis axis-${dim.symbol}`)
 				.attr('transform', `translate(${x}, 0)`) // Position at correct x coordinate
-				.call(d3.axisLeft(newScales[dim.symbol]).ticks(5)); // Left-aligned axis with 5 ticks
+				.call(axisGen);
+
+			if (!showTickLabels) {
+				axisGroup.selectAll('.tick text').remove();
+			} else if (compactTickLabels) {
+				// White halo keeps tick text readable over the data lines
+				axisGroup
+					.selectAll('.tick text')
+					.style('font-size', `${COMPACT_TICK_FONT_PX}px`)
+					.style('fill', '#333')
+					.style('stroke', '#fff')
+					.style('stroke-width', '2.5px')
+					.style('paint-order', 'stroke');
+			}
+
+			// Full category name on hover
+			if (dim.categories && dim.categories.length > 0) {
+				const categories = dim.categories;
+				axisGroup
+					.selectAll('.tick')
+					.append('title')
+					.text((v) => categories[Math.round(v as number) - 1] ?? '');
+			}
+
+			if (improvementArrows) {
+				const arrow = svgElement.append('g').attr('class', 'improvement-arrow');
+				arrow
+					.append('path')
+					.attr('d', `M${x - 4},9 L${x},3 L${x + 4},9 Z`)
+					.attr('fill', '#555');
+				arrow
+					.append('line')
+					.attr('x1', x)
+					.attr('x2', x)
+					.attr('y1', 9)
+					.attr('y2', 16)
+					.attr('stroke', '#555')
+					.attr('stroke-width', 1.5);
+				arrow.append('title').text('Higher is better');
+			}
 
 			// Draw axis labels and colored identification squares
-			if (options.showAxisLabels) {
-				// Colored square for visual identification of each axis
-				svgElement
-					.append('rect')
-					.attr('class', 'axis-color-square')
-					.attr('x', x - 20) // Position to the left of the axis
-					.attr('y', -18) // Position above the chart area
-					.attr('width', 10)
-					.attr('height', 10)
-					.attr('fill', axisColor) // Use dimension's assigned color
-					.attr('stroke', '#333') // Dark border
-					.attr('stroke-width', 1)
-					.attr('rx', 2) // Rounded corners
-					.attr('ry', 2);
+			if (options.showAxisLabels && verticalAxisLabels) {
+				// Rotated name reading up from the bottom end of the axis, away from mid-range data and
+				// reference markers, with a white halo over the data lines; a name longer than the axis is
+				// cut short, with the full name on hover
+				const maxChars = Math.max(
+					4,
+					Math.floor((innerHeight - margin.top - margin.bottom) / VERTICAL_LABEL_CHAR_PX)
+				);
+				const truncated = dim.name.length > maxChars;
+				const label = svgElement
+					.append('text')
+					.attr('class', 'axis-label axis-label-vertical')
+					// Left of the axis, or right of it when compact tick text occupies the left
+					.attr(
+						'transform',
+						`translate(${x + (showTickLabels && compactTickLabels ? 11 : -12)}, ${innerHeight - margin.bottom - 2}) rotate(-90)`
+					)
+					.attr('text-anchor', 'start')
+					.style('font-size', '10px')
+					.style('font-weight', '600')
+					.style('fill', '#333')
+					.style('stroke', '#fff')
+					.style('stroke-width', '3px')
+					.style('paint-order', 'stroke')
+					.style('pointer-events', truncated ? 'auto' : 'none')
+					.text(truncated ? `${dim.name.slice(0, maxChars - 1)}…` : dim.name);
+				if (truncated) label.append('title').text(dim.name);
+			} else if (options.showAxisLabels) {
+				const showSquare = options.showAxisColorSquares !== false;
 
-				// Axis name with direction indicator
+				if (showSquare) {
+					// Colored square for visual identification of each axis
+					svgElement
+						.append('rect')
+						.attr('class', 'axis-color-square')
+						.attr('x', x - 20) // Position to the left of the axis
+						.attr('y', -18) // Position above the chart area
+						.attr('width', 10)
+						.attr('height', 10)
+						.attr('fill', axisColor) // Use dimension's assigned color
+						.attr('stroke', '#333') // Dark border
+						.attr('stroke-width', 1)
+						.attr('rx', 2) // Rounded corners
+						.attr('ry', 2);
+				}
+
+				// Axis name with direction indicator, starting at the square's position if no square
 				svgElement
 					.append('text')
 					.attr('class', 'axis-label')
-					.attr('x', x - 5) // Position to the right of the colored square
+					.attr('x', showSquare ? x - 5 : x - 20)
 					.attr('y', -8) // Position just above the chart area
 					.attr('text-anchor', 'start') // Left-align text
 					.style('font-size', '12px')
@@ -814,7 +1017,7 @@
 					.text(dim.name);
 
 				// Add an arrow if direction is specified
-				if (dim.direction) {
+				if (dim.direction && !improvementArrows) {
 					const arrowX = x; // Rough estimate of text width
 					svgElement
 						.append('path')
@@ -968,24 +1171,39 @@
 
 	// --- Reactive Updates ---
 	// Redraw chart whenever any of these values change
-	$: data,
+	$: (data,
 		dimensions,
 		options,
 		referenceData,
 		selectedIndex,
 		multipleSelectedIndexes,
 		brushFilters,
+		colorByIndex,
+		showTickLabels,
+		compactTickLabels,
+		verticalAxisLabels,
+		fitMargins,
+		improvementArrows,
+		minAxisSpacing,
 		width,
 		height,
-		drawChart();
+		drawChart());
 </script>
 
 <!--
     Responsive container for the parallel coordinates plot.
     Uses aspect ratio to maintain consistent proportions.
 -->
-<div bind:this={container} style="height: 100%;width: 100%;">
-	<svg bind:this={svg} style="width: 100%; height: 100%;" />
+<div
+	bind:this={container}
+	style="height: 100%;width: 100%;{minAxisSpacing ? 'overflow-x: auto; overflow-y: hidden;' : ''}"
+>
+	<svg
+		bind:this={svg}
+		style="width: {minAxisSpacing
+			? `${Math.max(width, Math.ceil(dimensions.length * minAxisSpacing))}px`
+			: '100%'}; height: 100%;"
+	/>
 </div>
 
 <style>

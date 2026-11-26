@@ -16,7 +16,9 @@
 	 * - previousValue?: number — previous value marker
 	 * - barColor: string — color of the solution bar
 	 * - direction: 'max' | 'min' — whether lower or higher is better
-	 * - options: { decimalPrecision, showPreviousValue, showSelectedValueLabel, aspectRatio }
+	 * - options: { decimalPrecision, showPreviousValue, showSelectedValueLabel, aspectRatio,
+	 *   showPreviousValueLabel?, tickFormat? } — showPreviousValueLabel: false keeps the previous value
+	 *   marker without its text; tickFormat formats the axis tick labels
 	 * - onSelect?: (value: number) => void — callback when selected value changes
 	 *
 	 * @features
@@ -54,6 +56,8 @@
 		showPreviousValue: boolean;
 		showSelectedValueLabel?: boolean;
 		aspectRatio: string;
+		showPreviousValueLabel?: boolean;
+		tickFormat?: (value: number) => string;
 	} = {
 		decimalPrecision: 2,
 		showPreviousValue: true,
@@ -92,7 +96,7 @@
 		const xAxis = d3
 			.axisBottom(x)
 			.ticks(4)
-			.tickFormat((d) => d.toString());
+			.tickFormat((d) => (options.tickFormat ? options.tickFormat(+d) : d.toString()));
 
 		const axisGroup = d3.select(svg)
 			.append('g')
@@ -288,7 +292,11 @@
 		}
 
 		// --- Draw previous preference as text in the top right corner ---
-		if (options.showPreviousValue && previousValue !== undefined) {
+		if (
+			options.showPreviousValue &&
+			options.showPreviousValueLabel !== false &&
+			previousValue !== undefined
+		) {
 			d3.select(svg)
 				.append('text')
 				.attr('x', width - margin.right + 30)

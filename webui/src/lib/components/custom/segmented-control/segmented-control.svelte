@@ -66,6 +66,9 @@
 		value?: string;
 		size?: 'default' | 'sm' | 'lg';
 	} = $props();
+
+	// Prefix that keeps the option ids unique when several controls are on a page.
+	const uid = $props.id();
 	
 	const sizeClasses = {
 		default: 'py-2 px-4 text-sm',
@@ -84,11 +87,12 @@
 			<div class="group">
 				<RadioGroupItem 
 					value={option.value} 
-					id={`option-${option.value}-${i}`} 
+					id={`${uid}-option-${option.value}-${i}`}
+					aria-label={option.label}
 					class="peer sr-only"
 				/>
 				<label
-					for={`option-${option.value}-${i}`}
+					for={`${uid}-option-${option.value}-${i}`}
 					class={cn(
 						"relative inline-flex items-center justify-center whitespace-nowrap transition-colors",
 						"cursor-pointer hover:bg-muted/20",

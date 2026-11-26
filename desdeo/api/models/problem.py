@@ -119,6 +119,7 @@ class ProblemInfo(ProblemBase):
     simulators: list["SimulatorDB"] | None
 
     problem_metadata: "ProblemMetaDataPublic | None"
+    scenario_model_ids: list[int] = Field(default_factory=list, description="Ids of the problem's scenario models.")
 
 
 class ProblemInfoSmall(ProblemBase):
@@ -135,6 +136,7 @@ class ProblemInfoSmall(ProblemBase):
     variable_domain: VariableDomainTypeEnum
 
     problem_metadata: "ProblemMetaDataPublic | None"
+    scenario_model_ids: list[int] = Field(default_factory=list, description="Ids of the problem's scenario models.")
 
 
 class ProblemDB(ProblemBase, table=True):
@@ -176,7 +178,14 @@ class ProblemDB(ProblemBase, table=True):
     discrete_representation: "DiscreteRepresentationDB" = Relationship(back_populates="problem", cascade_delete=True)
     simulators: list["SimulatorDB"] = Relationship(back_populates="problem", cascade_delete=True)
     problem_metadata: "ProblemMetaDataDB" = Relationship(back_populates="problem", cascade_delete=True)
-    scenario_models: list["ScenarioModelDB"] = Relationship(back_populates="base_problem")
+    scenario_models: list["ScenarioModelDB"] = Relationship(
+        back_populates="base_problem", sa_relationship_kwargs={"order_by": "ScenarioModelDB.id"}
+    )
+
+    @property
+    def scenario_model_ids(self) -> list[int]:
+        """Ids of the scenario models with this problem as their base problem."""
+        return [scenario_model.id for scenario_model in self.scenario_models]
 
     @classmethod
     def from_problem(cls, problem_instance: Problem, user: "User") -> "ProblemDB":

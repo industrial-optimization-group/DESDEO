@@ -31,6 +31,7 @@ from desdeo.api.models import (
 )
 from desdeo.api.models.cumulus import ProblemModification
 from desdeo.api.models.generic_states import StateKind
+from desdeo.api.models.jina import JinaSessionRequest
 from desdeo.api.models.problem import (
     ForestProblemMetaData,
     ProblemMetaDataDB,
@@ -41,7 +42,7 @@ from desdeo.api.models.problem import (
 )
 from desdeo.api.models.session import CreateSessionRequest
 from desdeo.api.routers.user_authentication import get_current_user
-from desdeo.problem import Problem
+from desdeo.problem import Problem, ScenarioModel
 from desdeo.problem.schema import (
     Constant,
     Constraint,
@@ -499,6 +500,7 @@ RequestType = (
     | CreateSessionRequest
     | NautilusNavigatorInitRequest
     | NautilusNavigatorNavigateRequest
+    | JinaSessionRequest
 )
 
 
@@ -704,6 +706,14 @@ def _may_access_state(user: User, state: StateDB, session: Session) -> bool:
         return interactive_session is not None and interactive_session.user_id == user.id
 
     return state.problem_id is not None and fetch_problem_with_role_check(user, state.problem_id, session) is not None
+
+
+def load_scenario_model(scenario_model_id: int, db_session: Session) -> ScenarioModel | None:
+    """Load a :class:`ScenarioModel` from the DB given its id."""
+    sm_db = db_session.get(ScenarioModelDB, scenario_model_id)
+    if sm_db is None or sm_db.base_problem is None:
+        return None
+    return sm_db.to_scenario_model(base_problem=Problem.from_problemdb(sm_db.base_problem))
 
 
 def iter_states_of_kinds(
