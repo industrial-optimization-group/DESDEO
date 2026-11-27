@@ -163,7 +163,7 @@ def ctp1(n_variables: int) -> Problem:
     # function g
     g_expr_1 = f"1 + (9 / ({n} - 1))"
     g_expr_2 = "(" + " + ".join([f"x_{i}" for i in range(2, n + 1)]) + ")"
-    g_expr = g_expr_1 + " * " + g_expr_2
+    g_expr = "(" + g_expr_1 + " * " + g_expr_2 + ")"  # parenthesized: it is used as a factor in f_2
 
     # function f_2
     f_2_expr = f"{g_expr} * Exp(-{f1_expr} / ({g_expr}))"

@@ -220,7 +220,11 @@ def test_re22():
     res = evaluator.evaluate(xs)
 
     obj_values = [res[obj.symbol][0] for obj in problem.objectives]
-    assert np.allclose(obj_values, np.array([421.938, 2]))
+    # x_1 = 10.27: g_1 = 10.27 * 20 - 7.735 * 10.27**2 / 10 - 180 = -56.18 (violated), g_2 = 2 (holds);
+    # f_2 is the sum of the violations (Tanabe & Ishibuchi's reference implementation), not of g.
+    assert np.allclose(obj_values, np.array([421.938, 56.18328815]))
+    # The original constraints are folded into f_2; only the encoding of the discrete x_1 remains.
+    assert [c.symbol for c in problem.constraints] == ["x_1_con"]
 
 
 @pytest.mark.testproblem
@@ -231,13 +235,16 @@ def test_re23():
     evaluator = PolarsEvaluator(problem)
 
     xs = {"x_1": [50, 11], "x_2": [50, 63], "x_3": [10, 78], "x_4": [10, 187]}
-    expected_result = np.array([[2996.845703, 5.9616], [49848.35467, 4266017.057]])
+    # f_2 sums the violations of g_1..g_3 (Tanabe & Ishibuchi's reference implementation): the first
+    # point violates only g_3 (by 1 288 669.6), the second only g_1 (by 0.8179).
+    expected_result = np.array([[2996.845703, 1288669.6171416], [49848.35467, 0.8179]])
 
     res = evaluator.evaluate(xs)
 
     for i in range(len(res)):
         obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
         assert np.allclose(obj_values, expected_result[i])
+    assert not problem.constraints  # folded into f_2
 
 
 @pytest.mark.testproblem
@@ -255,6 +262,7 @@ def test_re24():
     for i in range(len(res)):
         obj_values = np.array([res[obj.symbol][i] for obj in problem.objectives])
         assert np.allclose(obj_values, expected_result[i])
+    assert not problem.constraints  # folded into f_2
 
 
 def _assert_re_problem(problem, n_variables: int, n_objectives: int, xs: dict, expected: np.ndarray):
@@ -1239,10 +1247,17 @@ def test_ctp1():
     g1 = res["g_1"][0]
     g2 = res["g_2"][0]
 
+    # g(x) = 1 + 9/2 * (0.5 + 0.5) = 5.5, f_2 = g * exp(-f_1 / g)
     assert np.isclose(f1, 0.5)
-    assert np.isclose(f2, 5.108953223270181)
-    assert np.isclose(g1, -4.454301025073424)
-    assert np.isclose(g2, -4.4807893681722195)
+    assert np.isclose(f2, 5.022053939552443)
+    assert np.isclose(g1, -4.367401741355686)
+    assert np.isclose(g2, -4.3938900844544815)
+
+    # With g(x) = 1 (x_2 = ... = x_n = 0) the unconstrained front is f_2 = exp(-f_1).
+    xs = {f"{var.symbol}": [0.0] for var in problem.variables}
+    xs["x_1"] = [0.5]
+    res = evaluator.evaluate(xs)
+    assert np.isclose(res["f_2"][0], np.exp(-0.5))
 
 
 @pytest.mark.testproblem
